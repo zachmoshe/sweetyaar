@@ -1,0 +1,34 @@
+sweetyaar:
+  kill_switch_inactive_time_secs: 300
+
+  audio:
+    songs:
+      - recordings/songs/*.wav
+    animals:
+      yaar_callings: 
+        - recordings/yaar_callings/*.wav
+      animals_sounds:
+        - recordings/animals/*.wav
+  
+  interfaces:
+    keyboard:
+      actions_mapping: 
+        PLAY_RANDOM_ANIMAL_SOUND: a
+        PLAY_RANDOM_SONG: s
+        VOLUME_UP: + 
+        VOLUME_DOWN: "-"
+        STOP: t
+        KILL_SWITCH: k
+        REBOOT: r
+
+    web:
+      host: 0.0.0.0
+      port: 5000
+      actions_mapping: 
+        PLAY_RANDOM_ANIMAL_SOUND: random-animal-sound
+        PLAY_RANDOM_SONG: random-song
+        VOLUME_UP: volume-up
+        VOLUME_DOWN: volume-down
+        STOP: stop-playing
+        KILL_SWITCH: kill-switch
+        REBOOT: reboot
