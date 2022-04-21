@@ -1,6 +1,7 @@
 import asyncio
 import functools as ft
 import logging
+import random
 import sys
 import threading 
 
@@ -9,6 +10,7 @@ import aiohttp_jinja2
 import jinja2
 
 import controller
+
 
 def _load_actions_mapping(actions_mapping):
     # Checks that all actions are valid. Returns a dictionary from input to Action enum 
@@ -23,7 +25,15 @@ class WebInterface:
         self._host = config["host"]
         self._port = int(config["port"])
         self._actions_mapping = _load_actions_mapping(config["actions_mapping"])
+        self._random_backgrounds = config["random_backgrounds"]
 
+    def _get_random_background_wide_narrow(self):
+        backgrounds = random.choice(self._random_backgrounds)
+        if isinstance(backgrounds, (list, tuple)):
+            return backgrounds[:2]  # Should be only 2 elements there...
+        else:
+            return backgrounds, backgrounds  # Use same image for wide and narrow
+        
     def listen(self, callback_func, get_stats_func):
         callback_func = ft.partial(callback_func, interface=self)
 
@@ -32,7 +42,8 @@ class WebInterface:
         @routes.get("/")
         @aiohttp_jinja2.template("index.html")
         async def index(request):
-            return get_stats_func()
+            background_wide, background_narrow = self._get_random_background_wide_narrow()
+            return dict(**get_stats_func(), background_wide=background_wide, background_narrow=background_narrow)
 
         @routes.post("/actions/{action}")
         async def actions(request):
@@ -50,7 +61,7 @@ class WebInterface:
         app.router.add_routes(routes)
         app.router.add_static("/static/",
                           path="src/templates/static",
-                          name="static")
+                          show_index=True)
 
         async def start_server():
             runner = aiohttp.web.AppRunner(app)

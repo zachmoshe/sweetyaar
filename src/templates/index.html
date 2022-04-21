@@ -13,6 +13,19 @@
         integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
 
     <link rel="stylesheet" href="/static/index.css">
+    <style>
+        body {
+            background: url('/static/{{background_wide}}') no-repeat center center fixed;
+            background-size: cover;
+        }
+
+        @media only screen and (max-width: 950px) {
+            body {
+                background: url('/static/{{background_narrow}}') no-repeat center center fixed;
+                background-size: cover;
+            }
+        }
+    </style>
     <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
     <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
     <!--[if lt IE 9]>
