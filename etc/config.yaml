@@ -23,7 +23,7 @@ sweetyaar:
 
     web:
       host: 0.0.0.0
-      port: 5000
+      port: 80
       random_backgrounds:
         - [yaar-bg-1.jpeg, yaar-bg-1-cropped.jpeg]
         - yaar-bg-2.jpeg
