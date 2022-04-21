@@ -76,9 +76,11 @@ class SweetYaarController:
         for iface in self._interfaces:
             iface.listen(self.handle_action, self.get_stats)
 
+        self._audio_lib.play_startup_sound()
         while self._should_run:
             await asyncio.sleep(1)
-
+        self._audio_lib.play_shutdown_sound()
+        await asyncio.sleep(2)
 
     def take_control(self):
         logging.info("Taking control.")

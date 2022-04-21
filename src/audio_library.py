@@ -47,7 +47,7 @@ class AudioLibrary:
     def get_currently_playing_filename(self):
         return self._currently_playing_filename
 
-    async def _play_song(self, filename):
+    async def _play_sound_file(self, filename):
         logging.debug(f"playing {filename}")
         proc = None
         try:
@@ -89,11 +89,19 @@ class AudioLibrary:
                 animal_proc.kill()
 
 
+    def play_startup_sound(self):
+        self.stop_audio()
+        self._currently_playing_task = asyncio.create_task(self._play_sound_file("recordings/sounds/startup.wav"))
+
+    def play_shutdown_sound(self):
+        self.stop_audio()
+        self._currently_playing_task = asyncio.create_task(self._play_sound_file("recordings/sounds/shutdown.wav"))
+
     def play_random_song(self):
         self.stop_audio()
         random_filename = _pick_random(self._songs, self._last_played_song)
         self._last_played_song = random_filename
-        self._currently_playing_task = asyncio.create_task(self._play_song(random_filename))
+        self._currently_playing_task = asyncio.create_task(self._play_sound_file(random_filename))
 
     def play_random_animal_sound(self):
         self.stop_audio()
