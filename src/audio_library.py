@@ -32,6 +32,7 @@ class AudioLibrary:
         self._last_played_animal = None
 
         self._currently_playing_task = None
+        self._currently_playing_filename = None
 
         if not self._songs:
             raise ValueError("parsed songs list is empty.")
@@ -43,10 +44,14 @@ class AudioLibrary:
         self.mixer = alsaaudio.Mixer(control="Master")
         self.volume_step = config.get("volume_step", 10)
 
+    def get_currently_playing_filename(self):
+        return self._currently_playing_filename
+
     async def _play_song(self, filename):
         logging.debug(f"playing {filename}")
         proc = None
         try:
+            self._currently_playing_filename = filename
             proc = await asyncio.create_subprocess_exec(APLAY_BINARY, filename)
             await proc.wait()
             logging.debug(f"finished playing {filename} normally")
@@ -58,6 +63,7 @@ class AudioLibrary:
             logging.exception(e)
             raise
         finally:
+            self._currently_playing_filename = None
             if proc is not None:
                 proc.kill()
 
@@ -66,6 +72,7 @@ class AudioLibrary:
         calling_proc = None
         animal_proc = None
         try:
+            self._currently_playing_filename = animal_sound_filename
             calling_proc = await asyncio.create_subprocess_exec(APLAY_BINARY, calling_filename)
             await calling_proc.wait()
             animal_proc = await asyncio.create_subprocess_exec(APLAY_BINARY, animal_sound_filename)
@@ -75,11 +82,11 @@ class AudioLibrary:
             logging.debug(f"interrupted playing {animal_sound_filename}")
             raise
         finally:
+            self._currently_playing_filename = None
             if calling_proc is not None:
                 calling_proc.kill()
             if animal_proc is not None:
                 animal_proc.kill()
-
 
 
     def play_random_song(self):

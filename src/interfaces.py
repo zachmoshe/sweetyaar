@@ -24,15 +24,15 @@ class WebInterface:
         self._port = int(config["port"])
         self._actions_mapping = _load_actions_mapping(config["actions_mapping"])
 
-    def listen(self, callback):
-        callback = ft.partial(callback, interface=self)
+    def listen(self, callback_func, get_stats_func):
+        callback_func = ft.partial(callback_func, interface=self)
 
         routes = aiohttp.web.RouteTableDef()
         
         @routes.get("/")
         @aiohttp_jinja2.template("index.html")
         async def index(request):
-            return {}
+            return get_stats_func()
 
         @routes.post("/actions/{action}")
         async def actions(request):
@@ -40,8 +40,8 @@ class WebInterface:
             if action not in self._actions_mapping:
                 logging.warn(f"Unknown HTTP action: {action!r}. Ignoring.")
             else:
-                callback(self._actions_mapping[action])
-            return aiohttp.web.Response(status=200)
+                callback_func(self._actions_mapping[action])
+            raise aiohttp.web.HTTPFound("/")  # Reload the main page.
 
         app = aiohttp.web.Application()
         aiohttp_jinja2.setup(app,
@@ -66,8 +66,9 @@ class KeyboardInterface:
     def __init__(self, config):
         self._actions_mapping = _load_actions_mapping(config["actions_mapping"])
         
-    def listen(self, callback):
-        callback = ft.partial(callback, interface=self)
+    def listen(self, callback_func, get_stats_func):
+        del get_stats_func  # Unused.
+        callback_func = ft.partial(callback_func, interface=self)
         
         async def _listen():
             loop = asyncio.get_event_loop()
@@ -84,7 +85,7 @@ class KeyboardInterface:
                 elif line not in self._actions_mapping:
                     logging.debug(f"Unknown keyboard input: {line!r}. Ignoring.")
                 else:
-                    callback(self._actions_mapping[line])
+                    callback_func(self._actions_mapping[line])
         
         asyncio.create_task(_listen())
 

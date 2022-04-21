@@ -1,6 +1,7 @@
 import asyncio
 import enum
 import logging
+import pathlib
 import time 
 
 import audio_library
@@ -36,6 +37,19 @@ class SweetYaarController:
         self._kill_switch_inactive_time_secs = config["kill_switch_inactive_time_secs"]
         self._last_kill_switch_time = 0
 
+    def get_stats(self):
+        currently_playing = self._audio_lib.get_currently_playing_filename()
+        currently_playing = pathlib.Path(currently_playing).name if currently_playing is not None else None
+
+        kill_switch_until = (time.strftime('%H:%M:%S', time.localtime(self._last_kill_switch_time + self._kill_switch_inactive_time_secs))
+                             if self._is_kill_switch_activated() else None)
+        
+        return {
+            "volume_level": self._audio_lib.get_volume(),
+            "battery_level": "N/A",
+            "currently_playing": currently_playing,
+            "kill_switch_until": kill_switch_until,
+        }
 
     def handle_action(self, action: Actions, interface):
         logging.info(f"Received {action} from {interface}")
@@ -60,7 +74,7 @@ class SweetYaarController:
     async def _main_loop(self):
         logging.info("Starting all interfaces.")
         for iface in self._interfaces:
-            iface.listen(self.handle_action)
+            iface.listen(self.handle_action, self.get_stats)
 
         while self._should_run:
             await asyncio.sleep(1)
