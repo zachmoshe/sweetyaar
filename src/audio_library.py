@@ -21,6 +21,17 @@ def _pick_random(audio_list, last_played):
     random_filename = random.choice(valid_songs)
     return random_filename
 
+async def _terminate_or_kill_procs(procs):
+    for proc in procs:
+        try:
+            proc.terminate()
+        except ProcessLookupError:
+            pass  # process already doesn't exist.
+    await asyncio.sleep(0.5)
+    for proc in procs:
+        if proc.returncode is None:  # didn't finish nicely
+            proc.kill()
+
 
 class AudioLibrary:
     def __init__(self, config):
@@ -64,8 +75,8 @@ class AudioLibrary:
             raise
         finally:
             self._currently_playing_filename = None
-            if proc is not None:
-                proc.kill()
+            await _terminate_or_kill_procs([proc])            
+
 
     async def _play_animal(self, animal_sound_filename, calling_filename):
         logging.debug(f"playing {animal_sound_filename} with calling {calling_filename}")
@@ -83,10 +94,7 @@ class AudioLibrary:
             raise
         finally:
             self._currently_playing_filename = None
-            if calling_proc is not None:
-                calling_proc.kill()
-            if animal_proc is not None:
-                animal_proc.kill()
+            await _terminate_or_kill_procs([p for p in (calling_proc, animal_proc) if p is not None])            
 
 
     def play_startup_sound(self):
