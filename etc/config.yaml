@@ -1,15 +1,21 @@
 sweetyaar:
   kill_switch_inactive_time_secs: 300
+  default_starting_volume: 70
 
-  audio:
-    songs:
-      - recordings/songs/*.wav
-    animals:
-      yaar_callings: 
-        - recordings/yaar_callings/*.wav
-      animals_sounds:
-        - recordings/animals/*.wav
+  nighttime_cutoff: '18:00'  # Use a MM:SS format.
+  daytime_songs:
+    - recordings/songs/daytime/*.wav
+  nighttime_songs:
+    - recordings/songs/nighttime/*.wav
+  animals:
+    yaar_callings: 
+      - recordings/yaar_callings/*.wav
+    animals_sounds:
+      - recordings/animals/*.wav
   
+  audio: 
+    volume_step: 10
+
   interfaces:
     keyboard:
       actions_mapping: 
