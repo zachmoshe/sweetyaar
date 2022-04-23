@@ -2,6 +2,7 @@ import asyncio
 import enum
 import logging
 import pathlib
+import random
 import time 
 
 import audio_library
@@ -18,13 +19,44 @@ class Actions(enum.Enum):
     REBOOT = enum.auto()
 
 
+def _parse_glob_expressions(glob_expressions):
+    return list(
+        song_filename 
+        for g in glob_expressions
+        for song_filename in pathlib.Path().glob(g))
+
+def _pick_random(audio_list, last_played):
+    # pick a random one but not the last one (if len(_songs) > 1)
+    valid_songs = [x for x in audio_list if len(audio_list) == 1 or last_played is None or x != last_played]
+    random_filename = random.choice(valid_songs)
+    return random_filename
+
+
 class SweetYaarController:
 
     def __init__(self, config):
+        default_starting_volume = config["default_starting_volume"]
+        self._time_of_day_cutoff = time.strptime(config["nighttime_cutoff"], "%H:%M")
+
+        self._daytime_songs = _parse_glob_expressions(config["daytime_songs"])
+        self._nighttime_songs = _parse_glob_expressions(config["nighttime_songs"])
+        self._yaar_callings = _parse_glob_expressions(config["animals"]["yaar_callings"])
+        self._animals = _parse_glob_expressions(config["animals"]["animals_sounds"])
+        if not self._daytime_songs:
+            raise ValueError("parsed daytime songs list is empty.")
+        if not self._nighttime_songs:
+            raise ValueError("parsed nighttime songs list is empty.")
+        if not self._yaar_callings:
+            raise ValueError("parsed yaar_callings list is empty.")
+        if not self._animals:
+            raise ValueError("parsed animal_sounds list is empty.")
+
+        self._last_played_song = None
+        self._last_played_animal = None
+
         self._audio_lib = audio_library.AudioLibrary(config["audio"])
-        self.default_starting_volume = config.get("default_starting_volume", 70)
-        logging.debug(f"Setting default starting volume to {self.default_starting_volume}")
-        self._audio_lib.set_volume(self.default_starting_volume)
+        logging.debug(f"Setting default starting volume to {default_starting_volume}")
+        self._audio_lib.set_volume(default_starting_volume)
 
         # Start all interfaces 
         self._interfaces = []
@@ -95,19 +127,38 @@ class SweetYaarController:
     def _is_kill_switch_activated(self):
         return time.time() < self._last_kill_switch_time + self._kill_switch_inactive_time_secs
 
+    def _detect_time_of_day(self):
+        _, _, _, hour, minute, _, _, _, _ = time.localtime()
+        _, _, _, cutoff_hour, cutoff_minute, _, _, _, _ = self._time_of_day_cutoff
+        return ("daytime" if hour < cutoff_hour or (hour == cutoff_hour and minute <= cutoff_minute)
+                else "nighttime")
+
+    def _get_songs_list(self):
+        # Based on daytime/nighttime configuration
+        if self._detect_time_of_day() == "daytime":
+            return self._daytime_songs
+        else:
+            return self._nighttime_songs
+
     def play_random_animal_sound(self):
         logging.info("A random animal sound was requested.")
         if self._is_kill_switch_activated():
             logging.info("Ignoring. Kill switch is active.")
             return
-        self._audio_lib.play_random_animal_sound()
+        random_animal_filename = _pick_random(self._animals, self._last_played_animal)
+        # last_played is by the animal. The calling will be randomly chosen regardless.
+        self._last_played_animal = random_animal_filename
+        random_calling_filename = random.choice(self._yaar_callings)
+        self._audio_lib.play_random_animal_sound(random_animal_filename, random_calling_filename)
     
     def play_random_song(self):
         logging.info("A random song was requested.")
         if self._is_kill_switch_activated():
             logging.info("Ignoring. Kill switch is active.")
             return
-        self._audio_lib.play_random_song()
+        random_filename = _pick_random(self._get_songs_list(), self._last_played_song)
+        self._last_played_song = random_filename
+        self._audio_lib.play_random_song(random_filename)
 
     def stop_playing(self):
         logging.info("Stop playing was requested.")
