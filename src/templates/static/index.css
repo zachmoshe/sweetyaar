@@ -14,3 +14,17 @@
 .row {
     margin-bottom: 0.5em;
 }
+
+.top-panel {
+    line-height: 6em;
+}
+
+.top-panel i {
+    font-size: 3em;
+    color: gray;
+}
+
+.top-panel i.active {
+    color: gold
+}
+

@@ -54,3 +54,5 @@ sweetyaar:
         STOP: stop-playing
         KILL_SWITCH: kill-switch
         REBOOT: reboot
+        OVERRIDE_DAYTIME: override-daytime
+        OVERRIDE_NIGHTTIME: override-nighttime
