@@ -34,8 +34,11 @@ class AudioLibrary:
         proc = None
         try:
             self._currently_playing_filename = filename
-            proc = await asyncio.create_subprocess_exec(APLAY_BINARY, filename)
-            await proc.wait()
+            proc = await asyncio.create_subprocess_exec(
+                APLAY_BINARY, filename, 
+                stdout=asyncio.subprocess.DEVNULL, 
+                stderr=asyncio.subprocess.DEVNULL)
+            await proc.communicate()
             logging.debug(f"finished playing {filename} normally")
         except asyncio.CancelledError as e:
             logging.debug(f"interrupted playing {filename}")
@@ -46,7 +49,8 @@ class AudioLibrary:
             raise
         finally:
             self._currently_playing_filename = None
-            await _terminate_or_kill_procs([proc])            
+            if proc is not None:
+                await _terminate_or_kill_procs([proc])            
 
 
     async def _play_animal(self, animal_sound_filename, calling_filename):
@@ -55,10 +59,16 @@ class AudioLibrary:
         animal_proc = None
         try:
             self._currently_playing_filename = animal_sound_filename
-            calling_proc = await asyncio.create_subprocess_exec(APLAY_BINARY, calling_filename)
-            await calling_proc.wait()
-            animal_proc = await asyncio.create_subprocess_exec(APLAY_BINARY, animal_sound_filename)
-            await animal_proc.wait()
+            calling_proc = await asyncio.create_subprocess_exec(
+                APLAY_BINARY, calling_filename,
+                stdout=asyncio.subprocess.DEVNULL, 
+                stderr=asyncio.subprocess.DEVNULL)
+            await calling_proc.communicate()
+            animal_proc = await asyncio.create_subprocess_exec(
+                APLAY_BINARY, animal_sound_filename,
+                stdout=asyncio.subprocess.DEVNULL, 
+                stderr=asyncio.subprocess.DEVNULL)
+            await animal_proc.communicate()
             logging.debug(f"finished playing {animal_sound_filename} normally")
         except asyncio.CancelledError:
             logging.debug(f"interrupted playing {animal_sound_filename}")
