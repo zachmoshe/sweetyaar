@@ -131,7 +131,10 @@ class SweetYaarController:
 
     def take_control(self):
         logging.info("Taking control.")
-        asyncio.run(self._main_loop(), debug=False)
+        try:
+            asyncio.run(self._main_loop(), debug=False)
+        except KeyboardInterrupt:
+            pass  # Just exit. No need to print the exception.
         logging.info("Controller exited. Returning control to main().")
 
     def _is_kill_switch_activated(self):
