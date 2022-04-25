@@ -1,4 +1,5 @@
 import asyncio
+import datetime 
 import enum
 import logging
 import pathlib
@@ -17,6 +18,8 @@ class Actions(enum.Enum):
     STOP = enum.auto()
     KILL_SWITCH = enum.auto()
     REBOOT = enum.auto()
+    OVERRIDE_DAYTIME = enum.auto()
+    OVERRIDE_NIGHTTIME = enum.auto()
 
 
 def _parse_glob_expressions(glob_expressions):
@@ -37,6 +40,8 @@ class SweetYaarController:
     def __init__(self, config):
         default_starting_volume = config["default_starting_volume"]
         self._time_of_day_cutoff = time.strptime(config["nighttime_cutoff"], "%H:%M")
+        self._override_daytime_date = None
+        self._override_nighttime_date = None
 
         self._daytime_songs = _parse_glob_expressions(config["daytime_songs"])
         self._nighttime_songs = _parse_glob_expressions(config["nighttime_songs"])
@@ -81,6 +86,7 @@ class SweetYaarController:
             "battery_level": "N/A",
             "currently_playing": currently_playing,
             "kill_switch_until": kill_switch_until,
+            "time_of_day": self._detect_time_of_day(),
         }
 
     def handle_action(self, action: Actions, interface):
@@ -99,6 +105,10 @@ class SweetYaarController:
             self.increase_volume()
         elif action == Actions.VOLUME_DOWN:
             self.decrease_volume()
+        elif action == Actions.OVERRIDE_DAYTIME:
+            self.override_daytime()
+        elif action == Actions.OVERRIDE_NIGHTTIME:
+            self.override_nighttime()
         else:
             raise RuntimeError("can't be here. no other values in enum.")
 
@@ -128,10 +138,16 @@ class SweetYaarController:
         return time.time() < self._last_kill_switch_time + self._kill_switch_inactive_time_secs
 
     def _detect_time_of_day(self):
-        _, _, _, hour, minute, _, _, _, _ = time.localtime()
-        _, _, _, cutoff_hour, cutoff_minute, _, _, _, _ = self._time_of_day_cutoff
-        return ("daytime" if hour < cutoff_hour or (hour == cutoff_hour and minute <= cutoff_minute)
-                else "nighttime")
+        today = datetime.date.today()
+        if self._override_daytime_date == today:
+            return "daytime"
+        elif self._override_nighttime_date == today:
+            return "nighttime"
+        else:
+            _, _, _, hour, minute, _, _, _, _ = time.localtime()
+            _, _, _, cutoff_hour, cutoff_minute, _, _, _, _ = self._time_of_day_cutoff
+            return ("daytime" if hour < cutoff_hour or (hour == cutoff_hour and minute <= cutoff_minute)
+                    else "nighttime")
 
     def _get_songs_list(self):
         # Based on daytime/nighttime configuration
@@ -179,3 +195,12 @@ class SweetYaarController:
     def stop_control(self):
         logging.info("Controller was requested to stop control.")
         self._should_run = False
+
+    def override_daytime(self):
+        self._override_daytime_date = datetime.date.today()
+        self._override_nighttime_date = None
+    
+    def override_nighttime(self):
+        self._override_daytime_date = None
+        self._override_nighttime_date = datetime.date.today()
+    
