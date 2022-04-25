@@ -82,6 +82,7 @@ class SweetYaarController:
                              if self._is_kill_switch_activated() else None)
         
         return {
+            "current_time": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"), 
             "volume_level": self._audio_lib.get_volume(),
             "battery_level": "N/A",
             "currently_playing": currently_playing,
