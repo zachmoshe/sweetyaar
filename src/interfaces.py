@@ -54,6 +54,10 @@ class WebInterface:
                 callback_func(self._actions_mapping[action])
             raise aiohttp.web.HTTPFound("/")  # Reload the main page.
 
+        @routes.get("/stats")
+        def stats(self):
+            return aiohttp.web.json_response(get_stats_func())
+
         app = aiohttp.web.Application()
         aiohttp_jinja2.setup(app,
             loader=jinja2.FileSystemLoader("src/templates"))
