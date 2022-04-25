@@ -1,4 +1,6 @@
 sweetyaar:
+  log_path: sweetyaar.log
+  log_level: DEBUG
   kill_switch_inactive_time_secs: 300
   default_starting_volume: 70
 
