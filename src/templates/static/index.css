@@ -15,12 +15,9 @@
     margin-bottom: 0.5em;
 }
 
-.top-panel {
-    line-height: 6em;
-}
 
 .top-panel i {
-    font-size: 3em;
+    font-size: 2em;
     color: gray;
 }
 
