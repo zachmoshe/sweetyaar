@@ -19,6 +19,12 @@ sweetyaar:
     volume_step: 10
 
   interfaces:
+    gpio:
+      gpio_mode: BOARD
+      animal_button_gpio_channel: 16
+      songs_button_gpio_channel: 18
+      button_debounce_ms: 1000
+
     keyboard:
       actions_mapping: 
         PLAY_RANDOM_ANIMAL_SOUND: a
