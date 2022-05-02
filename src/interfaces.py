@@ -78,14 +78,10 @@ class WebInterface:
         self._host = config["host"]
         self._port = int(config["port"])
         self._actions_mapping = _load_actions_mapping(config["actions_mapping"])
-        self._random_backgrounds = config["random_backgrounds"]
+        self._yaar_photos = config["yaar_photos"]
 
-    def _get_random_background_wide_narrow(self):
-        backgrounds = random.choice(self._random_backgrounds)
-        if isinstance(backgrounds, (list, tuple)):
-            return backgrounds[:2]  # Should be only 2 elements there...
-        else:
-            return backgrounds, backgrounds  # Use same image for wide and narrow
+    def _get_random_photo(self):
+        return random.choice(self._yaar_photos)
         
     def listen(self, callback_func, get_stats_func):
         callback_func = ft.partial(callback_func, interface=self)
@@ -95,8 +91,8 @@ class WebInterface:
         @routes.get("/")
         @aiohttp_jinja2.template("index.html")
         async def index(request):
-            background_wide, background_narrow = self._get_random_background_wide_narrow()
-            return dict(**get_stats_func(), background_wide=background_wide, background_narrow=background_narrow)
+            yaars_photo = self._get_random_photo()
+            return dict(**get_stats_func(), yaars_photo=yaars_photo)
 
         @routes.post("/actions/{action}")
         async def actions(request):
