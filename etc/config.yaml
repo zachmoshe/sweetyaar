@@ -38,8 +38,8 @@ sweetyaar:
     web:
       host: 0.0.0.0
       port: 80
-      random_backgrounds:
-        - [yaar-bg-1.jpeg, yaar-bg-1-cropped.jpeg]
+      yaar_photos:
+        - yaar-bg-1.jpeg
         - yaar-bg-2.jpeg
         - yaar-bg-3.jpeg
         - yaar-bg-4.jpeg
