@@ -8,6 +8,7 @@ import threading
 import aiohttp.web
 import aiohttp_jinja2
 import jinja2
+from RPi import GPIO
 
 import controller
 
@@ -18,6 +19,58 @@ def _load_actions_mapping(actions_mapping):
     for action_str, input_str in actions_mapping.items():
         output[input_str] = controller.Actions[action_str]  # Will throw a KeyError if no such action_str in Actions.
     return output
+
+
+class GPIOInterface:
+    def __init__(self, config):
+        self._gpio_mode = config["gpio_mode"]
+        if self._gpio_mode not in ("BCM", "BOARD"):
+            raise ValueError(f"Unknown `gpio_mode` in config ({self._gpio_mode}). Must be 'BCM' or 'BOARD'.")
+        self._animal_button_gpio_channel = config["animal_button_gpio_channel"]
+        self._songs_button_gpio_channel = config["songs_button_gpio_channel"]
+        self._button_debounce_ms = config["button_debounce_ms"]
+
+    def listen(self, callback_func, get_stats_func):
+        del get_stats_func  # Unused.
+        callback_func = ft.partial(callback_func, interface=self)
+
+        async def _listen():
+            loop = asyncio.get_event_loop()
+            def button_pressed(channel):
+                action = self._get_action()
+                logging.info(f"GPIO button pressed (channel={channel}). Detected action is {action}.")
+                if action is None: 
+                    logging.error("Shouldn't be here. No button is marked as pressed although the GPIO callback was called.")
+                    return
+                loop.call_soon_threadsafe(lambda: callback_func(action))
+
+            # Setup GPIO and input pins
+            GPIO.setmode(GPIO.BOARD if self._gpio_mode == "BOARD" else GPIO.BCM)
+
+            GPIO.setup(self._animal_button_gpio_channel, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            GPIO.setup(self._songs_button_gpio_channel, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+            GPIO.add_event_detect(self._animal_button_gpio_channel, GPIO.FALLING, button_pressed, bouncetime=self._button_debounce_ms)
+            GPIO.add_event_detect(self._songs_button_gpio_channel, GPIO.FALLING, button_pressed, bouncetime=self._button_debounce_ms)
+            while True:
+                await asyncio.sleep(1)
+
+        asyncio.create_task(_listen())
+
+
+    def _get_action(self):
+        # Since pins are PUD_UP, if input is 0 that means it's pressed.
+        animal_pressed = GPIO.input(self._animal_button_gpio_channel) == 0
+        songs_pressed = GPIO.input(self._songs_button_gpio_channel) == 0
+
+        if animal_pressed and songs_pressed: 
+            return controller.Actions.STOP
+        elif animal_pressed:
+            return controller.Actions.PLAY_RANDOM_ANIMAL_SOUND
+        elif songs_pressed:
+            return controller.Actions.PLAY_RANDOM_SONG
+        else:
+            return None
 
 
 class WebInterface:
@@ -108,6 +161,7 @@ class KeyboardInterface:
 _INTERFACES = {
     "keyboard": KeyboardInterface,
     "web": WebInterface,
+    "gpio": GPIOInterface,
 }
 def get_interface_class(name):
     return _INTERFACES[name]

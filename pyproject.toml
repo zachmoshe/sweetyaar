@@ -11,6 +11,7 @@ aiohttp-jinja2 = ""
 jinja2 = ""
 pyalsaaudio = "^0.9"
 pyyaml = ""
+"rpi.gpio" = "^0.7"
 
 [tool.poetry.dev-dependencies]
 

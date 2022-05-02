@@ -84,7 +84,6 @@ class SweetYaarController:
         return {
             "current_time": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"), 
             "volume_level": self._audio_lib.get_volume(),
-            "battery_level": "N/A",
             "currently_playing": currently_playing,
             "kill_switch_until": kill_switch_until,
             "time_of_day": self._detect_time_of_day(),
