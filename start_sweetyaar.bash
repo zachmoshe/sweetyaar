@@ -4,4 +4,9 @@ cd $SCRIPT_DIR
 authbind --deep poetry run python src/main.py 
 
 # On exit reboot the device to allow for catastrophic reboots if needed.
-sudo shutdown -r now
+# Only consider exits that the user asked for (by issuing the reboot command), otherwise
+# every programatic error (missing module, ..) will cause a reboot loop.
+if [ $? -eq 0 ]
+then
+   sudo shutdown -r now
+fi
