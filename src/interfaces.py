@@ -1,6 +1,7 @@
 import asyncio
 import functools as ft
 import logging
+import pathlib
 import random
 import sys
 import threading 
@@ -37,7 +38,7 @@ class GPIOInterface:
         async def _listen():
             loop = asyncio.get_event_loop()
             def button_pressed(channel):
-                action = self._get_action()
+                action = self._get_action(channel)
                 logging.info(f"GPIO button pressed (channel={channel}). Detected action is {action}.")
                 if action is None: 
                     logging.error("Shouldn't be here. No button is marked as pressed although the GPIO callback was called.")
@@ -52,22 +53,23 @@ class GPIOInterface:
 
             GPIO.add_event_detect(self._animal_button_gpio_channel, GPIO.FALLING, button_pressed, bouncetime=self._button_debounce_ms)
             GPIO.add_event_detect(self._songs_button_gpio_channel, GPIO.FALLING, button_pressed, bouncetime=self._button_debounce_ms)
+
             while True:
                 await asyncio.sleep(1)
 
         asyncio.create_task(_listen())
 
 
-    def _get_action(self):
+    def _get_action(self, channel):
         # Since pins are PUD_UP, if input is 0 that means it's pressed.
         animal_pressed = GPIO.input(self._animal_button_gpio_channel) == 0
         songs_pressed = GPIO.input(self._songs_button_gpio_channel) == 0
 
         if animal_pressed and songs_pressed: 
             return controller.Actions.STOP
-        elif animal_pressed:
+        elif animal_pressed or channel == self._animal_button_gpio_channel:
             return controller.Actions.PLAY_RANDOM_ANIMAL_SOUND
-        elif songs_pressed:
+        elif songs_pressed or channel == self._songs_button_gpio_channel:
             return controller.Actions.PLAY_RANDOM_SONG
         else:
             return None

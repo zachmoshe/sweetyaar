@@ -22,7 +22,7 @@ sweetyaar:
     gpio:
       gpio_mode: BOARD
       animal_button_gpio_channel: 16
-      songs_button_gpio_channel: 18
+      songs_button_gpio_channel: 11
       button_debounce_ms: 1000
 
     keyboard:
