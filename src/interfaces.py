@@ -78,7 +78,9 @@ class WebInterface:
         self._host = config["host"]
         self._port = int(config["port"])
         self._actions_mapping = _load_actions_mapping(config["actions_mapping"])
-        self._yaar_photos = config["yaar_photos"]
+        self._yaar_photos = controller._parse_glob_expressions(config["yaar_photos"])
+        if not self._yaar_photos:
+            raise ValueError("Couldn't find any photos of yaar")
 
     def _get_random_photo(self):
         return random.choice(self._yaar_photos)
@@ -92,7 +94,7 @@ class WebInterface:
         @aiohttp_jinja2.template("index.html")
         async def index(request):
             yaars_photo = self._get_random_photo()
-            return dict(**get_stats_func(), yaars_photo=yaars_photo)
+            return dict(**get_stats_func(), yaars_photo=yaars_photo.relative_to(pathlib.Path("src/templates/static")))
 
         @routes.post("/actions/{action}")
         async def actions(request):

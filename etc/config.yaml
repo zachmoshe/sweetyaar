@@ -39,21 +39,7 @@ sweetyaar:
       host: 0.0.0.0
       port: 80
       yaar_photos:
-        - yaar-bg-1.jpeg
-        - yaar-bg-2.jpeg
-        - yaar-bg-3.jpeg
-        - yaar-bg-4.jpeg
-        - yaar-bg-5.jpeg
-        - yaar-bg-6.jpeg
-        - yaar-bg-7.jpeg
-        - yaar-bg-8.png
-        - yaar-bg-9.jpeg
-        - yaar-bg-10.jpeg
-        - yaar-bg-11.jpeg
-        - yaar-bg-12.jpeg
-        - yaar-bg-13.jpeg
-        - yaar-bg-14.jpeg
-        - yaar-bg-15.jpeg
+        - src/templates/static/yaar_photos/*
       actions_mapping: 
         PLAY_RANDOM_ANIMAL_SOUND: random-animal-sound
         PLAY_RANDOM_SONG: random-song
