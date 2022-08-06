@@ -1,0 +1,32 @@
+{
+    "sdcard": {
+        "SPI_SCK": 14,
+        "SPI_MOSI": 12,
+        "SPI_MISO": 13,
+        "SPI_CS": 15,
+        "SPI_ID": 2,
+        "mount_path": "/sd"
+    },
+    "led_indicator": {
+        "GPIO_RED": 16,
+        "GPIO_GREEN": 17,
+        "GPIO_BLUE": 5
+    },
+    "audio_library": {
+        "sounds_folder": "sounds",
+        "daytime_songs_folder": "songs/daytime",
+        "nighttime_songs_folder": "songs/nighttime",
+        "animal_sounds_folder": "animals"
+    },
+    "audio_player": {
+        "I2S_id": 0,
+        "I2S_SCK": 32,
+        "I2S_WS": 25,
+        "I2S_SD": 33,
+        "I2S_buffer_length_bytes": 5000
+    },
+    "controller": {
+        "GPIO_animals_button": 0,
+        "GPIO_songs_button": 4
+    }
+}
