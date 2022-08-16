@@ -23,6 +23,7 @@ class LedIndicator():
         for pwm in self.rgb_pins:
             pwm.freq(100)
         self._current_task = None
+        self.off()
     
     def _change_color_rgb(self, r_255, g_255, b_255):
         u16_values = [int(v * _U16 / 255) for v in (r_255, g_255, b_255)]
@@ -52,7 +53,7 @@ class LedIndicator():
             ctr += 1
   
     def blink_sync(self, color, cycle_ms=200, intensity=1., times=None):
-        self._current_task = asyncio.create_task(self.blink(color, cycle_ms, intensity, times))
+        self._current_task = asyncio.run(self.blink(color, cycle_ms, intensity, times))
 
     def stop_sync(self):
         if self._current_task is not None:
