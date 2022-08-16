@@ -1,16 +1,14 @@
 {
+    "timezone_utc_diff": 3,
     "sdcard": {
-        "SPI_SCK": 14,
-        "SPI_MOSI": 12,
-        "SPI_MISO": 13,
-        "SPI_CS": 15,
-        "SPI_ID": 2,
+        "spi": 2,
+        "SPI_CS": 5,
         "mount_path": "/sd"
     },
     "led_indicator": {
-        "GPIO_RED": 16,
-        "GPIO_GREEN": 17,
-        "GPIO_BLUE": 5
+        "GPIO_RED": 27,
+        "GPIO_GREEN": 14,
+        "GPIO_BLUE": 12
     },
     "audio_library": {
         "sounds_folder": "sounds",
@@ -20,10 +18,10 @@
     },
     "audio_player": {
         "I2S_id": 0,
-        "I2S_SCK": 32,
+        "I2S_SCK": 26,
         "I2S_WS": 25,
-        "I2S_SD": 33,
-        "I2S_buffer_length_bytes": 5000
+        "I2S_SD": 22,
+        "I2S_buffer_length_bytes": 8192
     },
     "controller": {
         "GPIO_animals_button": 0,
