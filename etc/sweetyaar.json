@@ -23,8 +23,11 @@
         "I2S_SD": 22,
         "I2S_buffer_length_bytes": 8192
     },
-    "controller": {
-        "GPIO_animals_button": 0,
-        "GPIO_songs_button": 4
+    "controller": {},
+    "interfaces": {
+        "gpio": {
+            "GPIO_animals_button": 0,
+            "GPIO_songs_button": 4
+        }
     }
 }

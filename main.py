@@ -8,8 +8,7 @@ from src import audio_library
 from src import audio_player
 from src import config
 from src import controller
-
-# from lib import max7221# import BaseMax7221, Max7221RadialProgressBar, 
+from src import interfaces 
 
 cfg = config.get_config()
 
@@ -26,7 +25,12 @@ cfg = config.get_config()
 
 al = audio_library.AudioLibrary(cfg["audio_library"])
 ap = audio_player.AudioPlayer(cfg["audio_player"])
+
+# Initialize controller and interfaces
 ctl = controller.SweetYaarController(cfg=cfg["controller"], audio_library=al, audio_player=ap)
+gpio_iface = interfaces.GPIOInterface(cfg=cfg["interfaces"]["gpio"])
+ctl.register_interface(gpio_iface)
+
 
 print("controller is taking control")
 ctl.take_control()

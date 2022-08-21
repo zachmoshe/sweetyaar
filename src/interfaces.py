@@ -6,7 +6,9 @@ from src import controller
 
 
 class GPIOInterface():
-    def __init__(self, animals_button_gpio, songs_button_gpio):
+    def __init__(self, cfg): 
+        animals_button_gpio = cfg["GPIO_animals_button"]
+        songs_button_gpio = cfg["GPIO_songs_button"]
         self.button_debounce_ms = 500
         self.animals_btn = Pin(animals_button_gpio, Pin.IN, Pin.PULL_UP)
         self.songs_btn = Pin(songs_button_gpio, Pin.IN, Pin.PULL_UP)
@@ -32,10 +34,10 @@ class GPIOInterface():
         animals_pressed = self.animals_btn.value() == 0  # pins are PULL_UP
         songs_pressed = self.songs_btn.value() == 0
         if animals_pressed and songs_pressed:
-            actions_callback(controller.Actions.STOP_PLAYING)
+            actions_callback(controller.STOP_PLAYING)
         elif animals_pressed:
-            actions_callback(controller.Actions.PLAY_ANIMAL_SOUND)
+            actions_callback(controller.PLAY_ANIMAL_SOUND)
         elif songs_pressed:
-            actions_callback(controller.Actions.PLAY_SONG)
+            actions_callback(controller.PLAY_SONG)
         else:
             print("weird, but no button was pressed when got here...")

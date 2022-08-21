@@ -23,6 +23,7 @@ class AudioPlayer:
         self.activity_listener_callbacks = []
 
         self._currently_playing_task = None
+        self._currently_playing_desc = ""
 
         wav_samples = bytearray(self.buffer_length_bytes)
         self.wav_samples_mv = memoryview(wav_samples)
@@ -30,11 +31,11 @@ class AudioPlayer:
     def register_activity_callback(self, callback_func):
         self.activity_listener_callbacks.append(callback_func)
 
-    def _notify_listeners(self, event):
+    def _notify_listeners(self, event, *args):
         for callback_func in self.activity_listener_callbacks:
-            callback_func(event)
+            callback_func(event, *args)
 
-    async def _play_file_async(self, wav_filename):
+    async def _play_file_async(self, wav_filename, desc):
         _assert_wav_file(wav_filename)
 
         # Read WAV properties
@@ -57,11 +58,9 @@ class AudioPlayer:
         )
 
         try :
-            self._notify_listeners(EVENT_AUDIO_STARTED)
+            self._notify_listeners(EVENT_AUDIO_STARTED, desc)
 
             swriter = asyncio.StreamWriter(audio_out)
-            # allocate sample array
-            # memoryview used to reduce heap allocation
             
             with open(wav_filename, "rb") as wav:
                 _ = wav.seek(44)  # advance to first byte of Data section in WAV file
@@ -70,7 +69,7 @@ class AudioPlayer:
                     num_read = wav.readinto(self.wav_samples_mv)
                     if num_read == 0:
                         # End of file.
-                        return
+                        break
                     else:
                         # apply temporary workaround to eliminate heap allocation in uasyncio Stream class.
                         # workaround can be removed after acceptance of PR:
@@ -88,9 +87,9 @@ class AudioPlayer:
             self._currently_playing_task.cancel()
         self._currently_playing_task = None
 
-    def play_file(self, filename):
+    def play_file(self, filename, desc=""):
         self.stop()
-        self._currently_playing_task = asyncio.create_task(self._play_file_async(filename))
+        self._currently_playing_task = asyncio.create_task(self._play_file_async(filename, desc))
 
 
     # # def increase_volume(self):
