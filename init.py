@@ -1,12 +1,9 @@
 import os
-from machine import Pin, SoftSPI, SPI, RTC
-# import ntptime
-import time
+from machine import Pin, SoftSPI, SPI
 
 from src import config
 from src import led_indicator
 from lib import sdcard
-# from lib import wifimanager
 
 
 cfg = config.get_config()
@@ -43,30 +40,9 @@ def _mount_sdcard():
     os.mount(sd, cfg["sdcard"]["mount_path"])
     return True
 
-
-def _setup_network():
-    # Set network
-    print("Setting up network... ", end="")
-    wm = wifimanager.WifiManager(ssid="Sweet Yaar Config", password="sweetyaar")
-    time.sleep_ms(50)
-    wm.connect()
-    time.sleep_ms(50)
-
-    # Set NTP time (must happen after we have network)
-    tz_diff = cfg["timezone_utc_diff"]
-    print(f"Setting up time (timezone diff = {tz_diff})")
-    ntptime.settime()
-    localtime = time.localtime(ntptime.time() + tz_diff * 3600)
-    rtctime = localtime[:3] + (localtime[6],) + localtime[3:7]
-    RTC().datetime(rtctime)
-
-    return wm 
-
 try:
-    with LedIndicate(LED, "purple"):
+    with LedIndicate(LED, "blue"):
         _mount_sdcard()
-    # with LedIndicate(LED, "blue"):
-    #     _setup_network()
     LED.blink_sync("green", cycle_ms=200, times=4)
 
 except Exception as e:
