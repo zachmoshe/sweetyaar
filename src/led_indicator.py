@@ -22,6 +22,7 @@ class LedIndicator():
         self.rgb_pins = [PWM(Pin(gpio)) for gpio in (red_gpio, green_gpio, blue_gpio)]
         for pwm in self.rgb_pins:
             pwm.freq(100)
+            pwm.duty_u16(0)
         self._current_task = None
         self.off()
     

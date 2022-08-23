@@ -1,3 +1,4 @@
+import gc 
 import os
 from machine import Pin, SoftSPI, SPI
 
@@ -5,6 +6,7 @@ from src import config
 from src import led_indicator
 from lib import sdcard
 
+gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
 
 cfg = config.get_config()
 
@@ -36,7 +38,7 @@ def _mount_sdcard():
             miso=Pin(cfg["sdcard"]["SPI_MISO"]))
     else:
         raise ValueError("Must provide `spi` or `soft_spi` in sdcard config")
-    sd = sdcard.SDCard(spi=spi, cs=Pin(cfg["sdcard"]["SPI_CS"]))
+    sd = sdcard.SDCard(spi=spi, cs=Pin(cfg["sdcard"]["SPI_CS"], Pin.OUT))
     os.mount(sd, cfg["sdcard"]["mount_path"])
     return True
 
