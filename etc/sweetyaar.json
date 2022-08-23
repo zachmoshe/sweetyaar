@@ -34,6 +34,7 @@
         "gpio": {
             "GPIO_animals_button": 0,
             "GPIO_songs_button": 4
-        }
+        },
+        "bluetooth": {}
     }
 }

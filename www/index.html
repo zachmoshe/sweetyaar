@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <!-- Bootstrap CSS -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <title>Sweet Yaar Remote Control</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
+    <style>
+        .shadowed-text {
+            text-shadow: 10px 10px 10px whitesmoke, 10px -10px 10px whitesmoke, -10px 10px 10px whitesmoke, -10px -10px 10px whitesmoke, 5px 5px 5px whitesmoke, 5px -5px 5px whitesmoke, -5px 5px 5px whitesmoke, -5px -5px 5px whitesmoke;
+        }
+
+        .daytime-mode-active {
+            color: gold;
+        }
+    </style>
+
+</head>
+
+<body
+    style="background-image: url('https://us.123rf.com/450wm/tkuzminka/tkuzminka1903/tkuzminka190300017/124358896-seamless-cute-children-pattern-cute-baby-stars-heart-background-creative-night-style-kid-light-pink-.jpg?ver=6');">
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+        crossorigin="anonymous"></script>
+    <script src="main.js"></script>
+    <script src="main.js"></script>
+
+    <div class="container pt-5">
+        <div class="jumbotron text-center my-5">
+            <h1 class="display-1 shadowed-text">
+                Sweet Yaar!</h1>
+            <hr class="my-6">
+        </div>
+    </div>
+
+
+
+    <div id="no-bluetooth-panel" class="container" style="height: 50vh;">
+        <div class="row h-100 p-5 justify-content-center">
+            <div class="col-3 text-center" style="border: black">
+                <button id="bluetooth-button" type="button" class="btn h-100 w-100 btn-primary"
+                    style="border-radius: 2vh; font-size: 20vh;">
+                    <i class="bi bi-bluetooth"></i>
+                </button>
+            </div>
+        </div>
+        <div class="row justify-content-center">
+            <div class="col-6 text-center fs-2 shadowed-text">
+                Press to connect to the SweetYaar doll.
+            </div>
+        </div>
+    </div>
+
+
+    <div id="remote-control-panel" class="container pt-5">
+
+        <div class="row mb-2">
+            <div class="col-4 h-100 text-center">
+                <div class="input-group input-group-lg">
+                    <button id="button-nighttime" class="form-control btn btn-primary btn-lg p-3">
+                        <i class="bi bi-moon-stars-fill"></i>
+                    </button>
+                    <button id="button-daytime" class="form-control btn btn-primary btn-lg p-3">
+                        <i class="bi bi-sun-fill"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="col-4 h-100 text-center">
+                <div class="input-group input-group-lg">
+                    <button class="form-control btn btn-primary btn-lg p-3">
+                        <i class="bi bi-volume-down-fill"></i>
+                    </button>
+                    <span class="input-group-text">{{volume_level}}</span>
+                    <button class="form-control btn btn-primary btn-lg p-3">
+                        <i class="bi bi-volume-up-fill"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="col-2 h-100 text-center">
+                <button class="btn btn-danger btn-lg h-100 w-100 p-3">
+                    <i class="bi bi-bootstrap-reboot h-100 w-100"></i>
+                </button>
+            </div>
+            <div class="col-2 h-100 text-center">
+                <span class="fs-2 shadowed-text">
+                    <span id="battery-level-text"></span>
+                    <i id="battery-level-icon" class="bi h-100 w-100"></i>
+                </span>
+            </div>
+        </div>
+
+        <div class="row mb-2">
+            <div class="col text-center">
+                <button id="button-play-animal" class="btn btn-primary btn-lg h-100 w-100 p-5">
+                    <i class="bi bi-shuffle"></i>
+                    Play Animal Sound
+                </button>
+            </div>
+            <div class="col text-center">
+                <button id="button-play-song" class="btn btn-primary btn-lg h-100 w-100 p-5">
+                    <i class="bi bi-music-note-beamed"></i>
+                    Play a Song
+                </button>
+            </div>
+        </div>
+
+        <div class="row mb-2 shadowed-text mt-5 mb-5">
+            <p class="display-6 lead">
+                <b>Currently playing:</b> <span id="currently-playing-text"></span>
+            </p>
+        </div>
+
+
+        <div class="row mb-2">
+            <div class="col text-center">
+                <button id="button-stop" class="btn btn-warning btn-lg h-100 w-100 p-5">
+                    <i class="bi bi-stop-fill"></i>
+                    Stop Playing
+                </button>
+            </div>
+            <div id="button-kill-switch" class="col text-center">
+                <button class="btn btn-danger btn-lg h-100 w-100 p-5">
+                    <i class="bi bi-radioactive"></i>
+                    Kill Switch
+                    <div id="inactive-counter-text" style="font-size: 0.75em"></div>
+                </button>
+            </div>
+        </div>
+
+        <div class="row mb-2">
+            <div class="col-12 h-50 text-center">
+                <div id="picturesCarousel" class="carousel slide" data-ride="carousel">
+                    <div class="carousel-inner">
+                        <div class="carousel-item active">
+                            <img class="d-block w-100"
+                                src="https://lh3.googleusercontent.com/GKmELaXztQxFCr8VfodCal2PpNfR7Jw_RoGPNMRi2PS1HEYebl66aAuWoJ2IIFgx3Zunp5O_-YCi52rfTrvw5Eewn-mG2o1P01HJiEWtfiUdaWwyi4_RZss2zUB7IUH55nwUPM7CRHs=w2400">
+                        </div>
+                        <div class="carousel-item">
+                            <img class="d-block w-100"
+                                src="https://lh3.googleusercontent.com/uldkfziiCk2cgvfxcdzMYx4CKjHdz9YBukhiPmWSHE2NPqH67vI966HEY7wVQFa4MWAyACIoTa2GgSta31dkDElo0z6-koaQ82TOSVLb6SfV3qprS-MmEhPEhMD_PjATduXyMAllh_o=w2400">
+                        </div>
+                        <div class="carousel-item">
+                            <img class="d-block w-100"
+                                src="https://lh3.googleusercontent.com/bZDymxRLjGJo5xUmrTz17czHQVB1p-mN63X8szKQgn1hetDSc7o8WNk0LouUBoXkaq32L27bHWbf7t97S4eNPJXacc6q5Ie08ei_MKQ9SrGpcQLuJZE7encWRDM88DSJLWmCgdWczFA=w2400">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <span id="current-local-time-text"></span>
+    </div>
+
+</body>
+
+</html>

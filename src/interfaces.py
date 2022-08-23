@@ -1,7 +1,10 @@
-from machine import Pin
+import bluetooth
+from machine import Pin, RTC
+import struct
 import time 
 import uasyncio as asyncio
 
+from lib import aioble
 from src import controller
 
 
@@ -41,3 +44,118 @@ class GPIOInterface():
             actions_callback(controller.Actions.PLAY_SONG)
         else:
             print("weird, but no button was pressed when got here...")
+
+
+class BluetoothInterface:
+    _ADV_APPEARANCE_GENERIC_MEDIA_PLAYER = 640
+
+    _UUID_BATTERY_SERVICE = bluetooth.UUID(0x180F)
+    _UUID_CHAR_BATTERY_LEVEL = bluetooth.UUID(0x2A19)
+
+    _UUID_SWEETYAAR_SERVICE = bluetooth.UUID(0x2504)
+    _UUID_CHAR_SWEETYAAR_CONTROL = bluetooth.UUID(0x3000)
+    _UUID_CHAR_CURRENTLY_PLAYING = bluetooth.UUID(0x3001)
+    _UUID_CHAR_INACTIVE_COUNTER_SEC = bluetooth.UUID(0x3002)
+    _UUID_CHAR_DAYTIME_MODE = bluetooth.UUID(0x3003)
+    _UUID_SWEETYAAR_COMMANDS = {
+        controller.Actions.PLAY_SONG: 0x1,
+        controller.Actions.PLAY_ANIMAL_SOUND: 0x2,
+        controller.Actions.STOP_PLAYING: 0x3,
+        controller.Actions.KILL_SWITCH: 0x4,
+        controller.Actions.FORCE_DAYTIME: 0x10,
+        controller.Actions.FORCE_NIGHTTIME: 0x11,
+    }
+    _SWEETYAAR_COMMANDS_REV = {v: k for k, v in _UUID_SWEETYAAR_COMMANDS.items()}
+
+    _UUID_CURRENT_TIME_SERVICE = bluetooth.UUID(0x1805)
+    _UUID_CHAR_DATE_TIME = bluetooth.UUID(0x2A08)
+
+    def __init__(self, cfg):
+        self.battery_service = aioble.Service(self._UUID_BATTERY_SERVICE)
+        self.battery_level_char = aioble.Characteristic(self.battery_service, self._UUID_CHAR_BATTERY_LEVEL, notify=True, read=True)
+
+        self.sweetyaar_service = aioble.Service(self._UUID_SWEETYAAR_SERVICE)
+        self.sweetyaar_control_char = aioble.Characteristic(self.sweetyaar_service, self._UUID_CHAR_SWEETYAAR_CONTROL, notify=True, write=True)
+        self.currently_playing_char = aioble.Characteristic(self.sweetyaar_service, self._UUID_CHAR_CURRENTLY_PLAYING, notify=True, read=True)
+        self.inactive_counter_sec_char = aioble.Characteristic(self.sweetyaar_service, self._UUID_CHAR_INACTIVE_COUNTER_SEC, notify=True, read=True)
+        self.daytime_mode_char = aioble.Characteristic(self.sweetyaar_service, self._UUID_CHAR_DAYTIME_MODE, notify=True, read=True)
+        self.current_time_service = aioble.Service(self._UUID_CURRENT_TIME_SERVICE)
+        self.date_time_char = aioble.Characteristic(self.current_time_service, self._UUID_CHAR_DATE_TIME, notify=True, read=True, write=True)
+
+        aioble.register_services(self.battery_service, self.sweetyaar_service, self.current_time_service)
+
+
+    async def advertise(self, adv_uuid = _ADV_APPEARANCE_GENERIC_MEDIA_PLAYER):
+        """Advertises and connects to only a single device at a time."""
+        while True: 
+            try:
+                print("Advertising. Waiting for connection..")
+                async with await aioble.advertise(
+                        120_000,
+                        name="SweetYaar",
+                        services=[self._UUID_BATTERY_SERVICE, self._UUID_SWEETYAAR_SERVICE, self._UUID_CURRENT_TIME_SERVICE],
+                        appearance=adv_uuid,
+                    ) as connection:
+                    print("BT Connection from", connection.device)
+                    await connection.disconnected()
+            
+            except (asyncio.core.TimeoutError, asyncio.core.CancelledError):
+                pass
+
+    def handle_controller_state_change(self, event):
+        if "currently_playing" in event:
+            self.currently_playing_char.write(event["currently_playing"].encode("utf8"), send_update=True)
+        if "kill_switch_counter" in event:
+            self.inactive_counter_sec_char.write(struct.pack("<H", event["kill_switch_counter"]), send_update=True)
+        if "daytime_mode" in event:
+            self.daytime_mode_char.write(event["daytime_mode"].encode("utf8"), send_update=True)
+
+
+    async def listen(self, actions_callback):
+        advertising_task = asyncio.create_task(self.advertise())
+        battery_service_task = asyncio.create_task(self._run_battery_service())
+        current_time_service = asyncio.create_task(self._run_current_time_service())
+        control_service = asyncio.create_task(self._run_control_service(actions_callback))
+        await asyncio.gather(advertising_task, battery_service_task, current_time_service, control_service)
+
+
+    async def _run_control_service(self, actions_callback):
+        while True:
+            await self.sweetyaar_control_char.written()
+            command_value = self.sweetyaar_control_char.read()
+            ctl_command_type = self._SWEETYAAR_COMMANDS_REV[command_value[0]]
+            actions_callback(ctl_command_type)
+
+    async def _run_battery_service(self):
+        import random  # temp thing
+        while True:
+            self.battery_level_char.write(bytes([random.randint(0, 100)]), send_update=True)
+            await asyncio.sleep(10)
+
+    async def _run_current_time_service(self):
+        rtc = RTC()
+
+        def _publish_device_time():
+            """Publishes the board's time to the client."""
+            local_year, local_month, local_day, _, local_hours, local_minutes, local_seconds, _ = rtc.datetime()
+            value = struct.pack("<HBBBBB", local_year, local_month, local_day, local_hours, local_minutes, local_seconds)
+            self.date_time_char.write(value, send_update=True)
+
+        async def _constantly_publish_device_time():
+            while True:
+                _publish_device_time()
+                await asyncio.sleep(60)  # publish every minute.
+
+        async def _update_device_time():
+            """Updates the board's time from the computer client."""
+            while True:
+                await self.date_time_char.written()
+                datetime_value = self.date_time_char.read()
+                local_year, local_month, local_day, local_hours, local_minutes, local_seconds = struct.unpack("<HBBBBB", datetime_value)
+                rtc.datetime((local_year, local_month, local_day, None, local_hours, local_minutes, local_seconds, 0))
+                print("* Updated RTC time")
+                _publish_device_time()
+
+        tasks = [asyncio.create_task(_constantly_publish_device_time()), asyncio.create_task(_update_device_time())]
+        await asyncio.gather(*tasks)
+
