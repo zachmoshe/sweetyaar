@@ -11,6 +11,60 @@ class Actions:
     PLAY_ANIMAL_SOUND = 2
     STOP_PLAYING = 3
     KILL_SWITCH = 4
+    FORCE_DAYTIME = 10
+    FORCE_NIGHTTIME = 11
+
+
+class DaytimeModeManager:
+    def __init__(self, ctl, daytime_range):
+        self.ctl = ctl
+        # daytime_range is a list of 2 strings representing the start and end of the daytime (HH:MM). e.g. ["06:30", "18:45"]
+        self._daytime_range = self._parse_daytime_range(daytime_range)
+        self._daytime_override = ()
+
+    @staticmethod
+    def _parse_daytime_range(daytime_range):
+        if len(daytime_range) != 2 or set(type(x) for x in daytime_range) != {str}:
+            raise ValueError(f"Illegal daytime range '{daytime_range}'. Should be two string values (e.g. ['06:00', '18:00']")
+        
+        daytime_range_ints = [[int(x) for x in hour_str.split(":")] for hour_str in daytime_range]
+        return [r[0] * 60 + r[1] for r in daytime_range_ints]
+    
+    @staticmethod
+    def _get_total_minutes():
+        _, _, _, hours, minutes, _, _, _ = time.localtime()
+        return hours * 60 + minutes
+
+    def get_daytime_mode(self):
+        # Check for override.
+        localtime = time.localtime()
+        current_date = localtime[:3]
+        if self._daytime_override and self._daytime_override[0] == current_date:
+            return self._daytime_override[1]
+        
+        # Calculate by daytime_range.
+        is_daytime = self._daytime_range[0] <= self._get_total_minutes() < self._daytime_range[1]
+        return "daytime" if is_daytime else "nighttime"
+
+    def override_daytime_mode(self, value):
+        assert value in ("daytime", "nighttime")
+        self._daytime_override = (time.localtime()[:3], value)
+        self.publish_daytime_mode()
+
+    def publish_daytime_mode(self):
+        self.ctl.update_controller_state({"daytime_mode": self.get_daytime_mode()})
+
+    async def constantly_publish_daytime_mode(self):
+        self.publish_daytime_mode()
+
+        while True:
+            mins_to_next_switch = (
+                (self._daytime_range[1] - self._get_total_minutes()) % (24 * 60)
+                if self.get_daytime_mode() == "daytime"
+                else (self._daytime_range[0] - self._get_total_minutes()) % (24 * 60)
+            )
+            await asyncio.sleep(mins_to_next_switch * 60 + 1)
+            self.publish_daytime_mode()
 
 
 class SweetYaarController:
@@ -21,9 +75,12 @@ class SweetYaarController:
         self.currently_playing_desc = ""
         self._kill_switch_inactive_time_secs = cfg["kill_switch_inactive_time_secs"]
         self._last_kill_switch_time = 0
-        self.interfaces = []
+        self.daytime_manager = DaytimeModeManager(self, cfg["daytime_range"])
 
+        self.interfaces = []
         self.controller_state_updates_listeners = []
+
+        asyncio.create_task(self.daytime_manager.constantly_publish_daytime_mode())
 
     def register_interface(self, iface):
         # Should be called before taking control.
@@ -46,6 +103,7 @@ class SweetYaarController:
         elif event == audio_player.EVENT_AUDIO_STARTED:
             self.currently_playing_desc = args[0]
             self.update_controller_state({"currently_playing": self.currently_playing_desc})
+
 
     async def _publish_kill_switch_counter(self):
         while self._is_kill_switch_activated():
@@ -93,6 +151,10 @@ class SweetYaarController:
             self._stop_playing()
         elif action == Actions.KILL_SWITCH:
             self._activate_kill_switch()
+        elif action == Actions.FORCE_DAYTIME:
+            self.force_daytime_mode("daytime")
+        elif action == Actions.FORCE_NIGHTTIME:
+            self.force_daytime_mode("nighttime")
         else:
             print("[CTL] !!! Unknown action ", action)
 
@@ -106,7 +168,7 @@ class SweetYaarController:
     def _play_song(self):
         if self._is_kill_switch_activated():
             return
-        song_name, song_path = self.audio_library.get_random_song(mode=None)  # automatically choose mode by time of day.
+        song_name, song_path = self.audio_library.get_random_song(mode=self.daytime_manager.get_daytime_mode())
         self._play_sound_file("song", song_name, song_path)
 
     def _play_animal_sound(self):
@@ -122,3 +184,7 @@ class SweetYaarController:
         self._stop_playing()
         self._last_kill_switch_time = time.time()
         asyncio.create_task(self._publish_kill_switch_counter())
+
+    def force_daytime_mode(self, value):
+        assert value in ("daytime", "nighttime")
+        self.daytime_manager.override_daytime_mode(value)

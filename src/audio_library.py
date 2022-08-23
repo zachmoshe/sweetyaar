@@ -45,13 +45,6 @@ def _load_audio_folder(folder, humanize_filenames=True):
     return results
 
 
-def _parse_daytime_range(daytime_range):
-    if len(daytime_range) != 2 or set(type(x) for x in daytime_range) != {str}:
-        raise ValueError(f"Illegal daytime range '{daytime_range}'. Should be two string values (e.g. ['06:00', '18:00']")
-    
-    daytime_range_ints = [[int(x) for x in hour_str.split(":")] for hour_str in daytime_range]
-    return [r[0] * 60 + r[1] for r in daytime_range_ints]
-    
 
 class AudioLibrary:
     def __init__(self, config, base_sd_path = _DEFAULT_BASE_SD_PATH):
@@ -66,14 +59,6 @@ class AudioLibrary:
         self.last_returned_song_item = None
         self.last_returned_animal_item = None
 
-        self.daytime_secs_in_day_range = _parse_daytime_range(config["daytime_range"])
-
-    def _get_daytime_mode(self):
-        _, _, _, hours, minutes, _, _, _ = time.localtime()
-        secs_in_day = hours * 60 + minutes
-        is_daytime = self.daytime_secs_in_day_range[0] <= secs_in_day <= self.daytime_secs_in_day_range[1]
-        return "daytime" if is_daytime else "nighttime"
-
     @staticmethod
     def _choose_random_audio_item_non_repeat(items, last_item):
         valid_items = [i for i in items if i != last_item]
@@ -83,9 +68,7 @@ class AudioLibrary:
     def get_sound_filename(self, sound_name):
         return self.sounds[sound_name]
 
-    def get_random_song(self, mode=None):
-        if mode is None:
-            mode = self._get_daytime_mode()
+    def get_random_song(self, mode):
         if mode not in ("daytime", "nighttime"): 
             raise ValueError(f"Illegal mode '{mode}'")
         

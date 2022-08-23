@@ -11,10 +11,6 @@
         "GPIO_BLUE": 12
     },
     "audio_library": {
-        "daytime_range": [
-            "06:30",
-            "18:00"
-        ],
         "sounds_folder": "sounds",
         "daytime_songs_folder": "songs/daytime",
         "nighttime_songs_folder": "songs/nighttime",
@@ -28,7 +24,11 @@
         "I2S_buffer_length_bytes": 8192
     },
     "controller": {
-        "kill_switch_inactive_time_secs": 300
+        "kill_switch_inactive_time_secs": 300,
+        "daytime_range": [
+            "06:30",
+            "18:00"
+        ]
     },
     "interfaces": {
         "gpio": {
