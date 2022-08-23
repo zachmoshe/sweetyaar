@@ -27,7 +27,9 @@
         "I2S_SD": 22,
         "I2S_buffer_length_bytes": 8192
     },
-    "controller": {},
+    "controller": {
+        "kill_switch_inactive_time_secs": 300
+    },
     "interfaces": {
         "gpio": {
             "GPIO_animals_button": 0,

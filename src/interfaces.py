@@ -34,10 +34,10 @@ class GPIOInterface():
         animals_pressed = self.animals_btn.value() == 0  # pins are PULL_UP
         songs_pressed = self.songs_btn.value() == 0
         if animals_pressed and songs_pressed:
-            actions_callback(controller.STOP_PLAYING)
+            actions_callback(controller.Actions.STOP_PLAYING)
         elif animals_pressed:
-            actions_callback(controller.PLAY_ANIMAL_SOUND)
+            actions_callback(controller.Actions.PLAY_ANIMAL_SOUND)
         elif songs_pressed:
-            actions_callback(controller.PLAY_SONG)
+            actions_callback(controller.Actions.PLAY_SONG)
         else:
             print("weird, but no button was pressed when got here...")
