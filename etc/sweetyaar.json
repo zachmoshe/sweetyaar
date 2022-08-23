@@ -11,6 +11,10 @@
         "GPIO_BLUE": 12
     },
     "audio_library": {
+        "daytime_range": [
+            "06:30",
+            "18:00"
+        ],
         "sounds_folder": "sounds",
         "daytime_songs_folder": "songs/daytime",
         "nighttime_songs_folder": "songs/nighttime",
