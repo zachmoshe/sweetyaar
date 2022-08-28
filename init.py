@@ -10,10 +10,9 @@ gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
 
 cfg = config.get_config()
 
-LED = led_indicator.LedIndicator(
-    cfg["led_indicator"]["GPIO_RED"],
-    cfg["led_indicator"]["GPIO_GREEN"], 
-    cfg["led_indicator"]["GPIO_BLUE"])
+LED = led_indicator.LedIndicator.from_neo_pixel(
+    cfg["led_indicator"]["DI_GPIO"])
+LED.set_intensity(-2)
 
 
 class LedIndicate:

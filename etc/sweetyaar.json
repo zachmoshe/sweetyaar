@@ -6,9 +6,7 @@
         "mount_path": "/sd"
     },
     "led_indicator": {
-        "GPIO_RED": 27,
-        "GPIO_GREEN": 14,
-        "GPIO_BLUE": 12
+        "DI_GPIO": 33
     },
     "audio_library": {
         "sounds_folder": "sounds",
