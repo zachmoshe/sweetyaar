@@ -30,9 +30,12 @@
     },
     "interfaces": {
         "gpio": {
-            "GPIO_animals_button": 0,
-            "GPIO_songs_button": 4
+            "GPIO_animals_button": 13,
+            "GPIO_songs_button": 14
         },
-        "bluetooth": {}
+        "bluetooth": {
+            "mac_address_mode": "random",
+            "device_name": "SweetYaar"
+        }
     }
 }

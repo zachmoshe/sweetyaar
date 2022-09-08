@@ -1,19 +1,12 @@
-// // Get references to UI elements
-// let connectButton = document.getElementById('connect');
-// let disconnectButton = document.getElementById('disconnect');
-// let terminalContainer = document.getElementById('terminal');
-// let sendForm = document.getElementById('send-form');
-// let inputField = document.getElementById('input');
-
 _UUID_BATTERY_SERVICE = 0x180F;
-_UUID_SWEETYAAR_SERVICE = 0x2504;
+_UUID_SWEETYAAR_SERVICE = "00000000-2504-2021-0000-000079616172";
 _UUID_CURRENT_TIME_SERVICE = 0x1805
 
 _UUID_CHAR_BATTERY_LEVEL = 0x2A19;
-_UUID_CHAR_SWEETYAAR_CONTROL = 0x3000;
-_UUID_CHAR_CURRENTLY_PLAYING = 0x3001;
-_UUID_CHAR_INACTIVE_COUNTER_SEC = 0x3002;
-_UUID_CHAR_DAYTIME_MODE = 0x3003;
+_UUID_CHAR_SWEETYAAR_CONTROL = "00000001-2504-2021-0000-000079616172";
+_UUID_CHAR_CURRENTLY_PLAYING = "00000002-2504-2021-0000-000079616172";
+_UUID_CHAR_INACTIVE_COUNTER_SEC = "00000003-2504-2021-0000-000079616172";
+_UUID_CHAR_DAYTIME_MODE = "00000004-2504-2021-0000-000079616172";
 _UUID_CHAR_DATE_TIME = 0x2A08;
 
 _SWEETYAAR_COMMANDS = {
@@ -61,9 +54,8 @@ async function connectToBluetoothDevice() {
 
     device = await navigator.bluetooth.requestDevice({
         filters: [
-            // { namePrefix: "Sweet" },
             { services: [_UUID_BATTERY_SERVICE, _UUID_SWEETYAAR_SERVICE, _UUID_CURRENT_TIME_SERVICE] },
-        ]
+        ],
     });
     device.addEventListener('gattserverdisconnected', (event) => {
         bluetoothModal.show();

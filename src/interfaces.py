@@ -47,16 +47,16 @@ class GPIOInterface():
 
 
 class BluetoothInterface:
-    _ADV_APPEARANCE_GENERIC_MEDIA_PLAYER = 640
+    _ADV_APPEARANCE = 0x0280
 
     _UUID_BATTERY_SERVICE = bluetooth.UUID(0x180F)
     _UUID_CHAR_BATTERY_LEVEL = bluetooth.UUID(0x2A19)
 
-    _UUID_SWEETYAAR_SERVICE = bluetooth.UUID(0x2504)
-    _UUID_CHAR_SWEETYAAR_CONTROL = bluetooth.UUID(0x3000)
-    _UUID_CHAR_CURRENTLY_PLAYING = bluetooth.UUID(0x3001)
-    _UUID_CHAR_INACTIVE_COUNTER_SEC = bluetooth.UUID(0x3002)
-    _UUID_CHAR_DAYTIME_MODE = bluetooth.UUID(0x3003)
+    _UUID_SWEETYAAR_SERVICE = bluetooth.UUID("00000000-2504-2021-0000-000079616172")
+    _UUID_CHAR_SWEETYAAR_CONTROL = bluetooth.UUID("00000001-2504-2021-0000-000079616172")
+    _UUID_CHAR_CURRENTLY_PLAYING = bluetooth.UUID("00000002-2504-2021-0000-000079616172")
+    _UUID_CHAR_INACTIVE_COUNTER_SEC = bluetooth.UUID("00000003-2504-2021-0000-000079616172")
+    _UUID_CHAR_DAYTIME_MODE = bluetooth.UUID("00000004-2504-2021-0000-000079616172")
     _UUID_SWEETYAAR_COMMANDS = {
         controller.Actions.PLAY_SONG: 0x1,
         controller.Actions.PLAY_ANIMAL_SOUND: 0x2,
@@ -71,6 +71,8 @@ class BluetoothInterface:
     _UUID_CHAR_DATE_TIME = bluetooth.UUID(0x2A08)
 
     def __init__(self, cfg):
+        self.name = cfg["device_name"]
+        self.bt_addr_mode = 0x00 if cfg["mac_address_mode"] == "internal" else 0x01  # "internal" / "random"
         self.battery_service = aioble.Service(self._UUID_BATTERY_SERVICE)
         self.battery_level_char = aioble.Characteristic(self.battery_service, self._UUID_CHAR_BATTERY_LEVEL, notify=True, read=True)
 
@@ -79,21 +81,28 @@ class BluetoothInterface:
         self.currently_playing_char = aioble.Characteristic(self.sweetyaar_service, self._UUID_CHAR_CURRENTLY_PLAYING, notify=True, read=True)
         self.inactive_counter_sec_char = aioble.Characteristic(self.sweetyaar_service, self._UUID_CHAR_INACTIVE_COUNTER_SEC, notify=True, read=True)
         self.daytime_mode_char = aioble.Characteristic(self.sweetyaar_service, self._UUID_CHAR_DAYTIME_MODE, notify=True, read=True)
+        
         self.current_time_service = aioble.Service(self._UUID_CURRENT_TIME_SERVICE)
         self.date_time_char = aioble.Characteristic(self.current_time_service, self._UUID_CHAR_DATE_TIME, notify=True, read=True, write=True)
 
-        aioble.register_services(self.battery_service, self.sweetyaar_service, self.current_time_service)
+        aioble.register_services(
+            self.battery_service, 
+            self.sweetyaar_service, 
+            self.current_time_service,
+        )
 
 
-    async def advertise(self, adv_uuid = _ADV_APPEARANCE_GENERIC_MEDIA_PLAYER):
+    async def advertise(self, adv_uuid=_ADV_APPEARANCE):
         """Advertises and connects to only a single device at a time."""
         while True: 
             try:
                 print("Advertising. Waiting for connection..")
+                bluetooth.BLE().config(gap_name=self.name, addr_mode=self.bt_addr_mode)
                 async with await aioble.advertise(
-                        120_000,
-                        name="SweetYaar",
-                        services=[self._UUID_BATTERY_SERVICE, self._UUID_SWEETYAAR_SERVICE, self._UUID_CURRENT_TIME_SERVICE],
+                        250_000,
+                        name=self.name,
+                        services=[
+                            self._UUID_BATTERY_SERVICE, self._UUID_SWEETYAAR_SERVICE, self._UUID_CURRENT_TIME_SERVICE],
                         appearance=adv_uuid,
                     ) as connection:
                     print("BT Connection from", connection.device)
@@ -153,7 +162,6 @@ class BluetoothInterface:
                 datetime_value = self.date_time_char.read()
                 local_year, local_month, local_day, local_hours, local_minutes, local_seconds = struct.unpack("<HBBBBB", datetime_value)
                 rtc.datetime((local_year, local_month, local_day, None, local_hours, local_minutes, local_seconds, 0))
-                print("* Updated RTC time")
                 _publish_device_time()
 
         tasks = [asyncio.create_task(_constantly_publish_device_time()), asyncio.create_task(_update_device_time())]
