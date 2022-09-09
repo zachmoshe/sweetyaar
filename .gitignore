@@ -158,3 +158,4 @@ cython_debug/
 *.mpy
 wifi.dat
 *.code-workspace
+www/images/*

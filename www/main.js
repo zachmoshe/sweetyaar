@@ -38,6 +38,9 @@ $(document).ready(function () {
     buttonDaytime = $("#button-daytime");
     buttonNighttime = $("#button-nighttime");
 
+    image = $("#image")
+
+    $.getJSON('/images/metadata.json', changeImage);
     bluetoothButton.click(connectToBluetoothDevice);
     showBluetoothModal();
 });
@@ -45,6 +48,14 @@ $(document).ready(function () {
 function showBluetoothModal() {
     mainPanel.hide();
     bluetoothModal.show();
+}
+
+
+function changeImage(imagesData) {
+    var imageUrl = imagesData[Math.floor(Math.random() * imagesData.length)];
+    image.attr("src", imageUrl);
+
+    setTimeout(changeImage, 5000, imagesData);
 }
 
 

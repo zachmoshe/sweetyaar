@@ -11,11 +11,21 @@ FLAG_BUCKET_NAME = flags.DEFINE_string('bucket_name', 'sweetyaar.com', 'AWS S3 b
 
 _WWW_FOLDER = "www"
 _ENV_FILENAME = ".env"
-_CONTENT_TYPES = {".html": "text/html", ".js": "text/javascript"}
+_CONTENT_TYPES = {
+    ".json": "text/json",
+    ".html": "text/html", 
+    ".js": "text/javascript",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+}
 
 def main(argv):
     s3 = boto3.client("s3")
-    for f in pathlib.Path(_WWW_FOLDER).glob("*"):
+    for f in pathlib.Path(_WWW_FOLDER).glob("**/*"):
+        if not f.is_file(): 
+            continue
+
         rel_name = f.relative_to(_WWW_FOLDER)
         print(f"Uploading {f} to s3://{FLAG_BUCKET_NAME.value}/{rel_name}")
         s3.upload_file(str(f), FLAG_BUCKET_NAME.value, str(rel_name), ExtraArgs={'ContentType': _CONTENT_TYPES.get(f.suffix, "text")})
