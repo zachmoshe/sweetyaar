@@ -28,22 +28,22 @@ class LedIndicate:
 def _mount_sdcard():
     print("Mounting SDCard... ", end="")
     if "spi" in cfg["sdcard"]:
-        spi = SPI(cfg["sdcard"]["spi"], baudrate=40_000_000)
+        spi = SPI(cfg["sdcard"]["spi"])
     elif "soft_spi" in cfg["sdcard"]:
         spi = SoftSPI(
             baudrate=40_000_000,
-            sck=Pin(cfg["sdcard"]["SPI_SCK"]),
-            mosi=Pin(cfg["sdcard"]["SPI_MOSI"]),
-            miso=Pin(cfg["sdcard"]["SPI_MISO"]))
+            sck=Pin(cfg["sdcard"]["soft_spi"]["SPI_SCK"]),
+            mosi=Pin(cfg["sdcard"]["soft_spi"]["SPI_MOSI"]),
+            miso=Pin(cfg["sdcard"]["soft_spi"]["SPI_MISO"]))
     else:
         raise ValueError("Must provide `spi` or `soft_spi` in sdcard config")
     sd = sdcard.SDCard(spi=spi, cs=Pin(cfg["sdcard"]["SPI_CS"], Pin.OUT))
     os.mount(sd, cfg["sdcard"]["mount_path"])
-    return True
+    return sd
 
 try:
     with LedIndicate(LED, "blue"):
-        _mount_sdcard()
+        SDCARD = _mount_sdcard()
     LED.blink_sync("green", cycle_ms=200, times=4)
 
 except Exception as e:
