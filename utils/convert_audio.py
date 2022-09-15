@@ -9,7 +9,7 @@ import tempfile
 _DEFAULT_FFMPEG_TP = -0.5
 _DEFAULT_FFMPEG_I = -12
 _DEFAULT_FFMPEG_LRA = 11
-_DEFAULT_FFMPEG_SAMPLE_RATE = 22050
+_DEFAULT_FFMPEG_SAMPLE_RATE = 16000
 
 _MEDIA_FILE_SUFFIXES = ("wav", "mp3", "ogg", "aiff", "asf", "avi", "flv")
 
@@ -29,7 +29,7 @@ def _renormalize_audio_volume(input_path, output_path, i=_DEFAULT_FFMPEG_I, lra=
 
 def main(args):
     if len(args) != 2:
-        raise ValueError("Usage: {args[0]} [input file root]")
+        raise ValueError(f"Usage: {args[0]} [input file root]")
     input_file_root = pathlib.Path(args[1])
 
     for input_file in _traverse_descendants(input_file_root):
