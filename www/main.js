@@ -1,3 +1,5 @@
+_IMAGE_INTERVAL_MSEC = 30000;
+
 _UUID_BATTERY_SERVICE = 0x180F;
 _UUID_SWEETYAAR_SERVICE = "00000000-2504-2021-0000-000079616172";
 _UUID_CURRENT_TIME_SERVICE = 0x1805
@@ -57,7 +59,7 @@ function changeImage(imagesData) {
     var imageUrl = imagesData[Math.floor(Math.random() * imagesData.length)];
     image.attr("src", imageUrl);
 
-    setTimeout(changeImage, 5000, imagesData);
+    setTimeout(changeImage, _IMAGE_INTERVAL_MSEC, imagesData);
 }
 
 
