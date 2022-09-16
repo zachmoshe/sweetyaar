@@ -13,6 +13,9 @@ gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
 
 cfg = config.get_config()
 
+AUDIO_PLAYER_FILE_BUFFER = bytearray(cfg["audio_player"]["I2S_buffer_length_bytes"])
+
+
 LED = led_indicator.LedIndicator.from_neo_pixel(
     cfg["led_indicator"]["DI_GPIO"])
 LED.set_intensity(-2)
@@ -34,7 +37,6 @@ def _mount_sdcard():
         spi = SPI(cfg["sdcard"]["spi"])
     elif "soft_spi" in cfg["sdcard"]:
         spi = SoftSPI(
-            baudrate=40_000_000,
             sck=Pin(cfg["sdcard"]["soft_spi"]["SPI_SCK"]),
             mosi=Pin(cfg["sdcard"]["soft_spi"]["SPI_MOSI"]),
             miso=Pin(cfg["sdcard"]["soft_spi"]["SPI_MISO"]))

@@ -9,7 +9,7 @@ from src import interfaces
 cfg = config.get_config()
 
 al = audio_library.AudioLibrary(cfg["audio_library"])
-ap = audio_player.AudioPlayer(cfg["audio_player"])
+ap = audio_player.AudioPlayer(cfg["audio_player"], preallocated_buffer=init.AUDIO_PLAYER_FILE_BUFFER)
 
 # Initialize controller and interfaces.
 ctl = controller.SweetYaarController(cfg=cfg["controller"], audio_library=al, audio_player=ap)

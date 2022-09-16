@@ -33,7 +33,7 @@ def _assert_wav_file(filename):
 
 
 class AudioPlayer:
-    def __init__(self, config):
+    def __init__(self, config, preallocated_buffer=None):
         self.i2s_id = config["I2S_id"]
         self.gpio_sck = config["I2S_SCK"]
         self.gpio_ws = config["I2S_WS"]
@@ -45,7 +45,8 @@ class AudioPlayer:
         self._currently_playing_task = None
         self._input_file_handle = None
         self._silent_samples = bytearray(512)
-        self._wav_samples = memoryview(bytearray(self.buffer_length_bytes))
+        buf = bytearray(self.buffer_length_bytes) if preallocated_buffer is None else preallocated_buffer
+        self._wav_samples = memoryview(buf)
 
         self.audio_out = I2S(
             self.i2s_id,
