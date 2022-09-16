@@ -111,11 +111,10 @@ class BluetoothInterface:
                     ) as connection:
                     logger.info(f"BT Connection from {connection.device}")
                     logger.bt_logger.connect_to_bt_characteristic(self.log_messages_char)
-                    await connection.disconnected()
+                    await connection.disconnected(timeout_ms=None)
             
             except (asyncio.core.TimeoutError, asyncio.core.CancelledError) as e:
                 logger.error(f"Got error while connected to BT device: {repr(e)}")
-                raise e
 
     def handle_controller_state_change(self, event):
         if "currently_playing" in event:
@@ -131,8 +130,6 @@ class BluetoothInterface:
         battery_service_task = asyncio.create_task(self._run_battery_service())
         current_time_service = asyncio.create_task(self._run_current_time_service())
         control_service = asyncio.create_task(self._run_control_service(actions_callback))
-        await asyncio.gather(advertising_task, battery_service_task, current_time_service, control_service)
-
 
     async def _run_control_service(self, actions_callback):
         while True:
