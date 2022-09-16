@@ -3,6 +3,10 @@ import uasyncio as asyncio
 import time
 
 from src import audio_player
+from . import bt_logger
+
+logger = bt_logger.get_logger(__name__)
+
 
 
 class Actions:
@@ -129,7 +133,7 @@ class SweetYaarController:
             await asyncio.gather(*ifaces_tasks)
             
         except Exception as e:
-            print("Controller caught exception: ", e)
+            logger.error(f"Controller caught exception: {repr(e)}")
             raise e
 
         finally:
@@ -156,7 +160,7 @@ class SweetYaarController:
         elif action == Actions.FORCE_NIGHTTIME:
             self.force_daytime_mode("nighttime")
         else:
-            print("[CTL] !!! Unknown action ", action)
+            logger.error(f"Unknown action {action}")
 
     def _play_sound_file(self, type, sound_name, sound_path):
         if self._is_kill_switch_activated():
@@ -167,24 +171,31 @@ class SweetYaarController:
 
     def _play_song(self):
         if self._is_kill_switch_activated():
+            logger.info("Kill-switch is activated. Ignoring play song request.")
             return
         song_name, song_path = self.audio_library.get_random_song(mode=self.daytime_manager.get_daytime_mode())
+        logger.info(f"Playing song: {song_name}")
         self._play_sound_file("song", song_name, song_path)
 
     def _play_animal_sound(self):
         if self._is_kill_switch_activated():
+            logger.info("Kill-switch is activated. Ignoring play animal sound request.")
             return
         animal_name, animal_path = self.audio_library.get_random_animal_sound()
+        logger.info(f"Playing animal: {animal_name}")
         self._play_sound_file("animal", animal_name, animal_path)
 
     def _stop_playing(self):
+        logger.info("Stop playing.")
         self.audio_player.stop()
 
     def _activate_kill_switch(self):
+        logger.info("Kill-switch activated.")
         self._stop_playing()
         self._last_kill_switch_time = time.time()
         asyncio.create_task(self._publish_kill_switch_counter())
 
     def force_daytime_mode(self, value):
         assert value in ("daytime", "nighttime")
+        logger.info(f"Forcing {value} mode.")
         self.daytime_manager.override_daytime_mode(value)

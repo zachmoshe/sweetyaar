@@ -7,6 +7,7 @@ _UUID_CHAR_SWEETYAAR_CONTROL = "00000001-2504-2021-0000-000079616172";
 _UUID_CHAR_CURRENTLY_PLAYING = "00000002-2504-2021-0000-000079616172";
 _UUID_CHAR_INACTIVE_COUNTER_SEC = "00000003-2504-2021-0000-000079616172";
 _UUID_CHAR_DAYTIME_MODE = "00000004-2504-2021-0000-000079616172";
+_UUID_CHAR_LOG_MESSAGES = "00000005-2504-2021-0000-000079616172";
 _UUID_CHAR_DATE_TIME = 0x2A08;
 
 _SWEETYAAR_COMMANDS = {
@@ -30,6 +31,7 @@ $(document).ready(function () {
     currentlyPlayingText = $("#currently-playing-text");
     currentLocalTimeText = $("#current-local-time-text");
     inactiveCounterText = $("#inactive-counter-text");
+    logMessagesUl = $("#log-messages-ul")
 
     buttonPlaySong = $("#button-play-song");
     buttonPlayAnimal = $("#button-play-animal");
@@ -61,8 +63,6 @@ function changeImage(imagesData) {
 
 // Launch Bluetooth device chooser and connect to the selected
 async function connectToBluetoothDevice() {
-    console.log("connecting...")
-
     device = await navigator.bluetooth.requestDevice({
         filters: [
             { services: [_UUID_BATTERY_SERVICE, _UUID_SWEETYAAR_SERVICE, _UUID_CURRENT_TIME_SERVICE] },
@@ -75,7 +75,6 @@ async function connectToBluetoothDevice() {
     server = await device.gatt.connect()
 
     batteryService = await server.getPrimaryService(_UUID_BATTERY_SERVICE);
-    console.log('got battery service "' + batteryService + '"');
 
     batteryLevelChar = await batteryService.getCharacteristic(_UUID_CHAR_BATTERY_LEVEL);
     batteryLevelChar.addEventListener("characteristicvaluechanged", (event) => handleBatteryLevelChanged(event.target.value));
@@ -84,7 +83,6 @@ async function connectToBluetoothDevice() {
 
 
     sweetyaarService = await server.getPrimaryService(_UUID_SWEETYAAR_SERVICE);
-    console.log('got SweetYaar service "' + sweetyaarService + '"');
 
     currentlyPlayingChar = await sweetyaarService.getCharacteristic(_UUID_CHAR_CURRENTLY_PLAYING);
     currentlyPlayingChar.addEventListener("characteristicvaluechanged", handleCurrentlyPlayingChanged);
@@ -102,6 +100,9 @@ async function connectToBluetoothDevice() {
     await daytimeModeChar.startNotifications();
     handleDaytimeModeChanged(await daytimeModeChar.readValue());  // read the current value
 
+    logMessagesChar = await sweetyaarService.getCharacteristic(_UUID_CHAR_LOG_MESSAGES);
+    logMessagesChar.addEventListener("characteristicvaluechanged", (event) => handleLogMessage(event.target.value));
+    await logMessagesChar.startNotifications()
 
     currentTimeService = await server.getPrimaryService(_UUID_CURRENT_TIME_SERVICE);
     dateTimeChar = await currentTimeService.getCharacteristic(_UUID_CHAR_DATE_TIME);
@@ -163,6 +164,11 @@ function handleInactiveCounterChanged(event) {
 }
 
 // Data receiving
+function handleLogMessage(value) {
+    value = new TextDecoder().decode(value);
+    $(logMessagesUl).append("<li>" + value + "</li>")
+}
+
 function handleBatteryLevelChanged(value) {
     value = value.getInt8();
     batteryLevelIcon.removeClass("bi-battery bi-battery-half bi-battery-full text-danger");

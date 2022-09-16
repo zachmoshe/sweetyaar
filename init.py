@@ -5,6 +5,9 @@ from machine import Pin, SoftSPI, SPI
 from src import config
 from src import led_indicator
 from lib import sdcard
+from . import bt_logger
+
+logger = bt_logger.get_logger(__name__)
 
 gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
 
@@ -26,7 +29,7 @@ class LedIndicate:
 
 
 def _mount_sdcard():
-    print("Mounting SDCard... ", end="")
+    logger.info("Mounting SDCard...")
     if "spi" in cfg["sdcard"]:
         spi = SPI(cfg["sdcard"]["spi"])
     elif "soft_spi" in cfg["sdcard"]:
@@ -47,8 +50,7 @@ try:
     LED.blink_sync("green", cycle_ms=200, times=4)
 
 except Exception as e:
-    print("COULDN'T INIT BOARD:")
-    print(e)
+    logger.error(f"COULDN'T INIT BOARD: {repr(e)}")
     LED.blink_sync("red", cycle_ms=400, times=4)
     LED.set_color("red")
     raise e

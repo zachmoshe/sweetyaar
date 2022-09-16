@@ -3,6 +3,11 @@ import wave
 
 from machine import I2S, Pin
 
+from . import bt_logger
+
+logger = bt_logger.get_logger(__name__)
+
+
 EVENT_AUDIO_STARTED = 1
 EVENT_AUDIO_FINISHED = 2
 
@@ -72,8 +77,7 @@ class AudioPlayer:
                             num_read = self._input_file_handle.readinto(self._wav_samples)
                             break 
                         except Exception as e:
-                            print("EXCEPTION IN PLAYER (READ): ", e)
-                            print(e)
+                            logger.error(f"EXCEPTION IN PLAYER (READ): {repr(e)}")
                             
                     if num_read == 0:  # EOF or 3 errors while reading
                         self.stop()
@@ -85,8 +89,7 @@ class AudioPlayer:
                         swriter.out_buf = self._wav_samples[:num_read]
                         await swriter.drain()
             except Exception as e:
-                print("EXCEPTION IN PLAYER: ", e)
-                print(e)
+                logger.error(f"EXCEPTION IN PLAYER: {repr(e)}")
                 self.stop()
 
 
@@ -100,7 +103,6 @@ class AudioPlayer:
         self._input_file_handle = fh
 
     def stop(self):
-        print("Stopping playing file")
         if self._input_file_handle is not None:
             self._input_file_handle.close()
             self._input_file_handle = None

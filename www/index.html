@@ -31,6 +31,18 @@
             border: 2px solid black;
             box-shadow: 0 10px 16px 0 rgb(0 0 0), 0 6px 20px 0 rgb(0 0 0 / 20%);
         }
+
+        ul.log-messages-box {
+            border: 1px solid gray;
+            background: rgba(255, 255, 255, 0.5);
+            list-style: none;
+            padding-left: 0.5em;
+        }
+
+        ul.log-messages-box li {
+            font-family: 'Courier New', Courier, monospace;
+            color: black;
+        }
     </style>
 
 </head>
@@ -150,7 +162,20 @@
             </div>
         </div>
 
-        <span id="current-local-time-text"></span>
+
+        <!-- Debug stuff -->
+        <div class="row mt-5">
+            <div class="col-12">
+                <span id="current-local-time-text"></span>
+            </div>
+        </div>
+        <div class="row mt-1">
+            <div class="col-12">
+                <ul id="log-messages-ul" class="log-messages-box">
+                </ul>
+            </div>
+        </div>
+
     </div>
 
 </body>

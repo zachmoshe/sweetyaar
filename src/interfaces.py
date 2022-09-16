@@ -6,6 +6,9 @@ import uasyncio as asyncio
 
 from lib import aioble
 from src import controller
+from . import bt_logger
+
+logger = bt_logger.get_logger(__name__)
 
 
 class GPIOInterface():
@@ -43,7 +46,7 @@ class GPIOInterface():
         elif songs_pressed:
             actions_callback(controller.Actions.PLAY_SONG)
         else:
-            print("weird, but no button was pressed when got here...")
+            logger.warn("weird, but no button was pressed when got here...")
 
 
 class BluetoothInterface:
@@ -57,6 +60,7 @@ class BluetoothInterface:
     _UUID_CHAR_CURRENTLY_PLAYING = bluetooth.UUID("00000002-2504-2021-0000-000079616172")
     _UUID_CHAR_INACTIVE_COUNTER_SEC = bluetooth.UUID("00000003-2504-2021-0000-000079616172")
     _UUID_CHAR_DAYTIME_MODE = bluetooth.UUID("00000004-2504-2021-0000-000079616172")
+    _UUID_CHAR_LOG_MESSAGES = bluetooth.UUID("00000005-2504-2021-0000-000079616172")
     _UUID_SWEETYAAR_COMMANDS = {
         controller.Actions.PLAY_SONG: 0x1,
         controller.Actions.PLAY_ANIMAL_SOUND: 0x2,
@@ -81,7 +85,7 @@ class BluetoothInterface:
         self.currently_playing_char = aioble.Characteristic(self.sweetyaar_service, self._UUID_CHAR_CURRENTLY_PLAYING, notify=True, read=True)
         self.inactive_counter_sec_char = aioble.Characteristic(self.sweetyaar_service, self._UUID_CHAR_INACTIVE_COUNTER_SEC, notify=True, read=True)
         self.daytime_mode_char = aioble.Characteristic(self.sweetyaar_service, self._UUID_CHAR_DAYTIME_MODE, notify=True, read=True)
-        
+        self.log_messages_char = aioble.Characteristic(self.sweetyaar_service, self._UUID_CHAR_LOG_MESSAGES, notify=True, read=True)        
         self.current_time_service = aioble.Service(self._UUID_CURRENT_TIME_SERVICE)
         self.date_time_char = aioble.Characteristic(self.current_time_service, self._UUID_CHAR_DATE_TIME, notify=True, read=True, write=True)
 
@@ -96,20 +100,22 @@ class BluetoothInterface:
         """Advertises and connects to only a single device at a time."""
         while True: 
             try:
-                print("Advertising. Waiting for connection..")
+                logger.info("Advertising. Waiting for connection..")
                 bluetooth.BLE().config(gap_name=self.name, addr_mode=self.bt_addr_mode)
                 async with await aioble.advertise(
-                        250_000,
+                        -1,
                         name=self.name,
                         services=[
                             self._UUID_BATTERY_SERVICE, self._UUID_SWEETYAAR_SERVICE, self._UUID_CURRENT_TIME_SERVICE],
                         appearance=adv_uuid,
                     ) as connection:
-                    print("BT Connection from", connection.device)
+                    logger.info(f"BT Connection from {connection.device}")
+                    logger.bt_logger.connect_to_bt_characteristic(self.log_messages_char)
                     await connection.disconnected()
             
-            except (asyncio.core.TimeoutError, asyncio.core.CancelledError):
-                pass
+            except (asyncio.core.TimeoutError, asyncio.core.CancelledError) as e:
+                logger.error(f"Got error while connected to BT device: {repr(e)}")
+                raise e
 
     def handle_controller_state_change(self, event):
         if "currently_playing" in event:
