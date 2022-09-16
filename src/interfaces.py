@@ -5,8 +5,8 @@ import time
 import uasyncio as asyncio
 
 from lib import aioble
+from src import bt_logger
 from src import controller
-from . import bt_logger
 
 logger = bt_logger.get_logger(__name__)
 

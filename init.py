@@ -2,10 +2,10 @@ import gc
 import os
 from machine import Pin, SoftSPI, SPI
 
+from src import bt_logger
 from src import config
 from src import led_indicator
 from lib import sdcard
-from . import bt_logger
 
 logger = bt_logger.get_logger(__name__)
 

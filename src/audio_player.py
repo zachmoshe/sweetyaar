@@ -3,7 +3,7 @@ import wave
 
 from machine import I2S, Pin
 
-from . import bt_logger
+from src import bt_logger
 
 logger = bt_logger.get_logger(__name__)
 
