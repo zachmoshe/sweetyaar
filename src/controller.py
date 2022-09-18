@@ -1,6 +1,7 @@
+import machine
 from machine import Pin
-import uasyncio as asyncio
 import time
+import uasyncio as asyncio
 
 from src import audio_player
 from src import bt_logger
@@ -72,19 +73,23 @@ class DaytimeModeManager:
 
 
 class SweetYaarController:
-    def __init__(self, cfg, audio_library, audio_player):
-        self.audio_library = audio_library
-        self.audio_player = audio_player
-        self.audio_player.register_activity_callback(self._audio_activity_callback)
+
+    def __init__(self, device):
+        self.device = device
+        cfg = device.config["controller"]
+        self.device.audio_player.register_activity_callback(self._audio_activity_callback)
         self.currently_playing_desc = ""
         self._kill_switch_inactive_time_secs = cfg["kill_switch_inactive_time_secs"]
-        self._last_kill_switch_time = 0
+        self._sleep_inactivity_threshold_secs = cfg["sleep_inactivity_threshold_secs"]
         self.daytime_manager = DaytimeModeManager(self, cfg["daytime_range"])
+        self._last_kill_switch_time = None
+        self._last_action_ticks_time = time.ticks_ms()
 
         self.interfaces = []
         self.controller_state_updates_listeners = []
 
         asyncio.create_task(self.daytime_manager.constantly_publish_daytime_mode())
+        asyncio.create_task(self.monitor_inactivity_threshold())
 
     def register_interface(self, iface):
         # Should be called before taking control.
@@ -97,8 +102,29 @@ class SweetYaarController:
         for l in self.controller_state_updates_listeners:
             l(state_update)
 
+    @property
+    def kill_switch_counter_secs(self):
+        if self._last_kill_switch_time is None:
+            return None
+        else:
+            diff_from_last_kill_switch = int(time.ticks_diff(time.ticks_ms(), self._last_kill_switch_time) / 1000)
+            if diff_from_last_kill_switch > self._kill_switch_inactive_time_secs:
+                return None
+            else:
+                return self._kill_switch_inactive_time_secs - diff_from_last_kill_switch
+
+    @property
+    def time_from_last_activity_secs(self):
+        return int(time.ticks_diff(time.ticks_ms(), self._last_action_ticks_time) / 1000)
+
+    def update_activity(self):
+        self._last_action_ticks_time = time.ticks_ms()
+
+    def _should_sleep(self):
+        return self.time_from_last_activity_secs > self._sleep_inactivity_threshold_secs
+
     def _is_kill_switch_activated(self):
-        return time.time() < self._last_kill_switch_time + self._kill_switch_inactive_time_secs
+        return self.kill_switch_counter_secs is not None
 
     def _audio_activity_callback(self, event, *args):
         if event == audio_player.EVENT_AUDIO_FINISHED:
@@ -108,24 +134,21 @@ class SweetYaarController:
             self.currently_playing_desc = args[0]
             self.update_controller_state({"currently_playing": self.currently_playing_desc})
 
-
     async def _publish_kill_switch_counter(self):
         while self._is_kill_switch_activated():
-            ctr = self._kill_switch_inactive_time_secs - (time.time() - self._last_kill_switch_time)
-            self.update_controller_state({"kill_switch_counter": ctr})
+            self.update_controller_state({"kill_switch_counter": self.kill_switch_counter_secs})
             await asyncio.sleep(1)
         # Make sure we always reset the GUI (sending 0)
         self.update_controller_state({"kill_switch_counter": 0})
 
-    def _play_startup_sound(self):
-        self.audio_player.play_file(self.audio_library.get_sound_filename("startup"))
-    
-    def _play_shutdown_sound(self):
-        self.audio_player.play_file(self.audio_library.get_sound_filename("shutdown"))
+    async def monitor_inactivity_threshold(self):
+        while True:
+            if self._should_sleep():
+                self.device.sleep()
+            await asyncio.sleep(60)  # Check again after a minute.
 
     async def _main_loop(self):
         try:
-            self._play_startup_sound()
             ifaces_tasks = [
                 asyncio.create_task(iface.listen(self.handle_action))
                 for iface in self.interfaces
@@ -140,13 +163,10 @@ class SweetYaarController:
             self._play_shutdown_sound()
         
     def take_control(self):
-        try:
-            asyncio.run(self._main_loop())
-        except KeyboardInterrupt:
-            pass
-
+        asyncio.run(self._main_loop())
 
     def handle_action(self, action):
+        self.update_activity()
         if action == Actions.PLAY_SONG:
             self._play_song()
         elif action == Actions.PLAY_ANIMAL_SOUND:
@@ -167,13 +187,13 @@ class SweetYaarController:
             return
         icon = "♫" if type == "song" else "🐶" if type == "animal" else ""
         desc = f"{icon} {sound_name}"  # Notice that an update will be sent to listeners only when audio is really played.
-        self.audio_player.play_file(sound_path, desc)
+        self.device.audio_player.play_file(sound_path, desc)
 
     def _play_song(self):
         if self._is_kill_switch_activated():
             logger.info("Kill-switch is activated. Ignoring play song request.")
             return
-        song_name, song_path = self.audio_library.get_random_song(mode=self.daytime_manager.get_daytime_mode())
+        song_name, song_path = self.device.audio_library.get_random_song(mode=self.daytime_manager.get_daytime_mode())
         logger.info(f"Playing song: {song_name}")
         self._play_sound_file("song", song_name, song_path)
 
@@ -181,18 +201,18 @@ class SweetYaarController:
         if self._is_kill_switch_activated():
             logger.info("Kill-switch is activated. Ignoring play animal sound request.")
             return
-        animal_name, animal_path = self.audio_library.get_random_animal_sound()
+        animal_name, animal_path = self.device.audio_library.get_random_animal_sound()
         logger.info(f"Playing animal: {animal_name}")
         self._play_sound_file("animal", animal_name, animal_path)
 
     def _stop_playing(self):
         logger.info("Stop playing.")
-        self.audio_player.stop()
+        self.device.audio_player.stop()
 
     def _activate_kill_switch(self):
         logger.info("Kill-switch activated.")
         self._stop_playing()
-        self._last_kill_switch_time = time.time()
+        self._last_kill_switch_time = time.ticks_ms()
         asyncio.create_task(self._publish_kill_switch_counter())
 
     def force_daytime_mode(self, value):

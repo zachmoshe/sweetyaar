@@ -1,5 +1,5 @@
 {
-    "timezone_utc_diff": 3,
+    "movement_sensor_gpio": 0,
     "sdcard": {
         "spi": 2,
         "SPI_CS": 5,
@@ -23,6 +23,7 @@
     },
     "controller": {
         "kill_switch_inactive_time_secs": 300,
+        "sleep_inactivity_threshold_secs": 600,
         "daytime_range": [
             "06:30",
             "18:00"
@@ -34,7 +35,7 @@
             "GPIO_songs_button": 14
         },
         "bluetooth": {
-            "mac_address_mode": "random",
+            "mac_address_mode": "internal",
             "device_name": "SweetYaar"
         }
     }

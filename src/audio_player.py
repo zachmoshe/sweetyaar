@@ -33,7 +33,7 @@ def _assert_wav_file(filename):
 
 
 class AudioPlayer:
-    def __init__(self, config, preallocated_buffer=None):
+    def __init__(self, config, preallocated_buffer):
         self.i2s_id = config["I2S_id"]
         self.gpio_sck = config["I2S_SCK"]
         self.gpio_ws = config["I2S_WS"]
@@ -45,8 +45,7 @@ class AudioPlayer:
         self._currently_playing_task = None
         self._input_file_handle = None
         self._silent_samples = bytearray(512)
-        buf = bytearray(self.buffer_length_bytes) if preallocated_buffer is None else preallocated_buffer
-        self._wav_samples = memoryview(buf)
+        self._wav_samples = memoryview(preallocated_buffer)
 
         self.audio_out = I2S(
             self.i2s_id,
@@ -72,14 +71,7 @@ class AudioPlayer:
                     await swriter.drain()
 
                 else:
-                    for _ in range(3):
-                        num_read = 0
-                        try:
-                            num_read = self._input_file_handle.readinto(self._wav_samples)
-                            break 
-                        except Exception as e:
-                            logger.error(f"EXCEPTION IN PLAYER (READ): {repr(e)}")
-                            
+                    num_read = self._input_file_handle.readinto(self._wav_samples)
                     if num_read == 0:  # EOF or 3 errors while reading
                         self.stop()
                     else:
@@ -92,6 +84,7 @@ class AudioPlayer:
             except Exception as e:
                 logger.error(f"EXCEPTION IN PLAYER: {repr(e)}")
                 self.stop()
+                raise e
 
 
     def play_file(self, wav_filename, desc=""):
