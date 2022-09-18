@@ -28,8 +28,8 @@ $(document).ready(function () {
     mainPanel = $("#remote-control-panel");
     bluetoothButton = $("#bluetooth-button");
 
-    batteryLevelText = $("#battery-level-text");
-    batteryLevelIcon = $("#battery-level-icon");
+    batteryMeter = $("#battery-meter");
+    volumeMeter = $("#volume-meter");
     currentlyPlayingText = $("#currently-playing-text");
     currentLocalTimeText = $("#current-local-time-text");
     inactiveCounterText = $("#inactive-counter-text");
@@ -46,7 +46,7 @@ $(document).ready(function () {
 
     $.getJSON('/images/metadata.json', changeImage);
     bluetoothButton.click(connectToBluetoothDevice);
-    showBluetoothModal();
+    // showBluetoothModal();
 });
 
 function showBluetoothModal() {
@@ -173,21 +173,7 @@ function handleLogMessage(value) {
 
 function handleBatteryLevelChanged(value) {
     value = value.getInt8();
-    batteryLevelIcon.removeClass("bi-battery bi-battery-half bi-battery-full text-danger");
-    batteryLevelText.removeClass("text-danger");
-
-    batteryLevelText.text(value + "%");
-
-    if (value < 25) {
-        iconClass = "bi-battery";  // empty
-        batteryLevelIcon.addClass("text-danger");
-        batteryLevelText.addClass("text-danger");
-    } else if (value < 75) {
-        iconClass = "bi-battery-half";
-    } else {
-        iconClass = "bi-battery-full";
-    }
-    batteryLevelIcon.addClass(iconClass);
+    $(batteryMeter).attr("value", value)
 }
 
 function handleCurrentlyPlayingChanged(event) {
