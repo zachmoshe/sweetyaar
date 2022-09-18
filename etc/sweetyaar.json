@@ -1,5 +1,5 @@
 {
-    "movement_sensor_gpio": 0,
+    "movement_sensor_gpio": 4,
     "sdcard": {
         "spi": 2,
         "SPI_CS": 5,
