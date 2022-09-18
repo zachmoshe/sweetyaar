@@ -18,6 +18,17 @@ _RGB_COLORS = {
 
 _U16 = 2 ** 16 - 1
 
+# A context manager for indicating that a process runs using the LED.
+class LedIndicate:
+    def __init__(self, led, color):
+        self.led = led
+        self.color = color
+    def __enter__(self):
+        self.led.set_color(self.color)
+    def __exit__(self, *args):
+        self.led.off()
+
+
 class LedIndicator:
     class RGBLeds:
         def __init__(self, red_gpio, green_gpio, blue_gpio):
@@ -80,3 +91,6 @@ class LedIndicator:
   
     def blink_sync(self, color, cycle_ms=200, times=None):
         asyncio.run(self.blink(color, cycle_ms, times))
+
+    def indicate(self, color):
+        return LedIndicate(self, color)
