@@ -159,3 +159,6 @@ cython_debug/
 wifi.dat
 *.code-workspace
 www/images/*
+server.crt
+server.csr 
+server.key
