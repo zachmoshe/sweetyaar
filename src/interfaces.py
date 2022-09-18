@@ -100,7 +100,7 @@ class BluetoothInterface:
         """Advertises and connects to only a single device at a time."""
         while True: 
             try:
-                logger.info("Advertising. Waiting for connection..")
+                logger.info("Advertising. Waiting for a BT connection..")
                 bluetooth.BLE().config(gap_name=self.name, addr_mode=self.bt_addr_mode)
                 async with await aioble.advertise(
                         -1,

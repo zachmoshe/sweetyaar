@@ -4,6 +4,7 @@ import machine
 from machine import Pin, SoftSPI, SPI
 import os
 import sys
+import time
 
 import uasyncio as asyncio
 
@@ -16,6 +17,7 @@ from src import interfaces
 from src import led_indicator
 from lib import sdcard
 
+machine.freq(160_000_000)
 gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
 logger = bt_logger.get_logger(__name__)
 
@@ -78,15 +80,16 @@ class SweetYaarDevice:
             machine.reset()
 
     def sleep(self):
-        logger.info("Yaar doesn't want to play :( Going to sleep...")
+        logger.info("Yaar doesn't want to play 😢 Going to sleep...")
+        time.sleep_ms(20)  # Let broadcasting finish
         wakeup_pin = Pin(self.config["movement_sensor_gpio"], mode=Pin.IN, pull=Pin.PULL_DOWN)
-        esp32.wake_on_ext0(pin=wakeup_pin, level=esp32.WAKEUP_ANY_HIGH)
+        esp32.wake_on_ext0(pin=wakeup_pin, level=esp32.WAKEUP_ALL_LOW)
         machine.lightsleep()
 
     def asyncio_exception_handler(self, loop, context):
         logger.error(f"An exception was caught in a co-routine: {context}")
         sys.print_exception(context["exception"])
-
+        time.sleep_ms(20)
         self.shutdown()
 
     def _play_startup_sound(self):
