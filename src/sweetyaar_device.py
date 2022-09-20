@@ -17,7 +17,7 @@ from src import interfaces
 from src import led_indicator
 from lib import sdcard
 
-machine.freq(160_000_000)
+machine.freq(240_000_000)
 gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
 logger = bt_logger.get_logger(__name__)
 
