@@ -1,7 +1,7 @@
 import esp32
 import gc 
 import machine
-from machine import Pin, SoftSPI, SPI
+from machine import Pin, SoftSPI, SPI, Signal
 import os
 import sys
 import time
@@ -31,6 +31,9 @@ class SweetYaarDevice:
         loop.set_exception_handler(self.asyncio_exception_handler)
 
         self.config = config.get_config()
+
+        # Bluetooth switch
+        self.bluetooth_switch = Signal(Pin(16, Pin.IN, Pin.PULL_UP), invert=True)
 
         # pre-allocate buffer to avoid later fragmented memory..
         self._audio_player_file_buffer = audio_player_file_buffer
@@ -123,8 +126,10 @@ class SweetYaarDevice:
         gpio_iface = interfaces.GPIOInterface(cfg=self.config["interfaces"]["gpio"])
         self.controller.register_interface(gpio_iface)
 
-        if True:  # change later to a physical switch
+        if self.bluetooth_switch.value() == 1:
+            logger.info("Bluetooth is on. Activating interface.")
             bt_iface = interfaces.BluetoothInterface(cfg=self.config["interfaces"]["bluetooth"])
             self.controller.register_interface(bt_iface)
             self.controller.register_controller_state_update_listener(bt_iface.handle_controller_state_change)
-
+        else:
+            logger.info("Bluetooth is off.")
