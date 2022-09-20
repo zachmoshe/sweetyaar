@@ -33,7 +33,8 @@ class SweetYaarDevice:
         self.config = config.get_config()
 
         # Bluetooth switch
-        self.bluetooth_switch = Signal(Pin(16, Pin.IN, Pin.PULL_UP), invert=True)
+        bt_gpio = self.config["bluetooth_switch_gpio"]
+        self.bluetooth_switch = Signal(Pin(bt_gpio, Pin.IN, Pin.PULL_UP), invert=True)
 
         # pre-allocate buffer to avoid later fragmented memory..
         self._audio_player_file_buffer = audio_player_file_buffer
