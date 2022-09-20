@@ -56,13 +56,29 @@ class SweetYaarDevice:
             self.led.blink_sync("green", cycle_ms=200, times=4)
             logger.info("Initialization completed.")
             self._play_startup_sound()
-            self.controller.take_control()
 
         except Exception as e:
             logger.error(f"Couldn't init SweetYaarDevice: {repr(e)}")
             self.led.blink_sync("red", cycle_ms=400, times=4)
             sys.print_exception(e)
             self.shutdown()
+
+        try:
+            shutdown_needed = False
+            self.controller.take_control()
+        
+        except KeyboardInterrupt:
+            print("Keyboard interrupt. Going back to REPL..")
+
+        except Exception as e:
+            shutdown_needed = True
+            logger.error(f"Controller caught exception: {repr(e)}")
+            sys.print_exception(e)
+
+        finally:
+            if shutdown_needed:
+                self.shutdown()
+        
 
     def shutdown(self):
         try:

@@ -151,19 +151,11 @@ class SweetYaarController:
             await asyncio.sleep(60)  # Check again after a minute.
 
     async def _main_loop(self):
-        try:
-            ifaces_tasks = [
-                asyncio.create_task(iface.listen(self.handle_action))
-                for iface in self.interfaces
-            ]
-            await asyncio.gather(*ifaces_tasks)
-            
-        except Exception as e:
-            logger.error(f"Controller caught exception: {repr(e)}")
-            raise e
-
-        finally:
-            self._play_shutdown_sound()
+        ifaces_tasks = [
+            asyncio.create_task(iface.listen(self.handle_action))
+            for iface in self.interfaces
+        ]
+        await asyncio.gather(*ifaces_tasks)
         
     def take_control(self):
         asyncio.run(self._main_loop())
