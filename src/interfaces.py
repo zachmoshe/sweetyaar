@@ -61,15 +61,6 @@ class BluetoothInterface:
     _UUID_CHAR_INACTIVE_COUNTER_SEC = bluetooth.UUID("00000003-2504-2021-0000-000079616172")
     _UUID_CHAR_DAYTIME_MODE = bluetooth.UUID("00000004-2504-2021-0000-000079616172")
     _UUID_CHAR_LOG_MESSAGES = bluetooth.UUID("00000005-2504-2021-0000-000079616172")
-    _UUID_SWEETYAAR_COMMANDS = {
-        controller.Actions.PLAY_SONG: 0x1,
-        controller.Actions.PLAY_ANIMAL_SOUND: 0x2,
-        controller.Actions.STOP_PLAYING: 0x3,
-        controller.Actions.KILL_SWITCH: 0x4,
-        controller.Actions.FORCE_DAYTIME: 0x10,
-        controller.Actions.FORCE_NIGHTTIME: 0x11,
-    }
-    _SWEETYAAR_COMMANDS_REV = {v: k for k, v in _UUID_SWEETYAAR_COMMANDS.items()}
 
     _UUID_CURRENT_TIME_SERVICE = bluetooth.UUID(0x1805)
     _UUID_CHAR_DATE_TIME = bluetooth.UUID(0x2A08)
@@ -134,9 +125,8 @@ class BluetoothInterface:
     async def _run_control_service(self, actions_callback):
         while True:
             await self.sweetyaar_control_char.written()
-            command_value = self.sweetyaar_control_char.read()
-            ctl_command_type = self._SWEETYAAR_COMMANDS_REV[command_value[0]]
-            actions_callback(ctl_command_type)
+            command_value = int(self.sweetyaar_control_char.read()[0])
+            actions_callback(command_value)
 
     async def _run_battery_service(self):
         import random  # temp thing

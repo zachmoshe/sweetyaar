@@ -16,8 +16,11 @@ class Actions:
     PLAY_ANIMAL_SOUND = 2
     STOP_PLAYING = 3
     KILL_SWITCH = 4
+
     FORCE_DAYTIME = 10
     FORCE_NIGHTTIME = 11
+
+    RESET_DEVICE = 20
 
 
 class DaytimeModeManager:
@@ -179,6 +182,8 @@ class SweetYaarController:
             self.force_daytime_mode("daytime")
         elif action == Actions.FORCE_NIGHTTIME:
             self.force_daytime_mode("nighttime")
+        elif action == Actions.RESET_DEVICE:
+            self.device.reset()
         else:
             logger.error(f"Unknown action {action}")
 

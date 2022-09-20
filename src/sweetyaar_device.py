@@ -89,6 +89,10 @@ class SweetYaarDevice:
         esp32.wake_on_ext0(pin=wakeup_pin, level=esp32.WAKEUP_ALL_LOW)
         machine.lightsleep()
 
+    def reset(self):
+        logger.info("Resetting device")
+        machine.reset()
+
     def asyncio_exception_handler(self, loop, context):
         logger.error(f"An exception was caught in a co-routine: {context}")
         sys.print_exception(context["exception"])

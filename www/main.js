@@ -13,13 +13,15 @@ _UUID_CHAR_LOG_MESSAGES = "00000005-2504-2021-0000-000079616172";
 _UUID_CHAR_DATE_TIME = 0x2A08;
 
 _SWEETYAAR_COMMANDS = {
-    "play_song": 0x1,
-    "play_animal": 0x2,
-    "stop": 0x3,
-    "kill_switch": 0x4,
+    "play_song": 1,
+    "play_animal": 2,
+    "stop": 3,
+    "kill_switch": 4,
 
-    "daytime": 0x10,
-    "nighttime": 0x11,
+    "daytime": 10,
+    "nighttime": 11,
+
+    "reset_device": 20,
 }
 
 
@@ -41,12 +43,13 @@ $(document).ready(function () {
     buttonKillSwitch = $("#button-kill-switch");
     buttonDaytime = $("#button-daytime");
     buttonNighttime = $("#button-nighttime");
+    buttonReset = $("#button-reset")
 
     image = $("#image")
 
     $.getJSON('/images/metadata.json', changeImage);
     bluetoothButton.click(connectToBluetoothDevice);
-    // showBluetoothModal();
+    showBluetoothModal();
 });
 
 function showBluetoothModal() {
@@ -136,6 +139,9 @@ function _setupControls(char) {
     buttonNighttime.click(() => {
         sweetYaarControlChar.writeValue(new Uint8Array([_SWEETYAAR_COMMANDS["nighttime"]]));
     });
+    buttonReset.click(() => {
+        sweetYaarControlChar.writeValue(new Uint8Array([_SWEETYAAR_COMMANDS["reset_device"]]));
+    })
 }
 
 function _send_current_date_time(char) {
