@@ -3,6 +3,10 @@ import random
 import re
 import time
 
+from src import bt_logger
+
+logger = bt_logger.get_logger(__name__)
+
 _RE_REMOVE_TRAILING_SLASH = re.compile(r"^(.*?)/*$")
 _RE_VALID_FILENAME = re.compile(r"^([a-zA-Z0-9.-_]+)[.]([a-zA-Z0-9.-_]+)$")
 
@@ -34,7 +38,7 @@ def _load_audio_folder(folder, humanize_filenames=True):
         
         m = _RE_VALID_FILENAME.match(path)
         if m is None:
-            print(f"Illegal audio filename: {folder}/{path}")
+            logger.error(f"Illegal audio filename: {folder}/{path}")
             continue
         filename = m.group(1)
         # "humanize" filename if needed
