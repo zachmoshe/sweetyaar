@@ -141,16 +141,17 @@ class SweetYaarDevice:
         self.audio_library = audio_library.AudioLibrary(self.config["audio_library"])
         self.audio_player = audio_player.AudioPlayer(self.config["audio_player"], preallocated_buffer=self._audio_player_file_buffer)
 
-        # Initialize controller and interfaces.
-        self.controller = controller.SweetYaarController(self)
-        
+        ifaces = []
+
         gpio_iface = interfaces.GPIOInterface(cfg=self.config["interfaces"]["gpio"])
-        self.controller.register_interface(gpio_iface)
+        ifaces.append(gpio_iface)
 
         if self.bluetooth_switch.value() == 1:
             logger.info("Bluetooth is on. Activating interface.")
             bt_iface = interfaces.BluetoothInterface(cfg=self.config["interfaces"]["bluetooth"])
-            self.controller.register_interface(bt_iface)
-            self.controller.register_controller_state_update_listener(bt_iface.handle_controller_state_change)
+            ifaces.append(bt_iface)
         else:
             logger.info("Bluetooth is off.")
+
+        # Initialize controller and interfaces.
+        self.controller = controller.SweetYaarController(self, active_interfaces=ifaces)

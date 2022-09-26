@@ -44,7 +44,7 @@
             color: black;
         }
 
-        .volume-meter {
+        .meter {
             height: 100%;
         }
     </style>
@@ -100,14 +100,14 @@
             </div>
             <div class="col-4 text-center">
                 <div class="input-group input-group-lg">
-                    <button class="form-control btn btn-primary btn-lg p-3">
+                    <button id="button-volume-down" class="form-control btn btn-primary btn-lg p-3">
                         <i class="bi bi-volume-down-fill"></i>
                     </button>
                     <button class="form-control btn btn-primary btn-lg p-0">
-                        <meter id="volume-meter" class="volume-meter" max="100" low="33" high="67" optimum="76"
+                        <meter id="volume-meter" class="meter" max="100" low="33" high="67" optimum="76"
                             value=""></meter>
                     </button>
-                    <button class="form-control btn btn-primary btn-lg p-3">
+                    <button id="button-volume-up" class="form-control btn btn-primary btn-lg p-3">
                         <i class="bi bi-volume-up-fill"></i>
                     </button>
                 </div>
@@ -119,8 +119,7 @@
             </div>
             <div class="col-2 text-center">
                 <button class="btn btn-primary btn-lg h-100 w-100 p-0">
-                    <meter id="battery-meter" class="volume-meter" max="100" low="33" high="67" optimum="76"
-                        value=""></meter>
+                    <meter id="battery-meter" class="meter" max="100" low="33" high="67" optimum="76" value=""></meter>
                 </button>
             </div>
         </div>

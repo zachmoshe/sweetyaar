@@ -19,6 +19,8 @@ class Actions:
 
     FORCE_DAYTIME = 10
     FORCE_NIGHTTIME = 11
+    VOLUME_UP = 12
+    VOLUME_DOWN = 13
 
     RESET_DEVICE = 20
 
@@ -77,7 +79,7 @@ class DaytimeModeManager:
 
 class SweetYaarController:
 
-    def __init__(self, device):
+    def __init__(self, device, active_interfaces):
         self.device = device
         cfg = device.config["controller"]
         self.device.audio_player.register_activity_callback(self._audio_activity_callback)
@@ -87,23 +89,22 @@ class SweetYaarController:
         self.daytime_manager = DaytimeModeManager(self, cfg["daytime_range"])
         self._last_kill_switch_time = None
         self._last_action_ticks_time = time.ticks_ms()
-
-        self.interfaces = []
+        
+        self._max_volume = 4  # volume is a 0..(_max_volume) integer.
+        self._default_volume = 3  # the default volume when booting (doesn't have to be the middle).
+        self._current_volume = self._default_volume  # will track the volume.
+        
+        self.interfaces = active_interfaces
         self.controller_state_updates_listeners = []
 
         asyncio.create_task(self.daytime_manager.constantly_publish_daytime_mode())
         asyncio.create_task(self.monitor_inactivity_threshold())
-
-    def register_interface(self, iface):
-        # Should be called before taking control.
-        self.interfaces.append(iface)
-
-    def register_controller_state_update_listener(self, callback_func):
-        self.controller_state_updates_listeners.append(callback_func)
+        self._update_audio_player_volume()
 
     def update_controller_state(self, state_update):
-        for l in self.controller_state_updates_listeners:
-            l(state_update)
+        for iface in self.interfaces:
+            if hasattr(iface, "handle_controller_event"):
+                iface.handle_controller_event(state_update)
 
     @property
     def kill_switch_counter_secs(self):
@@ -171,9 +172,13 @@ class SweetYaarController:
         elif action == Actions.KILL_SWITCH:
             self._activate_kill_switch()
         elif action == Actions.FORCE_DAYTIME:
-            self.force_daytime_mode("daytime")
+            self._force_daytime_mode("daytime")
         elif action == Actions.FORCE_NIGHTTIME:
-            self.force_daytime_mode("nighttime")
+            self._force_daytime_mode("nighttime")
+        elif action == Actions.VOLUME_UP:
+            self._increase_volume()
+        elif action == Actions.VOLUME_DOWN:
+            self._decrease_volume()
         elif action == Actions.RESET_DEVICE:
             self.device.reset()
         else:
@@ -212,7 +217,28 @@ class SweetYaarController:
         self._last_kill_switch_time = time.ticks_ms()
         asyncio.create_task(self._publish_kill_switch_counter())
 
-    def force_daytime_mode(self, value):
+    def _force_daytime_mode(self, value):
         assert value in ("daytime", "nighttime")
         logger.info(f"Forcing {value} mode.")
         self.daytime_manager.override_daytime_mode(value)
+    
+    def _increase_volume(self):
+        logger.info(f"Increasing volume.")
+        self._current_volume = min(self._max_volume, self._current_volume + 1)
+        self._update_audio_player_volume()
+
+    def _decrease_volume(self):
+        logger.info(f"Decreasing volume.")
+        self._current_volume = max(0, self._current_volume - 1)
+        self._update_audio_player_volume()
+
+    def _update_audio_player_volume(self):
+        shift = (self._current_volume - self._default_volume
+                 if self._current_volume > 0
+                 else None)
+        self.device.audio_player.volume = shift
+        self.update_controller_state({"volume": self.volume})
+
+    @property
+    def volume(self):
+        return int(100 * self._current_volume / self._max_volume)

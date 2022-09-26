@@ -10,6 +10,7 @@ _UUID_CHAR_CURRENTLY_PLAYING = "00000002-2504-2021-0000-000079616172";
 _UUID_CHAR_INACTIVE_COUNTER_SEC = "00000003-2504-2021-0000-000079616172";
 _UUID_CHAR_DAYTIME_MODE = "00000004-2504-2021-0000-000079616172";
 _UUID_CHAR_LOG_MESSAGES = "00000005-2504-2021-0000-000079616172";
+_UUID_CHAR_VOLUME = "00000006-2504-2021-0000-000079616172";
 _UUID_CHAR_DATE_TIME = 0x2A08;
 
 _SWEETYAAR_COMMANDS = {
@@ -20,6 +21,8 @@ _SWEETYAAR_COMMANDS = {
 
     "daytime": 10,
     "nighttime": 11,
+    "volume_up": 12,
+    "volume_down": 13,
 
     "reset_device": 20,
 }
@@ -43,7 +46,9 @@ $(document).ready(function () {
     buttonKillSwitch = $("#button-kill-switch");
     buttonDaytime = $("#button-daytime");
     buttonNighttime = $("#button-nighttime");
-    buttonReset = $("#button-reset")
+    buttonReset = $("#button-reset");
+    buttonVolumeUp = $("#button-volume-up");
+    buttonVolumeDown = $("#button-volume-down");
 
     image = $("#image")
 
@@ -109,6 +114,11 @@ async function connectToBluetoothDevice() {
     logMessagesChar.addEventListener("characteristicvaluechanged", (event) => handleLogMessage(event.target.value));
     await logMessagesChar.startNotifications()
 
+    volumeChar = await sweetyaarService.getCharacteristic(_UUID_CHAR_VOLUME);
+    volumeChar.addEventListener("characteristicvaluechanged", (event) => handleVolumeChanged(event.target.value));
+    await volumeChar.startNotifications()
+    handleVolumeChanged(await volumeChar.readValue());  // read the current value
+
     currentTimeService = await server.getPrimaryService(_UUID_CURRENT_TIME_SERVICE);
     dateTimeChar = await currentTimeService.getCharacteristic(_UUID_CHAR_DATE_TIME);
     dateTimeChar.addEventListener("characteristicvaluechanged", handleDateTimeUpdate);
@@ -138,6 +148,12 @@ function _setupControls(char) {
     });
     buttonNighttime.click(() => {
         sweetYaarControlChar.writeValue(new Uint8Array([_SWEETYAAR_COMMANDS["nighttime"]]));
+    });
+    buttonVolumeUp.click(() => {
+        sweetYaarControlChar.writeValue(new Uint8Array([_SWEETYAAR_COMMANDS["volume_up"]]));
+    });
+    buttonVolumeDown.click(() => {
+        sweetYaarControlChar.writeValue(new Uint8Array([_SWEETYAAR_COMMANDS["volume_down"]]));
     });
     buttonReset.click(() => {
         sweetYaarControlChar.writeValue(new Uint8Array([_SWEETYAAR_COMMANDS["reset_device"]]));
@@ -171,7 +187,6 @@ function handleInactiveCounterChanged(event) {
     }
 }
 
-// Data receiving
 function handleLogMessage(value) {
     value = new TextDecoder().decode(value);
     $(logMessagesUl).append("<li>" + value + "</li>")
@@ -201,4 +216,10 @@ function handleDaytimeModeChanged(value) {
     } else {
         console.log("Unknown daytime mode '" + value + "'");
     }
+}
+
+function handleVolumeChanged(value) {
+    value = value.getInt8();
+    $(volumeMeter).attr("value", value)
+    console.log("volume changed - " + value)
 }

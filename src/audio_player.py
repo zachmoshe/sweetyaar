@@ -42,6 +42,7 @@ class AudioPlayer:
 
         self.activity_listener_callbacks = []
 
+        self.volume = 0  # The shift in bits. 0 means untouched. None means muted
         self._currently_playing_task = None
         self._input_file_handle = None
         self._silent_samples = bytearray(512)
@@ -72,14 +73,19 @@ class AudioPlayer:
 
                 else:
                     num_read = self._input_file_handle.readinto(self._wav_samples)
-                    if num_read == 0:  # EOF or 3 errors while reading
+                    if num_read == 0:  # EOF 
                         self.stop()
                     else:
                         # apply temporary workaround to eliminate heap allocation in uasyncio Stream class.
                         # workaround can be removed after acceptance of PR:
                         #    https://github.com/micropython/micropython/pull/7868
                         # swriter.write(wav_samples_mv[:num_read])
-                        swriter.out_buf = self._wav_samples[:num_read]
+                        if self.volume is None:  # muted
+                            swriter.out_buf = self._silent_samples
+                        else:
+                            if self.volume != 0:
+                                I2S.shift(buf=self._wav_samples, bits=WAV_SAMPLE_BITS, shift=self.volume)
+                            swriter.out_buf = self._wav_samples[:num_read]
                         await swriter.drain()
             except Exception as e:
                 logger.error(f"EXCEPTION IN PLAYER: {repr(e)}")
@@ -108,22 +114,3 @@ class AudioPlayer:
     def _notify_listeners(self, event, *args):
         for callback_func in self.activity_listener_callbacks:
             callback_func(event, *args)
-
-
-
-    # # def increase_volume(self):
-    # #     current_volume = self.get_volume()
-    # #     new_volume = min(100, round(current_volume + self.volume_step, -1))
-    # #     self.set_volume(new_volume)
-
-    # # def decrease_volume(self):
-    # #     current_volume = self.get_volume()
-    # #     new_volume = max(0, round(current_volume - self.volume_step, -1))
-    # #     self.set_volume(new_volume)
-
-    # # def set_volume(self, volume):
-    # #     self.mixer.setvolume(int(max(0, min(100, volume))))
-
-    # # def get_volume(self):
-    # #     vs = self.mixer.getvolume()
-    # #     return sum(vs) / len(vs)  # Averaging on channels.

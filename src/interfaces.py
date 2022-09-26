@@ -61,6 +61,7 @@ class BluetoothInterface:
     _UUID_CHAR_INACTIVE_COUNTER_SEC = bluetooth.UUID("00000003-2504-2021-0000-000079616172")
     _UUID_CHAR_DAYTIME_MODE = bluetooth.UUID("00000004-2504-2021-0000-000079616172")
     _UUID_CHAR_LOG_MESSAGES = bluetooth.UUID("00000005-2504-2021-0000-000079616172")
+    _UUID_CHAR_VOLUME = bluetooth.UUID("00000006-2504-2021-0000-000079616172")
 
     _UUID_CURRENT_TIME_SERVICE = bluetooth.UUID(0x1805)
     _UUID_CHAR_DATE_TIME = bluetooth.UUID(0x2A08)
@@ -77,6 +78,8 @@ class BluetoothInterface:
         self.inactive_counter_sec_char = aioble.Characteristic(self.sweetyaar_service, self._UUID_CHAR_INACTIVE_COUNTER_SEC, notify=True, read=True)
         self.daytime_mode_char = aioble.Characteristic(self.sweetyaar_service, self._UUID_CHAR_DAYTIME_MODE, notify=True, read=True)
         self.log_messages_char = aioble.Characteristic(self.sweetyaar_service, self._UUID_CHAR_LOG_MESSAGES, notify=True, read=True)        
+        self.volume_char = aioble.Characteristic(self.sweetyaar_service, self._UUID_CHAR_VOLUME, notify=True, read=True)
+
         self.current_time_service = aioble.Service(self._UUID_CURRENT_TIME_SERVICE)
         self.date_time_char = aioble.Characteristic(self.current_time_service, self._UUID_CHAR_DATE_TIME, notify=True, read=True, write=True)
 
@@ -107,13 +110,15 @@ class BluetoothInterface:
             except (asyncio.core.TimeoutError, asyncio.core.CancelledError) as e:
                 logger.error(f"Got error while connected to BT device: {repr(e)}")
 
-    def handle_controller_state_change(self, event):
+    def handle_controller_event(self, event):
         if "currently_playing" in event:
             self.currently_playing_char.write(event["currently_playing"].encode("utf8"), send_update=True)
         if "kill_switch_counter" in event:
             self.inactive_counter_sec_char.write(struct.pack("<H", event["kill_switch_counter"]), send_update=True)
         if "daytime_mode" in event:
             self.daytime_mode_char.write(event["daytime_mode"].encode("utf8"), send_update=True)
+        if "volume" in event:
+            self.volume_char.write(struct.pack("<B", event["volume"]), send_update=True)
 
 
     async def listen(self, actions_callback):
