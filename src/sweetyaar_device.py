@@ -68,6 +68,7 @@ class SweetYaarDevice:
             self.controller.take_control()
         
         except KeyboardInterrupt:
+            self.cleanup()  # just cleanup, no reset.
             print("Keyboard interrupt. Going back to REPL..")
 
         except Exception as e:
@@ -79,19 +80,20 @@ class SweetYaarDevice:
             if shutdown_needed:
                 self.shutdown()
         
+    def cleanup(self):
+        try:
+            self._play_shutdown_sound()
+        except:
+            pass
+        with self.led.indicate("red"):
+            if self.sdcard is not None:
+                self.sdcard.spi.deinit()
+            if self.audio_player is not None:
+                self.audio_player.audio_out.deinit()
 
     def shutdown(self):
         try:
-            try:
-                self._play_shutdown_sound()
-            except:
-                pass
-            with self.led.indicate("red"):
-                if self.sdcard is not None:
-                    self.sdcard.spi.deinit()
-                if self.audio_player is not None:
-                    self.audio_player.audio_out.deinit()
-        
+            self.cleanup()
         except Exception as e:
             logger.error(f"Couldn't shutdown SweetYaarDevice, forcing boot anyway...")
             sys.print_exception(e)
