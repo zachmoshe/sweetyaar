@@ -221,5 +221,4 @@ function handleDaytimeModeChanged(value) {
 function handleVolumeChanged(value) {
     value = value.getInt8();
     $(volumeMeter).attr("value", value)
-    console.log("volume changed - " + value)
 }
