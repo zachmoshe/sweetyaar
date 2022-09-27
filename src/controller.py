@@ -60,6 +60,7 @@ class DaytimeModeManager:
         assert value in ("daytime", "nighttime")
         self._daytime_override = (time.localtime()[:3], value)
         self.publish_daytime_mode()
+        self.ctl._set_volume_by_daytime_mode()
 
     def publish_daytime_mode(self):
         self.ctl.update_controller_state({"daytime_mode": self.get_daytime_mode()})
@@ -90,16 +91,17 @@ class SweetYaarController:
         self._last_kill_switch_time = None
         self._last_action_ticks_time = time.ticks_ms()
         
-        self._max_volume = 4  # volume is a 0..(_max_volume) integer.
-        self._default_volume = 3  # the default volume when booting (doesn't have to be the middle).
-        self._current_volume = self._default_volume  # will track the volume.
+        self._max_volume = cfg["volume_max_value"]  # volume is a 0..(_max_volume) integer.
+        self._zero_volume = cfg["volume_zero_value"]  # the value that causes no shift in samples.
+        self._default_daytime_nighttime_volumes = (cfg["default_daytime_volume"], cfg["default_nighttime_volume"])
+        self._current_volume = None  # will track the volume.
         
         self.interfaces = active_interfaces
         self.controller_state_updates_listeners = []
 
         asyncio.create_task(self.daytime_manager.constantly_publish_daytime_mode())
         asyncio.create_task(self.monitor_inactivity_threshold())
-        self._update_audio_player_volume()
+        self._set_volume_by_daytime_mode()
 
     def update_controller_state(self, state_update):
         for iface in self.interfaces:
@@ -232,8 +234,13 @@ class SweetYaarController:
         self._current_volume = max(0, self._current_volume - 1)
         self._update_audio_player_volume()
 
+    def _set_volume_by_daytime_mode(self):
+        daytime_mode = self.daytime_manager.get_daytime_mode()
+        self._current_volume = self._default_daytime_nighttime_volumes[0 if daytime_mode == "daytime" else 1]
+        self._update_audio_player_volume()
+
     def _update_audio_player_volume(self):
-        shift = (self._current_volume - self._default_volume
+        shift = (self._current_volume - self._zero_volume
                  if self._current_volume > 0
                  else None)
         self.device.audio_player.volume = shift
