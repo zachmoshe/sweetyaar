@@ -27,6 +27,17 @@ _SWEETYAAR_COMMANDS = {
     "reset_device": 20,
 }
 
+_BUTTON_SELECTORS_TO_COMMANDS = {
+    "#button-play-song": "play_song",
+    "#button-play-animal": "play_animal",
+    "#button-stop": "stop",
+    "#button-kill-switch": "kill_switch",
+    "#button-daytime": "daytime",
+    "#button-nighttime": "nighttime",
+    "#button-reset": "reset_device",
+    "#button-volume-up": "volume_up",
+    "#button-volume-down": "volume_down",
+}
 
 $(document).ready(function () {
     bluetoothModal = $("#no-bluetooth-panel");
@@ -39,17 +50,6 @@ $(document).ready(function () {
     currentLocalTimeText = $("#current-local-time-text");
     inactiveCounterText = $("#inactive-counter-text");
     logMessagesUl = $("#log-messages-ul")
-
-    buttonPlaySong = $("#button-play-song");
-    buttonPlayAnimal = $("#button-play-animal");
-    buttonStop = $("#button-stop");
-    buttonKillSwitch = $("#button-kill-switch");
-    buttonDaytime = $("#button-daytime");
-    buttonNighttime = $("#button-nighttime");
-    buttonReset = $("#button-reset");
-    buttonVolumeUp = $("#button-volume-up");
-    buttonVolumeDown = $("#button-volume-down");
-
     image = $("#image")
 
     $.getJSON('/images/metadata.json', changeImage);
@@ -70,6 +70,13 @@ function changeImage(imagesData) {
     setTimeout(changeImage, _IMAGE_INTERVAL_MSEC, imagesData);
 }
 
+async function registerCharacteristic(service, charUUID, callbackFunction) {
+    char = await service.getCharacteristic(charUUID);
+    char.addEventListener("characteristicvaluechanged", (event) => callbackFunction(event.target.value));
+    await char.startNotifications();
+    callbackFunction(await char.readValue());  // read the current value
+    return char;
+}
 
 // Launch Bluetooth device chooser and connect to the selected
 async function connectToBluetoothDevice() {
@@ -85,82 +92,36 @@ async function connectToBluetoothDevice() {
     server = await device.gatt.connect()
 
     batteryService = await server.getPrimaryService(_UUID_BATTERY_SERVICE);
-
-    batteryLevelChar = await batteryService.getCharacteristic(_UUID_CHAR_BATTERY_LEVEL);
-    batteryLevelChar.addEventListener("characteristicvaluechanged", (event) => handleBatteryLevelChanged(event.target.value));
-    await batteryLevelChar.startNotifications();
-    handleBatteryLevelChanged(await batteryLevelChar.readValue());  // read the current value
-
+    batteryLevelChar = await registerCharacteristic(batteryService, _UUID_CHAR_BATTERY_LEVEL, handleBatteryLevelChanged);
 
     sweetyaarService = await server.getPrimaryService(_UUID_SWEETYAAR_SERVICE);
-
-    currentlyPlayingChar = await sweetyaarService.getCharacteristic(_UUID_CHAR_CURRENTLY_PLAYING);
-    currentlyPlayingChar.addEventListener("characteristicvaluechanged", handleCurrentlyPlayingChanged);
-    await currentlyPlayingChar.startNotifications();
-
+    currentlyPlayingChar = await registerCharacteristic(sweetyaarService, _UUID_CHAR_CURRENTLY_PLAYING, handleCurrentlyPlayingChanged);
+    inactiveCounterSecChar = await registerCharacteristic(sweetyaarService, _UUID_CHAR_INACTIVE_COUNTER_SEC, handleInactiveCounterChanged);
+    daytimeModeChar = await registerCharacteristic(sweetyaarService, _UUID_CHAR_DAYTIME_MODE, handleDaytimeModeChanged);
+    logMessagesChar = await registerCharacteristic(sweetyaarService, _UUID_CHAR_LOG_MESSAGES, handleLogMessage);
+    volumeChar = await registerCharacteristic(sweetyaarService, _UUID_CHAR_VOLUME, handleVolumeChanged);
     sweetYaarControlChar = await sweetyaarService.getCharacteristic(_UUID_CHAR_SWEETYAAR_CONTROL);
-    _setupControls(sweetYaarControlChar);
-
-    inactiveCounterSecChar = await sweetyaarService.getCharacteristic(_UUID_CHAR_INACTIVE_COUNTER_SEC);
-    inactiveCounterSecChar.addEventListener("characteristicvaluechanged", handleInactiveCounterChanged);
-    await inactiveCounterSecChar.startNotifications();
-
-    daytimeModeChar = await sweetyaarService.getCharacteristic(_UUID_CHAR_DAYTIME_MODE);
-    daytimeModeChar.addEventListener("characteristicvaluechanged", (event) => handleDaytimeModeChanged(event.target.value));
-    await daytimeModeChar.startNotifications();
-    handleDaytimeModeChanged(await daytimeModeChar.readValue());  // read the current value
-
-    logMessagesChar = await sweetyaarService.getCharacteristic(_UUID_CHAR_LOG_MESSAGES);
-    logMessagesChar.addEventListener("characteristicvaluechanged", (event) => handleLogMessage(event.target.value));
-    await logMessagesChar.startNotifications()
-
-    volumeChar = await sweetyaarService.getCharacteristic(_UUID_CHAR_VOLUME);
-    volumeChar.addEventListener("characteristicvaluechanged", (event) => handleVolumeChanged(event.target.value));
-    await volumeChar.startNotifications()
-    handleVolumeChanged(await volumeChar.readValue());  // read the current value
+    setupControls(sweetYaarControlChar);
 
     currentTimeService = await server.getPrimaryService(_UUID_CURRENT_TIME_SERVICE);
-    dateTimeChar = await currentTimeService.getCharacteristic(_UUID_CHAR_DATE_TIME);
-    dateTimeChar.addEventListener("characteristicvaluechanged", handleDateTimeUpdate);
-    await dateTimeChar.startNotifications();
-    _send_current_date_time(dateTimeChar);
+    dateTimeChar = await registerCharacteristic(currentTimeService, _UUID_CHAR_DATE_TIME, handleDateTimeUpdate);
+    sendCurrentDateTime(dateTimeChar);
 
     bluetoothModal.hide();
     mainPanel.show();
 }
 
 
-function _setupControls(char) {
-    buttonPlaySong.click(() => {
-        sweetYaarControlChar.writeValue(new Uint8Array([_SWEETYAAR_COMMANDS["play_song"]]));
-    });
-    buttonPlayAnimal.click(() => {
-        sweetYaarControlChar.writeValue(new Uint8Array([_SWEETYAAR_COMMANDS["play_animal"]]));
-    });
-    buttonStop.click(() => {
-        sweetYaarControlChar.writeValue(new Uint8Array([_SWEETYAAR_COMMANDS["stop"]]));
-    });
-    buttonKillSwitch.click(() => {
-        sweetYaarControlChar.writeValue(new Uint8Array([_SWEETYAAR_COMMANDS["kill_switch"]]));
-    });
-    buttonDaytime.click(() => {
-        sweetYaarControlChar.writeValue(new Uint8Array([_SWEETYAAR_COMMANDS["daytime"]]));
-    });
-    buttonNighttime.click(() => {
-        sweetYaarControlChar.writeValue(new Uint8Array([_SWEETYAAR_COMMANDS["nighttime"]]));
-    });
-    buttonVolumeUp.click(() => {
-        sweetYaarControlChar.writeValue(new Uint8Array([_SWEETYAAR_COMMANDS["volume_up"]]));
-    });
-    buttonVolumeDown.click(() => {
-        sweetYaarControlChar.writeValue(new Uint8Array([_SWEETYAAR_COMMANDS["volume_down"]]));
-    });
-    buttonReset.click(() => {
-        sweetYaarControlChar.writeValue(new Uint8Array([_SWEETYAAR_COMMANDS["reset_device"]]));
-    })
+function setupControls(char) {
+    for (const [buttonSelector, command] of Object.entries(_BUTTON_SELECTORS_TO_COMMANDS)) {
+        button = $(buttonSelector);
+        button.click(() => {
+            char.writeValue(new Uint8Array([_SWEETYAAR_COMMANDS[command]]));
+        });
+    }
 }
 
-function _send_current_date_time(char) {
+function sendCurrentDateTime(char) {
     d = new Date();
     char.writeValue(new Uint8Array([
         d.getFullYear(), d.getFullYear() >> 8,  // Breaking the year (Uint16) to two Uint8.
@@ -169,14 +130,15 @@ function _send_current_date_time(char) {
         d.getHours(), d.getMinutes(), d.getSeconds()]));
 }
 
-function handleDateTimeUpdate(event) {
-    values = new Uint8Array(event.target.value.buffer);
+function handleDateTimeUpdate(value) {
+    values = new Uint8Array(value.buffer);
     time = new Date((values[1] << 8) + values[0], values[2] - 1, values[3], values[4], values[5], values[6])
     currentLocalTimeText.text(time.toLocaleString());
 }
 
-function handleInactiveCounterChanged(event) {
-    value = new Uint16Array(event.target.value.buffer)[0];
+function handleInactiveCounterChanged(value) {
+    if (value.byteLength == 0) return;
+    value = value.getUint16(0, littleEndian = true)
     if (value > 0) {
         minutes = Math.floor(value / 60);
         seconds = value % 60;
@@ -197,15 +159,15 @@ function handleBatteryLevelChanged(value) {
     $(batteryMeter).attr("value", value)
 }
 
-function handleCurrentlyPlayingChanged(event) {
-    let value = new TextDecoder().decode(event.target.value);
+function handleCurrentlyPlayingChanged(value) {
+    value = new TextDecoder().decode(value);
     currentlyPlayingText.text(value);
 }
 
 function handleDaytimeModeChanged(value) {
     value = new TextDecoder().decode(value);
-    daytimeI = buttonDaytime.find("i")
-    nighttimeI = buttonNighttime.find("i")
+    daytimeI = $("#button-daytime").find("i")
+    nighttimeI = $("#button-nighttime").find("i")
 
     if (value == "daytime") {
         daytimeI.addClass("daytime-mode-active");
