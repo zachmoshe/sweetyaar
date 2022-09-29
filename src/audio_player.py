@@ -12,7 +12,7 @@ EVENT_AUDIO_STARTED = 1
 EVENT_AUDIO_FINISHED = 2
 
 WAV_SAMPLE_BITS = 16
-WAV_NUM_CHANNELS = 2
+WAV_NUM_CHANNELS = 1
 WAV_SAMPLE_RATE = 16000
 
 
@@ -55,7 +55,7 @@ class AudioPlayer:
             sd=Pin(self.gpio_sd),
             mode=I2S.TX,
             bits=WAV_SAMPLE_BITS,
-            format=I2S.STEREO,
+            format=(I2S.MONO if WAV_NUM_CHANNELS == 1 else I2S.STEREO),
             rate=WAV_SAMPLE_RATE,
             ibuf=self.buffer_length_bytes,
         ) 

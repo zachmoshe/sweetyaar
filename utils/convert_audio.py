@@ -24,7 +24,7 @@ def _traverse_descendants(path):
 
 
 def _renormalize_audio_volume(input_path, output_path, i=_DEFAULT_FFMPEG_I, lra=_DEFAULT_FFMPEG_LRA, tp=_DEFAULT_FFMPEG_TP):
-    subprocess.call(["ffmpeg", "-i", str(input_path), "-af", f"loudnorm=I={i}:LRA={lra}:TP={tp}", "-acodec", "pcm_s16le", "-ar", str(_DEFAULT_FFMPEG_SAMPLE_RATE), "-y", str(output_path)])
+    subprocess.call(["ffmpeg", "-i", str(input_path), "-ac", "1", "-af", f"loudnorm=I={i}:LRA={lra}:TP={tp}", "-acodec", "pcm_s16le", "-ar", str(_DEFAULT_FFMPEG_SAMPLE_RATE), "-y", str(output_path)])
 
 
 def main(args):
