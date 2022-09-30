@@ -23,6 +23,7 @@ class Actions:
     VOLUME_DOWN = 13
 
     RESET_DEVICE = 20
+    DEVICE_TIME_CHANGED = 21
 
 
 class DaytimeModeManager:
@@ -99,9 +100,15 @@ class SweetYaarController:
         self.interfaces = active_interfaces
         self.controller_state_updates_listeners = []
 
-        asyncio.create_task(self.daytime_manager.constantly_publish_daytime_mode())
+        self._daytime_mode_task = None
+        self._restart_publish_daytime_mode_task()
         asyncio.create_task(self.monitor_inactivity_threshold())
         self._set_volume_by_daytime_mode()
+
+    def _restart_publish_daytime_mode_task(self):
+        if self._daytime_mode_task is not None:
+            self._daytime_mode_task.cancel()
+        self._daytime_mode_task = asyncio.create_task(self.daytime_manager.constantly_publish_daytime_mode())
 
     def update_controller_state(self, state_update):
         for iface in self.interfaces:
@@ -183,6 +190,8 @@ class SweetYaarController:
             self._decrease_volume()
         elif action == Actions.RESET_DEVICE:
             self.device.reset()
+        elif action == Actions.DEVICE_TIME_CHANGED:
+            self._restart_publish_daytime_mode_task()
         else:
             logger.error(f"Unknown action {action}")
 

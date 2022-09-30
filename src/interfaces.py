@@ -124,7 +124,7 @@ class BluetoothInterface:
     async def listen(self, actions_callback):
         advertising_task = asyncio.create_task(self.advertise())
         battery_service_task = asyncio.create_task(self._run_battery_service())
-        current_time_service = asyncio.create_task(self._run_current_time_service())
+        current_time_service = asyncio.create_task(self._run_current_time_service(actions_callback))
         control_service = asyncio.create_task(self._run_control_service(actions_callback))
 
     async def _run_control_service(self, actions_callback):
@@ -139,7 +139,7 @@ class BluetoothInterface:
             self.battery_level_char.write(bytes([random.randint(0, 100)]), send_update=True)
             await asyncio.sleep(10)
 
-    async def _run_current_time_service(self):
+    async def _run_current_time_service(self, actions_callback):
         rtc = RTC()
 
         def _publish_device_time():
@@ -161,6 +161,7 @@ class BluetoothInterface:
                 local_year, local_month, local_day, local_hours, local_minutes, local_seconds = struct.unpack("<HBBBBB", datetime_value)
                 rtc.datetime((local_year, local_month, local_day, None, local_hours, local_minutes, local_seconds, 0))
                 _publish_device_time()
+                actions_callback(controller.Actions.DEVICE_TIME_CHANGED)
 
         tasks = [asyncio.create_task(_constantly_publish_device_time()), asyncio.create_task(_update_device_time())]
         await asyncio.gather(*tasks)
