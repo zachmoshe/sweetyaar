@@ -106,7 +106,7 @@ class SweetYaarDevice:
         time.sleep_ms(20)  # Let broadcasting finish
         wakeup_pin = Pin(self.config["movement_sensor_gpio"], mode=Pin.IN, pull=Pin.PULL_DOWN)
         esp32.wake_on_ext0(pin=wakeup_pin, level=esp32.WAKEUP_ALL_LOW)
-        machine.lightsleep()
+        machine.deepsleep()
 
     def reset(self):
         logger.info("Resetting device")
