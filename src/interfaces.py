@@ -119,11 +119,12 @@ class BluetoothInterface:
             self.daytime_mode_char.write(event["daytime_mode"].encode("utf8"), send_update=True)
         if "volume" in event:
             self.volume_char.write(struct.pack("<B", event["volume"]), send_update=True)
+        if "battery" in event:
+            self.battery_level_char.write(struct.pack("<B", event["battery"]), send_update=True)
 
 
     async def listen(self, actions_callback):
         advertising_task = asyncio.create_task(self.advertise())
-        battery_service_task = asyncio.create_task(self._run_battery_service())
         current_time_service = asyncio.create_task(self._run_current_time_service(actions_callback))
         control_service = asyncio.create_task(self._run_control_service(actions_callback))
 
@@ -132,12 +133,6 @@ class BluetoothInterface:
             await self.sweetyaar_control_char.written()
             command_value = int(self.sweetyaar_control_char.read()[0])
             actions_callback(command_value)
-
-    async def _run_battery_service(self):
-        import random  # temp thing
-        while True:
-            self.battery_level_char.write(bytes([random.randint(0, 100)]), send_update=True)
-            await asyncio.sleep(10)
 
     async def _run_current_time_service(self, actions_callback):
         rtc = RTC()

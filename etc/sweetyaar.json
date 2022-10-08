@@ -25,6 +25,8 @@
     "controller": {
         "kill_switch_inactive_time_secs": 300,
         "sleep_inactivity_threshold_secs": 600,
+        "battery_adc_gpio": 34,
+        "battery_decay_factor": 0.9,
         "daytime_range": [
             "06:30",
             "18:00"

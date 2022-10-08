@@ -79,6 +79,38 @@ class DaytimeModeManager:
             self.publish_daytime_mode()
 
 
+# Empirically calculated. 
+# Represnets internal bins boundaries. Anything below first value will be 0 and above last value will be 100.
+_VOLTAGE_PERCENTILES = [4.42311955, 4.77237425, 4.82744094, 4.92763572] 
+_VOLTAGE_BINS = [0, 25, 50, 75, 100]
+
+class BatteryMonitor:
+    def __init__(self, ctl, adc_pin, decay_factor):
+        self.ctl = ctl
+        self.adc = machine.ADC(machine.Pin(adc_pin))
+        self.adc.atten(machine.ADC.ATTN_11DB)
+        self.current_decayed_voltage = None
+        self.decay_factor = decay_factor
+
+    def _update_decayed_voltage(self):
+        read_uv = self.adc.read_uv()
+        if self.current_decayed_voltage is None:
+            self.current_decayed_voltage = read_uv
+        else:
+            self.current_decayed_voltage = self.decay_factor * self.current_decayed_voltage + (1 - self.decay_factor) * read_uv
+
+    @property
+    def voltage_pctl(self):
+        value_index = sum(self.current_decayed_voltage >= v for v in _VOLTAGE_PERCENTILES)
+        return _VOLTAGE_BINS[value_index]
+
+    async def monitor_battery_voltage(self):
+        while True:
+            self._update_decayed_voltage()
+            self.ctl.update_controller_state({"battery": self.voltage_pctl})
+            await asyncio.sleep(60)
+
+
 class SweetYaarController:
 
     def __init__(self, device, active_interfaces):
@@ -97,12 +129,15 @@ class SweetYaarController:
         self._default_daytime_nighttime_volumes = (cfg["default_daytime_volume"], cfg["default_nighttime_volume"])
         self._current_volume = None  # will track the volume.
         
+        self.battery_monitor = BatteryMonitor(self, cfg["battery_adc_gpio"], cfg["battery_decay_factor"])
+        
         self.interfaces = active_interfaces
         self.controller_state_updates_listeners = []
 
         self._daytime_mode_task = None
         self._restart_publish_daytime_mode_task()
         asyncio.create_task(self.monitor_inactivity_threshold())
+        asyncio.create_task(self.battery_monitor.monitor_battery_voltage())
         self._set_volume_by_daytime_mode()
 
     def _restart_publish_daytime_mode_task(self):
