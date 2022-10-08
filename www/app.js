@@ -156,7 +156,9 @@ function handleLogMessage(value) {
 
 function handleBatteryLevelChanged(value) {
     value = value.getInt8();
-    $(batteryMeter).attr("value", value)
+    $(batteryMeter).width(value + "%");
+    color = (value < 25 ? "crimson" : value < 75 ? "orange" : "limegreen");  // crimson is red, 
+    $(batteryMeter).css("background-color", color);
 }
 
 function handleCurrentlyPlayingChanged(value) {
@@ -182,5 +184,7 @@ function handleDaytimeModeChanged(value) {
 
 function handleVolumeChanged(value) {
     value = value.getInt8();
-    $(volumeMeter).attr("value", value)
+    $(volumeMeter).height(value + "%");
+    color = (value < 25 ? "crimson" : value < 75 ? "orange" : "limegreen");  // crimson is red, 
+    $(volumeMeter).css("background-color", color);
 }
