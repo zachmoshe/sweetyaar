@@ -94,10 +94,11 @@ class BatteryMonitor:
 
     def _update_decayed_voltage(self):
         read_uv = self.adc.read_uv()
+        voltage = 2 * read_uv * 1e-6  # Voltage is divided by 2x10Kohm resistors and measured in microvolts by read_uv().
         if self.current_decayed_voltage is None:
-            self.current_decayed_voltage = read_uv
+            self.current_decayed_voltage = voltage
         else:
-            self.current_decayed_voltage = self.decay_factor * self.current_decayed_voltage + (1 - self.decay_factor) * read_uv
+            self.current_decayed_voltage = self.decay_factor * self.current_decayed_voltage + (1 - self.decay_factor) * voltage
 
     @property
     def voltage_pctl(self):
