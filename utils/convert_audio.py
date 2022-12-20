@@ -5,11 +5,10 @@ import subprocess
 import sys
 import tempfile
 
-
-_DEFAULT_FFMPEG_TP = -6
-_DEFAULT_FFMPEG_I = -12
+_DEFAULT_FFMPEG_TP = -1.5
+_DEFAULT_FFMPEG_I = -16
 _DEFAULT_FFMPEG_LRA = 11
-_DEFAULT_FFMPEG_SAMPLE_RATE = 16000
+_DEFAULT_FFMPEG_SAMPLE_RATE = 22050 # 16000
 
 _MEDIA_FILE_SUFFIXES = ("wav", "mp3", "ogg", "aiff", "asf", "avi", "flv")
 

@@ -13,7 +13,7 @@ EVENT_AUDIO_FINISHED = 2
 
 WAV_SAMPLE_BITS = 16
 WAV_NUM_CHANNELS = 1
-WAV_SAMPLE_RATE = 16000
+WAV_SAMPLE_RATE = 22050
 
 
 def _assert_wav_file(filename):
@@ -28,7 +28,7 @@ def _assert_wav_file(filename):
     
         if (wav_frame_rate != WAV_SAMPLE_RATE) or (wav_num_channels != WAV_NUM_CHANNELS) or (wav_sample_width_bits != WAV_SAMPLE_BITS):
             raise ValueError(
-                f"Illegal WAV file. Expected (sample_rate={WAV_SAMPLE_RATE}, {WAV_NUM_CHANNELS} channels x {WAV_SAMPLE_BITS} bits/sample), Got (sample_rate={wav_frame_rate}, {wav_num_channels} channels x {wav_sample_width_bits} bits/sample).")
+                f"Illegal WAV file ({filename}). Expected (sample_rate={WAV_SAMPLE_RATE}, {WAV_NUM_CHANNELS} channels x {WAV_SAMPLE_BITS} bits/sample), Got (sample_rate={wav_frame_rate}, {wav_num_channels} channels x {wav_sample_width_bits} bits/sample).")
 
 
 
