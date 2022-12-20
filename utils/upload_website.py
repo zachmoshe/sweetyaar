@@ -8,7 +8,7 @@ import boto3
 
 FLAGS = flags.FLAGS
 FLAG_BUCKET_NAME = flags.DEFINE_string("bucket-name", "sweetyaar.com", "AWS S3 bucket name to upload to.")
-UPLOAD_ROOT_ONLY = flags.DEFINE_bool("upload-root-only", False, "Whether to upload root files only or all descendants.")
+FLAG_UPLOAD_ROOT_ONLY = flags.DEFINE_bool("upload-root-only", False, "Whether to upload root files only or all descendants.")
 
 _WWW_FOLDER = "www"
 _ENV_FILENAME = ".env"
@@ -28,7 +28,7 @@ _CONTENT_TYPES = {
 def main(argv):
     s3 = boto3.client("s3")
     root_path = pathlib.Path(_WWW_FOLDER)
-    files = (root_path.glob("*") if UPLOAD_ROOT_ONLY.value else root_path.glob("**/*"))
+    files = (root_path.glob("*") if FLAG_UPLOAD_ROOT_ONLY.value else root_path.glob("**/*"))
     for f in files:
         if not f.is_file() or f.name == ".DS_Store": 
             continue
