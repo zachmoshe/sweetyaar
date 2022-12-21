@@ -17,8 +17,7 @@ class Actions:
     STOP_PLAYING = 3
     KILL_SWITCH = 4
 
-    FORCE_DAYTIME = 10
-    FORCE_NIGHTTIME = 11
+    CHANGE_PLAYLIST = 10
     VOLUME_UP = 12
     VOLUME_DOWN = 13
 
@@ -26,12 +25,12 @@ class Actions:
     DEVICE_TIME_CHANGED = 21
 
 
-class DaytimeModeManager:
+class PlaylistsManager:
     def __init__(self, ctl, daytime_range):
         self.ctl = ctl
         # daytime_range is a list of 2 strings representing the start and end of the daytime (HH:MM). e.g. ["06:30", "18:45"]
         self._daytime_range = self._parse_daytime_range(daytime_range)
-        self._daytime_override = ()
+        self._playlist_override = ()
 
     @staticmethod
     def _parse_daytime_range(daytime_range):
@@ -46,37 +45,34 @@ class DaytimeModeManager:
         _, _, _, hours, minutes, _, _, _ = time.localtime()
         return hours * 60 + minutes
 
-    def get_daytime_mode(self):
+    def get_current_playlist_name(self):
         # Check for override.
         localtime = time.localtime()
         current_date = localtime[:3]
-        if self._daytime_override and self._daytime_override[0] == current_date:
-            return self._daytime_override[1]
+        if self._playlist_override and self._playlist_override[0] == current_date:
+            return self._playlist_override[1]
         
         # Calculate by daytime_range.
         is_daytime = self._daytime_range[0] <= self._get_total_minutes() < self._daytime_range[1]
         return "daytime" if is_daytime else "nighttime"
 
-    def override_daytime_mode(self, value):
-        assert value in ("daytime", "nighttime")
-        self._daytime_override = (time.localtime()[:3], value)
-        self.publish_daytime_mode()
-        self.ctl._set_volume_by_daytime_mode()
+    def change_playlist(self, playlist_name):
+        self._playlist_override = (time.localtime()[:3], playlist_name)
+        self.publish_current_playlist()
+        self.ctl._set_volume_by_playlist()
 
-    def publish_daytime_mode(self):
-        self.ctl.update_controller_state({"daytime_mode": self.get_daytime_mode()})
+    def publish_current_playlist(self):
+        self.ctl.update_controller_state({"change_playlist": self.get_current_playlist_name()})
 
-    async def constantly_publish_daytime_mode(self):
-        self.publish_daytime_mode()
+    async def constantly_publish_current_playlist(self):
+        self.publish_current_playlist()
 
         while True:
-            mins_to_next_switch = (
-                (self._daytime_range[1] - self._get_total_minutes()) % (24 * 60)
-                if self.get_daytime_mode() == "daytime"
-                else (self._daytime_range[0] - self._get_total_minutes()) % (24 * 60)
-            )
+            mins_to_next_switch = min(
+                (change_total_minutes - self._get_total_minutes()) % (24 * 60)
+                for change_total_minutes in self._daytime_range)
             await asyncio.sleep(mins_to_next_switch * 60 + 1)
-            self.publish_daytime_mode()
+            self.publish_current_playlist()
 
 
 # Empirically calculated. 
@@ -116,12 +112,17 @@ class SweetYaarController:
 
     def __init__(self, device, active_interfaces):
         self.device = device
+        self.interfaces = active_interfaces
+        self.controller_state_updates_listeners = []
+
         cfg = device.config["controller"]
         self.device.audio_player.register_activity_callback(self._audio_activity_callback)
+        self.update_controller_state({"update_playlists": dict(zip(self.device.audio_library.playlists_names, self.device.audio_library.playlists_repr_names))})
+        
         self.currently_playing_desc = ""
         self._kill_switch_inactive_time_secs = cfg["kill_switch_inactive_time_secs"]
         self._sleep_inactivity_threshold_secs = cfg["sleep_inactivity_threshold_secs"]
-        self.daytime_manager = DaytimeModeManager(self, cfg["daytime_range"])
+        self.playlists_manager = PlaylistsManager(self, cfg["daytime_range"])
         self._last_kill_switch_time = None
         self._last_action_ticks_time = time.ticks_ms()
         
@@ -131,20 +132,17 @@ class SweetYaarController:
         self._current_volume = None  # will track the volume.
         
         self.battery_monitor = BatteryMonitor(self, cfg["battery_adc_gpio"], cfg["battery_decay_factor"])
-        
-        self.interfaces = active_interfaces
-        self.controller_state_updates_listeners = []
 
-        self._daytime_mode_task = None
-        self._restart_publish_daytime_mode_task()
+        self._publish_playlists_task = None
+        self._restart_publish_current_playlist_task()
         asyncio.create_task(self.monitor_inactivity_threshold())
         asyncio.create_task(self.battery_monitor.monitor_battery_voltage())
-        self._set_volume_by_daytime_mode()
+        self._set_volume_by_playlist()
 
-    def _restart_publish_daytime_mode_task(self):
-        if self._daytime_mode_task is not None:
-            self._daytime_mode_task.cancel()
-        self._daytime_mode_task = asyncio.create_task(self.daytime_manager.constantly_publish_daytime_mode())
+    def _restart_publish_current_playlist_task(self):
+        if self._publish_playlists_task is not None:
+            self._publish_playlists_task.cancel()
+        self._publish_playlists_task = asyncio.create_task(self.playlists_manager.constantly_publish_current_playlist())
 
     def update_controller_state(self, state_update):
         for iface in self.interfaces:
@@ -176,12 +174,10 @@ class SweetYaarController:
         return self.kill_switch_counter_secs is not None
 
     def _audio_activity_callback(self, event, *args):
-        if event == audio_player.EVENT_AUDIO_FINISHED:
-            self.currently_playing_desc = ""
-            self.update_controller_state({"currently_playing": self.currently_playing_desc})
-        elif event == audio_player.EVENT_AUDIO_STARTED:
-            self.currently_playing_desc = args[0]
-            self.update_controller_state({"currently_playing": self.currently_playing_desc})
+        self.currently_playing_desc = (
+            "" if event == audio_player.EVENT_AUDIO_FINISHED
+            else args[0])
+        self.update_controller_state({"currently_playing": self.currently_playing_desc})
 
     async def _publish_kill_switch_counter(self):
         while self._is_kill_switch_activated():
@@ -206,7 +202,7 @@ class SweetYaarController:
     def take_control(self):
         asyncio.run(self._main_loop())
 
-    def handle_action(self, action):
+    def handle_action(self, action, payload=None):
         self.update_activity()
         if action == Actions.PLAY_SONG:
             self._play_song()
@@ -216,10 +212,8 @@ class SweetYaarController:
             self._stop_playing()
         elif action == Actions.KILL_SWITCH:
             self._activate_kill_switch()
-        elif action == Actions.FORCE_DAYTIME:
-            self._force_daytime_mode("daytime")
-        elif action == Actions.FORCE_NIGHTTIME:
-            self._force_daytime_mode("nighttime")
+        elif action == Actions.CHANGE_PLAYLIST:
+            self._change_playlist(payload)
         elif action == Actions.VOLUME_UP:
             self._increase_volume()
         elif action == Actions.VOLUME_DOWN:
@@ -227,7 +221,7 @@ class SweetYaarController:
         elif action == Actions.RESET_DEVICE:
             self.device.reset()
         elif action == Actions.DEVICE_TIME_CHANGED:
-            self._restart_publish_daytime_mode_task()
+            self._restart_publish_current_playlist_task()
         else:
             logger.error(f"Unknown action {action}")
 
@@ -242,8 +236,7 @@ class SweetYaarController:
         if self._is_kill_switch_activated():
             logger.info("Kill-switch is activated. Ignoring play song request.")
             return
-        song_name, song_path = self.device.audio_library.get_random_song(mode=self.daytime_manager.get_daytime_mode())
-        logger.info(f"Playing song: {song_name}")
+        song_name, song_path = self.device.audio_library.get_random_song(playlist_name=self.playlists_manager.get_current_playlist_name())
         self._play_sound_file("song", song_name, song_path)
 
     def _play_animal_sound(self):
@@ -264,11 +257,11 @@ class SweetYaarController:
         self._last_kill_switch_time = time.ticks_ms()
         asyncio.create_task(self._publish_kill_switch_counter())
 
-    def _force_daytime_mode(self, value):
-        assert value in ("daytime", "nighttime")
-        logger.info(f"Forcing {value} mode.")
-        self.daytime_manager.override_daytime_mode(value)
-    
+    def _change_playlist(self, playlist_name):
+        assert playlist_name in self.device.audio_library.playlists_names
+        logger.info(f"Changing playlist to {playlist_name}.")
+        self.playlists_manager.change_playlist(playlist_name)
+
     def _increase_volume(self):
         logger.info(f"Increasing volume.")
         self._current_volume = min(self._max_volume, self._current_volume + 1)
@@ -279,9 +272,9 @@ class SweetYaarController:
         self._current_volume = max(0, self._current_volume - 1)
         self._update_audio_player_volume()
 
-    def _set_volume_by_daytime_mode(self):
-        daytime_mode = self.daytime_manager.get_daytime_mode()
-        self._current_volume = self._default_daytime_nighttime_volumes[0 if daytime_mode == "daytime" else 1]
+    def _set_volume_by_playlist(self):
+        playlist_name = self.playlists_manager.get_current_playlist_name()
+        self._current_volume = self._default_daytime_nighttime_volumes[1 if playlist_name == "nighttime" else 0]
         self._update_audio_player_volume()
 
     def _update_audio_player_volume(self):

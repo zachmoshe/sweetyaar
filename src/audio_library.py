@@ -49,6 +49,7 @@ def _load_audio_folder(folder, humanize_filenames=True):
     return results
 
 
+_MANDATORY_PLAYLISTS = ("daytime", "nighttime")
 
 class AudioLibrary:
     def __init__(self, config, base_sd_path = _DEFAULT_BASE_SD_PATH):
@@ -57,11 +58,27 @@ class AudioLibrary:
 
         # Load sounds
         self.sounds = _load_audio_folder(_join(base_sd_path, config["sounds_folder"]), humanize_filenames=False)
-        self.daytime_songs = _load_audio_folder(_join(base_sd_path, config["daytime_songs_folder"]))
-        self.nighttime_songs = _load_audio_folder(_join(base_sd_path, config["nighttime_songs_folder"]))
         self.animal_sounds = _load_audio_folder(_join(base_sd_path, config["animal_sounds_folder"]))
+        self.playlists = {
+            playlist_name: (repr_name, _load_audio_folder(_join(base_sd_path, playlist_folder)))
+            for playlist_name, (repr_name, playlist_folder) in config["playlists"].items()
+        }
+
+        if any(x not in self.playlists for x in _MANDATORY_PLAYLISTS):
+            raise ValueError(f"playlists must contain at least {_MANDATORY_PLAYLISTS}")
+        for playlist_name, (_, playlist_songs) in self.playlists.items():
+            if not playlist_songs:
+                raise ValueError(f"playlist '{playlist_name}' doesn't contain any songs in folder.")
         self.last_returned_song_item = None
         self.last_returned_animal_item = None
+
+    @property
+    def playlists_names(self):
+        return self.playlists.keys()
+    
+    @property
+    def playlists_repr_names(self):
+        return tuple(repr_name for repr_name, _ in self.playlists.values())
 
     @staticmethod
     def _choose_random_audio_item_non_repeat(items, last_item):
@@ -72,11 +89,11 @@ class AudioLibrary:
     def get_sound_filename(self, sound_name):
         return self.sounds[sound_name]
 
-    def get_random_song(self, mode):
-        if mode not in ("daytime", "nighttime"): 
-            raise ValueError(f"Illegal mode '{mode}'")
+    def get_random_song(self, playlist_name):
+        if playlist_name not in self.playlists:
+            raise ValueError(f"Illegal playlist '{playlist_name}'")
         
-        songs_items = list(self.daytime_songs.items() if mode == "daytime" else self.nighttime_songs.items())
+        songs_items = list(self.playlists[playlist_name][1].items())
         random_song_item = self._choose_random_audio_item_non_repeat(songs_items, self.last_returned_song_item)
         self.last_returned_song_item = random_song_item
         return random_song_item

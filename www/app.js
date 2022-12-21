@@ -8,9 +8,11 @@ _UUID_CHAR_BATTERY_LEVEL = 0x2A19;
 _UUID_CHAR_SWEETYAAR_CONTROL = "10000001-2504-2021-0000-000079616172";
 _UUID_CHAR_CURRENTLY_PLAYING = "10000002-2504-2021-0000-000079616172";
 _UUID_CHAR_INACTIVE_COUNTER_SEC = "10000003-2504-2021-0000-000079616172";
-_UUID_CHAR_DAYTIME_MODE = "10000004-2504-2021-0000-000079616172";
+_UUID_CHAR_CURRENT_PLAYLIST = "10000004-2504-2021-0000-000079616172";
 _UUID_CHAR_LOG_MESSAGES = "10000005-2504-2021-0000-000079616172";
 _UUID_CHAR_VOLUME = "10000006-2504-2021-0000-000079616172";
+_UUID_CHAR_PLAYLISTS = "10000007-2504-2021-0000-000079616172";
+
 _UUID_CHAR_DATE_TIME = 0x2A08;
 
 _SWEETYAAR_COMMANDS = {
@@ -19,8 +21,7 @@ _SWEETYAAR_COMMANDS = {
     "stop": 3,
     "kill_switch": 4,
 
-    "daytime": 10,
-    "nighttime": 11,
+    "change_playlist": 10,
     "volume_up": 12,
     "volume_down": 13,
 
@@ -32,8 +33,6 @@ _BUTTON_SELECTORS_TO_COMMANDS = {
     "#button-play-animal": "play_animal",
     "#button-stop": "stop",
     "#button-kill-switch": "kill_switch",
-    "#button-daytime": "daytime",
-    "#button-nighttime": "nighttime",
     "#button-reset": "reset_device",
     "#button-volume-up": "volume_up",
     "#button-volume-down": "volume_down",
@@ -49,8 +48,13 @@ $(document).ready(function () {
     currentlyPlayingText = $("#currently-playing-text");
     currentLocalTimeText = $("#current-local-time-text");
     inactiveCounterText = $("#inactive-counter-text");
-    logMessagesUl = $("#log-messages-ul")
+    logMessagesUl = $("#log-messages-ul");
+    playlistsUl = $("#playlists-ul");
+    playlistsButton = $("#button-current-playlist");
+
     image = $("#image")
+
+    playlists = undefined;
 
     $.getJSON('/images/metadata.json', changeImage);
     bluetoothButton.click(connectToBluetoothDevice);
@@ -95,9 +99,12 @@ async function connectToBluetoothDevice() {
     batteryLevelChar = await registerCharacteristic(batteryService, _UUID_CHAR_BATTERY_LEVEL, handleBatteryLevelChanged);
 
     sweetyaarService = await server.getPrimaryService(_UUID_SWEETYAAR_SERVICE);
+    playlistsChar = await sweetyaarService.getCharacteristic(_UUID_CHAR_PLAYLISTS);
+    playlists = updatePlaylists(await playlistsChar.readValue());
+
     currentlyPlayingChar = await registerCharacteristic(sweetyaarService, _UUID_CHAR_CURRENTLY_PLAYING, handleCurrentlyPlayingChanged);
     inactiveCounterSecChar = await registerCharacteristic(sweetyaarService, _UUID_CHAR_INACTIVE_COUNTER_SEC, handleInactiveCounterChanged);
-    daytimeModeChar = await registerCharacteristic(sweetyaarService, _UUID_CHAR_DAYTIME_MODE, handleDaytimeModeChanged);
+    currentPlaylistChar = await registerCharacteristic(sweetyaarService, _UUID_CHAR_CURRENT_PLAYLIST, handleCurrentPlaylistChanged);
     logMessagesChar = await registerCharacteristic(sweetyaarService, _UUID_CHAR_LOG_MESSAGES, handleLogMessage);
     volumeChar = await registerCharacteristic(sweetyaarService, _UUID_CHAR_VOLUME, handleVolumeChanged);
     sweetYaarControlChar = await sweetyaarService.getCharacteristic(_UUID_CHAR_SWEETYAAR_CONTROL);
@@ -166,20 +173,10 @@ function handleCurrentlyPlayingChanged(value) {
     currentlyPlayingText.text(value);
 }
 
-function handleDaytimeModeChanged(value) {
-    value = new TextDecoder().decode(value);
-    daytimeI = $("#button-daytime").find("i")
-    nighttimeI = $("#button-nighttime").find("i")
-
-    if (value == "daytime") {
-        daytimeI.addClass("daytime-mode-active");
-        nighttimeI.removeClass("daytime-mode-active");
-    } else if (value == "nighttime") {
-        daytimeI.removeClass("daytime-mode-active");
-        nighttimeI.addClass("daytime-mode-active");
-    } else {
-        console.log("Unknown daytime mode '" + value + "'");
-    }
+function handleCurrentPlaylistChanged(value) {
+    playlistName = new TextDecoder().decode(value);
+    playlistReprName = playlists[playlistName];
+    playlistsButton.text(playlistReprName);
 }
 
 function handleVolumeChanged(value) {
@@ -187,4 +184,22 @@ function handleVolumeChanged(value) {
     $(volumeMeter).height(value + "%");
     color = (value < 25 ? "crimson" : value < 75 ? "orange" : "limegreen");  // crimson is red, 
     $(volumeMeter).css("background-color", color);
+}
+
+function updatePlaylists(value) {
+    value = new TextDecoder().decode(value);
+    if (value == "") return;
+
+    playlists = JSON.parse(value)
+
+    playlistsUl.empty();
+    for ([playlistName, playlistReprName] of Object.entries(playlists)) {
+        playlist_li = jQuery('<li playlist="' + playlistName + '"><a class="dropdown-item" href="#">' + playlistReprName + '</a></li>')
+        playlist_li.click((e) => {
+            playlistName = $(e.currentTarget).attr("playlist");
+            currentPlaylistChar.writeValue(new TextEncoder().encode(playlistName));
+        });
+        playlistsUl.prepend(playlist_li);
+    }
+    return playlists;
 }

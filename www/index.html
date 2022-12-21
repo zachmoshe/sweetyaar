@@ -47,10 +47,6 @@
             text-shadow: 10px 10px 10px var(--main-bg-color), 10px -10px 10px var(--main-bg-color), -10px 10px 10px var(--main-bg-color), -10px -10px 10px var(--main-bg-color), 5px 5px 5px var(--main-bg-color), 5px -5px 5px var(--main-bg-color), -5px 5px 5px var(--main-bg-color), -5px -5px 5px var(--main-bg-color);
         }
 
-        .daytime-mode-active {
-            color: gold;
-        }
-
         .image {
             max-height: 100em;
             max-width: 100%;
@@ -162,13 +158,12 @@
 
         <div class="row pb-2 mb-2">
             <div class="col-6 col-md-4 mb-2 text-center">
-                <div class="input-group input-group-lg">
-                    <button id="button-nighttime" class="form-control btn btn-primary btn-lg p-3">
-                        <i class="bi bi-moon-stars-fill"></i>
+                <div class="dropdown">
+                    <button id="button-current-playlist" class="btn btn-primary btn-lg p-3 w-100 dropdown-toggle"
+                        type="button" data-bs-toggle="dropdown" aria-expanded="false">
                     </button>
-                    <button id="button-daytime" class="form-control btn btn-primary btn-lg p-3">
-                        <i class="bi bi-sun-fill"></i>
-                    </button>
+                    <ul id="playlists-ul" class="dropdown-menu">
+                    </ul>
                 </div>
             </div>
             <div class="col-6 col-md-4 mb-2 text-center">

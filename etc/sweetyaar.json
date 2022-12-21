@@ -11,16 +11,48 @@
     },
     "audio_library": {
         "sounds_folder": "sounds",
-        "daytime_songs_folder": "songs/daytime",
-        "nighttime_songs_folder": "songs/nighttime",
-        "animal_sounds_folder": "animals"
+        "animal_sounds_folder": "animals",
+        "playlists": {
+            "daytime": [
+                "🌞 שירי יום",
+                "songs/daytime"
+            ],
+            "nighttime": [
+                "🌜 שירי לילה",
+                "songs/nighttime"
+            ],
+            "birthday": [
+                "🎂 יום הולדת",
+                "songs/birthday"
+            ],
+            "classical": [
+                "🎻 מוזיקה קלאסית לפעוטות",
+                "songs/classical"
+            ],
+            "tishrey": [
+                "🍯 חגי תשרי",
+                "songs/tishrey"
+            ],
+            "hanukkah": [
+                "🕎 חנוכה",
+                "songs/hanukkah"
+            ],
+            "purim": [
+                "🎭 פורים",
+                "songs/purim"
+            ],
+            "passover": [
+                "🍷 פסח",
+                "songs/passover"
+            ]
+        }
     },
     "audio_player": {
         "I2S_id": 0,
         "I2S_SCK": 26,
         "I2S_WS": 25,
         "I2S_SD": 22,
-        "I2S_buffer_length_bytes": 4096
+        "I2S_buffer_length_bytes": 2048
     },
     "controller": {
         "kill_switch_inactive_time_secs": 300,
@@ -42,7 +74,7 @@
             "GPIO_songs_button": 14
         },
         "bluetooth": {
-            "mac_address_mode": "internal",
+            "mac_address_mode": "random",
             "device_name": "SweetYaar"
         }
     }

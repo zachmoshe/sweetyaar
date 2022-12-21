@@ -52,7 +52,9 @@ class SweetYaarDevice:
         try:
             with self.led.indicate("blue"):
                 self._mount_sdcard()
+                gc.collect()
                 self._init_components()
+                gc.collect()
 
             self.led.blink_sync("green", cycle_ms=200, times=4)
             logger.info("Initialization completed.")
