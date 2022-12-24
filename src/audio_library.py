@@ -7,14 +7,11 @@ from src import bt_logger
 
 logger = bt_logger.get_logger(__name__)
 
-_RE_REMOVE_TRAILING_SLASH = re.compile(r"^(.*?)/*$")
-_RE_VALID_FILENAME = re.compile(r"^([a-zA-Z0-9.-_]+)[.]([a-zA-Z0-9.-_]+)$")
-
-
 _DEFAULT_BASE_SD_PATH = "/sd"
 
 
 def _join(*paths): 
+    _RE_REMOVE_TRAILING_SLASH = re.compile(r"^(.*?)/*$")
     if not paths: 
         return ""
     return "/".join(_RE_REMOVE_TRAILING_SLASH.match(p).group(1) for p in paths)
@@ -29,6 +26,7 @@ def _exists(path):
 
 
 def _load_audio_folder(folder, humanize_filenames=True):
+    _RE_VALID_FILENAME = re.compile(r"^([a-zA-Z0-9.\-_]+)[.]([a-zA-Z0-9.-_]+)$")
     if not _exists(folder):
         return {}
     results = {}

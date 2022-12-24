@@ -55,6 +55,8 @@ def copy_python_code(port):
         # Compile to mpy
         os.system(f"for i in $(find {tempdir}/lib -name '*.py'); do mpy-cross -march=xtensawin $i; done")
         os.system(f"find {tempdir}/lib -name '*.py' | xargs rm")
+        # os.system(f"for i in $(find {tempdir}/src -name '*.py'); do mpy-cross -march=xtensawin $i; done")
+        # os.system(f"find {tempdir}/src -name '*.py' | xargs rm")
 
         # Copy to board
         os.system(f"cd {PROJECT_ROOT_FOLDER} && rshell -p {port} 'rm -rf /pyboard/*; rsync {tempdir} /pyboard; ls -l /pyboard'")

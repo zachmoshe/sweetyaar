@@ -7,6 +7,7 @@ from src import bt_logger
 
 logger = bt_logger.get_logger(__name__)
 
+SILENT_BYTES = bytearray(512)
 
 EVENT_AUDIO_STARTED = 1
 EVENT_AUDIO_FINISHED = 2
@@ -45,7 +46,7 @@ class AudioPlayer:
         self.volume = 0  # The shift in bits. 0 means untouched. None means muted
         self._currently_playing_task = None
         self._input_file_handle = None
-        self._silent_samples = bytearray(512)
+        self._silent_samples = SILENT_BYTES
         self._wav_samples = memoryview(preallocated_buffer)
 
         self.audio_out = I2S(
