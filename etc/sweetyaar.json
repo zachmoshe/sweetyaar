@@ -65,7 +65,7 @@
             "18:00"
         ],
         "volume_max_value": 4,
-        "volume_zero_value": 3,
+        "volume_zero_value": 4,
         "default_daytime_volume": 3,
         "default_nighttime_volume": 2
     },
