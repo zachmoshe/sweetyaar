@@ -1,6 +1,7 @@
 {
     "movement_sensor_gpio": 4,
     "bluetooth_switch_gpio": 16,
+    "awake_gpio": 10,
     "sdcard": {
         "spi": 2,
         "SPI_CS": 5,

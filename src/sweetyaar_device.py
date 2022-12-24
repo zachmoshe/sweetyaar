@@ -37,6 +37,9 @@ class SweetYaarDevice:
         bt_gpio = self.config["bluetooth_switch_gpio"]
         self.bluetooth_switch = Signal(Pin(bt_gpio, Pin.IN, Pin.PULL_UP), invert=True)
 
+        self.awake_pin = Pin(self.config["awake_gpio"], Pin.OUT)  # This will be set to 1 when awake and 0 before sleeping.
+        self.awake_pin.on()
+
         # pre-allocate buffer to avoid later fragmented memory..
         self._audio_player_file_buffer = audio_player_file_buffer
         
@@ -107,8 +110,12 @@ class SweetYaarDevice:
     def sleep(self):
         logger.info("Yaar doesn't want to play 😢 Going to sleep...")
         time.sleep_ms(20)  # Let broadcasting finish
+
+        self.awake_pin.off()
+
         wakeup_pin = Pin(self.config["movement_sensor_gpio"], mode=Pin.IN, pull=Pin.PULL_DOWN)
         esp32.wake_on_ext0(pin=wakeup_pin, level=esp32.WAKEUP_ALL_LOW)
+        esp32.gpio_deep_sleep_hold(True)
         machine.deepsleep()
 
     def reset(self):
@@ -130,7 +137,7 @@ class SweetYaarDevice:
     def _mount_sdcard(self):
         logger.info("Mounting SDCard...")
         if "spi" in self.config["sdcard"]:
-            spi = SPI(self.config["sdcard"]["spi"])
+            spi = SPI(self.config["sdcard"]["spi"], baudrate=80_000_000)
         elif "soft_spi" in self.config["sdcard"]:
             spi = SoftSPI(
                 sck=Pin(self.config["sdcard"]["soft_spi"]["SPI_SCK"]),
