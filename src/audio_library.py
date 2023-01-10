@@ -3,11 +3,12 @@ import random
 import re
 import time
 
+from micropython import const
 from src import bt_logger
 
-logger = bt_logger.get_logger(__name__)
+_logger = bt_logger.get_logger(__name__)
 
-_DEFAULT_BASE_SD_PATH = "/sd"
+_DEFAULT_BASE_SD_PATH = const("/sd")
 
 
 def _join(*paths): 
@@ -36,7 +37,7 @@ def _load_audio_folder(folder, humanize_filenames=True):
         
         m = _RE_VALID_FILENAME.match(path)
         if m is None:
-            logger.error(f"Illegal audio filename: {folder}/{path}")
+            _logger.error(f"Illegal audio filename: {folder}/{path}")
             continue
         filename = m.group(1)
         # "humanize" filename if needed

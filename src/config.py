@@ -1,6 +1,8 @@
 import json
 
-_CONFIG_FILENAME = "etc/sweetyaar.json"
+from micropython import const
+
+_CONFIG_FILENAME = const("etc/sweetyaar.json")
 _CONFIG_OBJ = None
 
 def get_config():

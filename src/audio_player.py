@@ -2,19 +2,20 @@ import uasyncio as asyncio
 import wave
 
 from machine import I2S, Pin
+from micropython import const
 
 from src import bt_logger
 
-logger = bt_logger.get_logger(__name__)
+_logger = bt_logger.get_logger(__name__)
 
-SILENT_BYTES = bytearray(512)
+_SILENT_BYTES = const(bytearray(512))
 
-EVENT_AUDIO_STARTED = 1
-EVENT_AUDIO_FINISHED = 2
+EVENT_AUDIO_STARTED = const(1)
+EVENT_AUDIO_FINISHED = const(2)
 
-WAV_SAMPLE_BITS = 16
-WAV_NUM_CHANNELS = 1
-WAV_SAMPLE_RATE = 22050
+_WAV_SAMPLE_BITS = const(16)
+_WAV_NUM_CHANNELS = const(1)
+_WAV_SAMPLE_RATE = const(22050)
 
 
 def _assert_wav_file(filename):
@@ -27,9 +28,9 @@ def _assert_wav_file(filename):
         wav_num_channels = f.getnchannels()
         wav_sample_width_bits = 8 * f.getsampwidth()
     
-        if (wav_frame_rate != WAV_SAMPLE_RATE) or (wav_num_channels != WAV_NUM_CHANNELS) or (wav_sample_width_bits != WAV_SAMPLE_BITS):
+        if (wav_frame_rate != _WAV_SAMPLE_RATE) or (wav_num_channels != _WAV_NUM_CHANNELS) or (wav_sample_width_bits != _WAV_SAMPLE_BITS):
             raise ValueError(
-                f"Illegal WAV file ({filename}). Expected (sample_rate={WAV_SAMPLE_RATE}, {WAV_NUM_CHANNELS} channels x {WAV_SAMPLE_BITS} bits/sample), Got (sample_rate={wav_frame_rate}, {wav_num_channels} channels x {wav_sample_width_bits} bits/sample).")
+                f"Illegal WAV file ({filename}). Expected (sample_rate={_WAV_SAMPLE_RATE}, {_WAV_NUM_CHANNELS} channels x {_WAV_SAMPLE_BITS} bits/sample), Got (sample_rate={wav_frame_rate}, {wav_num_channels} channels x {wav_sample_width_bits} bits/sample).")
 
 
 
@@ -46,7 +47,7 @@ class AudioPlayer:
         self.volume = 0  # The shift in bits. 0 means untouched. None means muted
         self._currently_playing_task = None
         self._input_file_handle = None
-        self._silent_samples = SILENT_BYTES
+        self._silent_samples = _SILENT_BYTES
         self._wav_samples = memoryview(preallocated_buffer)
 
         self.audio_out = I2S(
@@ -55,9 +56,9 @@ class AudioPlayer:
             ws=Pin(self.gpio_ws),
             sd=Pin(self.gpio_sd),
             mode=I2S.TX,
-            bits=WAV_SAMPLE_BITS,
-            format=(I2S.MONO if WAV_NUM_CHANNELS == 1 else I2S.STEREO),
-            rate=WAV_SAMPLE_RATE,
+            bits=_WAV_SAMPLE_BITS,
+            format=(I2S.MONO if _WAV_NUM_CHANNELS == 1 else I2S.STEREO),
+            rate=_WAV_SAMPLE_RATE,
             ibuf=self.buffer_length_bytes,
         ) 
         asyncio.create_task(self._play_loop())
@@ -85,11 +86,11 @@ class AudioPlayer:
                             swriter.out_buf = self._silent_samples
                         else:
                             if self.volume != 0:
-                                I2S.shift(buf=self._wav_samples, bits=WAV_SAMPLE_BITS, shift=self.volume)
+                                I2S.shift(buf=self._wav_samples, bits=_WAV_SAMPLE_BITS, shift=self.volume)
                             swriter.out_buf = self._wav_samples[:num_read]
                         await swriter.drain()
             except Exception as e:
-                logger.error(f"EXCEPTION IN PLAYER: {repr(e)}")
+                _logger.error(f"EXCEPTION IN PLAYER: {repr(e)}")
                 self.stop()
                 raise e
 

@@ -9,7 +9,7 @@ from lib import aioble
 from src import bt_logger
 from src import controller
 
-logger = bt_logger.get_logger(__name__)
+_logger = bt_logger.get_logger(__name__)
 
 
 class GPIOInterface():
@@ -47,7 +47,7 @@ class GPIOInterface():
         elif songs_pressed:
             actions_callback(controller.Actions.PLAY_SONG)
         else:
-            logger.warn("weird, but no button was pressed when got here...")
+            _logger.warn("weird, but no button was pressed when got here...")
 
 
 class BluetoothInterface:
@@ -97,7 +97,7 @@ class BluetoothInterface:
         """Advertises and connects to only a single device at a time."""
         while True: 
             try:
-                logger.info("Advertising. Waiting for a BT connection..")
+                _logger.info("Advertising. Waiting for a BT connection..")
                 bluetooth.BLE().config(gap_name=self.name, addr_mode=self.bt_addr_mode)
                 async with await aioble.advertise(
                         -1,
@@ -106,12 +106,12 @@ class BluetoothInterface:
                             self._UUID_BATTERY_SERVICE, self._UUID_SWEETYAAR_SERVICE, self._UUID_CURRENT_TIME_SERVICE],
                         appearance=adv_uuid,
                     ) as connection:
-                    logger.info(f"BT Connection from {connection.device}")
-                    logger.bt_logger.connect_to_bt_characteristic(self.log_messages_char)
+                    _logger.info(f"BT Connection from {connection.device}")
+                    _logger.bt_logger.connect_to_bt_characteristic(self.log_messages_char)
                     await connection.disconnected(timeout_ms=None)
             
             except (asyncio.core.TimeoutError, asyncio.core.CancelledError) as e:
-                logger.error(f"Got error while connected to BT device: {repr(e)}")
+                _logger.error(f"Got error while connected to BT device: {repr(e)}")
 
     def handle_controller_event(self, event):
         if "currently_playing" in event:

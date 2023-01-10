@@ -6,7 +6,7 @@ import uasyncio as asyncio
 from src import audio_player
 from src import bt_logger
 
-logger = bt_logger.get_logger(__name__)
+_logger = bt_logger.get_logger(__name__)
 
 
 
@@ -223,7 +223,7 @@ class SweetYaarController:
         elif action == Actions.DEVICE_TIME_CHANGED:
             self._restart_publish_current_playlist_task()
         else:
-            logger.error(f"Unknown action {action}")
+            _logger.error(f"Unknown action {action}")
 
     def _play_sound_file(self, type, sound_name, sound_path):
         if self._is_kill_switch_activated():
@@ -234,41 +234,41 @@ class SweetYaarController:
 
     def _play_song(self):
         if self._is_kill_switch_activated():
-            logger.info("Kill-switch is activated. Ignoring play song request.")
+            _logger.info("Kill-switch is activated. Ignoring play song request.")
             return
         song_name, song_path = self.device.audio_library.get_random_song(playlist_name=self.playlists_manager.get_current_playlist_name())
         self._play_sound_file("song", song_name, song_path)
 
     def _play_animal_sound(self):
         if self._is_kill_switch_activated():
-            logger.info("Kill-switch is activated. Ignoring play animal sound request.")
+            _logger.info("Kill-switch is activated. Ignoring play animal sound request.")
             return
         animal_name, animal_path = self.device.audio_library.get_random_animal_sound()
-        logger.info(f"Playing animal: {animal_name}")
+        _logger.info(f"Playing animal: {animal_name}")
         self._play_sound_file("animal", animal_name, animal_path)
 
     def _stop_playing(self):
-        logger.info("Stop playing.")
+        _logger.info("Stop playing.")
         self.device.audio_player.stop()
 
     def _activate_kill_switch(self):
-        logger.info("Kill-switch activated.")
+        _logger.info("Kill-switch activated.")
         self._stop_playing()
         self._last_kill_switch_time = time.ticks_ms()
         asyncio.create_task(self._publish_kill_switch_counter())
 
     def _change_playlist(self, playlist_name):
         assert playlist_name in self.device.audio_library.playlists_names
-        logger.info(f"Changing playlist to {playlist_name}.")
+        _logger.info(f"Changing playlist to {playlist_name}.")
         self.playlists_manager.change_playlist(playlist_name)
 
     def _increase_volume(self):
-        logger.info(f"Increasing volume.")
+        _logger.info(f"Increasing volume.")
         self._current_volume = min(self._max_volume, self._current_volume + 1)
         self._update_audio_player_volume()
 
     def _decrease_volume(self):
-        logger.info(f"Decreasing volume.")
+        _logger.info(f"Decreasing volume.")
         self._current_volume = max(0, self._current_volume - 1)
         self._update_audio_player_volume()
 

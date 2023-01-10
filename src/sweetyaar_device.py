@@ -17,13 +17,12 @@ from src import interfaces
 from src import led_indicator
 from lib import sdcard
 
-# machine.freq(160_000_000)
 gc.collect()
 gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
-logger = bt_logger.get_logger(__name__)
+_logger = bt_logger.get_logger(__name__)
 
 if machine.wake_reason() == machine.PIN_WAKE:
-    logger.info("Woke up due to movement")
+    _logger.info("Woke up due to movement")
 
 
 class SweetYaarDevice:
@@ -60,11 +59,11 @@ class SweetYaarDevice:
                 gc.collect()
 
             self.led.blink_sync("green", cycle_ms=200, times=4)
-            logger.info("Initialization completed.")
+            _logger.info("Initialization completed.")
             self._play_startup_sound()
 
         except Exception as e:
-            logger.error(f"Couldn't init SweetYaarDevice: {repr(e)}")
+            _logger.error(f"Couldn't init SweetYaarDevice: {repr(e)}")
             self.led.blink_sync("red", cycle_ms=400, times=4)
             sys.print_exception(e)
             self.shutdown()
@@ -79,7 +78,7 @@ class SweetYaarDevice:
 
         except Exception as e:
             shutdown_needed = True
-            logger.error(f"Controller caught exception: {repr(e)}")
+            _logger.error(f"Controller caught exception: {repr(e)}")
             sys.print_exception(e)
 
         finally:
@@ -101,14 +100,14 @@ class SweetYaarDevice:
         try:
             self.cleanup()
         except Exception as e:
-            logger.error(f"Couldn't shutdown SweetYaarDevice, forcing boot anyway...")
+            _logger.error(f"Couldn't shutdown SweetYaarDevice, forcing boot anyway...")
             sys.print_exception(e)
 
         finally: 
             machine.reset()
 
     def sleep(self):
-        logger.info("Yaar doesn't want to play 😢 Going to sleep...")
+        _logger.info("Yaar doesn't want to play 😢 Going to sleep...")
         time.sleep_ms(20)  # Let broadcasting finish
 
         self.awake_pin.off()
@@ -119,11 +118,11 @@ class SweetYaarDevice:
         machine.deepsleep()
 
     def reset(self):
-        logger.info("Resetting device")
+        _logger.info("Resetting device")
         machine.reset()
 
     def asyncio_exception_handler(self, loop, context):
-        logger.error(f"An exception was caught in a co-routine: {context}")
+        _logger.error(f"An exception was caught in a co-routine: {context}")
         sys.print_exception(context["exception"])
         time.sleep_ms(20)
         self.shutdown()
@@ -135,7 +134,7 @@ class SweetYaarDevice:
         self.audio_player.play_file(self.audio_library.get_sound_filename("shutdown"))
 
     def _mount_sdcard(self):
-        logger.info("Mounting SDCard...")
+        _logger.info("Mounting SDCard...")
         if "spi" in self.config["sdcard"]:
             spi = SPI(self.config["sdcard"]["spi"], baudrate=80_000_000)
         elif "soft_spi" in self.config["sdcard"]:
@@ -159,11 +158,11 @@ class SweetYaarDevice:
         ifaces.append(gpio_iface)
 
         if self.bluetooth_switch.value() == 1:
-            logger.info("Bluetooth is on. Activating interface.")
+            _logger.info("Bluetooth is on. Activating interface.")
             bt_iface = interfaces.BluetoothInterface(cfg=self.config["interfaces"]["bluetooth"])
             ifaces.append(bt_iface)
         else:
-            logger.info("Bluetooth is off.")
+            _logger.info("Bluetooth is off.")
 
         # Initialize controller and interfaces.
         self.controller = controller.SweetYaarController(self, active_interfaces=ifaces)

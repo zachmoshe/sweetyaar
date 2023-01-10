@@ -2,10 +2,12 @@ import uasyncio as asyncio
 from machine import Pin, PWM
 import neopixel
 
+from micropython import const
 
-_DEFAULT_RGB_LEDS_V_DROP = (1.9, 2.6, 2.7)
 
-_RGB_COLORS = {
+_DEFAULT_RGB_LEDS_V_DROP = const((1.9, 2.6, 2.7))
+
+_RGB_COLORS = const({
     "white": (255, 255, 255), 
     "gray": (128, 128, 128), 
     "red": (255, 0, 0), 
@@ -14,9 +16,10 @@ _RGB_COLORS = {
     "aqua": (0, 255, 255), 
     "blue": (0, 0, 255), 
     "purple": (255, 0, 255), 
-}
+})
 
-_U16 = 2 ** 16 - 1
+_U16 = const(2 ** 16 - 1)
+
 
 # A context manager for indicating that a process runs using the LED.
 class LedIndicate:

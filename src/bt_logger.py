@@ -2,15 +2,16 @@ import json
 import time 
 
 from lib import aioble
+from micropython import const
 
 
-_DEFAULT_LOG_FORMAT = "{localtime_year}/{localtime_month:02.n}/{localtime_day:02.n} {localtime_hours:02.n}:{localtime_minutes:02.n}:{localtime_seconds:02.n} [{severity}][{name}] {message}"
-_DEFAULT_NUM_LAST_MESSAGES = 20
+_DEFAULT_LOG_FORMAT = const("{localtime_year}/{localtime_month:02.n}/{localtime_day:02.n} {localtime_hours:02.n}:{localtime_minutes:02.n}:{localtime_seconds:02.n} [{severity}][{name}] {message}")
+_DEFAULT_NUM_LAST_MESSAGES = const(20)
 
-_LOGLEVEL_DEBUG = "D"
-_LOGLEVEL_INFO = "I"
-_LOGLEVEL_WARN = "W"
-_LOGLEVEL_ERROR = "E"
+_LOGLEVEL_DEBUG = const("D")
+_LOGLEVEL_INFO = const("I")
+_LOGLEVEL_WARN = const("W")
+_LOGLEVEL_ERROR = const("E")
 
 _LOGGER = None
 def get_logger(name = None, message_format=_DEFAULT_LOG_FORMAT, num_last_messages=_DEFAULT_NUM_LAST_MESSAGES):
