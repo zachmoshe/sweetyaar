@@ -168,6 +168,8 @@ class SweetYaarController:
         self._last_action_ticks_time = time.ticks_ms()
 
     def _should_sleep(self):
+        if self.device.audio_player.is_playing:
+            self.update_activity()
         return self.time_from_last_activity_secs > self._sleep_inactivity_threshold_secs
 
     def _is_kill_switch_activated(self):

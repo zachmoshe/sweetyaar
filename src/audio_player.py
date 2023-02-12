@@ -110,6 +110,10 @@ class AudioPlayer:
             self._input_file_handle = None
         self._notify_listeners(EVENT_AUDIO_FINISHED)
 
+    @property
+    def is_playing(self):
+        return self._input_file_handle is not None
+
     def register_activity_callback(self, callback_func):
         self.activity_listener_callbacks.append(callback_func)
 
