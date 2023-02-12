@@ -8,7 +8,7 @@ from src import bt_logger
 
 _logger = bt_logger.get_logger(__name__)
 
-_SILENT_BYTES = const(bytearray(512))
+_SILENT_BYTES = bytearray(1024)
 
 EVENT_AUDIO_STARTED = const(1)
 EVENT_AUDIO_FINISHED = const(2)

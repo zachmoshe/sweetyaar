@@ -53,7 +53,7 @@
         "I2S_SCK": 26,
         "I2S_WS": 25,
         "I2S_SD": 22,
-        "I2S_buffer_length_bytes": 2048
+        "I2S_buffer_length_bytes": 4096
     },
     "controller": {
         "kill_switch_inactive_time_secs": 300,
