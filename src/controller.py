@@ -282,7 +282,6 @@ class SweetYaarController:
                  if self._current_volume > 0  # None will turn off audio playing completely.
                  else None)
         self.device.audio_player.volume = shift
-        print("current volume - ", self.volume, shift)
         self.update_controller_state({"volume": self.volume})
 
     @property

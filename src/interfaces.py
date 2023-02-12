@@ -5,7 +5,7 @@ import struct
 import time 
 import uasyncio as asyncio
 
-from lib import aioble
+import aioble
 from src import bt_logger
 from src import controller
 

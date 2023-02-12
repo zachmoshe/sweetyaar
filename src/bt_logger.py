@@ -1,7 +1,7 @@
 import json
 import time 
 
-from lib import aioble
+import aioble
 from micropython import const
 
 

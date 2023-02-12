@@ -15,7 +15,7 @@ from src import config
 from src import controller
 from src import interfaces 
 from src import led_indicator
-from lib import sdcard
+import sdcard
 
 gc.collect()
 gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
