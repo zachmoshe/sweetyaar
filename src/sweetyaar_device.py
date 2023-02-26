@@ -32,10 +32,6 @@ class SweetYaarDevice:
 
         self.config = config.get_config()
 
-        # Bluetooth switch
-        bt_gpio = self.config["bluetooth_switch_gpio"]
-        self.bluetooth_switch = Signal(Pin(bt_gpio, Pin.IN, Pin.PULL_UP), invert=True)
-
         self.awake_pin = Pin(self.config["awake_gpio"], Pin.OUT)  # This will be set to 1 when awake and 0 before sleeping.
         self.awake_pin.on()
 
@@ -157,12 +153,9 @@ class SweetYaarDevice:
         gpio_iface = interfaces.GPIOInterface(cfg=self.config["interfaces"]["gpio"])
         ifaces.append(gpio_iface)
 
-        if self.bluetooth_switch.value() == 1:
-            _logger.info("Bluetooth is on. Activating interface.")
-            bt_iface = interfaces.BluetoothInterface(cfg=self.config["interfaces"]["bluetooth"])
-            ifaces.append(bt_iface)
-        else:
-            _logger.info("Bluetooth is off.")
+        _logger.info("Activating BT interface.")
+        bt_iface = interfaces.BluetoothInterface(cfg=self.config["interfaces"]["bluetooth"])
+        ifaces.append(bt_iface)
 
         # Initialize controller and interfaces.
         self.controller = controller.SweetYaarController(self, active_interfaces=ifaces)
