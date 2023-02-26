@@ -1,3 +1,4 @@
+import collections
 import os
 import random 
 import re
@@ -26,7 +27,16 @@ def _exists(path):
         return False
 
 
-def _load_audio_folder(folder, humanize_filenames=True):
+def _random_shuffle(arr):
+    """Fisher-Yates shuffle"""
+    arr = list(arr)  # don't change in place.
+    for i in range(len(arr)-1, 0, -1):
+        j = random.randrange(i+1)
+        arr[i], arr[j] = arr[j], arr[i]
+    return arr
+
+
+def _load_audio_folder(folder, humanize_filenames=True, random_shuffle=False):
     _RE_VALID_FILENAME = re.compile(r"^([a-zA-Z0-9.\-_]+)[.]([a-zA-Z0-9.-_]+)$")
     if not _exists(folder):
         return {}
@@ -45,6 +55,10 @@ def _load_audio_folder(folder, humanize_filenames=True):
             filename = " ".join(w[0].upper() + w[1:]
                                 for w in filename.split("_"))
         results[filename] = _join(folder, path)
+
+    if random_shuffle:
+        shuffled_items = _random_shuffle(results.items())
+        results = collections.OrderedDict(shuffled_items)
     return results
 
 
@@ -57,9 +71,9 @@ class AudioLibrary:
 
         # Load sounds
         self.sounds = _load_audio_folder(_join(base_sd_path, config["sounds_folder"]), humanize_filenames=False)
-        self.animal_sounds = _load_audio_folder(_join(base_sd_path, config["animal_sounds_folder"]))
+        self.animal_sounds = _load_audio_folder(_join(base_sd_path, config["animal_sounds_folder"]), random_shuffle=True)
         self.playlists = {
-            playlist_name: (repr_name, _load_audio_folder(_join(base_sd_path, playlist_folder)))
+            playlist_name: (repr_name, _load_audio_folder(_join(base_sd_path, playlist_folder), random_shuffle=True))
             for playlist_name, (repr_name, playlist_folder) in config["playlists"].items()
         }
 
@@ -68,8 +82,8 @@ class AudioLibrary:
         for playlist_name, (_, playlist_songs) in self.playlists.items():
             if not playlist_songs:
                 raise ValueError(f"playlist '{playlist_name}' doesn't contain any songs in folder.")
-        self.last_returned_song_item = None
-        self.last_returned_animal_item = None
+        self.returned_song_idx = {playlist_name: 0 for playlist in self.playlists.keys()}
+        self.returned_animal_idx = 0
 
     @property
     def playlists_names(self):
@@ -79,26 +93,21 @@ class AudioLibrary:
     def playlists_repr_names(self):
         return tuple(repr_name for repr_name, _ in self.playlists.values())
 
-    @staticmethod
-    def _choose_random_audio_item_non_repeat(items, last_item):
-        valid_items = [i for i in items if i != last_item]
-        random_item = random.choice(valid_items) if valid_items else random.choice(items)        
-        return random_item
-
     def get_sound_filename(self, sound_name):
         return self.sounds[sound_name]
 
     def get_random_song(self, playlist_name):
+        """Returns (song_name, song_path)."""
         if playlist_name not in self.playlists:
             raise ValueError(f"Illegal playlist '{playlist_name}'")
         
-        songs_items = list(self.playlists[playlist_name][1].items())
-        random_song_item = self._choose_random_audio_item_non_repeat(songs_items, self.last_returned_song_item)
-        self.last_returned_song_item = random_song_item
-        return random_song_item
-
+        curr_song_idx = self.returned_song_idx[playlist_name]
+        song_item = self.playlists[playlist_name][1][curr_song_idx]
+        self.returned_song_idx[playlist_name] = (self.returned_song_idx[playlist_name] + 1) % len(self.playlists[playlist_name][1])
+        return song_item
+        
     def get_random_animal_sound(self):
-        animal_items = list(self.animal_sounds.items())
-        random_animal_item = self._choose_random_audio_item_non_repeat(animal_items, self.last_returned_animal_item)
-        self.last_returned_animal_item = random_animal_item
-        return random_animal_item
+        """Returns (animal_sound_name, animal_sound_path)."""
+        animal_item = self.animal_sounds[self.returned_animal_idx]
+        self.returned_animal_idx = (self.returned_animal_idx + 1) % len(self.animal_sounds)
+        return animal_item
