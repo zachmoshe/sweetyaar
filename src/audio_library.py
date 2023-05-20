@@ -82,7 +82,8 @@ class AudioLibrary:
         for playlist_name, (_, playlist_songs) in self.playlists.items():
             if not playlist_songs:
                 raise ValueError(f"playlist '{playlist_name}' doesn't contain any songs in folder.")
-        self.returned_song_idx = {playlist_name: 0 for playlist in self.playlists.keys()}
+        self.returned_song_idx = {playlist_name: 0 for playlist_name in self.playlists.keys()}
+
         self.returned_animal_idx = 0
 
     @property
@@ -102,12 +103,12 @@ class AudioLibrary:
             raise ValueError(f"Illegal playlist '{playlist_name}'")
         
         curr_song_idx = self.returned_song_idx[playlist_name]
-        song_item = self.playlists[playlist_name][1][curr_song_idx]
+        song_item = list(self.playlists[playlist_name][1].items())[curr_song_idx]
         self.returned_song_idx[playlist_name] = (self.returned_song_idx[playlist_name] + 1) % len(self.playlists[playlist_name][1])
         return song_item
         
     def get_random_animal_sound(self):
         """Returns (animal_sound_name, animal_sound_path)."""
-        animal_item = self.animal_sounds[self.returned_animal_idx]
+        animal_item = list(self.animal_sounds.items())[self.returned_animal_idx]
         self.returned_animal_idx = (self.returned_animal_idx + 1) % len(self.animal_sounds)
         return animal_item
