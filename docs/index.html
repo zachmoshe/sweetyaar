@@ -1,0 +1,1342 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>SweetYaar Parent Remote</title>
+  <style>
+    :root {
+      --page: #f8f4ef;
+      --cream: #fffaf2;
+      --card: #fffdf9;
+      --ink: #121b21;
+      --muted: #4f5960;
+      --line: #efe5da;
+      --teal: #34b8a9;
+      --teal-dark: #08736c;
+      --green: #15925f;
+      --blue: #0875ee;
+      --blue-dark: #0565d3;
+      --pink: #d93e6f;
+      --purple: #6243aa;
+      --shadow: 0 10px 26px rgba(73, 55, 34, 0.13);
+      --soft-shadow: 0 7px 16px rgba(73, 55, 34, 0.1);
+      --radius-card: 18px;
+      --radius-control: 16px;
+      --side-pad: clamp(16px, 5vw, 28px);
+      --header-height: clamp(168px, 43.925vw, 188px);
+      --surface-top: #fcf8f3;
+      --surface-bottom: #fff8ee;
+      --font: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-brand: "Arial Rounded MT Bold", "Avenir Next Rounded", "Nunito", ui-rounded, var(--font);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      width: 100%;
+      min-height: 100%;
+      background: var(--page);
+      overflow-x: hidden;
+      overscroll-behavior-x: none;
+    }
+
+    body {
+      width: 100%;
+      min-height: 100vh;
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: var(--font);
+      line-height: 1.35;
+      overflow-x: hidden;
+      overscroll-behavior-x: none;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      touch-action: manipulation;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 428px;
+      height: 100dvh;
+      min-height: 100dvh;
+      margin: 0 auto;
+      background:
+        radial-gradient(circle at 83% 18%, rgba(141, 217, 205, 0.15) 0 4.7rem, transparent 5rem),
+        radial-gradient(circle at 12% 44%, rgba(251, 223, 126, 0.14) 0 7rem, transparent 7.35rem),
+        radial-gradient(circle at 74% 68%, rgba(255, 204, 221, 0.12) 0 5.8rem, transparent 6.15rem),
+        radial-gradient(circle at 24% 88%, rgba(184, 219, 129, 0.12) 0 5.3rem, transparent 5.65rem),
+        linear-gradient(180deg, var(--surface-top) 0%, var(--surface-bottom) 100%);
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior-x: none;
+    }
+
+    @media (min-width: 560px) {
+      body {
+        background:
+          radial-gradient(circle at 20% 12%, rgba(255, 226, 154, 0.22) 0 12rem, transparent 12.4rem),
+          radial-gradient(circle at 86% 82%, rgba(154, 215, 202, 0.22) 0 13rem, transparent 13.4rem),
+          var(--page);
+      }
+
+      .app {
+        box-shadow: 0 28px 80px rgba(52, 39, 27, 0.16);
+      }
+    }
+
+    .hero {
+      position: relative;
+      min-height: var(--header-height);
+      padding: 0 var(--side-pad);
+      overflow: hidden;
+      background: transparent;
+    }
+
+    .hero-decoration {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .brand {
+      position: absolute;
+      top: clamp(45px, 12.15vw, 52px);
+      left: 0;
+      right: 0;
+      z-index: 2;
+      text-align: center;
+      color: var(--teal-dark);
+      text-shadow: 0 2px 1px rgba(0, 90, 85, 0.08);
+      display: grid;
+      place-items: center;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-family: var(--font-brand);
+      font-size: clamp(35px, 9.1vw, 40px);
+      line-height: 0.95;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    .brand p {
+      margin: 5px 0 0;
+      font-family: var(--font-brand);
+      font-size: clamp(18px, 4.8vw, 22px);
+      line-height: 1;
+      font-weight: 850;
+      letter-spacing: 0;
+    }
+
+    .screen {
+      padding: 20px var(--side-pad) 28px;
+    }
+
+    .screen.ready {
+      position: relative;
+      height: calc(100dvh - var(--header-height));
+      padding-bottom: 0;
+      overflow: hidden;
+    }
+
+    .screen.ready .stack {
+      position: relative;
+      z-index: 1;
+      gap: 14px;
+      padding-bottom: 96px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 16px;
+    }
+
+    .card {
+      min-width: 0;
+      border: 1px solid rgba(239, 229, 218, 0.92);
+      border-radius: var(--radius-card);
+      background: rgba(255, 253, 249, 0.97);
+      box-shadow: var(--shadow);
+    }
+
+    .stack > *,
+    .status-copy,
+    .message-copy,
+    .pause-copy,
+    .theme-field {
+      min-width: 0;
+    }
+
+    .status-card {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 16px;
+      align-items: center;
+      min-height: 86px;
+      padding: 16px 18px;
+    }
+
+    .status-icon {
+      position: relative;
+      display: grid;
+      width: 54px;
+      height: 54px;
+      place-items: center;
+      border-radius: 50%;
+      color: #ffffff;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .status-icon svg {
+      width: 30px;
+      height: 30px;
+      stroke-width: 2.45;
+    }
+
+    .status-icon.grey {
+      background: linear-gradient(180deg, #9ba2a6, #737b80);
+    }
+
+    .status-icon.blue {
+      background: linear-gradient(180deg, #1684f8, #0867df);
+    }
+
+    .status-icon.green {
+      background: linear-gradient(180deg, #58cf91, #38b979);
+    }
+
+    .status-copy h1,
+    .status-copy h2,
+    .message-copy h2,
+    .pause-copy h2 {
+      margin: 0;
+      letter-spacing: 0;
+      line-height: 1.15;
+    }
+
+    .status-copy h1,
+    .status-copy h2 {
+      margin-bottom: 5px;
+      font-size: clamp(19px, 5vw, 22px);
+      font-weight: 800;
+    }
+
+    .status-card.ready-compact .status-copy h1 {
+      margin-bottom: 0;
+    }
+
+    .status-copy h1 {
+      color: var(--green);
+    }
+
+    .status-copy h2 {
+      color: var(--blue);
+    }
+
+    .status-copy p,
+    .message-copy p,
+    .info-card p,
+    .pause-copy p {
+      margin: 0;
+      color: var(--ink);
+      font-size: clamp(14px, 3.8vw, 16px);
+      line-height: 1.32;
+    }
+
+    .muted {
+      color: var(--muted) !important;
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      background: #55c94b;
+      box-shadow: 0 0 0 4px rgba(85, 201, 75, 0.12);
+    }
+
+    .status-dot.red {
+      align-self: end;
+      background: #f0445f;
+      box-shadow: 0 0 0 4px rgba(240, 68, 95, 0.12);
+    }
+
+    .status-icon .status-dot.red {
+      position: absolute;
+      right: -2px;
+      bottom: 1px;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 253, 249, 0.98);
+      box-shadow: 0 1px 4px rgba(121, 55, 62, 0.2);
+    }
+
+    .opening .status-card {
+      grid-template-columns: auto 1fr;
+    }
+
+    .connect-button {
+      display: grid;
+      grid-template-columns: auto auto;
+      justify-content: center;
+      align-items: center;
+      gap: 14px;
+      width: min(100%, 316px);
+      min-height: 70px;
+      margin: 26px auto 0;
+      border: 0;
+      border-radius: 13px;
+      background: linear-gradient(180deg, #1686ff, #006add);
+      color: #ffffff;
+      box-shadow: 0 10px 22px rgba(0, 105, 220, 0.32);
+      cursor: pointer;
+      font-size: clamp(18px, 5.4vw, 23px);
+      font-weight: 500;
+    }
+
+    .connect-button svg {
+      width: 32px;
+      height: 32px;
+      stroke-width: 2.2;
+    }
+
+    .connect-button:hover:not(:disabled) {
+      background: linear-gradient(180deg, #0878f1, #005fc4);
+    }
+
+    .connect-button:disabled {
+      cursor: wait;
+      opacity: 0.75;
+    }
+
+    .opening-art,
+    .stream-art {
+      display: block;
+      width: calc(100% + var(--side-pad) + var(--side-pad));
+      max-width: none;
+      margin: 20px calc(var(--side-pad) * -1) 0;
+      border: 0;
+    }
+
+    .info-card {
+      display: grid;
+      grid-template-columns: 36px 1fr;
+      align-items: center;
+      gap: 14px;
+      min-height: 82px;
+      margin-top: 14px;
+      padding: 16px 20px;
+    }
+
+    .info-card p {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .info-icon {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border: 3px solid #8e969b;
+      border-radius: 50%;
+      color: #717b82;
+      font-weight: 800;
+    }
+
+    .stream-art {
+      margin-top: 18px;
+    }
+
+    .message-card {
+      display: grid;
+      grid-template-columns: 58px 1fr;
+      gap: 16px;
+      margin-top: 20px;
+      padding: 20px 22px;
+    }
+
+    .music-icon {
+      display: grid;
+      width: 58px;
+      height: 58px;
+      place-items: center;
+      border-radius: 50%;
+      background: linear-gradient(180deg, #f36491, #df3f72);
+      color: #ffffff;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .music-icon svg {
+      width: 31px;
+      height: 31px;
+      stroke-width: 2.5;
+    }
+
+    .message-copy h2 {
+      margin-bottom: 9px;
+      font-size: clamp(21px, 5.8vw, 25px);
+      font-weight: 840;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: clamp(12px, 3.7vw, 18px);
+    }
+
+    .action-button {
+      min-width: 0;
+      padding: 0 6px;
+      min-height: 94px;
+      border: 0;
+      border-radius: var(--radius-control);
+      box-shadow: var(--soft-shadow);
+      color: var(--ink);
+      cursor: pointer;
+      font-size: clamp(14px, 3.8vw, 17px);
+      font-weight: 760;
+      letter-spacing: 0;
+    }
+
+    .action-button img {
+      display: block;
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 6px;
+      object-fit: contain;
+    }
+
+    .action-button.song {
+      background: linear-gradient(180deg, #c9f0eb, #b7e6df);
+    }
+
+    .action-button.animal {
+      background: linear-gradient(180deg, #ffe9a8, #ffd56f);
+    }
+
+    .action-button.stop {
+      background: linear-gradient(180deg, #ffd5df, #f8bdcc);
+    }
+
+    .control-card {
+      padding: 10px 18px;
+    }
+
+    .volume-card {
+      display: grid;
+      grid-template-columns: 46px 1fr auto;
+      align-items: center;
+      gap: 12px;
+      min-height: 64px;
+    }
+
+    .control-icon {
+      width: 42px;
+      height: 42px;
+      object-fit: contain;
+    }
+
+    .control-title {
+      margin: 0 0 8px;
+      color: var(--ink);
+      font-size: clamp(16px, 4.2vw, 18px);
+      font-weight: 780;
+      line-height: 1;
+    }
+
+    .volume-range {
+      grid-column: 2 / 4;
+      width: 100%;
+      height: 24px;
+      margin: -8px 0 0;
+      appearance: none;
+      -webkit-appearance: none;
+      background: transparent;
+      cursor: pointer;
+      touch-action: none;
+      user-select: none;
+      --volume-fill: 75%;
+    }
+
+    .volume-range::-webkit-slider-runnable-track {
+      height: 8px;
+      border-radius: 99px;
+      background: linear-gradient(90deg, var(--teal) 0 var(--volume-fill), #d9d9d9 var(--volume-fill) 100%);
+    }
+
+    .volume-range::-webkit-slider-thumb {
+      width: 30px;
+      height: 30px;
+      margin-top: -11px;
+      appearance: none;
+      -webkit-appearance: none;
+      border: 0;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 2px 8px rgba(59, 50, 39, 0.18);
+    }
+
+    .volume-range::-moz-range-track {
+      height: 8px;
+      border-radius: 99px;
+      background: #d9d9d9;
+    }
+
+    .volume-range::-moz-range-progress {
+      height: 8px;
+      border-radius: 99px;
+      background: var(--teal);
+    }
+
+    .volume-range::-moz-range-thumb {
+      width: 30px;
+      height: 30px;
+      border: 0;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 2px 8px rgba(59, 50, 39, 0.18);
+    }
+
+    .volume-value {
+      min-width: 45px;
+      color: var(--ink);
+      text-align: right;
+      font-size: clamp(16px, 4.2vw, 18px);
+      font-weight: 760;
+    }
+
+    .theme-card {
+      display: grid;
+      grid-template-columns: 46px 1fr;
+      gap: 12px;
+      align-items: center;
+      padding-right: 14px;
+      min-height: 64px;
+    }
+
+    .theme-card.expanded {
+      align-items: start;
+    }
+
+    .theme-field {
+      min-width: 0;
+      display: grid;
+      gap: 10px;
+    }
+
+    .theme-trigger {
+      width: 100%;
+      min-height: 48px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      border: 0;
+      background: transparent;
+      padding: 0;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .theme-trigger-copy {
+      display: grid;
+      min-width: 0;
+      gap: 2px;
+    }
+
+    .theme-trigger-copy .label {
+      color: var(--ink);
+      font-size: clamp(15px, 4vw, 17px);
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .theme-current {
+      min-width: 0;
+      color: var(--purple);
+      font-size: clamp(18px, 5vw, 21px);
+      font-weight: 820;
+      letter-spacing: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .chevron {
+      width: 22px;
+      height: 22px;
+      color: #6f777d;
+      pointer-events: none;
+      transition: transform 150ms ease;
+    }
+
+    .theme-card.expanded .chevron {
+      transform: rotate(180deg);
+    }
+
+    .theme-options {
+      display: grid;
+      gap: 4px;
+      padding: 0;
+    }
+
+    .theme-option {
+      min-height: 38px;
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--purple);
+      cursor: pointer;
+      text-align: left;
+      padding: 7px 10px;
+      font-size: clamp(15px, 4.1vw, 17px);
+      font-weight: 760;
+    }
+
+    .theme-option:not([aria-selected="true"]):hover {
+      background: rgba(98, 67, 170, 0.07);
+    }
+
+    .theme-option[aria-selected="true"] {
+      border-color: rgba(98, 67, 170, 0.36);
+      background: rgba(239, 233, 255, 0.86);
+    }
+
+    .pause-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(148px, 44%);
+      gap: 10px;
+      align-items: center;
+      border-color: rgba(255, 214, 224, 0.9);
+      background: linear-gradient(180deg, #fff3f7, #ffe9f0);
+      padding: 12px;
+    }
+
+    .pause-copy-wrap {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: 56px 1fr;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .pause-icon {
+      width: 56px;
+      height: 56px;
+      object-fit: contain;
+    }
+
+    .pause-copy h2 {
+      margin-bottom: 4px;
+      color: var(--pink);
+      font-size: clamp(17px, 4.2vw, 18px);
+      font-weight: 830;
+    }
+
+    .pause-copy p {
+      font-size: clamp(12px, 3.3vw, 14px);
+      color: var(--ink);
+    }
+
+    .pause-actions {
+      display: grid;
+      gap: 8px;
+    }
+
+    .pause-button {
+      min-height: 44px;
+      border: 0;
+      border-radius: 12px;
+      box-shadow: var(--soft-shadow);
+      cursor: pointer;
+      padding: 0 8px;
+      font-size: clamp(13px, 3.35vw, 14px);
+      font-weight: 760;
+      white-space: nowrap;
+    }
+
+    .pause-button.on {
+      background: linear-gradient(180deg, #ef6088, #dc3e70);
+      color: #ffffff;
+    }
+
+    .pause-button.off {
+      background: rgba(255, 255, 255, 0.94);
+      color: #34314d;
+    }
+
+    .bottom-art {
+      position: absolute;
+      z-index: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: block;
+      width: 100%;
+      height: auto;
+      margin: 0;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    button:disabled,
+    input:disabled,
+    select:disabled {
+      cursor: not-allowed;
+      opacity: 0.56;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible {
+      outline: 3px solid rgba(8, 117, 238, 0.55);
+      outline-offset: 3px;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 370px) {
+      .status-card {
+        grid-template-columns: auto 1fr;
+      }
+
+      .status-dot {
+        display: none;
+      }
+
+      .actions {
+        gap: 9px;
+      }
+
+      .action-button {
+        min-height: 98px;
+        font-size: 13px;
+      }
+
+      .pause-card {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" aria-live="polite">
+    <header class="hero">
+      <img class="hero-decoration" src="assets/header-decoration.png" srcset="assets/header-decoration.png 1x, assets/header-decoration@2x.png 2x" alt="">
+      <div class="brand">
+        <h1 id="brandName">SweetYaar</h1>
+        <p>Parent remote</p>
+      </div>
+    </header>
+
+    <section class="screen opening" id="openingView" aria-label="Connect to SweetYaar">
+      <div class="stack">
+        <article class="card status-card">
+          <div class="status-icon grey" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M7 7l10 10-5 4V3l5 4L7 17" />
+            </svg>
+            <span class="status-dot red" aria-hidden="true"></span>
+          </div>
+          <div class="status-copy">
+            <h1 style="color: var(--ink)">Remote not connected</h1>
+            <p id="openingMessage">Connect to control songs, animal sounds, volume, themes, and pause mode.</p>
+          </div>
+        </article>
+
+        <button class="connect-button" id="connectButton" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <path d="M7 7l10 10-5 4V3l5 4L7 17" />
+          </svg>
+          <span id="connectButtonLabel">Connect to SweetYaar</span>
+        </button>
+
+        <img class="opening-art" src="assets/opening-hero-art.png" alt="">
+
+        <article class="card info-card">
+          <span class="info-icon" aria-hidden="true">i</span>
+          <p>Make sure SweetYaar is powered on and nearby.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="screen streaming" id="streamingView" aria-label="SweetYaar is streaming music" hidden>
+      <article class="card status-card">
+        <div class="status-icon blue" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M7 7l10 10-5 4V3l5 4L7 17" />
+          </svg>
+        </div>
+        <div class="status-copy">
+          <h2>BT connected</h2>
+          <p>SweetYaar is streaming audio.</p>
+        </div>
+        <span class="status-dot" aria-hidden="true"></span>
+      </article>
+
+      <img class="stream-art" src="assets/streaming-toy-scene.png" alt="">
+
+      <article class="card message-card">
+        <div class="music-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M9 18V5l10-2v13" />
+            <circle cx="6" cy="18" r="3" />
+            <circle cx="16" cy="16" r="3" />
+          </svg>
+        </div>
+        <div class="message-copy">
+          <h2>SweetYaar is streaming music now.</h2>
+          <p>Set volume from the streaming device.</p>
+          <p>Remote controls return when the streaming device disconnects.</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="screen ready" id="readyView" aria-label="SweetYaar controls" hidden>
+      <div class="stack">
+        <article class="card status-card">
+          <div class="status-icon green" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M7 7l10 10-5 4V3l5 4L7 17" />
+            </svg>
+          </div>
+          <div class="status-copy">
+            <h1 id="readyStatusText">Ready to play</h1>
+            <p id="readyMessage">You can control SweetYaar.</p>
+          </div>
+          <span class="status-dot" aria-hidden="true"></span>
+        </article>
+
+        <section class="actions" aria-label="Playback">
+          <button class="action-button song" id="playSongButton" type="button">
+            <img src="assets/icon-song.png" alt="">
+            <span>Play song</span>
+          </button>
+          <button class="action-button animal" id="playAnimalButton" type="button">
+            <img src="assets/icon-animal.png" alt="">
+            <span>Animal sound</span>
+          </button>
+          <button class="action-button stop" id="stopButton" type="button">
+            <img src="assets/icon-stop.png" alt="">
+            <span>Stop</span>
+          </button>
+        </section>
+
+        <section class="card control-card volume-card" aria-label="Volume">
+          <img class="control-icon" src="assets/icon-volume.png" alt="">
+          <div>
+            <p class="control-title">Volume</p>
+          </div>
+          <output class="volume-value" id="volumeValue" for="volumeRange">75%</output>
+          <input class="volume-range" id="volumeRange" type="range" min="0" max="100" value="75" step="1">
+        </section>
+
+        <section class="card control-card theme-card" aria-label="Theme">
+          <img class="control-icon" src="assets/icon-theme.png" alt="">
+          <div class="theme-field">
+            <button class="theme-trigger" id="themeTrigger" type="button" aria-expanded="false" aria-controls="themeOptions">
+              <span class="theme-trigger-copy">
+                <span class="label">Theme</span>
+                <span class="theme-current" id="themeCurrent">Lullabies</span>
+              </span>
+              <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+            <div class="theme-options" id="themeOptions" hidden></div>
+          </div>
+        </section>
+
+        <section class="card pause-card" aria-label="Pause mode">
+          <div class="pause-copy-wrap">
+            <img class="pause-icon" src="assets/icon-pause.png" alt="">
+            <div class="pause-copy">
+              <h2>Pause mode</h2>
+              <p>Disables toy inputs for 10 minutes.</p>
+            </div>
+          </div>
+          <div class="pause-actions">
+            <button class="pause-button on" id="killswitchOnButton" type="button">Pause for 10 mins</button>
+            <button class="pause-button off" id="killswitchOffButton" type="button">Cancel pause</button>
+          </div>
+        </section>
+      </div>
+
+      <img class="bottom-art" src="assets/ready-bottom-graphics.png" srcset="assets/ready-bottom-graphics.png 1x, assets/ready-bottom-graphics@2x.png 2x" alt="">
+    </section>
+  </main>
+
+  <script>
+    "use strict";
+
+    const UUIDS = {
+      service: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      volume: "a1b2c3d4-e5f6-7890-abcd-ef1234567891",
+      killswitch: "a1b2c3d4-e5f6-7890-abcd-ef1234567892",
+      theme: "a1b2c3d4-e5f6-7890-abcd-ef1234567893",
+      status: "a1b2c3d4-e5f6-7890-abcd-ef1234567894",
+      themes: "a1b2c3d4-e5f6-7890-abcd-ef1234567895",
+      command: "a1b2c3d4-e5f6-7890-abcd-ef1234567896"
+    };
+
+    const els = {
+      openingView: document.querySelector("#openingView"),
+      streamingView: document.querySelector("#streamingView"),
+      readyView: document.querySelector("#readyView"),
+      openingMessage: document.querySelector("#openingMessage"),
+      connectButton: document.querySelector("#connectButton"),
+      connectButtonLabel: document.querySelector("#connectButtonLabel"),
+      readyStatusCard: document.querySelector("#readyView .status-card"),
+      readyStatusText: document.querySelector("#readyStatusText"),
+      readyMessage: document.querySelector("#readyMessage"),
+      playSongButton: document.querySelector("#playSongButton"),
+      playAnimalButton: document.querySelector("#playAnimalButton"),
+      stopButton: document.querySelector("#stopButton"),
+      volumeRange: document.querySelector("#volumeRange"),
+      volumeValue: document.querySelector("#volumeValue"),
+      themeCard: document.querySelector(".theme-card"),
+      themeTrigger: document.querySelector("#themeTrigger"),
+      themeCurrent: document.querySelector("#themeCurrent"),
+      themeOptions: document.querySelector("#themeOptions"),
+      killswitchOnButton: document.querySelector("#killswitchOnButton"),
+      killswitchOffButton: document.querySelector("#killswitchOffButton")
+    };
+
+    const textDecoder = new TextDecoder("utf-8");
+    const textEncoder = new TextEncoder();
+
+    const state = {
+      busy: false,
+      connected: false,
+      device: null,
+      server: null,
+      chars: {},
+      status: "Disconnected",
+      volume: 75,
+      theme: "",
+      themes: [],
+      killswitch: false,
+      themeOpen: false,
+      message: ""
+    };
+
+    function isBtConnected() {
+      return state.status.startsWith("BT connected");
+    }
+
+    function isKillswitchActive() {
+      return state.killswitch || state.status.startsWith("Killswitch active");
+    }
+
+    function controlsDisabled() {
+      return state.busy || !state.connected || isBtConnected();
+    }
+
+    function playbackDisabled() {
+      return controlsDisabled() || isKillswitchActive();
+    }
+
+    function readyStatus() {
+      if (state.status === "Idle" || state.status === "Disconnected") {
+        return "Ready to play";
+      }
+      if (state.status.startsWith("Killswitch active")) {
+        return state.status.replace("Killswitch active", "Pause mode active");
+      }
+      return state.status;
+    }
+
+    function readyMessage() {
+      if (isKillswitchActive()) {
+        return "Toy inputs are paused for a little while.";
+      }
+      return state.message || "You can control SweetYaar.";
+    }
+
+    function themeOptions() {
+      return state.themes.length
+        ? state.themes
+        : (state.theme ? [{ id: state.theme, name: state.theme }] : [{ id: "lullabies", name: "Lullabies" }]);
+    }
+
+    function selectedThemeName() {
+      const selected = themeOptions().find((theme) => theme.id === (state.theme || "lullabies"));
+      return selected ? selected.name : (state.theme || "Lullabies");
+    }
+
+    function readUint8(value) {
+      return value.byteLength ? value.getUint8(0) : 0;
+    }
+
+    function readText(value) {
+      return textDecoder.decode(value);
+    }
+
+    function setMessage(message) {
+      state.message = message || "";
+      render();
+    }
+
+    async function writeCharacteristic(characteristic, value) {
+      if (characteristic.writeValueWithResponse) {
+        await characteristic.writeValueWithResponse(value);
+      } else {
+        await characteristic.writeValue(value);
+      }
+    }
+
+    async function writeUint8(name, value) {
+      await writeCharacteristic(state.chars[name], Uint8Array.of(value));
+    }
+
+    async function writeText(name, value) {
+      await writeCharacteristic(state.chars[name], textEncoder.encode(value));
+    }
+
+    function parseThemes(jsonText) {
+      try {
+        const parsed = JSON.parse(jsonText || "[]");
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+          .filter((item) => item && typeof item.id === "string" && typeof item.name === "string")
+          .map((item) => ({ id: item.id, name: item.name }));
+      } catch (error) {
+        setMessage("Could not read the theme list from the toy.");
+        return [];
+      }
+    }
+
+    function renderThemeOptions() {
+      const options = themeOptions();
+      els.themeOptions.replaceChildren();
+      for (const theme of options) {
+        const button = document.createElement("button");
+        button.className = "theme-option";
+        button.type = "button";
+        button.dataset.themeId = theme.id;
+        button.textContent = theme.name;
+        button.setAttribute("aria-selected", theme.id === (state.theme || options[0].id) ? "true" : "false");
+        button.disabled = controlsDisabled();
+        els.themeOptions.append(button);
+      }
+    }
+
+    function render() {
+      const opening = !state.connected;
+      const streaming = state.connected && isBtConnected();
+      const ready = state.connected && !isBtConnected();
+      const disabled = controlsDisabled();
+
+      els.openingView.hidden = !opening;
+      els.streamingView.hidden = !streaming;
+      els.readyView.hidden = !ready;
+
+      els.connectButton.disabled = state.busy;
+      els.connectButton.setAttribute("aria-busy", state.busy ? "true" : "false");
+      els.connectButtonLabel.textContent = state.busy ? "Connecting..." : "Connect to SweetYaar";
+      els.openingMessage.textContent =
+        state.message || "Connect to control songs, animal sounds, volume, themes, and pause mode.";
+
+      const readyStatusText = readyStatus();
+      const readyMessageText = readyMessage();
+      const hideReadyMessage = readyStatusText === "Ready to play";
+      els.readyStatusText.textContent = readyStatusText;
+      els.readyMessage.textContent = hideReadyMessage ? "" : readyMessageText;
+      els.readyMessage.hidden = hideReadyMessage;
+      els.readyStatusCard.classList.toggle("ready-compact", hideReadyMessage);
+
+      els.volumeRange.value = String(state.volume);
+      els.volumeRange.style.setProperty("--volume-fill", `${state.volume}%`);
+      els.volumeValue.value = `${state.volume}%`;
+      els.volumeValue.textContent = `${state.volume}%`;
+
+      renderThemeOptions();
+      els.themeCurrent.textContent = selectedThemeName();
+      els.themeCard.classList.toggle("expanded", state.themeOpen);
+      els.themeTrigger.setAttribute("aria-expanded", state.themeOpen ? "true" : "false");
+      els.themeOptions.hidden = !state.themeOpen;
+
+      els.volumeRange.disabled = disabled;
+      els.themeTrigger.disabled = disabled;
+      els.playSongButton.disabled = playbackDisabled();
+      els.playAnimalButton.disabled = playbackDisabled();
+      els.stopButton.disabled = playbackDisabled();
+      els.killswitchOnButton.disabled = disabled;
+      els.killswitchOffButton.disabled = disabled || !state.killswitch;
+    }
+
+    async function getCharacteristic(service, name) {
+      return service.getCharacteristic(UUIDS[name]);
+    }
+
+    async function readInitialValues() {
+      const [themesValue, volumeValue, killswitchValue, themeValue, statusValue] = await Promise.all([
+        state.chars.themes.readValue(),
+        state.chars.volume.readValue(),
+        state.chars.killswitch.readValue(),
+        state.chars.theme.readValue(),
+        state.chars.status.readValue()
+      ]);
+
+      state.themes = parseThemes(readText(themesValue));
+      state.volume = readUint8(volumeValue);
+      state.killswitch = readUint8(killswitchValue) !== 0;
+      state.theme = readText(themeValue);
+      state.status = readText(statusValue) || "Idle";
+    }
+
+    async function subscribe(name, handler) {
+      const characteristic = state.chars[name];
+      characteristic.addEventListener("characteristicvaluechanged", handler);
+      await characteristic.startNotifications();
+    }
+
+    async function subscribeToNotifications() {
+      await subscribe("volume", (event) => {
+        state.volume = readUint8(event.target.value);
+        render();
+      });
+      await subscribe("killswitch", (event) => {
+        state.killswitch = readUint8(event.target.value) !== 0;
+        render();
+      });
+      await subscribe("theme", (event) => {
+        state.theme = readText(event.target.value);
+        render();
+      });
+      await subscribe("status", (event) => {
+        const wasBtConnected = isBtConnected();
+        state.status = readText(event.target.value) || "Idle";
+        if (wasBtConnected && !isBtConnected()) {
+          state.message = "";
+        }
+        render();
+      });
+    }
+
+    function describeError(error) {
+      if (!error) return "Something went wrong while connecting.";
+      if (error.name === "NotFoundError") {
+        return "Pairing was cancelled or SweetYaar was not selected.";
+      }
+      if (error.name === "SecurityError") {
+        return "Web Bluetooth requires HTTPS or localhost.";
+      }
+      const message = error.message || "";
+      if (message.includes("No Services matching UUID")) {
+        return "SweetYaar is visible, but the parent BLE service was not found.";
+      }
+      if (message.includes("GATT Server is disconnected")) {
+        return "The toy disconnected while the app was reading controls.";
+      }
+      return message || "Could not connect to SweetYaar.";
+    }
+
+    async function connect() {
+      if (!("bluetooth" in navigator)) {
+        setMessage("This browser does not support Web Bluetooth. Use Chrome or Edge on desktop or Android.");
+        return;
+      }
+      if (!window.isSecureContext) {
+        setMessage("Open this page over HTTPS or localhost to use Web Bluetooth.");
+        return;
+      }
+
+      state.busy = true;
+      setMessage("Connecting...");
+
+      try {
+        const device = await navigator.bluetooth.requestDevice({
+          filters: [{ namePrefix: "SweetYaar" }],
+          optionalServices: [UUIDS.service]
+        });
+        device.addEventListener("gattserverdisconnected", onDisconnected);
+
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(UUIDS.service);
+
+        state.device = device;
+        state.server = server;
+        state.chars = {
+          volume: await getCharacteristic(service, "volume"),
+          killswitch: await getCharacteristic(service, "killswitch"),
+          theme: await getCharacteristic(service, "theme"),
+          status: await getCharacteristic(service, "status"),
+          themes: await getCharacteristic(service, "themes"),
+          command: await getCharacteristic(service, "command")
+        };
+
+        await readInitialValues();
+        await subscribeToNotifications();
+
+        state.connected = true;
+        state.message = "";
+      } catch (error) {
+        state.connected = false;
+        state.device = null;
+        state.server = null;
+        state.chars = {};
+        state.status = "Disconnected";
+        state.message = describeError(error);
+      } finally {
+        state.busy = false;
+        render();
+      }
+    }
+
+    function onDisconnected() {
+      state.connected = false;
+      state.server = null;
+      state.chars = {};
+      state.status = "Disconnected";
+      state.killswitch = false;
+      state.message = "Remote disconnected.";
+      render();
+    }
+
+    async function safeWrite(action, successMessage, blocked, onError) {
+      if (blocked) return;
+      state.busy = true;
+      render();
+      try {
+        await action();
+        state.message = successMessage || "";
+      } catch (error) {
+        if (onError) onError();
+        state.message = describeError(error);
+      } finally {
+        state.busy = false;
+        render();
+      }
+    }
+
+    els.connectButton.addEventListener("click", connect);
+
+    els.volumeRange.addEventListener("input", () => {
+      state.volume = Number(els.volumeRange.value);
+      render();
+    });
+
+    els.volumeRange.addEventListener("change", () => {
+      const nextVolume = Number(els.volumeRange.value);
+      safeWrite(() => writeUint8("volume", nextVolume), "", controlsDisabled());
+    });
+
+    function chooseTheme(nextTheme) {
+      if (controlsDisabled()) return;
+      const previousTheme = state.theme;
+      state.theme = nextTheme;
+      state.themeOpen = false;
+      render();
+      safeWrite(
+        () => writeText("theme", nextTheme),
+        "",
+        controlsDisabled(),
+        () => { state.theme = previousTheme; }
+      );
+    }
+
+    els.themeTrigger.addEventListener("click", () => {
+      if (controlsDisabled()) return;
+      state.themeOpen = !state.themeOpen;
+      render();
+    });
+
+    els.themeOptions.addEventListener("click", (event) => {
+      const button = event.target.closest(".theme-option");
+      if (!button) return;
+      chooseTheme(button.dataset.themeId);
+    });
+
+    els.playSongButton.addEventListener("click", () => {
+      safeWrite(() => writeUint8("command", 1), "", playbackDisabled());
+    });
+
+    els.playAnimalButton.addEventListener("click", () => {
+      safeWrite(() => writeUint8("command", 2), "", playbackDisabled());
+    });
+
+    els.stopButton.addEventListener("click", () => {
+      safeWrite(() => writeUint8("command", 3), "", playbackDisabled());
+    });
+
+    els.killswitchOnButton.addEventListener("click", () => {
+      if (controlsDisabled()) return;
+      const previousKillswitch = state.killswitch;
+      const previousStatus = state.status;
+      state.killswitch = true;
+      state.status = "Killswitch active";
+      render();
+      safeWrite(
+        () => writeUint8("killswitch", 1),
+        "",
+        controlsDisabled(),
+        () => {
+          state.killswitch = previousKillswitch;
+          state.status = previousStatus;
+        }
+      );
+    });
+
+    els.killswitchOffButton.addEventListener("click", () => {
+      if (controlsDisabled()) return;
+      const previousKillswitch = state.killswitch;
+      const previousStatus = state.status;
+      state.killswitch = false;
+      state.status = "Idle";
+      render();
+      safeWrite(
+        () => writeUint8("killswitch", 0),
+        "",
+        controlsDisabled(),
+        () => {
+          state.killswitch = previousKillswitch;
+          state.status = previousStatus;
+        }
+      );
+    });
+
+    if (!("bluetooth" in navigator)) {
+      state.message = "This browser does not support Web Bluetooth. Use Chrome or Edge on desktop or Android.";
+    } else if (!window.isSecureContext) {
+      state.message = "Open this page over HTTPS or localhost to use Web Bluetooth.";
+    }
+
+    render();
+  </script>
+</body>
+</html>

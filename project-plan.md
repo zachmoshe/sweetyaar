@@ -1,0 +1,351 @@
+# SweetYaar — Baby Doll BT Speaker Controller
+
+## Context
+
+This project is a v2 redesign of a custom ESP32-based baby toy controller originally written in MicroPython. The key new requirement is that the device must appear as a **Bluetooth A2DP speaker** to phones and computers. MicroPython has no Bluetooth Classic / A2DP support, so the firmware is rewritten in **C++ using the Arduino framework on PlatformIO**. The project also includes a custom PCB, a web-based parent control interface, a Wi-Fi configuration/file-management portal, and a 3D-printed enclosure.
+
+---
+
+## Architecture Decisions
+
+| Decision | Choice | Reason |
+|---|---|---|
+| Firmware language | C++ (Arduino framework) | MicroPython cannot do BT Classic A2DP |
+| Toolchain | PlatformIO (VS Code extension) | Better dependency management than Arduino IDE |
+| MCU | **ESP32-WROOM-32 (original ESP32 only)** | Only original ESP32 supports BT Classic; S3/C3/C6 do not |
+| BT A2DP library | `pschatzmann/ESP32-A2DP` v1.8.x | Most mature maintained library; works on Arduino ESP32 core v3 |
+| Audio pipeline | `pschatzmann/arduino-audio-tools` | Same author; integrates A2DP + WAV playback on same I2S bus |
+| Audio DAC + amp | MAX98357A | I2S DAC + 3W mono amp in one chip; 2.5–5.5V (runs direct from LiPo) |
+| SD card interface | SPI | WAV files for songs and animal sounds |
+| BLE parent control | ESP32 built-in BLEDevice | Dual-mode: Classic BT (A2DP) + BLE simultaneously on same chip |
+| Parent live-control app | Web BLE (single HTML page) | No install; controls normal play mode from Android Chrome + desktop Chrome |
+| Parent management app | Config-mode captive portal | Physical button hold required; manages SD files/settings from a browser |
+| File management | Wi-Fi AP + `esp-fs-webserver`, config mode only | Original ESP32 has no native USB OTG; Wi-Fi stays off in normal play mode |
+| File mgmt library | `cotestatnt/esp-fs-webserver` v3.2+ | Handles config-mode portal + file browser + OTA in one library |
+| OTA firmware | ElegantOTA v3 | Browser-based update from config mode only |
+| Battery | Single-cell LiPo, 3.7V, ~1500–2000 mAh | Compact, rechargeable |
+| Charging / battery safety | Modern single-cell LiPo charger module/IC with battery protection | Safety over fast charging; exact part TBD; use low charge current, fuse protection, and battery temperature protection |
+| Power regulation | Modern 3.3V LDO, not AMS1117 | Simple, lower-dropout 3.3V rail for ESP32 + SD + logic; buck-boost deferred unless testing shows brownouts or poor runtime |
+| PCB tool | EasyEDA / LCEDA | Integrated with JLCPCB for small-batch manufacturing |
+| Enclosure | 3D-printed (design TBD) | Holds PCB + LiPo + speaker; fits inside/attaches to doll body |
+
+---
+
+## Hardware Design
+
+### PCB Components
+
+| Component | Part | Notes |
+|---|---|---|
+| MCU module | ESP32-WROOM-32 | 4 MB flash, Wi-Fi + BT dual-mode |
+| DAC + Amp | MAX98357A | SOP-8, I2S input, mono 3W out |
+| SD card | Micro SD push-push slot | SPI, 3.3V logic level; slot on PCB edge (accessible externally) |
+| USB-C | USB-C 16-pin charging port | Charging only, no data |
+| Charging | Modern 1-cell LiPo charger module/IC, exact part TBD | MCP73831-class if simple/off-while-charging; BQ2407x/BQ2518x/MCP73871-class only if power-path charging is desired |
+| Battery protection | Protected LiPo pack + board-level protection | Prefer pack PCM for overcharge, overdischarge, overcurrent, and short-circuit; add fuse/polyfuse and battery temperature protection |
+| LDO | Modern 3.3V LDO, exact part TBD | AP2112K/MIC5504/MCP1700-class part; avoid AMS1117 for final battery design |
+| Battery connector | JST-PH 2-pin | LiPo connection |
+| Speaker connector | JST-PH 2-pin | Connects to doll's speaker |
+| Button connectors | 2× JST-PH 2-pin | One per button; buttons wired to GND |
+| Power switch | Slide switch (SPDT) | On/off between battery and rest of circuit |
+| Status LED | 0805 + resistor | Power-on and BT/Wi-Fi status indicator |
+
+### Power and Charging Safety Baseline
+
+This is a child toy, so the power design prioritises safety, low heat, and predictable behaviour over fast charging, maximum battery capacity, or operating while plugged in.
+
+- **Use a reputable protected single-cell LiPo pack**. Prefer a pack with a built-in protection circuit module (PCM) covering overcharge, overdischarge, overcurrent, and short-circuit protection.
+- **Add simple board-level protection**. Include an appropriately rated fuse or resettable polyfuse in the battery/USB power path. Add strain relief and keyed connectors so battery and speaker leads cannot be pulled loose or reversed easily.
+- **Add battery temperature protection**. Prefer a battery pack with an NTC temperature lead routed to a charger temperature-sense input. If the selected charger/module does not support NTC sensing, use a conservative module with thermal protection and consider a physical thermal fuse placed against the cell/pack.
+- **Charge slowly by default**. Target roughly 250-500 mA unless the selected cell datasheet, enclosure thermals, and bench testing justify more. The project does not need 1A fast charging.
+- **Use a modern charger/module**. The charger should provide at least thermal regulation, charge termination, charge-status indication, and sane input/battery protection. Power-path support is optional; it is acceptable for the toy to be switched off or electrically disconnected from the load while charging.
+- **Use a modern 3.3V LDO**. The ESP32/SD/logic rail should be powered from a low-dropout regulator rather than AMS1117. A buck-boost regulator is not required initially; revisit only if testing shows low-battery resets or unacceptable runtime.
+- **Physically protect the battery**. The enclosure must prevent crushing, puncture, sharp edges, or wire strain on the LiPo. First prototypes should be charged only while supervised, and the charging/power section should get an electronics review before PCB manufacture.
+
+### Key GPIO Assignments (ESP32-WROOM-32)
+
+| Signal | GPIO |
+|---|---|
+| I2S BCLK (MAX98357A) | GPIO26 |
+| I2S LRC/WS (MAX98357A) | GPIO25 |
+| I2S DOUT (MAX98357A) | GPIO22 |
+| MAX98357A SD_MODE (mute) | GPIO21 |
+| SD MOSI | GPIO23 |
+| SD MISO | GPIO19 |
+| SD SCK | GPIO18 |
+| SD CS | GPIO5 |
+| Button 1 (Songs) | GPIO32 |
+| Button 2 (Animals) | GPIO33 |
+| Status LED | GPIO2 |
+
+### Target PCB Specs
+- Size: ~60 × 40 mm
+- 2-layer board
+- Manufactured at JLCPCB (5–10 units)
+- LCSC part numbers in BOM for JLCPCB SMT assembly
+- **SD card slot on PCB edge** — physically accessible from enclosure for manual card swap
+
+---
+
+## Firmware Architecture
+
+### Boot Modes
+
+SweetYaar boots into exactly one mode:
+
+1. **Play mode** — normal toy operation. Wi-Fi stays off. A2DP, BLE live controls, WAV playback, buttons, and the state machine are active.
+2. **Config mode** — entered by holding Button 1 + Button 2 for 3 seconds during boot. Normal toy behavior does not start. The device creates a local Wi-Fi AP and serves a captive portal management page for SD-card content, settings, and OTA. After changes, the parent restarts or power-cycles the toy to return to play mode.
+
+There is no home Wi-Fi / STA mode requirement. The device should not expose a management portal during normal play.
+
+### Play-Mode State Machine
+
+```
+States: IDLE | PLAYING_SONG | PLAYING_ANIMAL | BT_STREAMING | KILLSWITCH
+
+IDLE:
+  - Button 1 pressed → PLAYING_SONG (next song in current theme)
+  - Button 2 pressed → PLAYING_ANIMAL (random animal sound)
+  - Both buttons pressed → (no-op, already idle)
+  - BT device connects → BT_STREAMING
+  - BLE killswitch → KILLSWITCH (10-min timer)
+
+PLAYING_SONG:
+  - Song finishes → IDLE
+  - Button 1 pressed → next song (stays PLAYING_SONG)
+  - Both buttons pressed → stop → IDLE
+  - BLE killswitch → stop → KILLSWITCH  ← parents override
+  - BT connects → stop WAV → BT_STREAMING  ← BT takes precedence
+
+PLAYING_ANIMAL:
+  - Sound finishes → IDLE
+  - Both buttons pressed → stop → IDLE
+  - BLE killswitch → stop → KILLSWITCH  ← parents override
+  - BT connects → stop WAV → BT_STREAMING  ← BT takes precedence
+
+BT_STREAMING:
+  - Buttons DISABLED
+  - BLE parent app shows `BT connected`
+  - BLE local controls are read-only/ignored while BT is connected
+  - BT disconnects → IDLE
+
+KILLSWITCH (10-minute timer):
+  - All buttons DISABLED
+  - BT streaming still allowed (BT connects → BT_STREAMING)
+  - BLE killswitch can cancel early → IDLE
+  - BLE killswitch activation while already active restarts the timer
+  - Timer expires → IDLE
+```
+
+### Firmware Modules
+
+1. **A2DP Sink** (`pschatzmann/ESP32-A2DP`)
+   - Device name: configurable, stored in the NVS-backed device-config JSON blob (default: "SweetYaar")
+   - Audio: SBC codec → 44.1 kHz 16-bit PCM → I2S → MAX98357A
+   - Connect/disconnect callbacks drive state machine
+
+2. **WAV Player** (`pschatzmann/arduino-audio-tools`)
+   - Reads WAV files from SD card
+   - Plays through same I2S bus (exclusive with A2DP)
+   - Songs: sequential within theme folder (`/songs/lullabies/`, `/songs/nature/`, etc.)
+   - Animals: random pick from `/animals/` folder
+
+3. **BLE Parent Service** (ESP32 BLEDevice)
+   - Enabled in play mode alongside Classic BT A2DP.
+   - Custom GATT service, characteristics:
+     - `volume` (uint8, 0–100, read/write/notify) — live local WAV volume for the current session
+     - `killswitch` (uint8, 0/1, read/write/notify) — stops local playback and disables buttons for 10 min
+     - `theme` (string, read/write/notify) — sets active song folder for the current session
+     - `status` (string, read/notify) — `Idle`, `Playing song - <theme> / <file>`, `Playing animal - <file>`, `BT connected`, or `Killswitch active (<mm:ss> left)`
+     - `themes` (JSON string, read) — available song themes scanned from `/songs/<theme>/metadata.json`
+     - `command` (uint8, write) — app equivalents for song, animal, and stop button actions
+   - BLE writes are live controls for local SD/WAV operation only. While A2DP is connected, status is `BT connected`, local controls are ignored, and current values are re-notified. Persistent defaults are edited in config mode and stored on the SD card.
+
+4. **Wi-Fi + Web Portal** (`cotestatnt/esp-fs-webserver`)
+   - Runs only in config mode; Wi-Fi is off in play mode
+   - **Enter config mode**: hold Button 1 + Button 2 for 3 sec on power-on
+   - Creates Wi-Fi AP: `SweetYaar-XXXX` (last 4 chars of MAC)
+   - Web interface at `192.168.4.1`:
+     - `/` — parent-friendly management page
+     - `/edit` — optional raw file browser for advanced SD-card edits
+     - `/setup` — device name, default volume, default theme
+     - `/update` — firmware OTA (via ElegantOTA v3)
+   - Parent-facing settings and media metadata are stored on the SD card
+   - Device-local settings that must survive SD-card replacement are stored in NVS as a compact device-config JSON blob
+
+5. **Button Handler**
+   - Debounced (50 ms software debounce)
+   - Active LOW (internal pull-up enabled)
+   - Simultaneous press detection (both pressed within 50 ms window → IDLE)
+   - Only processed outside BT_STREAMING and KILLSWITCH states
+
+6. **Volume Control**
+   - AudioTools software gain stage
+   - Static firmware default: 75%
+   - `SD:/config.json` may override the default volume
+   - BLE volume writes change live volume only; they do not persist to NVS
+
+### Config Storage
+
+Most parent-editable configuration lives on the SD card so it can be changed, backed up, or replaced by the config portal:
+
+```json
+{
+  "schemaVersion": 1,
+  "defaultVolumePct": 75,
+  "defaultTheme": "lullabies"
+}
+```
+
+Only device-local settings that should survive SD-card replacement live in NVS. NVS stores a compact JSON blob equivalent to:
+
+```json
+{
+  "schemaVersion": 1,
+  "btName": "SweetYaar"
+}
+```
+
+### SD Card File Structure
+
+```
+/config.json
+/songs/
+  lullabies/
+    metadata.json
+    01.wav
+    02.wav
+    ...
+  nature/
+    metadata.json
+    01.wav
+    ...
+  kids/
+    metadata.json
+    01.wav
+    ...
+/animals/
+  cat.wav
+  dog.wav
+  cow.wav
+  ...
+```
+
+**`metadata.json` schema** (UTF-8, emoji-friendly):
+```json
+{
+  "name": "Lullabies 🌙",
+  "shuffle": false
+}
+```
+
+- `name`: display name shown in the Web BLE parent app (UTF-8, any emoji allowed)
+- `shuffle`: if true, randomise song order once when the theme is selected; the shuffled order is then maintained (and wraps) on every subsequent button press until the theme changes
+
+---
+
+## Web BLE Parent App (Phase 2)
+
+- Single `docs/index.html` (vanilla JS + CSS, no framework)
+- Hosted on GitHub Pages from `/docs`
+- Uses Web Bluetooth API (Android Chrome + desktop Chrome)
+- Normal local play-mode live controls only; not used for song upload/file management or BT audio control
+- Controls:
+  - Connect / Disconnect
+  - Play song / Play animal / Stop buttons
+  - Volume slider for SD/WAV playback
+  - Song theme selector backed by the firmware `themes` JSON characteristic
+  - Killswitch activate/restart and cancel controls
+  - Device status indicator
+- When A2DP is connected, the app shows `BT connected` and disables volume, theme, and killswitch controls.
+
+---
+
+## Wi-Fi File Management + Config Portal (Phase 5)
+
+- Enter by holding both buttons 3 sec on power-on
+- Play-mode services do not start while in config mode
+- ESP32 becomes Wi-Fi AP (`SweetYaar-XXXX`)
+- DNS catchall → captive portal auto-opens on phone/laptop
+- Browser UI served by `esp-fs-webserver`:
+  - **Song themes** — create/rename/delete theme folders, upload songs, reorder files, edit `metadata.json`
+  - **Animal sounds** — upload/delete WAV files in `/animals`
+  - **Toy settings** — edit `SD:/config.json` values like default volume and default theme
+  - **Device settings** — edit the NVS-backed device-config JSON values like BT name
+  - **Advanced file manager** — optional raw SD file browser
+  - **OTA update** — upload new `.bin` firmware file
+- Restart/power-cycle exits config mode and returns to play mode
+
+---
+
+## Project Phases
+
+### Phase 1 — Core Firmware
+1. Set up PlatformIO project targeting ESP32-WROOM-32
+2. A2DP sink → MAX98357A via I2S (phone streams music through doll)
+3. SD WAV playback (songs + animals) via same I2S bus
+4. State machine (IDLE / PLAYING / BT_STREAMING / KILLSWITCH)
+5. Button debounce, simultaneous-press detection
+6. Volume control via AudioTools gain
+7. Device name from NVS-backed device-config JSON
+8. Parent defaults from `SD:/config.json`
+
+### Phase 2 — Web BLE Parent App
+1. Enable and validate firmware BLE GATT service (volume, killswitch, theme, status, themes)
+2. Design + build `docs/index.html` (Web Bluetooth)
+3. BLE characteristic integration with BT-mode read-only behavior
+4. Deploy `/docs` to GitHub Pages
+
+### Phase 3 — PCB Design (EasyEDA)
+1. Schematic: all components, power tree, GPIO mapping
+2. Select final charger/protection/LDO parts and fuse/temperature-protection ratings
+3. Electronics review of LiPo charging, battery protection, power switch, and regulator design
+4. PCB layout: 60×40 mm, 2-layer
+5. BOM with LCSC part numbers
+6. Gerber export → JLCPCB order (5–10 units)
+
+### Phase 4 — Assembly & Testing
+1. Assemble first unit (manual or JLCPCB SMT)
+2. Flash firmware via USB (boot/enable pins accessible on PCB)
+3. End-to-end test: BT speaker, buttons, BLE app, battery
+
+### Phase 5 — Wi-Fi Config + File Management Portal
+1. Integrate `esp-fs-webserver` in config-mode AP only
+2. Captive portal + parent-friendly management page
+3. SD editor for songs, animals, theme metadata, and `SD:/config.json`
+4. Device settings editor for NVS-backed BT name
+5. OTA update via ElegantOTA v3
+6. Restart flow back into play mode
+7. Test full parent setup flow (new unit → configure → restart → use)
+
+### Phase 6 — 3D Enclosure
+1. Choose CAD tool (FreeCAD or Fusion 360 — TBD)
+2. Design shell: fits PCB + LiPo + speaker
+3. Features: USB-C cutout, power switch, SD card slot access, button holes
+4. 3D print prototype, iterate fit
+5. Finalize for gifting
+
+---
+
+## Key Libraries
+
+| Library | Source | Use |
+|---|---|---|
+| ESP32-A2DP | `pschatzmann/ESP32-A2DP` | BT Classic A2DP sink |
+| arduino-audio-tools | `pschatzmann/arduino-audio-tools` | I2S output, WAV decode, volume gain |
+| ESP32 BLEDevice | Arduino-ESP32 core (built-in) | BLE GATT server |
+| SD | Arduino-ESP32 core (built-in) | SD card file access |
+| esp-fs-webserver | `cotestatnt/esp-fs-webserver` | Wi-Fi portal, file manager, OTA |
+| ElegantOTA | `ayushsharma82/ElegantOTA` v3 | Browser-based OTA firmware update |
+
+---
+
+## Open Items / To Discuss Later
+- Speaker impedance (4Ω or 8Ω) — affects MAX98357A output power
+- LiPo capacity (1000 vs 1500 vs 2000 mAh) — depends on doll body space
+- Exact charger module/IC and whether it has NTC temperature-sense input
+- Exact fuse/polyfuse and optional thermal-fuse ratings/placement
+- Exact 3.3V LDO part and thermal/current validation under ESP32 BT/Wi-Fi peaks
+- CAD tool for enclosure (FreeCAD vs Fusion 360)
+- BT name per-unit strategy (same name "SweetYaar" for all, or personalised per gift?)
+- User's existing MicroPython code — review for any missing features

@@ -1,0 +1,291 @@
+(kicad_pcb
+	(version 20241229)
+	(generator "pcbnew")
+	(generator_version "10.0.3")
+	(general
+		(thickness 1.6)
+		(legacy_teardrops no)
+	)
+	(paper "A4")
+	(title_block
+		(title "ESP32 Prototype Board")
+		(date "2026-05-16")
+		(rev "A")
+		(company "SweetYaar")
+		(comment 1 "Reusable ESP32 audio/storage lab carrier")
+	)
+	(layers
+		(0 "F.Cu" signal)
+		(1 "In1.Cu" power)
+		(2 "In2.Cu" power)
+		(31 "B.Cu" signal)
+		(9 "F.Adhes" user "F.Adhesive")
+		(11 "B.Adhes" user "B.Adhesive")
+		(13 "F.Paste" user)
+		(15 "B.Paste" user)
+		(5 "F.SilkS" user "F.Silkscreen")
+		(7 "B.SilkS" user "B.Silkscreen")
+		(1 "F.Mask" user)
+		(3 "B.Mask" user)
+		(17 "Dwgs.User" user "User.Drawings")
+		(19 "Cmts.User" user "User.Comments")
+		(21 "Eco1.User" user "User.Eco1")
+		(23 "Eco2.User" user "User.Eco2")
+		(25 "Edge.Cuts" user)
+		(27 "Margin" user)
+		(31 "F.CrtYd" user "F.Courtyard")
+		(29 "B.CrtYd" user "B.Courtyard")
+		(35 "F.Fab" user)
+		(33 "B.Fab" user)
+	)
+	(setup
+		(stackup
+			(layer "F.SilkS"
+				(type "Top Silk Screen")
+			)
+			(layer "F.Paste"
+				(type "Top Solder Paste")
+			)
+			(layer "F.Mask"
+				(type "Top Solder Mask")
+				(color "Green")
+				(thickness 0.01)
+			)
+			(layer "F.Cu"
+				(type "copper")
+				(thickness 0.035)
+			)
+			(layer "dielectric 1"
+				(type "prepreg")
+				(thickness 0.18)
+				(material "FR4")
+				(epsilon_r 4.5)
+				(loss_tangent 0.02)
+			)
+			(layer "In1.Cu"
+				(type "copper")
+				(thickness 0.035)
+			)
+			(layer "dielectric 2"
+				(type "core")
+				(thickness 1.15)
+				(material "FR4")
+				(epsilon_r 4.5)
+				(loss_tangent 0.02)
+			)
+			(layer "In2.Cu"
+				(type "copper")
+				(thickness 0.035)
+			)
+			(layer "dielectric 3"
+				(type "prepreg")
+				(thickness 0.18)
+				(material "FR4")
+				(epsilon_r 4.5)
+				(loss_tangent 0.02)
+			)
+			(layer "B.Cu"
+				(type "copper")
+				(thickness 0.035)
+			)
+			(layer "B.Mask"
+				(type "Bottom Solder Mask")
+				(color "Green")
+				(thickness 0.01)
+			)
+			(layer "B.Paste"
+				(type "Bottom Solder Paste")
+			)
+			(layer "B.SilkS"
+				(type "Bottom Silk Screen")
+			)
+			(copper_finish "None")
+			(dielectric_constraints no)
+		)
+		(pad_to_mask_clearance 0)
+		(allow_soldermask_bridges_in_footprints no)
+		(tenting front back)
+	)
+	(net 0 "")
+	(gr_rect
+		(start 55 55)
+		(end 135 115)
+		(stroke
+			(width 0.15)
+			(type default)
+		)
+		(fill no)
+		(layer "Edge.Cuts")
+		(uuid "197f0704-338c-4942-9c31-141c40418bc3")
+	)
+	(gr_rect
+		(start 55 55)
+		(end 80 75)
+		(stroke
+			(width 0.15)
+			(type dash)
+		)
+		(fill no)
+		(layer "Dwgs.User")
+		(uuid "8d89d270-c261-4024-a1fb-090faa12734d")
+	)
+	(gr_text "ESP32 antenna keepout\nno copper, traces, parts, screws, or wires"
+		(at 57 64 0)
+		(layer "Dwgs.User")
+		(uuid "4a69c928-f536-4d6e-b98b-e8894b4c7ff1")
+		(effects
+			(font
+				(size 1.2 1.2)
+				(thickness 0.15)
+			)
+			(justify left)
+		)
+	)
+	(gr_text "Rev A starter outline: 80mm x 60mm"
+		(at 95 112 0)
+		(layer "Dwgs.User")
+		(uuid "6c987537-00bb-4eda-9fb7-4b31be4366fa")
+		(effects
+			(font
+				(size 1.2 1.2)
+				(thickness 0.15)
+			)
+		)
+	)
+	(gr_rect
+		(start 55 75)
+		(end 83 94)
+		(stroke
+			(width 0.15)
+			(type dash)
+		)
+		(fill no)
+		(layer "Dwgs.User")
+		(uuid "f63d5d15-97b5-454e-9845-dd509c87248e")
+	)
+	(gr_text "ESP32-WROOM-32E\nmodule body"
+		(at 57 84 0)
+		(layer "Dwgs.User")
+		(uuid "f36bfec9-2872-4cd7-9198-f718a7196b62")
+		(effects
+			(font
+				(size 1.1 1.1)
+				(thickness 0.15)
+			)
+			(justify left)
+		)
+	)
+	(gr_rect
+		(start 60 106)
+		(end 73 115)
+		(stroke
+			(width 0.15)
+			(type dash)
+		)
+		(fill no)
+		(layer "Dwgs.User")
+		(uuid "4a6c8b91-e7c5-4057-adc3-20958a29e582")
+	)
+	(gr_text "USB-C"
+		(at 66.5 110 0)
+		(layer "Dwgs.User")
+		(uuid "50a628d3-789d-4088-b5fd-8268f8a7168c")
+		(effects
+			(font
+				(size 1.1 1.1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(gr_rect
+		(start 80 98)
+		(end 104 113)
+		(stroke
+			(width 0.15)
+			(type dash)
+		)
+		(fill no)
+		(layer "Dwgs.User")
+		(uuid "85f59ca5-2b53-45d6-b6c3-0cc44f932726")
+	)
+	(gr_text "5V select\n3V3 LDO"
+		(at 82 105 0)
+		(layer "Dwgs.User")
+		(uuid "5fc8d0a0-8f83-47db-ac50-df5f429930ef")
+		(effects
+			(font
+				(size 1.1 1.1)
+				(thickness 0.15)
+			)
+			(justify left)
+		)
+	)
+	(gr_rect
+		(start 102 58)
+		(end 132 78)
+		(stroke
+			(width 0.15)
+			(type dash)
+		)
+		(fill no)
+		(layer "Dwgs.User")
+		(uuid "6e0a26b3-8271-497b-9de0-1e9ad18e0d63")
+	)
+	(gr_text "microSD socket\nshort SPI traces"
+		(at 104 66 0)
+		(layer "Dwgs.User")
+		(uuid "bbd42f9d-e31f-49a2-98f1-788ec80f83f1")
+		(effects
+			(font
+				(size 1.1 1.1)
+				(thickness 0.15)
+			)
+			(justify left)
+		)
+	)
+	(gr_rect
+		(start 101 84)
+		(end 132 106)
+		(stroke
+			(width 0.15)
+			(type dash)
+		)
+		(fill no)
+		(layer "Dwgs.User")
+		(uuid "e72fe9f8-6d81-4abf-9560-c5e12c333790")
+	)
+	(gr_text "MAX98357A\nmodule + speaker"
+		(at 103 93 0)
+		(layer "Dwgs.User")
+		(uuid "d7b48001-9d4f-44b5-b30d-85a2751947a8")
+		(effects
+			(font
+				(size 1.1 1.1)
+				(thickness 0.15)
+			)
+			(justify left)
+		)
+	)
+	(gr_rect
+		(start 130 80)
+		(end 135 108)
+		(stroke
+			(width 0.15)
+			(type dash)
+		)
+		(fill no)
+		(layer "Dwgs.User")
+		(uuid "27ce7b59-e61f-4d56-9149-9a7eb633ad55")
+	)
+	(gr_text "GPIO\nheaders"
+		(at 132.5 94 90)
+		(layer "Dwgs.User")
+		(uuid "9e8ed7dd-3699-4ea0-a9f1-45392f718a2d")
+		(effects
+			(font
+				(size 1.1 1.1)
+				(thickness 0.15)
+			)
+		)
+	)
+)

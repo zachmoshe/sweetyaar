@@ -1,0 +1,174 @@
+:root {
+  --sy-font-display: "Arial Rounded MT Bold", "Avenir Next Rounded", "Baloo 2", "Nunito", ui-rounded, system-ui, sans-serif;
+  --sy-font-ui: "Nunito", ui-rounded, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --sy-title: #087b78;
+  --sy-title-shadow: rgba(0, 91, 89, 0.22);
+  --sy-text: #161616;
+  --sy-muted: #5d666b;
+  --sy-card: rgba(255, 255, 255, 0.93);
+  --sy-card-border: rgba(218, 205, 190, 0.45);
+
+  --sy-sky-top: #d6f1ee;
+  --sy-sky-bottom: #caece9;
+  --sy-page-top: #fcf8f3;
+  --sy-page-bottom: #fdf4eb;
+
+  --sy-blue: #0677e8;
+  --sy-blue-dark: #006bdb;
+  --sy-green: #4ec37f;
+  --sy-green-dark: #16975a;
+  --sy-teal: #36b9ab;
+  --sy-pink: #df4771;
+  --sy-pink-dark: #cd365f;
+  --sy-purple: #7b62c7;
+
+  --sy-song-card: #c5eeeb;
+  --sy-song-card-2: #d6f1ea;
+  --sy-animal-card: #ffdf76;
+  --sy-animal-card-2: #ffd261;
+  --sy-stop-card: #ffd2dd;
+  --sy-stop-card-2: #f5b8c5;
+  --sy-pause-card: #ffe7ed;
+
+  --sy-radius-card: 16px;
+  --sy-radius-control: 13px;
+  --sy-shadow-card: 0 10px 22px rgba(93, 66, 35, 0.12), 0 2px 5px rgba(93, 66, 35, 0.08);
+  --sy-shadow-control: 0 9px 18px rgba(107, 79, 44, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --sy-shadow-press: 0 5px 12px rgba(107, 79, 44, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.sweetyaar-app {
+  position: relative;
+  width: min(100vw, 430px);
+  min-height: 100dvh;
+  margin: 0 auto;
+  overflow: hidden;
+  color: var(--sy-text);
+  font-family: var(--sy-font-ui);
+  background:
+    radial-gradient(circle at 83% 18%, rgba(141, 217, 205, 0.15) 0 4.7rem, transparent 5rem),
+    radial-gradient(circle at 12% 44%, rgba(251, 223, 126, 0.14) 0 7rem, transparent 7.35rem),
+    radial-gradient(circle at 74% 68%, rgba(255, 204, 221, 0.12) 0 5.8rem, transparent 6.15rem),
+    radial-gradient(circle at 24% 88%, rgba(184, 219, 129, 0.12) 0 5.3rem, transparent 5.65rem),
+    linear-gradient(180deg, var(--sy-page-top) 0%, var(--sy-page-bottom) 100%);
+}
+
+.sweetyaar-app::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  aspect-ratio: 428 / 188;
+  background: url("./assets/final/top-overlay.png") center top / 100% auto no-repeat;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.screen-ready .bottom-art {
+  position: absolute;
+  inset: auto 0 0 0;
+  aspect-ratio: 428 / 134;
+  background: url("./assets/final/ready-bottom-overlay.png") center bottom / 100% auto no-repeat;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.app-header,
+.app-content {
+  position: relative;
+  z-index: 2;
+}
+
+.app-header {
+  padding-top: max(58px, calc(env(safe-area-inset-top) + 46px));
+  text-align: center;
+}
+
+.app-title {
+  margin: 0;
+  font-family: var(--sy-font-display);
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 0.94;
+  letter-spacing: 0;
+  color: var(--sy-title);
+  text-shadow: 0 2px 0 rgba(223, 250, 246, 0.95), 0 4px 6px var(--sy-title-shadow);
+}
+
+.app-subtitle {
+  margin: 7px 0 0;
+  color: #08716f;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.05;
+}
+
+.app-content {
+  padding: 51px 18px max(22px, env(safe-area-inset-bottom)) 18px;
+}
+
+.surface-card {
+  border: 1px solid var(--sy-card-border);
+  border-radius: var(--sy-radius-card);
+  background: var(--sy-card);
+  box-shadow: var(--sy-shadow-card);
+}
+
+.status-card {
+  display: grid;
+  grid-template-columns: 56px 1fr 14px;
+  align-items: center;
+  min-height: 76px;
+  padding: 14px 17px;
+  column-gap: 14px;
+}
+
+.status-card--large {
+  grid-template-columns: 70px 1fr;
+  min-height: 138px;
+  padding: 22px;
+}
+
+.status-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 999px;
+  color: #fff;
+  background: #91999c;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 5px 10px rgba(0, 0, 0, 0.12);
+}
+
+.status-icon--blue {
+  background: linear-gradient(180deg, #0c7df0, #006bdb);
+}
+
+.status-icon--green {
+  background: linear-gradient(180deg, #5fd092, #39b975);
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #56bd48;
+  box-shadow: 0 1px 3px rgba(48, 126, 40, 0.35);
+}
+
+.primary-cta {
+  display: inline-grid;
+  grid-template-columns: 34px auto;
+  align-items: center;
+  justify-content: center;
+  column-gap: 9px;
+  width: min(284px, 82%);
+  height: 63px;
+  border: 0;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 19px;
+  font-weight: 800;
+  background: linear-gradient(180deg, var(--sy-blue), var(--sy-blue-dark));
+  box-shadow: 0 8px 16px rgba(0, 95, 210, 0.27), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}

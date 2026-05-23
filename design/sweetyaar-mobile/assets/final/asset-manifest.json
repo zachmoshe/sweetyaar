@@ -1,0 +1,68 @@
+{
+  "top-overlay.png": {
+    "width": 428,
+    "height": 188,
+    "transparent": true,
+    "placement": "Generated header sky with left branch, star, right cloud, and transparent scalloped bottom edge. Align to the top edge and scale by width only."
+  },
+  "top-overlay@2x.png": {
+    "width": 856,
+    "height": 376,
+    "transparent": true,
+    "placement": "Retina version of top-overlay.png for srcset or image-set(). Display at 428 x 188 CSS px."
+  },
+  "ready-bottom-overlay.png": {
+    "width": 428,
+    "height": 134,
+    "transparent": true,
+    "placement": "Absolute overlay aligned to the bottom edge of the Ready screen. Scale by width only; do not stretch vertically."
+  },
+  "ready-bottom-overlay@2x.png": {
+    "width": 856,
+    "height": 268,
+    "transparent": true,
+    "placement": "Retina version of ready-bottom-overlay.png for srcset or image-set(). Display at 428 x 134 CSS px."
+  },
+  "opening-hero.png": {
+    "width": 432,
+    "height": 245,
+    "transparent": true,
+    "placement": "Opening screen hero art, centered in normal content flow."
+  },
+  "streaming-hero.png": {
+    "width": 432,
+    "height": 322,
+    "transparent": true,
+    "placement": "Bluetooth Streaming screen hero art, centered in normal content flow."
+  },
+  "icon-song.png": {
+    "width": 64,
+    "height": 64,
+    "transparent": true,
+    "placement": "Ready screen Play song control icon. Centered transparent canvas."
+  },
+  "icon-teddy.png": {
+    "width": 76,
+    "height": 76,
+    "transparent": true,
+    "placement": "Ready screen Animal sound control icon. Centered transparent canvas."
+  },
+  "icon-stop.png": {
+    "width": 64,
+    "height": 64,
+    "transparent": true,
+    "placement": "Ready screen Stop control icon. Centered transparent canvas."
+  },
+  "icon-pause-moon.png": {
+    "width": 76,
+    "height": 76,
+    "transparent": true,
+    "placement": "Pause mode panel illustration. Centered transparent canvas."
+  },
+  "icon-theme.png": {
+    "width": 56,
+    "height": 56,
+    "transparent": true,
+    "placement": "Ready screen Theme control icon. Full uncropped book icon on a transparent canvas."
+  }
+}
