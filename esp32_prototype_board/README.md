@@ -42,6 +42,9 @@ in [cost-estimate.md](cost-estimate.md). The work plan from here is in
 
 The current schematic status and verification notes are in
 [schematic-status.md](schematic-status.md).
+The current first PCB placement preview is in
+[placement-preview.svg](placement-preview.svg), generated from
+`tools/generate_initial_pcb.py`.
 Connector/header meanings are explained in
 [connectors-explained.md](connectors-explained.md).
 For continuing this work in a fresh chat, start with
@@ -65,8 +68,10 @@ For continuing this work in a fresh chat, start with
 
 ## Open Rev A Decisions
 
-- Resolve the conditional and not-locked rows in `footprint-lock.md`.
-- Final board dimensions after connector placement.
+- Route the first PCB placement.
+- Resolve the KiCad CLI DRC abort around the USB-C/J1 footprint, or confirm it is
+  CLI-only by running DRC in the KiCad GUI.
+- Final board dimensions after routing review.
 
 ## Useful References
 
