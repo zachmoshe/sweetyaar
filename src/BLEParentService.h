@@ -11,13 +11,15 @@
 // ---------------------------------------------------------------------------
 // BLEParentService — GATT server for parent controls
 //
-// Exposes six characteristics:
+// Exposes parent-control and config characteristics:
 //   volume     (uint8, read/write/notify)   — 0–100, local WAV volume
 //   killswitch (uint8, read/write/notify)   — write 1 to activate, 0 to cancel
 //   theme      (string, read/write/notify)  — active song theme folder id
 //   status     (string, read/notify)        — user-facing state description
 //   themes     (JSON string, read)          — available song themes
 //   command    (uint8, write)               — 1=song, 2=animal, 3=stop
+//   configCmd  (JSON string, write)         — settings/scan command
+//   configResp (JSON string, read/notify)   — settings/scan response
 //
 // Callbacks fire in a BLE stack task; they set thread-safe flags that the
 // main loop reads via the pollXxx() methods.
@@ -46,6 +48,8 @@ public:
     void updateTheme(const String& theme);
     void updateStatus(const String& status);
     void updateThemes(const String& themesJson);
+    void updateConfigResponse(const String& responseJson);
+    void updateDeviceName(const String& deviceName);
 
     // Non-destructive peek: returns true if a new volume value has arrived
     bool hasVolumeChange() const { return _newVolume; }
@@ -62,6 +66,9 @@ public:
     // Poll for app command; out: 1=song, 2=animal, 3=stop
     bool pollCommand(uint8_t& out);
 
+    // Poll for JSON config command from the app
+    bool pollConfigCommand(String& out);
+
     // True if at least one BLE central is connected
     bool isConnected() const;
 
@@ -73,6 +80,8 @@ private:
     BLECharacteristic* _statusChar = nullptr;
     BLECharacteristic* _themesChar = nullptr;
     BLECharacteristic* _commandChar = nullptr;
+    BLECharacteristic* _configCommandChar = nullptr;
+    BLECharacteristic* _configResponseChar = nullptr;
 
     // Pending events set by BLE callbacks, consumed by poll methods
     volatile bool    _newVolume     = false;
@@ -86,6 +95,9 @@ private:
 
     volatile bool    _newCommand = false;
     volatile uint8_t _pendingCommand = 0;
+
+    volatile bool    _newConfigCommand = false;
+    char             _pendingConfigCommand[384] = {0};
 
     volatile bool    _connected = false;
     portMUX_TYPE     _mux = portMUX_INITIALIZER_UNLOCKED;
@@ -164,8 +176,32 @@ private:
             std::string value = c->getValue();
             if (value.empty()) return;
             portENTER_CRITICAL(&_owner->_mux);
-            _owner->_pendingCommand = static_cast<uint8_t>(value[0]);
-            _owner->_newCommand = true;
+            char first = value[0];
+            if (first == '{') {
+                size_t n = value.copy(_owner->_pendingConfigCommand,
+                                      sizeof(_owner->_pendingConfigCommand) - 1);
+                _owner->_pendingConfigCommand[n] = '\0';
+                _owner->_newConfigCommand = true;
+            } else {
+                _owner->_pendingCommand = static_cast<uint8_t>(first);
+                _owner->_newCommand = true;
+            }
+            portEXIT_CRITICAL(&_owner->_mux);
+        }
+    private:
+        BLEParentService* _owner;
+    };
+
+    class ConfigCommandCB : public BLECharacteristicCallbacks {
+    public:
+        explicit ConfigCommandCB(BLEParentService* owner) : _owner(owner) {}
+        void onWrite(BLECharacteristic* c) override {
+            std::string value = c->getValue();
+            portENTER_CRITICAL(&_owner->_mux);
+            size_t n = value.copy(_owner->_pendingConfigCommand,
+                                  sizeof(_owner->_pendingConfigCommand) - 1);
+            _owner->_pendingConfigCommand[n] = '\0';
+            _owner->_newConfigCommand = true;
             portEXIT_CRITICAL(&_owner->_mux);
         }
     private:

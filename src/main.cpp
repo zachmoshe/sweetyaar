@@ -3,6 +3,7 @@
 #include <esp_heap_caps.h>
 #include <esp_log.h>
 #include <esp_bt_device.h>
+#include <esp_gap_bt_api.h>
 
 // --- Audio tools ---
 #include "AudioTools.h"
@@ -14,6 +15,7 @@
 #include "DebugA2DPSinkQueued.h"
 #include "NVSConfig.h"
 #include "ParentConfig.h"
+#include "ContentCatalog.h"
 #include "ButtonHandler.h"
 #include "WavPlayer.h"
 #include "BLEParentService.h"
@@ -39,13 +41,16 @@ BluetoothA2DPSink* btSink = nullptr;
 // Track previous state to detect transitions in the main loop
 State prevState = State::IDLE;
 bool configMode = false;
+bool sdReady = false;
 String activeTheme = DEFAULT_THEME;
+String currentDeviceName = DEFAULT_BT_NAME;
 String themeIds[BLE_MAX_THEMES];
 String themeNames[BLE_MAX_THEMES];
 String bleThemesJson = "[]";
 int themeCount = 0;
 uint8_t currentVolumePct = DEFAULT_VOLUME_PCT;
 bool btReopenPending = false;
+bool btNameApplyPending = false;
 uint32_t btReopenAtMs = 0;
 const uint32_t BT_REOPEN_DELAY_MS = 1500;
 volatile bool btLinkConnected = false;
@@ -70,10 +75,18 @@ void applyVolume(uint8_t pct);
 void handleStateEntry(State prev, State next);
 bool processStateMachineTransitions();
 bool handleBleControls();
+void handleBleConfigCommands();
+void handleBleConfigCommand(const String& commandJson);
 void handleBleCommand(uint8_t command);
 void publishBleValues();
 String bleStatusForState(State state);
 void refreshThemeList();
+void applyActiveThemeFallback();
+void applyDeviceName(const String& deviceName);
+void applyPendingBtNameIfPossible();
+String buildConfigResponse(uint32_t requestId);
+String buildConfigOkResponse(uint32_t requestId, const String& op);
+String buildConfigErrorResponse(uint32_t requestId, const String& message);
 bool isKnownTheme(const String& theme);
 String themeDisplayName(const String& theme);
 String fileNameOf(const String& path);
@@ -135,8 +148,8 @@ void setup() {
 
     // Device-local NVS config
     nvs.begin();
-    String btName = nvs.getBtName();
-    Serial.printf("[Device] btName=%s\n", btName.c_str());
+    currentDeviceName = nvs.getBtName();
+    Serial.printf("[Device] btName=%s\n", currentDeviceName.c_str());
 
     // Buttons
     buttons.begin();
@@ -152,10 +165,10 @@ void setup() {
 
     // Bluetooth A2DP sink. Reserve its audio queue before SD/WAV playback has
     // a chance to fragment heap; otherwise connection-time allocation can fail.
-    setupBT(btName);
+    setupBT(currentDeviceName);
 
     // SD card + WAV player
-    bool sdReady = wavPlayer.begin();
+    sdReady = wavPlayer.begin();
     if (!sdReady) {
         Serial.println("[WARN] SD init failed; WAV playback unavailable");
     } else {
@@ -163,18 +176,15 @@ void setup() {
         refreshThemeList();
     }
     activeTheme = parentConfig.defaultTheme();
-    if (themeCount > 0 && !isKnownTheme(activeTheme)) {
-        Serial.printf("[Theme] Default theme \"%s\" is unavailable; using \"%s\"\n",
-                      activeTheme.c_str(), themeIds[0].c_str());
-        activeTheme = themeIds[0];
-    }
+    applyActiveThemeFallback();
 
     // Apply SD-configured volume, or the static firmware default.
     applyVolume(parentConfig.defaultVolumePct());
 
     // BLE parent service — shares the controller already started by A2DP.
     if (ENABLE_BLE_PARENT_SERVICE) {
-        bleService.begin(btName);
+        bleService.begin(currentDeviceName);
+        bleService.updateConfigResponse(buildConfigResponse(0));
         bleService.updateThemes(bleThemesJson);
         publishBleValues();
     } else {
@@ -230,6 +240,7 @@ void loop() {
     // 3. Poll BLE characteristics. Writes are only local-toy controls;
     //    during BT streaming they are ignored and current values are restored.
     bool bleWriteSeen = handleBleControls();
+    handleBleConfigCommands();
 
     // 4. WAV player: signal SM when track ends
     if (cur == State::PLAYING_SONG || cur == State::PLAYING_ANIMAL) {
@@ -254,6 +265,7 @@ void loop() {
 
     // 8. Re-open BT after a short disconnect cooldown.
     pollBluetoothReopen();
+    applyPendingBtNameIfPossible();
     pollBtDebug();
 
     delay(wavPlayer.isIdle() ? 5 : 1);  // keep WAV streaming fed while still yielding
@@ -288,7 +300,8 @@ void enterConfigMode() {
     Serial.println("[Config] Entering configuration mode");
     Serial.println("[Config] Play-mode services will not start");
 
-    if (!wavPlayer.begin()) {
+    sdReady = wavPlayer.begin();
+    if (!sdReady) {
         Serial.println("[WARN] SD init failed; config portal will not be able to manage files");
     } else {
         parentConfig.load();
@@ -579,6 +592,133 @@ bool handleBleControls() {
 }
 
 // ---------------------------------------------------------------------------
+// handleBleConfigCommands()
+// ---------------------------------------------------------------------------
+void handleBleConfigCommands() {
+    if (!ENABLE_BLE_PARENT_SERVICE) {
+        return;
+    }
+
+    String commandJson;
+    if (bleService.pollConfigCommand(commandJson)) {
+        handleBleConfigCommand(commandJson);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// handleBleConfigCommand()
+// ---------------------------------------------------------------------------
+void handleBleConfigCommand(const String& commandJson) {
+    JsonDocument doc;
+    DeserializationError err = deserializeJson(doc, commandJson);
+    uint32_t requestId = doc["id"] | 0;
+    if (err) {
+        bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Invalid config command JSON"));
+        return;
+    }
+
+    const char* opValue = doc["op"] | "";
+    String op = opValue;
+    if (op == "getConfig") {
+        bleService.updateConfigResponse(buildConfigResponse(requestId));
+        return;
+    }
+
+    if (op == "scanThemes") {
+        int page = doc["page"] | 0;
+        bleService.updateConfigResponse(
+            ContentCatalog::buildThemesPageJson(requestId, page, BLE_CONFIG_THEME_PAGE_SIZE));
+        return;
+    }
+
+    if (op == "scanSongs") {
+        const char* theme = doc["theme"] | "";
+        int page = doc["page"] | 0;
+        if (theme == nullptr || theme[0] == '\0') {
+            bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Missing theme id"));
+            return;
+        }
+        bleService.updateConfigResponse(
+            ContentCatalog::buildSongsPageJson(requestId, String(theme), page, BLE_CONFIG_SONG_PAGE_SIZE));
+        return;
+    }
+
+    if (op == "setConfig") {
+        const char* deviceNameValue = doc["deviceName"] | currentDeviceName.c_str();
+        String nextName = deviceNameValue;
+        nextName.trim();
+        if (nextName.isEmpty()) nextName = DEFAULT_BT_NAME;
+        if (nextName.length() > 32) {
+            nextName = nextName.substring(0, 32);
+        }
+
+        uint8_t nextVolume = static_cast<uint8_t>(doc["defaultVolumePct"] | parentConfig.defaultVolumePct());
+        if (nextVolume > 100) nextVolume = 100;
+
+        String currentDefaultTheme = parentConfig.defaultTheme();
+        const char* defaultThemeValue = doc["defaultTheme"] | currentDefaultTheme.c_str();
+        String nextDefaultTheme = defaultThemeValue;
+        nextDefaultTheme.trim();
+        if (nextDefaultTheme.isEmpty()) nextDefaultTheme = DEFAULT_THEME;
+
+        nvs.setBtName(nextName);
+        currentDeviceName = nextName;
+        if (sdReady) {
+            ContentCatalog::updateSdConfig(nextVolume, nextDefaultTheme);
+            parentConfig.load();
+            refreshThemeList();
+            activeTheme = parentConfig.defaultTheme();
+            applyActiveThemeFallback();
+        }
+        applyVolume(nextVolume);
+        applyDeviceName(nextName);
+        publishBleValues();
+        bleService.updateConfigResponse(buildConfigResponse(requestId));
+        return;
+    }
+
+    if (op == "setTheme") {
+        const char* themeValue = doc["theme"] | "";
+        if (themeValue == nullptr || themeValue[0] == '\0') {
+            bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Missing theme id"));
+            return;
+        }
+        String theme = themeValue;
+        if (doc["enabled"].is<bool>()) {
+            ContentCatalog::setThemeDisabled(theme, !doc["enabled"].as<bool>());
+        }
+        if (doc["shuffle"].is<bool>()) {
+            ContentCatalog::setThemeShuffle(theme, doc["shuffle"].as<bool>());
+        }
+        parentConfig.load();
+        refreshThemeList();
+        applyActiveThemeFallback();
+        publishBleValues();
+        bleService.updateConfigResponse(buildConfigOkResponse(requestId, op));
+        return;
+    }
+
+    if (op == "setSong") {
+        const char* themeValue = doc["theme"] | "";
+        const char* fileValue = doc["file"] | "";
+        if (themeValue == nullptr || themeValue[0] == '\0' ||
+            fileValue == nullptr || fileValue[0] == '\0' ||
+            !doc["enabled"].is<bool>()) {
+            bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Missing song update fields"));
+            return;
+        }
+        ContentCatalog::setSongDisabled(String(themeValue), String(fileValue), !doc["enabled"].as<bool>());
+        refreshThemeList();
+        applyActiveThemeFallback();
+        publishBleValues();
+        bleService.updateConfigResponse(buildConfigOkResponse(requestId, op));
+        return;
+    }
+
+    bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Unknown config command"));
+}
+
+// ---------------------------------------------------------------------------
 // handleBleCommand()
 // ---------------------------------------------------------------------------
 void handleBleCommand(uint8_t command) {
@@ -678,6 +818,93 @@ void refreshThemeList() {
         themeIds, themeNames, themeCount, BLE_THEMES_MAX_BYTES);
     Serial.printf("[Theme] %d playable theme(s), BLE payload=%u bytes\n",
                   themeCount, static_cast<unsigned>(bleThemesJson.length()));
+    if (ENABLE_BLE_PARENT_SERVICE) {
+        bleService.updateThemes(bleThemesJson);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// applyActiveThemeFallback()
+// ---------------------------------------------------------------------------
+void applyActiveThemeFallback() {
+    if (themeCount > 0 && !isKnownTheme(activeTheme)) {
+        Serial.printf("[Theme] Theme \"%s\" is unavailable; using \"%s\"\n",
+                      activeTheme.c_str(), themeIds[0].c_str());
+        activeTheme = themeIds[0];
+    }
+}
+
+// ---------------------------------------------------------------------------
+// applyDeviceName()
+// ---------------------------------------------------------------------------
+void applyDeviceName(const String& deviceName) {
+    bleService.updateDeviceName(deviceName);
+    if (btSink != nullptr && !btLinkConnected && sm.currentState() != State::BT_STREAMING) {
+        esp_err_t err = esp_bt_gap_set_device_name(deviceName.c_str());
+        if (err == ESP_OK) {
+            btNameApplyPending = false;
+            Serial.printf("[BT] Classic BT name set to \"%s\"\n", deviceName.c_str());
+        } else {
+            btNameApplyPending = true;
+            Serial.printf("[BT] Classic BT name update deferred: %d\n", err);
+        }
+    } else {
+        btNameApplyPending = true;
+        Serial.println("[BT] Classic BT name update deferred until audio disconnects");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// applyPendingBtNameIfPossible()
+// ---------------------------------------------------------------------------
+void applyPendingBtNameIfPossible() {
+    if (!btNameApplyPending || btSink == nullptr || btLinkConnected ||
+        sm.currentState() == State::BT_STREAMING) {
+        return;
+    }
+    esp_err_t err = esp_bt_gap_set_device_name(currentDeviceName.c_str());
+    if (err == ESP_OK) {
+        btNameApplyPending = false;
+        Serial.printf("[BT] Classic BT name set to \"%s\"\n", currentDeviceName.c_str());
+    }
+}
+
+// ---------------------------------------------------------------------------
+// buildConfigResponse()
+// ---------------------------------------------------------------------------
+String buildConfigResponse(uint32_t requestId) {
+    String json = "{\"id\":";
+    json += requestId;
+    json += ",\"ok\":true,\"op\":\"getConfig\",\"deviceName\":\"";
+    json += ContentCatalog::jsonEscape(currentDeviceName);
+    json += "\",\"defaultVolumePct\":";
+    json += parentConfig.defaultVolumePct();
+    json += ",\"defaultTheme\":\"";
+    json += ContentCatalog::jsonEscape(parentConfig.defaultTheme());
+    json += "\",\"activeTheme\":\"";
+    json += ContentCatalog::jsonEscape(activeTheme);
+    json += "\",\"sdReady\":";
+    json += sdReady ? "true" : "false";
+    json += "}";
+    return json;
+}
+
+String buildConfigOkResponse(uint32_t requestId, const String& op) {
+    String json = "{\"id\":";
+    json += requestId;
+    json += ",\"ok\":true,\"op\":\"";
+    json += ContentCatalog::jsonEscape(op);
+    json += "\"}";
+    return json;
+}
+
+String buildConfigErrorResponse(uint32_t requestId, const String& message) {
+    String json = "{\"id\":";
+    json += requestId;
+    json += ",\"ok\":false,\"error\":\"";
+    json += ContentCatalog::jsonEscape(message);
+    json += "\"}";
+    return json;
 }
 
 // ---------------------------------------------------------------------------

@@ -57,9 +57,11 @@ static constexpr char SONGS_ROOT[]    = "/songs";
 static constexpr char ANIMALS_PATH[]  = "/animals";
 static constexpr char METADATA_FILE[] = "metadata.json";
 static constexpr char DEFAULT_THEME[] = "lullabies";
+static constexpr char ANIMALS_THEME_ID[] = "__animals";
+static constexpr char ANIMALS_DISPLAY_NAME[] = "Animals";
 
 // ---------------------------------------------------------------------------
-// BLE UUIDs  (randomly generated, fixed per firmware version)
+// BLE UUIDs  (randomly generated, fixed per GATT schema version)
 // ---------------------------------------------------------------------------
 static constexpr char BLE_SERVICE_UUID[]    = "A1B2C3D4-E5F6-7890-ABCD-EF1234567890";
 static constexpr char BLE_VOL_UUID[]        = "A1B2C3D4-E5F6-7890-ABCD-EF1234567891";
@@ -68,8 +70,16 @@ static constexpr char BLE_THEME_UUID[]      = "A1B2C3D4-E5F6-7890-ABCD-EF1234567
 static constexpr char BLE_STATUS_UUID[]     = "A1B2C3D4-E5F6-7890-ABCD-EF1234567894";
 static constexpr char BLE_THEMES_UUID[]     = "A1B2C3D4-E5F6-7890-ABCD-EF1234567895";
 static constexpr char BLE_COMMAND_UUID[]    = "A1B2C3D4-E5F6-7890-ABCD-EF1234567896";
+static constexpr char BLE_CONFIG_COMMAND_UUID[]  = "A1B2C3D4-E5F6-7890-ABCD-EF1234567897";
+static constexpr char BLE_CONFIG_RESPONSE_UUID[] = "A1B2C3D4-E5F6-7890-ABCD-EF1234567898";
 static constexpr size_t BLE_THEMES_MAX_BYTES = 512;
 static constexpr int BLE_MAX_THEMES = 16;
+static constexpr int BLE_CONFIG_THEME_PAGE_SIZE = 1;
+static constexpr int BLE_CONFIG_SONG_PAGE_SIZE = 2;
+static constexpr int CONFIG_MAX_DISABLED_THEMES = 64;
+static constexpr int CONFIG_MAX_DISABLED_SONGS = 128;
+static constexpr int CONFIG_SCAN_MAX_THEMES = 64;
+static constexpr int CONFIG_SCAN_MAX_SONGS = 128;
 
 // ---------------------------------------------------------------------------
 // NVS namespace / keys

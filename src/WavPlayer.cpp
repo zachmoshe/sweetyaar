@@ -1,4 +1,5 @@
 #include "WavPlayer.h"
+#include "ContentCatalog.h"
 
 namespace {
 
@@ -312,14 +313,14 @@ bool WavPlayer::openFile(const String& path) {
         return false;
     }
 
-    if (_sdFile.size() < 44) {
+    ContentCatalog::WavInfo wavInfo = ContentCatalog::inspectWav(_sdFile);
+    if (wavInfo.sizeBytes < 44) {
         Serial.printf("[WavPlayer] Skipping too-small WAV: %s (%u bytes)\n",
                       path.c_str(), static_cast<unsigned>(_sdFile.size()));
         _sdFile.close();
         _currentPath = "";
         return false;
     }
-    WavInfo wavInfo = readWavInfo(_sdFile);
     if (!wavInfo.valid) {
         Serial.printf("[WavPlayer] Skipping invalid WAV: %s (%u bytes)\n",
                       path.c_str(), static_cast<unsigned>(_sdFile.size()));
@@ -367,9 +368,14 @@ void WavPlayer::buildSongList(const String& themePath, bool shuffle) {
 
 // ---------------------------------------------------------------------------
 void WavPlayer::buildAnimalList() {
+    JsonDocument meta = readMetadata(ANIMALS_PATH);
+    bool shuffle = meta["shuffle"] | true;
+
     _animalCount = listWavFiles(ANIMALS_PATH, _animalFiles, MAX_ANIMALS);
     for (int i = 0; i < _animalCount; i++) _animalOrder[i] = i;
-    shuffleOrder(_animalOrder, _animalCount);
+    if (shuffle) {
+        shuffleOrder(_animalOrder, _animalCount);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -388,12 +394,13 @@ int WavPlayer::listWavFiles(const char* dirPath, String* outFiles, int maxFiles)
     File dir = SD.open(dirPath);
     if (!dir || !dir.isDirectory()) return 0;
 
+    JsonDocument meta = ContentCatalog::readThemeMetadata(String(dirPath));
     int count = 0;
     while (count < maxFiles) {
         File entry = dir.openNextFile();
         if (!entry) break;
-        String originalName(entry.name());
-        if (isIgnoredFilesystemEntry(originalName)) {
+        String originalName = ContentCatalog::baseNameOf(String(entry.name()));
+        if (ContentCatalog::isIgnoredFilesystemEntry(originalName)) {
             entry.close();
             continue;
         }
@@ -401,7 +408,11 @@ int WavPlayer::listWavFiles(const char* dirPath, String* outFiles, int maxFiles)
             String lowerName(originalName);
             lowerName.toLowerCase();
             if (lowerName.endsWith(".wav")) {
-                WavInfo wavInfo = readWavInfo(entry);
+                if (ContentCatalog::isSongDisabled(meta, originalName)) {
+                    entry.close();
+                    continue;
+                }
+                ContentCatalog::WavInfo wavInfo = ContentCatalog::inspectWav(entry);
                 if (!wavInfo.valid) {
                     Serial.printf("[WavPlayer] Skipping invalid WAV: %s (%u bytes)\n",
                                   originalName.c_str(), static_cast<unsigned>(entry.size()));
@@ -418,7 +429,7 @@ int WavPlayer::listWavFiles(const char* dirPath, String* outFiles, int maxFiles)
                 }
                 String full = String(dirPath);
                 if (!full.endsWith("/")) full += "/";
-                full += entry.name();
+                full += originalName;
                 outFiles[count++] = full;
             }
         }
@@ -444,8 +455,12 @@ int WavPlayer::listThemes(String* outIds, String* outNames, int maxThemes) {
         File entry = root.openNextFile();
         if (!entry) break;
 
-        String id = baseNameOf(String(entry.name()));
-        if (isIgnoredFilesystemEntry(id) || !entry.isDirectory()) {
+        String id = ContentCatalog::baseNameOf(String(entry.name()));
+        if (ContentCatalog::isIgnoredFilesystemEntry(id) || !entry.isDirectory()) {
+            entry.close();
+            continue;
+        }
+        if (ContentCatalog::isThemeDisabled(id)) {
             entry.close();
             continue;
         }
@@ -512,16 +527,5 @@ String WavPlayer::buildThemesJson(const String* ids, const String* names,
 // ---------------------------------------------------------------------------
 // static
 JsonDocument WavPlayer::readMetadata(const String& themePath) {
-    JsonDocument doc;
-    String path = themePath + "/" + METADATA_FILE;
-    File f = SD.open(path.c_str());
-    if (!f) return doc;
-
-    String json;
-    json.reserve(256);
-    while (f.available()) json += (char)f.read();
-    f.close();
-
-    deserializeJson(doc, json);
-    return doc;
+    return ContentCatalog::readThemeMetadata(themePath);
 }

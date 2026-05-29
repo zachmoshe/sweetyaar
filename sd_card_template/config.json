@@ -1,5 +1,6 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "defaultVolumePct": 75,
-  "defaultTheme": "lullabies"
+  "defaultTheme": "lullabies",
+  "disabledThemes": []
 }

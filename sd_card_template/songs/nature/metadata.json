@@ -1,4 +1,6 @@
 {
+  "schemaVersion": 2,
   "name": "Nature Sounds 🌿",
-  "shuffle": true
+  "shuffle": true,
+  "disabledSongs": []
 }

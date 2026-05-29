@@ -6,6 +6,7 @@
 bool ParentConfig::load() {
     _defaultVolumePct = DEFAULT_VOLUME_PCT;
     _defaultTheme     = DEFAULT_THEME;
+    _disabledThemeCount = 0;
 
     File f = SD.open(SD_CONFIG_FILE);
     if (!f) {
@@ -32,7 +33,26 @@ bool ParentConfig::load() {
         _defaultTheme = theme;
     }
 
-    Serial.printf("[Config] defaultVolume=%u defaultTheme=%s\n",
-                  _defaultVolumePct, _defaultTheme.c_str());
+    if (doc["disabledThemes"].is<JsonArrayConst>()) {
+        for (JsonVariantConst item : doc["disabledThemes"].as<JsonArrayConst>()) {
+            const char* disabledTheme = item | "";
+            if (disabledTheme && disabledTheme[0] != '\0' &&
+                _disabledThemeCount < CONFIG_MAX_DISABLED_THEMES) {
+                _disabledThemes[_disabledThemeCount++] = disabledTheme;
+            }
+        }
+    }
+
+    Serial.printf("[Config] defaultVolume=%u defaultTheme=%s disabledThemes=%d\n",
+                  _defaultVolumePct, _defaultTheme.c_str(), _disabledThemeCount);
     return true;
+}
+
+bool ParentConfig::isThemeDisabled(const String& theme) const {
+    for (int i = 0; i < _disabledThemeCount; i++) {
+        if (_disabledThemes[i] == theme) {
+            return true;
+        }
+    }
+    return false;
 }

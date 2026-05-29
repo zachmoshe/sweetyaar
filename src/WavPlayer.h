@@ -15,7 +15,7 @@
 //
 // Two modes:
 //   Song mode   — sequential (or shuffled) WAV files from a theme folder
-//   Animal mode — shuffled WAV files from /animals/, plays one then stops
+//   Animal mode — sequential/shuffled WAV files from /animals/, plays one then stops
 //
 // Usage:
 //   WavPlayer player(volumeStream);
@@ -41,7 +41,7 @@ public:
     // Advance to next song (stays in song mode)
     void nextSong();
 
-    // Start a shuffled animal pass and play one file from /animals/
+    // Start an animal pass and play one file from /animals/
     void startRandomAnimal();
 
     // Advance to the next animal sound (stays in animal mode)

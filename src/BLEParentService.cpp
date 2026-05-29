@@ -10,10 +10,10 @@ void BLEParentService::begin(const String& deviceName) {
     _server = BLEDevice::createServer();
     _server->setCallbacks(new ServerCB(this));
 
-    // Six characteristics plus four CCCD descriptors need more than the
+    // Eight characteristics plus descriptors need more than the Arduino BLE
     // Arduino BLE default of 15 handles. Under-allocating here can boot fine
     // and then crash Bluedroid when a central connects.
-    BLEService* svc = _server->createService(BLEUUID(BLE_SERVICE_UUID), 24);
+    BLEService* svc = _server->createService(BLEUUID(BLE_SERVICE_UUID), 48);
 
     // --- Volume characteristic (read/write/notify) -------------------------
     _volChar = svc->createCharacteristic(
@@ -60,6 +60,21 @@ void BLEParentService::begin(const String& deviceName) {
         BLECharacteristic::PROPERTY_WRITE);
     _commandChar->setCallbacks(new CommandCB(this));
 
+    // --- Config command/response characteristics --------------------------
+    _configCommandChar = svc->createCharacteristic(
+        BLE_CONFIG_COMMAND_UUID,
+        BLECharacteristic::PROPERTY_READ |
+        BLECharacteristic::PROPERTY_WRITE);
+    _configCommandChar->setCallbacks(new ConfigCommandCB(this));
+    _configCommandChar->setValue("{}");
+
+    _configResponseChar = svc->createCharacteristic(
+        BLE_CONFIG_RESPONSE_UUID,
+        BLECharacteristic::PROPERTY_READ |
+        BLECharacteristic::PROPERTY_NOTIFY);
+    _configResponseChar->addDescriptor(new BLE2902());
+    _configResponseChar->setValue("{\"id\":0,\"ok\":true}");
+
     svc->start();
 
     BLEAdvertising* adv = BLEDevice::getAdvertising();
@@ -69,7 +84,11 @@ void BLEParentService::begin(const String& deviceName) {
     adv->setMinPreferred(0x12);  // maintainer coex example uses both hints
     BLEDevice::startAdvertising();
 
-    Serial.printf("[BLE] Advertising as \"%s\"\n", deviceName.c_str());
+    Serial.printf("[BLE] Advertising as \"%s\" service=%s configCmd=%s configResp=%s\n",
+                  deviceName.c_str(),
+                  BLE_SERVICE_UUID,
+                  BLE_CONFIG_COMMAND_UUID,
+                  BLE_CONFIG_RESPONSE_UUID);
 }
 
 void BLEParentService::updateVolume(uint8_t volumePct) {
@@ -101,6 +120,28 @@ void BLEParentService::updateStatus(const String& status) {
 void BLEParentService::updateThemes(const String& themesJson) {
     if (!_themesChar) return;
     _themesChar->setValue(themesJson.c_str());
+}
+
+void BLEParentService::updateConfigResponse(const String& responseJson) {
+    if (_configResponseChar) {
+        _configResponseChar->setValue(responseJson.c_str());
+        if (_connected) _configResponseChar->notify();
+    }
+    // Legacy/cache-safe config transport: command writes JSON, themes read
+    // returns the response. This keeps config usable when CoreBluetooth caches
+    // the old six-characteristic GATT table and cannot see configResponse yet.
+    if (_themesChar) {
+        _themesChar->setValue(responseJson.c_str());
+    }
+}
+
+void BLEParentService::updateDeviceName(const String& deviceName) {
+    esp_ble_gap_set_device_name(deviceName.c_str());
+    if (_server) {
+        BLEDevice::stopAdvertising();
+        BLEDevice::startAdvertising();
+    }
+    Serial.printf("[BLE] Device name set to \"%s\"\n", deviceName.c_str());
 }
 
 bool BLEParentService::pollVolumeChange(uint8_t& out) {
@@ -151,6 +192,21 @@ bool BLEParentService::pollCommand(uint8_t& out) {
     }
     portEXIT_CRITICAL(&_mux);
     if (!hasValue) return false;
+    return true;
+}
+
+bool BLEParentService::pollConfigCommand(String& out) {
+    char command[sizeof(_pendingConfigCommand)];
+    portENTER_CRITICAL(&_mux);
+    bool hasValue = _newConfigCommand;
+    if (hasValue) {
+        memcpy(command, _pendingConfigCommand, sizeof(command));
+        _newConfigCommand = false;
+    }
+    portEXIT_CRITICAL(&_mux);
+    if (!hasValue) return false;
+    command[sizeof(command) - 1] = '\0';
+    out = String(command);
     return true;
 }
 

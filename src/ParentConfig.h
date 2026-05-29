@@ -17,8 +17,11 @@ public:
 
     uint8_t defaultVolumePct() const { return _defaultVolumePct; }
     String defaultTheme() const { return _defaultTheme; }
+    bool isThemeDisabled(const String& theme) const;
 
 private:
     uint8_t _defaultVolumePct = DEFAULT_VOLUME_PCT;
     String  _defaultTheme     = DEFAULT_THEME;
+    String  _disabledThemes[CONFIG_MAX_DISABLED_THEMES];
+    int     _disabledThemeCount = 0;
 };

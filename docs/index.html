@@ -241,7 +241,9 @@
 
     .screen.ready {
       position: relative;
-      height: calc(100dvh - var(--header-height));
+      margin-top: -48px;
+      height: calc(100dvh - var(--header-height) + 48px);
+      padding-top: 0;
       padding-bottom: 0;
       overflow: hidden;
     }
@@ -294,10 +296,28 @@
       box-shadow: var(--soft-shadow);
     }
 
-    .status-icon svg {
-      width: 30px;
-      height: 30px;
-      stroke-width: 2.45;
+    .status-glyph {
+      display: grid;
+      width: 32px;
+      height: 32px;
+      place-items: center;
+      font-family: var(--font-brand);
+      font-size: 29px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .status-glyph.bt {
+      font-size: 16px;
+      font-weight: 950;
+    }
+
+    .bt-icon {
+      display: block;
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
     }
 
     .status-icon.grey {
@@ -401,10 +421,25 @@
       font-weight: 500;
     }
 
-    .connect-button svg {
+    .button-glyph {
+      display: grid;
+      place-items: center;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .connect-button .button-glyph {
       width: 32px;
       height: 32px;
-      stroke-width: 2.2;
+      border: 2px solid currentColor;
+      border-radius: 50%;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .connect-button .bt-icon {
+      width: 31px;
+      height: 31px;
     }
 
     .connect-button:hover:not(:disabled) {
@@ -474,10 +509,11 @@
       box-shadow: var(--soft-shadow);
     }
 
-    .music-icon svg {
-      width: 31px;
-      height: 31px;
-      stroke-width: 2.5;
+    .music-icon .icon-glyph {
+      font-size: 36px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: 0;
     }
 
     .message-copy h2 {
@@ -671,14 +707,24 @@
     }
 
     .chevron {
+      display: grid;
       width: 22px;
       height: 22px;
+      place-items: center;
       color: #6f777d;
+      font-size: 22px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: 0;
       pointer-events: none;
       transition: transform 150ms ease;
     }
 
     .theme-card.expanded .chevron {
+      transform: rotate(180deg);
+    }
+
+    .settings-theme-picker.expanded .chevron {
       transform: rotate(180deg);
     }
 
@@ -774,6 +820,376 @@
       color: #34314d;
     }
 
+    .ready-settings-row {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      justify-content: flex-end;
+      margin: -8px 2px 0;
+    }
+
+    .settings-button {
+      flex: 0 0 auto;
+      display: grid;
+      width: 46px;
+      height: 46px;
+      place-items: center;
+      border: 0;
+      background: transparent;
+      color: var(--teal-dark);
+      cursor: pointer;
+      text-shadow: 0 2px 4px rgba(73, 55, 34, 0.16);
+    }
+
+    .settings-button .button-glyph {
+      font-size: 32px;
+      font-weight: 900;
+    }
+
+    .screen.settings {
+      padding-top: 4px;
+      padding-bottom: 34px;
+    }
+
+    .settings-toolbar {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: center;
+      min-height: 40px;
+    }
+
+    .settings-title {
+      margin: 0;
+      color: var(--teal-dark);
+      text-align: center;
+      font-size: clamp(21px, 5.4vw, 24px);
+      line-height: 1;
+      font-weight: 850;
+      letter-spacing: 0;
+    }
+
+    .settings-back,
+    .settings-save {
+      min-height: 42px;
+      border: 0;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: clamp(14px, 3.7vw, 16px);
+      font-weight: 800;
+    }
+
+    .settings-back {
+      display: grid;
+      grid-template-columns: auto auto;
+      gap: 3px;
+      align-items: center;
+      background: transparent;
+      color: var(--muted);
+      padding: 0 6px 0 0;
+    }
+
+    .settings-back .button-glyph {
+      font-size: 20px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .settings-save {
+      display: grid;
+      grid-template-columns: auto auto;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      justify-self: end;
+      margin-right: 22px;
+      padding: 0 11px;
+      background: linear-gradient(180deg, #1686ff, #006add);
+      color: #ffffff;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .settings-save .button-glyph {
+      font-size: 17px;
+      font-weight: 900;
+    }
+
+    .settings-theme-picker {
+      display: grid;
+      grid-template-columns: 46px 1fr;
+      gap: 12px;
+      align-items: center;
+      min-height: 64px;
+      border: 1px solid rgba(239, 229, 218, 0.92);
+      border-radius: var(--radius-card);
+      background: rgba(255, 253, 249, 0.97);
+      box-shadow: var(--soft-shadow);
+      padding: 10px 14px 10px 18px;
+    }
+
+    .settings-theme-picker.expanded {
+      align-items: start;
+    }
+
+    .settings-section {
+      padding: 16px;
+    }
+
+    .settings-section h2 {
+      margin: 0 0 13px;
+      color: var(--ink);
+      font-size: clamp(17px, 4.4vw, 19px);
+      line-height: 1;
+      font-weight: 830;
+      letter-spacing: 0;
+    }
+
+    .settings-fields {
+      display: grid;
+      gap: 13px;
+    }
+
+    .settings-field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .settings-field label,
+    .settings-field-title {
+      color: var(--ink);
+      font-size: clamp(13px, 3.5vw, 15px);
+      font-weight: 760;
+      line-height: 1;
+    }
+
+    .settings-input,
+    .settings-select {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid rgba(239, 229, 218, 0.98);
+      border-radius: 12px;
+      background: rgba(255, 250, 242, 0.96);
+      color: var(--ink);
+      padding: 0 12px;
+      font-size: 16px;
+      font-weight: 720;
+      outline: none;
+    }
+
+    .settings-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(12px, 3.2vw, 13px);
+      line-height: 1.32;
+    }
+
+    .settings-volume-line {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .settings-list {
+      display: grid;
+      gap: 5px;
+    }
+
+    .settings-row {
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr) auto 42px;
+      gap: 8px;
+      align-items: center;
+      min-height: 44px;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--ink);
+      padding: 5px 4px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .settings-row.selected {
+      background: transparent;
+    }
+
+    .settings-row.disabled-row {
+      color: #969b9e;
+      opacity: 0.72;
+    }
+
+    .settings-row input[type="checkbox"],
+    .song-row input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--teal);
+    }
+
+    .settings-checkbox-empty {
+      width: 20px;
+      height: 20px;
+    }
+
+    .theme-row-name,
+    .song-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: clamp(14px, 3.8vw, 16px);
+      font-weight: 790;
+    }
+
+    .theme-row-count {
+      color: var(--purple);
+      font-size: clamp(13px, 3.5vw, 15px);
+      font-weight: 830;
+      white-space: nowrap;
+    }
+
+    .theme-row-count .error-count {
+      color: var(--pink);
+    }
+
+    .shuffle-button {
+      display: grid;
+      width: 36px;
+      height: 36px;
+      place-items: center;
+      border: 0;
+      border-radius: 11px;
+      background: rgba(239, 233, 255, 0.82);
+      color: var(--purple);
+      cursor: pointer;
+    }
+
+    .shuffle-button.active {
+      background: linear-gradient(180deg, #8f7ad8, #6e53bd);
+      color: #ffffff;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .shuffle-button .button-glyph {
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .song-panel-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .song-panel-header h2 {
+      margin-bottom: 0;
+      color: var(--purple);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .settings-filters {
+      display: grid;
+      grid-template-columns: repeat(2, auto);
+      gap: 6px;
+      justify-content: end;
+    }
+
+    .filter-button {
+      min-height: 34px;
+      border: 1px solid rgba(98, 67, 170, 0.18);
+      border-radius: 10px;
+      background: rgba(255, 253, 249, 0.86);
+      color: var(--purple);
+      cursor: pointer;
+      padding: 0 11px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .filter-button.active {
+      background: rgba(239, 233, 255, 0.92);
+      border-color: rgba(98, 67, 170, 0.42);
+    }
+
+    .settings-error-line {
+      margin: 0 0 8px;
+      color: var(--pink);
+      font-size: clamp(13px, 3.5vw, 15px);
+      font-weight: 830;
+    }
+
+    .song-list {
+      display: grid;
+      gap: 5px;
+    }
+
+    .song-row {
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr) auto auto;
+      gap: 8px;
+      align-items: center;
+      min-height: 44px;
+      border-radius: 12px;
+      padding: 5px 4px;
+    }
+
+    .song-row.disabled-row {
+      color: #969b9e;
+      opacity: 0.72;
+    }
+
+    .song-name {
+      display: grid;
+      grid-template-columns: 22px minmax(0, 1fr);
+      gap: 6px;
+      align-items: center;
+    }
+
+    .song-name-text {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .song-status-icon {
+      display: grid;
+      width: 21px;
+      height: 21px;
+      place-items: center;
+      border-radius: 50%;
+      background: rgba(52, 184, 169, 0.14);
+      color: var(--teal-dark);
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .song-status-icon.bad {
+      background: rgba(217, 62, 111, 0.13);
+      color: var(--pink);
+    }
+
+    .song-meta {
+      color: var(--muted);
+      font-size: clamp(12px, 3.2vw, 13px);
+      font-weight: 720;
+      white-space: nowrap;
+    }
+
+    .song-error {
+      grid-column: 2 / 5;
+      margin: -2px 0 3px 0;
+      color: var(--pink);
+      font-size: clamp(12px, 3.2vw, 13px);
+      font-weight: 760;
+      line-height: 1.25;
+    }
+
     .bottom-art {
       position: absolute;
       z-index: 0;
@@ -852,9 +1268,7 @@
       <div class="stack">
         <article class="card status-card">
           <div class="status-icon grey" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M7 7l10 10-5 4V3l5 4L7 17" />
-            </svg>
+            <img class="bt-icon" src="assets/icon-bluetooth.svg" alt="">
             <span class="status-dot red" aria-hidden="true"></span>
           </div>
           <div class="status-copy">
@@ -864,9 +1278,7 @@
         </article>
 
         <button class="connect-button" id="connectButton" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-            <path d="M7 7l10 10-5 4V3l5 4L7 17" />
-          </svg>
+          <img class="bt-icon" src="assets/icon-bluetooth.svg" alt="">
           <span id="connectButtonLabel">Connect to SweetYaar</span>
         </button>
 
@@ -882,9 +1294,7 @@
     <section class="screen streaming" id="streamingView" aria-label="SweetYaar is streaming music" hidden>
       <article class="card status-card">
         <div class="status-icon blue" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path d="M7 7l10 10-5 4V3l5 4L7 17" />
-          </svg>
+          <img class="bt-icon" src="assets/icon-bluetooth.svg" alt="">
         </div>
         <div class="status-copy">
           <h2>BT connected</h2>
@@ -897,11 +1307,7 @@
 
       <article class="card message-card">
         <div class="music-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path d="M9 18V5l10-2v13" />
-            <circle cx="6" cy="18" r="3" />
-            <circle cx="16" cy="16" r="3" />
-          </svg>
+          <span class="icon-glyph">♪</span>
         </div>
         <div class="message-copy">
           <h2>Device is streaming music now.</h2>
@@ -915,9 +1321,7 @@
       <div class="stack">
         <article class="card status-card">
           <div class="status-icon green" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M7 7l10 10-5 4V3l5 4L7 17" />
-            </svg>
+            <span class="status-glyph">✓</span>
           </div>
           <div class="status-copy">
             <h1 id="readyStatusText">Ready to play</h1>
@@ -958,9 +1362,7 @@
                 <span class="label">Theme</span>
                 <span class="theme-current" id="themeCurrent">Lullabies</span>
               </span>
-              <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
-                <path d="M6 9l6 6 6-6" />
-              </svg>
+              <span class="chevron" aria-hidden="true">⌄</span>
             </button>
             <div class="theme-options" id="themeOptions" hidden></div>
           </div>
@@ -979,9 +1381,85 @@
             <button class="pause-button off" id="killswitchOffButton" type="button">Cancel pause</button>
           </div>
         </section>
+
+        <div class="ready-settings-row">
+          <button class="settings-button" id="openSettingsButton" type="button" aria-label="Settings">
+            <span class="button-glyph" aria-hidden="true">⚙</span>
+          </button>
+        </div>
       </div>
 
       <img class="bottom-art" src="assets/ready-bottom-graphics.png" srcset="assets/ready-bottom-graphics.png 1x, assets/ready-bottom-graphics@2x.png 2x" alt="">
+    </section>
+
+    <section class="screen settings" id="settingsView" aria-label="SweetYaar settings" hidden>
+      <div class="stack">
+        <div class="settings-toolbar">
+          <button class="settings-back" id="settingsBackButton" type="button">
+            <span class="button-glyph" aria-hidden="true">←</span>
+            <span>Back</span>
+          </button>
+          <h1 class="settings-title">Settings</h1>
+          <button class="settings-save" id="settingsSaveButton" type="button">
+            <span class="button-glyph" aria-hidden="true">✓</span>
+            <span class="settings-save-label">Save</span>
+          </button>
+        </div>
+
+        <section class="card settings-section" aria-label="General settings">
+          <h2>General</h2>
+          <div class="settings-fields">
+            <div class="settings-field">
+              <label for="settingsDeviceName">Device name</label>
+              <input class="settings-input" id="settingsDeviceName" type="text" maxlength="32" autocomplete="off">
+            </div>
+
+            <div class="settings-field">
+              <div class="settings-volume-line">
+                <span class="settings-field-title">Default volume</span>
+                <output class="volume-value" id="settingsVolumeValue" for="settingsVolumeRange">75%</output>
+              </div>
+              <input class="volume-range" id="settingsVolumeRange" type="range" min="0" max="100" value="75" step="1">
+            </div>
+
+            <div class="settings-field">
+              <span class="settings-field-title">Default theme</span>
+              <section class="settings-theme-picker" id="settingsDefaultThemeCard" aria-label="Default theme">
+                <img class="control-icon" src="assets/icon-theme.png" alt="">
+                <div class="theme-field">
+                  <button class="theme-trigger" id="settingsDefaultThemeTrigger" type="button" aria-expanded="false" aria-controls="settingsDefaultThemeOptions">
+                    <span class="theme-trigger-copy">
+                      <span class="label">Theme</span>
+                      <span class="theme-current" id="settingsDefaultThemeCurrent">Lullabies</span>
+                    </span>
+                    <span class="chevron" aria-hidden="true">⌄</span>
+                  </button>
+                  <div class="theme-options" id="settingsDefaultThemeOptions" hidden></div>
+                </div>
+              </section>
+            </div>
+
+            <p class="settings-note" id="settingsNote" hidden></p>
+          </div>
+        </section>
+
+        <section class="card settings-section" aria-label="Themes">
+          <h2>Themes</h2>
+          <div class="settings-list" id="settingsThemeList"></div>
+        </section>
+
+        <section class="card settings-section" id="settingsSongsPanel" aria-label="Theme songs">
+          <div class="song-panel-header">
+            <h2 id="settingsSongsTitle">Songs</h2>
+            <div class="settings-filters" role="group" aria-label="Song filter">
+              <button class="filter-button active" id="settingsFilterAll" type="button">All</button>
+              <button class="filter-button" id="settingsFilterEnabled" type="button">Enabled</button>
+            </div>
+          </div>
+          <p class="settings-error-line" id="settingsSongErrors" hidden></p>
+          <div class="song-list" id="settingsSongList"></div>
+        </section>
+      </div>
     </section>
   </main>
 
@@ -1171,13 +1649,17 @@
       theme: "a1b2c3d4-e5f6-7890-abcd-ef1234567893",
       status: "a1b2c3d4-e5f6-7890-abcd-ef1234567894",
       themes: "a1b2c3d4-e5f6-7890-abcd-ef1234567895",
-      command: "a1b2c3d4-e5f6-7890-abcd-ef1234567896"
+      command: "a1b2c3d4-e5f6-7890-abcd-ef1234567896",
+      configCommand: "a1b2c3d4-e5f6-7890-abcd-ef1234567897",
+      configResponse: "a1b2c3d4-e5f6-7890-abcd-ef1234567898"
     };
 
     const els = {
       openingView: document.querySelector("#openingView"),
       streamingView: document.querySelector("#streamingView"),
       readyView: document.querySelector("#readyView"),
+      settingsView: document.querySelector("#settingsView"),
+      brandName: document.querySelector("#brandName"),
       openingMessage: document.querySelector("#openingMessage"),
       connectButton: document.querySelector("#connectButton"),
       connectButtonLabel: document.querySelector("#connectButtonLabel"),
@@ -1194,7 +1676,25 @@
       themeCurrent: document.querySelector("#themeCurrent"),
       themeOptions: document.querySelector("#themeOptions"),
       killswitchOnButton: document.querySelector("#killswitchOnButton"),
-      killswitchOffButton: document.querySelector("#killswitchOffButton")
+      killswitchOffButton: document.querySelector("#killswitchOffButton"),
+      openSettingsButton: document.querySelector("#openSettingsButton"),
+      settingsBackButton: document.querySelector("#settingsBackButton"),
+      settingsSaveButton: document.querySelector("#settingsSaveButton"),
+      settingsDeviceName: document.querySelector("#settingsDeviceName"),
+      settingsVolumeRange: document.querySelector("#settingsVolumeRange"),
+      settingsVolumeValue: document.querySelector("#settingsVolumeValue"),
+      settingsDefaultThemeCard: document.querySelector("#settingsDefaultThemeCard"),
+      settingsDefaultThemeTrigger: document.querySelector("#settingsDefaultThemeTrigger"),
+      settingsDefaultThemeCurrent: document.querySelector("#settingsDefaultThemeCurrent"),
+      settingsDefaultThemeOptions: document.querySelector("#settingsDefaultThemeOptions"),
+      settingsNote: document.querySelector("#settingsNote"),
+      settingsThemeList: document.querySelector("#settingsThemeList"),
+      settingsSongsPanel: document.querySelector("#settingsSongsPanel"),
+      settingsSongsTitle: document.querySelector("#settingsSongsTitle"),
+      settingsFilterAll: document.querySelector("#settingsFilterAll"),
+      settingsFilterEnabled: document.querySelector("#settingsFilterEnabled"),
+      settingsSongErrors: document.querySelector("#settingsSongErrors"),
+      settingsSongList: document.querySelector("#settingsSongList")
     };
 
     const textDecoder = new TextDecoder("utf-8");
@@ -1203,16 +1703,40 @@
     const state = {
       busy: false,
       connected: false,
+      view: "remote",
       device: null,
       server: null,
       chars: {},
+      deviceName: "SweetYaar",
       status: "Disconnected",
       volume: 75,
       theme: "",
       themes: [],
       killswitch: false,
       themeOpen: false,
-      message: ""
+      message: "",
+      requestId: 0,
+      suppressNextDisconnectMessage: false,
+      configAvailable: false,
+      configError: null,
+      settings: {
+        loading: false,
+        dirty: false,
+        deviceName: "SweetYaar",
+        defaultVolumePct: 75,
+        defaultTheme: "",
+        originalDeviceName: "SweetYaar",
+        originalDefaultVolumePct: 75,
+        originalDefaultTheme: "",
+        defaultThemeOpen: false,
+        themes: [],
+        selectedThemeId: "",
+        songs: [],
+        songFilter: "all",
+        pendingThemeChanges: {},
+        pendingSongChanges: {},
+        message: ""
+      }
     };
 
     function isBtConnected() {
@@ -1225,6 +1749,10 @@
 
     function controlsDisabled() {
       return state.busy || !state.connected || isBtConnected();
+    }
+
+    function settingsBusy() {
+      return state.busy || state.settings.loading;
     }
 
     function playbackDisabled() {
@@ -1245,7 +1773,19 @@
       if (isKillswitchActive()) {
         return "Toy inputs are paused for a little while.";
       }
-      return state.message || "You can control SweetYaar.";
+      return state.message || `You can control ${displayDeviceName()}.`;
+    }
+
+    function displayDeviceName() {
+      const name = `${state.deviceName || ""}`.trim();
+      return name || "SweetYaar";
+    }
+
+    function setDeviceNameFromBluetooth(device) {
+      const name = `${device?.name || ""}`.trim();
+      if (name) {
+        state.deviceName = name;
+      }
     }
 
     function themeOptions() {
@@ -1257,6 +1797,113 @@
     function selectedThemeName() {
       const selected = themeOptions().find((theme) => theme.id === (state.theme || "lullabies"));
       return selected ? selected.name : (state.theme || "Lullabies");
+    }
+
+    function settingsSelectedTheme() {
+      return state.settings.themes.find((theme) => theme.id === state.settings.selectedThemeId) || null;
+    }
+
+    function settingsDefaultThemeOptions() {
+      return state.settings.themes.filter((theme) =>
+        theme.canSetDefault !== false && theme.enabled && (Number(theme.activeValid) || 0) > 0);
+    }
+
+    function selectedSettingsDefaultThemeId() {
+      const options = settingsDefaultThemeOptions();
+      if (options.some((theme) => theme.id === state.settings.defaultTheme)) {
+        return state.settings.defaultTheme;
+      }
+      if (options.some((theme) => theme.id === state.settings.selectedThemeId)) {
+        return state.settings.selectedThemeId;
+      }
+      return options[0]?.id || "";
+    }
+
+    function selectedSettingsDefaultThemeName() {
+      const options = settingsDefaultThemeOptions();
+      const current = selectedSettingsDefaultThemeId();
+      const selected = options.find((theme) => theme.id === current);
+      return selected ? (selected.name || selected.id) : (current || "Lullabies");
+    }
+
+    function sortSettingsThemes(themes) {
+      return [...themes].sort((a, b) => {
+        if (!!a.special !== !!b.special) return a.special ? -1 : 1;
+        return `${a.name || a.id}`.localeCompare(`${b.name || b.id}`);
+      });
+    }
+
+    function applyThemeEnabledState(theme, enabled) {
+      if (!theme) return;
+      theme.disabledByUser = !enabled;
+      theme.enabled = enabled && (Number(theme.activeValid) || 0) > 0;
+    }
+
+    function applyPendingThemeChanges(themes) {
+      for (const theme of themes) {
+        const pending = state.settings.pendingThemeChanges[theme.id];
+        if (!pending) continue;
+        if (typeof pending.enabled === "boolean") {
+          applyThemeEnabledState(theme, pending.enabled);
+        }
+        if (typeof pending.shuffle === "boolean") {
+          theme.shuffle = pending.shuffle;
+        }
+      }
+      return themes;
+    }
+
+    function applyPendingSongChanges(themeId, songs) {
+      const pending = state.settings.pendingSongChanges[themeId];
+      if (!pending) return songs;
+      for (const song of songs) {
+        if (Object.prototype.hasOwnProperty.call(pending, song.file)) {
+          song.enabled = !!pending[song.file];
+        }
+      }
+      return songs;
+    }
+
+    function recomputeSelectedThemeFromSongs() {
+      const theme = settingsSelectedTheme();
+      if (!theme) return;
+      theme.total = state.settings.songs.length;
+      theme.errors = state.settings.songs.filter((song) => !song.ok).length;
+      theme.activeValid = state.settings.songs.filter((song) => song.ok && song.enabled).length;
+      theme.enabled = !theme.disabledByUser && theme.activeValid > 0;
+    }
+
+    function settingsNameChanged() {
+      const current = `${state.settings.deviceName || ""}`.trim() || "SweetYaar";
+      return current !== state.settings.originalDeviceName;
+    }
+
+    function resetPendingSettingsChanges() {
+      state.settings.pendingThemeChanges = {};
+      state.settings.pendingSongChanges = {};
+      state.settings.originalDeviceName = state.settings.deviceName;
+      state.settings.originalDefaultVolumePct = state.settings.defaultVolumePct;
+      state.settings.originalDefaultTheme = state.settings.defaultTheme;
+    }
+
+    function formatBytes(bytes) {
+      const value = Number(bytes) || 0;
+      if (value >= 1024 * 1024) {
+        return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+      }
+      if (value >= 1024) {
+        return `${Math.round(value / 1024)} KB`;
+      }
+      return `${value} B`;
+    }
+
+    function formatDuration(ms) {
+      const value = Number(ms) || 0;
+      if (value <= 0) return "-";
+      const totalSeconds = Math.round(value / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${minutes}:${String(seconds).padStart(2, "0")}`;
     }
 
     function readUint8(value) {
@@ -1288,6 +1935,306 @@
       await writeCharacteristic(state.chars[name], textEncoder.encode(value));
     }
 
+    function delay(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    async function configRequest(payload) {
+      const useDirectConfig = state.configAvailable && state.chars.configCommand && state.chars.configResponse;
+      const useLegacyConfig = !useDirectConfig && state.chars.command && state.chars.themes;
+      if (!useDirectConfig && !useLegacyConfig) {
+        const wrapped = new Error("Please upgrade device firmware.");
+        wrapped.userMessage = "Please upgrade device firmware.";
+        wrapped.technicalMessage = "Config BLE characteristics are not available in this connection.";
+        throw wrapped;
+      }
+
+      const id = state.requestId + 1;
+      state.requestId = id;
+      await writeText(useDirectConfig ? "configCommand" : "command", JSON.stringify({ id, ...payload }));
+
+      const deadline = Date.now() + 15000;
+      while (Date.now() < deadline) {
+        await delay(80);
+        const value = await state.chars[useDirectConfig ? "configResponse" : "themes"].readValue();
+        const text = readText(value);
+        let parsed = null;
+        try {
+          parsed = JSON.parse(text || "{}");
+        } catch (error) {
+          parsed = null;
+        }
+
+        if (parsed && parsed.id === id) {
+          if (!parsed.ok) {
+            throw new Error(parsed.error || "The toy rejected the settings command.");
+          }
+          return parsed;
+        }
+      }
+
+      throw new Error("The toy did not answer the settings command.");
+    }
+
+    function clampVolume(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return 75;
+      return Math.max(0, Math.min(100, Math.round(number)));
+    }
+
+    function applyConfigResponse(config) {
+      const deviceName = `${config.deviceName || displayDeviceName()}`.trim() || "SweetYaar";
+      const defaultTheme = `${config.defaultTheme || ""}`.trim();
+      state.deviceName = deviceName;
+      state.settings.deviceName = deviceName;
+      state.settings.defaultVolumePct = clampVolume(config.defaultVolumePct);
+      state.settings.defaultTheme = defaultTheme;
+      if (config.activeTheme) {
+        state.theme = `${config.activeTheme}`;
+      }
+    }
+
+    function normalizeThemes(themes) {
+      if (!Array.isArray(themes)) return [];
+      return themes
+        .filter((theme) => theme && typeof theme.id === "string")
+        .map((theme) => ({
+          id: theme.id,
+          name: typeof theme.name === "string" && theme.name ? theme.name : theme.id,
+          enabled: !!theme.enabled,
+          disabledByUser: !!theme.disabledByUser,
+          shuffle: !!theme.shuffle,
+          special: !!theme.special,
+          canDisable: theme.canDisable !== false,
+          canSetDefault: theme.canSetDefault !== false,
+          activeValid: Number(theme.activeValid) || 0,
+          total: Number(theme.total) || 0,
+          errors: Number(theme.errors) || 0
+        }));
+    }
+
+    function normalizeSongs(songs) {
+      if (!Array.isArray(songs)) return [];
+      return songs
+        .filter((song) => song && typeof song.file === "string")
+        .map((song) => ({
+          file: song.file,
+          enabled: !!song.enabled,
+          ok: !!song.ok,
+          sizeBytes: Number(song.sizeBytes) || 0,
+          durationMs: Number(song.durationMs) || 0,
+          error: typeof song.error === "string" ? song.error : "",
+          details: typeof song.details === "string" ? song.details : ""
+        }));
+    }
+
+    async function fetchThemeScan() {
+      const themes = [];
+      for (let page = 0; page < 80; page += 1) {
+        const response = await configRequest({ op: "scanThemes", page });
+        themes.push(...normalizeThemes(response.themes));
+        if (!response.hasMore) break;
+      }
+      return sortSettingsThemes(applyPendingThemeChanges(themes));
+    }
+
+    async function fetchSongScan(themeId) {
+      const songs = [];
+      if (!themeId) return songs;
+      for (let page = 0; page < 300; page += 1) {
+        const response = await configRequest({ op: "scanSongs", theme: themeId, page });
+        songs.push(...normalizeSongs(response.songs));
+        if (!response.hasMore) break;
+      }
+      return applyPendingSongChanges(themeId, songs);
+    }
+
+    async function reloadSettingsTables() {
+      const previousSelection = state.settings.selectedThemeId;
+      state.settings.themes = await fetchThemeScan();
+      state.themes = state.settings.themes
+        .filter((theme) => theme.enabled && theme.canSetDefault !== false)
+        .map((theme) => ({ id: theme.id, name: theme.name || theme.id }));
+      if (state.themes.length > 0 && !state.themes.some((theme) => theme.id === state.theme)) {
+        state.theme = state.themes[0].id;
+      }
+      if (!state.settings.themes.some((theme) => theme.id === previousSelection)) {
+        state.settings.selectedThemeId = state.settings.defaultTheme ||
+          state.settings.themes[0]?.id ||
+          "";
+      }
+      state.settings.defaultTheme = selectedSettingsDefaultThemeId();
+      state.settings.songs = await fetchSongScan(state.settings.selectedThemeId);
+      recomputeSelectedThemeFromSongs();
+    }
+
+    async function loadSettingsData() {
+      state.settings.loading = true;
+      state.settings.message = "Scanning SD card...";
+      render();
+
+      try {
+        const config = await configRequest({ op: "getConfig" });
+        applyConfigResponse(config);
+        state.settings.pendingThemeChanges = {};
+        state.settings.pendingSongChanges = {};
+        state.settings.defaultThemeOpen = false;
+        state.settings.selectedThemeId = state.settings.selectedThemeId ||
+          config.activeTheme ||
+          config.defaultTheme ||
+          "";
+        await reloadSettingsTables();
+        if (!state.settings.selectedThemeId && state.settings.themes.length > 0) {
+          state.settings.selectedThemeId = state.settings.themes[0].id;
+          state.settings.songs = await fetchSongScan(state.settings.selectedThemeId);
+          recomputeSelectedThemeFromSongs();
+        }
+        resetPendingSettingsChanges();
+        state.settings.dirty = false;
+        state.settings.message = "";
+      } catch (error) {
+        state.settings.message = describeError(error);
+      } finally {
+        state.settings.loading = false;
+        render();
+      }
+    }
+
+    async function selectSettingsTheme(themeId) {
+      if (!themeId || themeId === state.settings.selectedThemeId || settingsBusy()) return;
+      state.settings.selectedThemeId = themeId;
+      state.settings.songs = [];
+      state.settings.loading = true;
+      state.settings.message = "Scanning songs...";
+      render();
+      try {
+        state.settings.songs = await fetchSongScan(themeId);
+        recomputeSelectedThemeFromSongs();
+        state.settings.message = "";
+      } catch (error) {
+        state.settings.message = describeError(error);
+      } finally {
+        state.settings.loading = false;
+        render();
+      }
+    }
+
+    async function saveSettings() {
+      if (settingsBusy() || !state.settings.dirty) return;
+      state.busy = true;
+      state.settings.message = "Saving settings...";
+      render();
+      try {
+        const deviceName = `${els.settingsDeviceName.value || ""}`.trim() || "SweetYaar";
+        const defaultVolumePct = clampVolume(els.settingsVolumeRange.value);
+        const defaultTheme = selectedSettingsDefaultThemeId();
+        state.settings.defaultTheme = defaultTheme;
+        const generalChanged = deviceName !== state.settings.originalDeviceName ||
+          defaultVolumePct !== state.settings.originalDefaultVolumePct ||
+          defaultTheme !== state.settings.originalDefaultTheme;
+
+        if (generalChanged) {
+          const response = await configRequest({
+            op: "setConfig",
+            deviceName,
+            defaultVolumePct,
+            defaultTheme
+          });
+          applyConfigResponse(response);
+        }
+
+        for (const [themeId, patch] of Object.entries(state.settings.pendingThemeChanges)) {
+          const theme = state.settings.themes.find((item) => item.id === themeId);
+          const payload = { op: "setTheme", theme: themeId };
+          if (theme?.canDisable !== false && typeof patch.enabled === "boolean") {
+            payload.enabled = patch.enabled;
+          }
+          if (typeof patch.shuffle === "boolean") {
+            payload.shuffle = patch.shuffle;
+          }
+          if (typeof payload.enabled === "boolean" || typeof payload.shuffle === "boolean") {
+            await configRequest(payload);
+          }
+        }
+
+        for (const [themeId, songs] of Object.entries(state.settings.pendingSongChanges)) {
+          for (const [file, enabled] of Object.entries(songs)) {
+            await configRequest({ op: "setSong", theme: themeId, file, enabled });
+          }
+        }
+
+        await reloadSettingsTables();
+        resetPendingSettingsChanges();
+        state.settings.dirty = false;
+        state.settings.message = "Settings saved.";
+      } catch (error) {
+        state.settings.message = describeError(error);
+      } finally {
+        state.busy = false;
+        render();
+      }
+    }
+
+    function updateTheme(themeId, patch) {
+      if (!themeId || settingsBusy()) return;
+      const theme = state.settings.themes.find((item) => item.id === themeId);
+      if (!theme) return;
+
+      if (typeof patch.enabled === "boolean" && theme.canDisable !== false) {
+        applyThemeEnabledState(theme, patch.enabled);
+        if (!theme.enabled && state.settings.defaultTheme === themeId) {
+          state.settings.defaultTheme = selectedSettingsDefaultThemeId();
+        }
+      }
+      if (typeof patch.shuffle === "boolean") {
+        theme.shuffle = patch.shuffle;
+      }
+      state.settings.pendingThemeChanges[themeId] = {
+        ...(state.settings.pendingThemeChanges[themeId] || {}),
+        ...patch
+      };
+      state.settings.message = "";
+      markSettingsDirty();
+    }
+
+    function setThemeEnabled(themeId, enabled) {
+      updateTheme(themeId, { enabled });
+    }
+
+    function setThemeShuffle(themeId, shuffle) {
+      updateTheme(themeId, { shuffle });
+    }
+
+    function setSongEnabled(file, enabled) {
+      const theme = state.settings.selectedThemeId;
+      if (!theme || !file || settingsBusy()) return;
+      const song = state.settings.songs.find((item) => item.file === file);
+      if (song) {
+        song.enabled = enabled;
+      }
+      state.settings.pendingSongChanges[theme] = {
+        ...(state.settings.pendingSongChanges[theme] || {}),
+        [file]: enabled
+      };
+      recomputeSelectedThemeFromSongs();
+      state.settings.message = "";
+      markSettingsDirty();
+    }
+
+    function markSettingsDirty() {
+      state.settings.dirty = true;
+      render();
+    }
+
+    function openSettings() {
+      if (!state.connected || state.busy) return;
+      state.view = "settings";
+      state.themeOpen = false;
+      state.settings.defaultThemeOpen = false;
+      render();
+      loadSettingsData();
+    }
+
     function parseThemes(jsonText) {
       try {
         const parsed = JSON.parse(jsonText || "[]");
@@ -1316,19 +2263,239 @@
       }
     }
 
+    function renderSettingsDefaultThemeOptions() {
+      const options = settingsDefaultThemeOptions();
+      const current = selectedSettingsDefaultThemeId();
+
+      els.settingsDefaultThemeCurrent.textContent = selectedSettingsDefaultThemeName();
+      els.settingsDefaultThemeTrigger.setAttribute("aria-expanded", state.settings.defaultThemeOpen ? "true" : "false");
+      els.settingsDefaultThemeCard.classList.toggle("expanded", state.settings.defaultThemeOpen);
+      els.settingsDefaultThemeOptions.hidden = !state.settings.defaultThemeOpen;
+      els.settingsDefaultThemeOptions.replaceChildren();
+
+      for (const theme of options) {
+        const button = document.createElement("button");
+        button.className = "theme-option";
+        button.type = "button";
+        button.dataset.themeId = theme.id;
+        button.textContent = theme.name || theme.id;
+        button.setAttribute("aria-selected", theme.id === current ? "true" : "false");
+        button.disabled = settingsBusy();
+        els.settingsDefaultThemeOptions.append(button);
+      }
+    }
+
+    function renderSettingsThemes() {
+      els.settingsThemeList.replaceChildren();
+
+      if (state.settings.loading && state.settings.themes.length === 0) {
+        const row = document.createElement("p");
+        row.className = "settings-note";
+        row.textContent = "Scanning themes...";
+        els.settingsThemeList.append(row);
+        return;
+      }
+
+      if (state.settings.themes.length === 0) {
+        const row = document.createElement("p");
+        row.className = "settings-note";
+        row.textContent = "No themes found on the SD card.";
+        els.settingsThemeList.append(row);
+        return;
+      }
+
+      for (const theme of state.settings.themes) {
+        const activeValid = Number(theme.activeValid) || 0;
+        const total = Number(theme.total) || 0;
+        const errors = Number(theme.errors) || 0;
+        const canDisable = theme.canDisable !== false;
+        const row = document.createElement("div");
+        row.className = "settings-row";
+        row.dataset.themeId = theme.id;
+        row.classList.toggle("selected", theme.id === state.settings.selectedThemeId);
+        row.classList.toggle("disabled-row", !theme.enabled);
+        row.addEventListener("click", () => selectSettingsTheme(theme.id));
+
+        let checkbox;
+        if (canDisable) {
+          checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = !!theme.enabled;
+          checkbox.disabled = settingsBusy() || (!theme.disabledByUser && activeValid === 0);
+          checkbox.setAttribute("aria-label", `${theme.name || theme.id} enabled`);
+          checkbox.addEventListener("click", (event) => event.stopPropagation());
+          checkbox.addEventListener("change", () => setThemeEnabled(theme.id, checkbox.checked));
+        } else {
+          checkbox = document.createElement("span");
+          checkbox.className = "settings-checkbox-empty";
+          checkbox.setAttribute("aria-hidden", "true");
+        }
+
+        const name = document.createElement("span");
+        name.className = "theme-row-name";
+        name.textContent = theme.name || theme.id;
+
+        const count = document.createElement("span");
+        count.className = "theme-row-count";
+        const left = document.createElement("span");
+        if (errors > 0) left.className = "error-count";
+        left.textContent = String(activeValid);
+        count.append(left, `/${total}`);
+
+        const shuffle = document.createElement("button");
+        shuffle.className = "shuffle-button";
+        shuffle.classList.toggle("active", !!theme.shuffle);
+        shuffle.type = "button";
+        shuffle.disabled = settingsBusy();
+        shuffle.setAttribute("aria-label", `${theme.shuffle ? "Disable" : "Enable"} shuffle for ${theme.name || theme.id}`);
+        shuffle.innerHTML = `<span class="button-glyph" aria-hidden="true">🔀</span>`;
+        shuffle.addEventListener("click", (event) => {
+          event.stopPropagation();
+          setThemeShuffle(theme.id, !theme.shuffle);
+        });
+
+        row.append(checkbox, name, count, shuffle);
+        els.settingsThemeList.append(row);
+      }
+    }
+
+    function renderSettingsSongs() {
+      const selectedTheme = settingsSelectedTheme();
+      const title = selectedTheme ? (selectedTheme.name || selectedTheme.id) : "Songs";
+      const filteredSongs = state.settings.songFilter === "enabled"
+        ? state.settings.songs.filter((song) => song.enabled)
+        : state.settings.songs;
+      const errorCount = state.settings.songs.filter((song) => !song.ok).length;
+
+      els.settingsSongsTitle.textContent = title;
+      els.settingsFilterAll.classList.toggle("active", state.settings.songFilter === "all");
+      els.settingsFilterEnabled.classList.toggle("active", state.settings.songFilter === "enabled");
+      els.settingsFilterAll.disabled = settingsBusy();
+      els.settingsFilterEnabled.disabled = settingsBusy();
+      els.settingsSongErrors.hidden = errorCount === 0;
+      els.settingsSongErrors.textContent = errorCount === 1
+        ? "1 error in this theme"
+        : `${errorCount} errors in this theme`;
+      els.settingsSongList.replaceChildren();
+
+      if (!selectedTheme) {
+        const row = document.createElement("p");
+        row.className = "settings-note";
+        row.textContent = "Select a theme to see its songs.";
+        els.settingsSongList.append(row);
+        return;
+      }
+
+      if (state.settings.loading && state.settings.songs.length === 0) {
+        const row = document.createElement("p");
+        row.className = "settings-note";
+        row.textContent = "Scanning songs...";
+        els.settingsSongList.append(row);
+        return;
+      }
+
+      if (filteredSongs.length === 0) {
+        const row = document.createElement("p");
+        row.className = "settings-note";
+        row.textContent = state.settings.songFilter === "enabled"
+          ? "No enabled songs in this theme."
+          : "No songs found in this theme.";
+        els.settingsSongList.append(row);
+        return;
+      }
+
+      for (const song of filteredSongs) {
+        const row = document.createElement("div");
+        row.className = "song-row";
+        row.classList.toggle("disabled-row", !song.enabled);
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = !!song.enabled;
+        checkbox.disabled = settingsBusy();
+        checkbox.setAttribute("aria-label", `${song.file} enabled`);
+        checkbox.addEventListener("change", () => setSongEnabled(song.file, checkbox.checked));
+
+        const name = document.createElement("span");
+        name.className = "song-name";
+        const icon = document.createElement("span");
+        icon.className = "song-status-icon";
+        if (song.ok) {
+          icon.textContent = "♪";
+        } else {
+          icon.classList.add("bad");
+          icon.textContent = "×";
+        }
+        const text = document.createElement("span");
+        text.className = "song-name-text";
+        text.textContent = song.file || "";
+        name.append(icon, text);
+
+        const size = document.createElement("span");
+        size.className = "song-meta";
+        size.textContent = formatBytes(song.sizeBytes);
+
+        const duration = document.createElement("span");
+        duration.className = "song-meta";
+        duration.textContent = formatDuration(song.durationMs);
+
+        row.append(checkbox, name, size, duration);
+        if (!song.ok && song.error) {
+          const error = document.createElement("div");
+          error.className = "song-error";
+          error.textContent = song.error;
+          row.append(error);
+        }
+        els.settingsSongList.append(row);
+      }
+    }
+
+    function renderSettings() {
+      const settings = state.settings;
+      const busy = settingsBusy();
+
+      if (document.activeElement !== els.settingsDeviceName) {
+        els.settingsDeviceName.value = settings.deviceName || "";
+      }
+      els.settingsDeviceName.disabled = busy;
+      els.settingsVolumeRange.value = String(settings.defaultVolumePct);
+      els.settingsVolumeRange.style.setProperty("--volume-fill", `${settings.defaultVolumePct}%`);
+      els.settingsVolumeRange.disabled = busy;
+      els.settingsVolumeValue.value = `${settings.defaultVolumePct}%`;
+      els.settingsVolumeValue.textContent = `${settings.defaultVolumePct}%`;
+      renderSettingsDefaultThemeOptions();
+      els.settingsDefaultThemeTrigger.disabled = busy || settingsDefaultThemeOptions().length === 0;
+      els.settingsSaveButton.disabled = busy || !settings.dirty;
+      els.settingsSaveButton.querySelector(".settings-save-label").textContent = state.busy ? "Saving..." : "Save";
+      const note = settings.message ||
+        (settingsNameChanged() ? "Rename will take effect after reconnecting." : "");
+      els.settingsNote.hidden = note === "";
+      els.settingsNote.textContent = note;
+
+      renderSettingsThemes();
+      renderSettingsSongs();
+    }
+
     function render() {
       const opening = !state.connected;
-      const streaming = state.connected && isBtConnected();
-      const ready = state.connected && !isBtConnected();
+      const settings = state.connected && state.view === "settings";
+      const streaming = state.connected && state.view === "remote" && isBtConnected();
+      const ready = state.connected && state.view === "remote" && !isBtConnected();
       const disabled = controlsDisabled();
 
       els.openingView.hidden = !opening;
       els.streamingView.hidden = !streaming;
       els.readyView.hidden = !ready;
+      els.settingsView.hidden = !settings;
+      els.brandName.textContent = displayDeviceName();
+      els.openingView.setAttribute("aria-label", `Connect to ${displayDeviceName()}`);
+      els.streamingView.setAttribute("aria-label", `${displayDeviceName()} is streaming music`);
+      els.readyView.setAttribute("aria-label", `${displayDeviceName()} controls`);
+      els.settingsView.setAttribute("aria-label", `${displayDeviceName()} settings`);
 
       els.connectButton.disabled = state.busy;
       els.connectButton.setAttribute("aria-busy", state.busy ? "true" : "false");
-      els.connectButtonLabel.textContent = state.busy ? "Connecting..." : "Connect to SweetYaar";
+      els.connectButtonLabel.textContent = state.busy ? "Connecting..." : `Connect to ${displayDeviceName()}`;
       els.openingMessage.textContent =
         state.message || "Connect to control songs, animal sounds, volume, themes, and pause mode.";
 
@@ -1358,10 +2525,45 @@
       els.stopButton.disabled = playbackDisabled();
       els.killswitchOnButton.disabled = disabled;
       els.killswitchOffButton.disabled = disabled || !state.killswitch;
+      els.openSettingsButton.disabled = state.busy || !state.connected;
+
+      if (settings) {
+        renderSettings();
+      }
     }
 
     async function getCharacteristic(service, name) {
-      return service.getCharacteristic(UUIDS[name]);
+      try {
+        console.info("[SweetYaar BLE] Reading characteristic", name, UUIDS[name]);
+        return await service.getCharacteristic(UUIDS[name]);
+      } catch (error) {
+        if (error?.name === "NotFoundError") {
+          const wrapped = new Error("Please upgrade device firmware.");
+          wrapped.userMessage = "Please upgrade device firmware.";
+          wrapped.technicalMessage =
+            `Missing BLE characteristic "${name}" (${UUIDS[name]}) on service ${UUIDS.service}.`;
+          throw wrapped;
+        }
+        throw error;
+      }
+    }
+
+    async function logDiscoveredCharacteristics(service) {
+      try {
+        const characteristics = await service.getCharacteristics();
+        console.info("[SweetYaar BLE] Discovered characteristics", characteristics.map((characteristic) => ({
+          uuid: characteristic.uuid,
+          properties: {
+            read: characteristic.properties.read,
+            write: characteristic.properties.write,
+            writeWithoutResponse: characteristic.properties.writeWithoutResponse,
+            notify: characteristic.properties.notify,
+            indicate: characteristic.properties.indicate
+          }
+        })));
+      } catch (error) {
+        console.warn("[SweetYaar BLE] Could not list characteristics", error);
+      }
     }
 
     async function readInitialValues() {
@@ -1411,20 +2613,28 @@
 
     function describeError(error) {
       if (!error) return "Something went wrong while connecting.";
+      console.error("[SweetYaar technical error]", error.technicalMessage || error);
+      if (error.userMessage) {
+        return error.userMessage;
+      }
+      const message = error.message || "";
+      if (message.includes("No Characteristics matching UUID") ||
+          message.includes("missing BLE characteristic")) {
+        return "Please upgrade device firmware.";
+      }
+      if (message.includes("No Services matching UUID")) {
+        return "Please upgrade device firmware.";
+      }
       if (error.name === "NotFoundError") {
-        return "Pairing was cancelled or SweetYaar was not selected.";
+        return `${displayDeviceName()} was not selected.`;
       }
       if (error.name === "SecurityError") {
         return "Web Bluetooth requires HTTPS or localhost.";
       }
-      const message = error.message || "";
-      if (message.includes("No Services matching UUID")) {
-        return "SweetYaar is visible, but the parent BLE service was not found.";
-      }
       if (message.includes("GATT Server is disconnected")) {
-        return "The toy disconnected while the app was reading controls.";
+        return "Technical error - couldn't connect.";
       }
-      return message || "Could not connect to SweetYaar.";
+      return "Technical error - couldn't connect.";
     }
 
     async function connect() {
@@ -1441,16 +2651,40 @@
       setMessage("Connecting...");
 
       try {
+        console.info("[SweetYaar BLE] Requesting service", UUIDS.service);
         const device = await navigator.bluetooth.requestDevice({
-          filters: [{ namePrefix: "SweetYaar" }],
+          filters: [{ services: [UUIDS.service] }],
           optionalServices: [UUIDS.service]
+        });
+        setDeviceNameFromBluetooth(device);
+        state.device = device;
+        console.info("[SweetYaar BLE] Selected device", {
+          name: device.name || "",
+          id: device.id || ""
         });
         device.addEventListener("gattserverdisconnected", onDisconnected);
 
         const server = await device.gatt.connect();
-        const service = await server.getPrimaryService(UUIDS.service);
+        console.info("[SweetYaar BLE] GATT connected");
+        let service;
+        try {
+          service = await server.getPrimaryService(UUIDS.service);
+        } catch (error) {
+          try {
+            const services = await server.getPrimaryServices();
+            console.info("[SweetYaar BLE] Available primary services", services.map((service) => service.uuid));
+          } catch (listError) {
+            console.warn("[SweetYaar BLE] Could not list primary services", listError);
+          }
+          const wrapped = new Error("Please upgrade device firmware.");
+          wrapped.userMessage = "Please upgrade device firmware.";
+          wrapped.technicalMessage =
+            `Missing BLE service ${UUIDS.service}. The browser may be seeing old firmware or stale GATT cache.`;
+          throw wrapped;
+        }
+        console.info("[SweetYaar BLE] Service found", UUIDS.service);
+        await logDiscoveredCharacteristics(service);
 
-        state.device = device;
         state.server = server;
         state.chars = {
           volume: await getCharacteristic(service, "volume"),
@@ -1460,19 +2694,48 @@
           themes: await getCharacteristic(service, "themes"),
           command: await getCharacteristic(service, "command")
         };
+        state.configAvailable = false;
+        state.configError = null;
+        try {
+          state.chars.configCommand = await getCharacteristic(service, "configCommand");
+          state.chars.configResponse = await getCharacteristic(service, "configResponse");
+          state.configAvailable = true;
+        } catch (error) {
+          state.configError = error;
+          console.info(
+            "[SweetYaar BLE] Dedicated config characteristics unavailable; using legacy config transport.",
+            error.technicalMessage || error
+          );
+        }
 
         await readInitialValues();
+        if (state.configAvailable) {
+          try {
+            applyConfigResponse(await configRequest({ op: "getConfig" }));
+          } catch (error) {
+            state.configError = error;
+            console.error("[SweetYaar technical error]", error.technicalMessage || error);
+          }
+        }
         await subscribeToNotifications();
 
         state.connected = true;
+        state.view = "remote";
         state.message = "";
       } catch (error) {
+        const message = describeError(error);
+        if (state.device?.gatt?.connected) {
+          state.suppressNextDisconnectMessage = true;
+          state.device.gatt.disconnect();
+        }
         state.connected = false;
         state.device = null;
         state.server = null;
         state.chars = {};
+        state.configAvailable = false;
+        state.configError = null;
         state.status = "Disconnected";
-        state.message = describeError(error);
+        state.message = message;
       } finally {
         state.busy = false;
         render();
@@ -1480,11 +2743,19 @@
     }
 
     function onDisconnected() {
+      if (state.suppressNextDisconnectMessage) {
+        state.suppressNextDisconnectMessage = false;
+        return;
+      }
       state.connected = false;
       state.server = null;
       state.chars = {};
+      state.view = "remote";
+      state.configAvailable = false;
+      state.configError = null;
       state.status = "Disconnected";
       state.killswitch = false;
+      state.settings.loading = false;
       state.message = "Remote disconnected.";
       render();
     }
@@ -1506,6 +2777,48 @@
     }
 
     els.connectButton.addEventListener("click", connect);
+    els.openSettingsButton.addEventListener("click", openSettings);
+    els.settingsBackButton.addEventListener("click", () => {
+      state.view = "remote";
+      state.settings.message = "";
+      state.settings.defaultThemeOpen = false;
+      render();
+    });
+    els.settingsSaveButton.addEventListener("click", saveSettings);
+
+    els.settingsDeviceName.addEventListener("input", () => {
+      state.settings.deviceName = els.settingsDeviceName.value;
+      markSettingsDirty();
+    });
+
+    els.settingsVolumeRange.addEventListener("input", () => {
+      state.settings.defaultVolumePct = clampVolume(els.settingsVolumeRange.value);
+      markSettingsDirty();
+    });
+
+    els.settingsDefaultThemeTrigger.addEventListener("click", () => {
+      if (settingsBusy() || settingsDefaultThemeOptions().length === 0) return;
+      state.settings.defaultThemeOpen = !state.settings.defaultThemeOpen;
+      render();
+    });
+
+    els.settingsDefaultThemeOptions.addEventListener("click", (event) => {
+      const button = event.target.closest(".theme-option");
+      if (!button || settingsBusy()) return;
+      state.settings.defaultTheme = button.dataset.themeId;
+      state.settings.defaultThemeOpen = false;
+      markSettingsDirty();
+    });
+
+    els.settingsFilterAll.addEventListener("click", () => {
+      state.settings.songFilter = "all";
+      render();
+    });
+
+    els.settingsFilterEnabled.addEventListener("click", () => {
+      state.settings.songFilter = "enabled";
+      render();
+    });
 
     els.volumeRange.addEventListener("input", () => {
       state.volume = Number(els.volumeRange.value);

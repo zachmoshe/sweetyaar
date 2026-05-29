@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "name": "Lullabies 🌙",
-  "shuffle": false,
+  "name": "Animals",
+  "shuffle": true,
   "disabledSongs": []
 }

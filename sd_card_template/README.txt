@@ -9,6 +9,7 @@ Copy this folder structure to the root of a FAT32-formatted microSD card.
 /songs/<theme>/02.wav
 ...
 
+/animals/metadata.json         — animal metadata (shuffle, disabledSongs)
 /animals/cat.wav               — animal sound files (any name ending in .wav)
 /animals/dog.wav
 ...
@@ -26,9 +27,21 @@ Recommended tools for converting audio:
 
 config.json schema:
   {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "defaultVolumePct": 75,
-    "defaultTheme": "lullabies"
+    "defaultTheme": "lullabies",
+    "disabledThemes": []
   }
+
+theme metadata.json schema:
+  {
+    "schemaVersion": 2,
+    "name": "Lullabies",
+    "shuffle": false,
+    "disabledSongs": []
+  }
+
+animals metadata.json uses the same schema. The app shows it as a special
+always-enabled "Animals" theme and ignores any custom name.
 
 If config.json is missing or invalid, firmware defaults are used.
