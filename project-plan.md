@@ -164,6 +164,7 @@ KILLSWITCH (10-minute timer):
      - Enabled/disabled themes in `SD:/config.json`
      - Enabled/disabled songs in each theme or animals `metadata.json`
    - App can scan available themes/songs through paged BLE config commands.
+   - Firmware reads idle deep-sleep settings from `SD:/config.json`; BLE `getConfig` exposes the loaded values.
    - App does not upload WAV assets or firmware. SD-card content files are prepared manually outside the toy.
    - Parent-facing settings and media metadata are stored on the SD card.
    - Device-local settings that must survive SD-card replacement are stored in NVS as a compact device-config JSON blob.
@@ -189,7 +190,13 @@ Most parent-editable configuration lives on the SD card so it can be changed, ba
   "schemaVersion": 2,
   "defaultVolumePct": 75,
   "defaultTheme": "lullabies",
-  "disabledThemes": []
+  "disabledThemes": [],
+  "sleep": {
+    "enabled": true,
+    "normalIdleSec": 600,
+    "vibrationWakeIdleSec": 120,
+    "bleIdleSec": 120
+  }
 }
 ```
 

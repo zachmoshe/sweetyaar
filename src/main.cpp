@@ -1,9 +1,12 @@
 #include <Arduino.h>
 #include <SPI.h>
+#include <SD.h>
 #include <esp_heap_caps.h>
 #include <esp_log.h>
 #include <esp_bt_device.h>
 #include <esp_gap_bt_api.h>
+#include <esp_sleep.h>
+#include <driver/rtc_io.h>
 
 // --- Audio tools ---
 #include "AudioTools.h"
@@ -40,7 +43,6 @@ BluetoothA2DPSink* btSink = nullptr;
 
 // Track previous state to detect transitions in the main loop
 State prevState = State::IDLE;
-bool configMode = false;
 bool sdReady = false;
 String activeTheme = DEFAULT_THEME;
 String currentDeviceName = DEFAULT_BT_NAME;
@@ -55,13 +57,17 @@ uint32_t btReopenAtMs = 0;
 const uint32_t BT_REOPEN_DELAY_MS = 1500;
 volatile bool btLinkConnected = false;
 uint32_t lastBleStatusPublishMs = 0;
+bool wokeFromVibration = false;
+bool realActivitySeenSinceWake = false;
+bool lastBleConnected = false;
+uint32_t lastActivityMs = 0;
+uint32_t lastBleActivityMs = 0;
 
 // ---------------------------------------------------------------------------
 // Forward declarations
 // ---------------------------------------------------------------------------
-bool shouldEnterConfigMode();
-void enterConfigMode();
-void loopConfigMode();
+void setupWakeState();
+void setupPeripheralPower();
 void setupI2S();
 void resetI2SOutput(const char* owner);
 void setupBT(const String& deviceName);
@@ -79,6 +85,15 @@ void handleBleConfigCommands();
 void handleBleConfigCommand(const String& commandJson);
 void handleBleCommand(uint8_t command);
 void publishBleValues();
+void markActivity(const char* reason);
+void markBleActivity(const char* reason);
+void pollBleConnectionState();
+uint32_t currentSleepTimeoutMs();
+bool bleIdleAllowsSleep();
+bool canEnterIdleSleep();
+void pollIdleSleep();
+void preparePinsForPeripheralPowerOff();
+void enterIdleDeepSleep();
 String bleStatusForState(State state);
 void refreshThemeList();
 void applyActiveThemeFallback();
@@ -137,6 +152,8 @@ void setup() {
     delay(500);
     Serial.println("\n=== SweetYaar Boot ===");
     setupBtDebugLogging();
+    setupWakeState();
+    setupPeripheralPower();
 
     // Status LED
     pinMode(PIN_LED, OUTPUT);
@@ -154,11 +171,6 @@ void setup() {
     // Buttons
     buttons.begin();
     sm.begin();
-
-    if (shouldEnterConfigMode()) {
-        enterConfigMode();
-        return;
-    }
 
     // I2S (must be set up before BT sink and WAV player)
     setupI2S();
@@ -192,6 +204,9 @@ void setup() {
     }
 
     digitalWrite(PIN_LED, LOW);  // init done
+    lastActivityMs = millis();
+    lastBleActivityMs = millis();
+    lastBleConnected = ENABLE_BLE_PARENT_SERVICE && bleService.isConnected();
 
     Serial.println("[Boot] Ready.");
 }
@@ -200,11 +215,6 @@ void setup() {
 // loop()
 // ---------------------------------------------------------------------------
 void loop() {
-    if (configMode) {
-        loopConfigMode();
-        return;
-    }
-
     // Process asynchronous BT events before accepting local/BLE input.
     processStateMachineTransitions();
 
@@ -219,8 +229,10 @@ void loop() {
         buttons.discardEvents();
     } else {
         if (buttons.wasBothPressed()) {
+            markActivity("both buttons");
             sm.postEvent(Event::BOTH_BUTTONS_PRESS);
         } else if (buttons.wasBtn1Pressed()) {
+            markActivity("button 1");
             if (cur == State::PLAYING_SONG) {
                 wavPlayer.nextSong();  // advance track; stay in PLAYING_SONG
                 publishBleValues();
@@ -228,6 +240,7 @@ void loop() {
                 sm.postEvent(Event::BUTTON1_PRESS);
             }
         } else if (buttons.wasBtn2Pressed()) {
+            markActivity("button 2");
             if (cur == State::PLAYING_ANIMAL) {
                 wavPlayer.nextAnimal();  // advance animal; stay in PLAYING_ANIMAL
                 publishBleValues();
@@ -241,6 +254,7 @@ void loop() {
     //    during BT streaming they are ignored and current values are restored.
     bool bleWriteSeen = handleBleControls();
     handleBleConfigCommands();
+    pollBleConnectionState();
 
     // 4. WAV player: signal SM when track ends
     if (cur == State::PLAYING_SONG || cur == State::PLAYING_ANIMAL) {
@@ -267,66 +281,178 @@ void loop() {
     pollBluetoothReopen();
     applyPendingBtNameIfPossible();
     pollBtDebug();
+    pollIdleSleep();
 
     delay(wavPlayer.isIdle() ? 5 : 1);  // keep WAV streaming fed while still yielding
 }
 
 // ---------------------------------------------------------------------------
-// shouldEnterConfigMode()
+// setupWakeState()
 // ---------------------------------------------------------------------------
-bool shouldEnterConfigMode() {
-    Serial.println("Hold both buttons for 3s during boot to enter config mode...");
-    if (digitalRead(PIN_BTN1) != LOW || digitalRead(PIN_BTN2) != LOW) {
-        return false;
+void setupWakeState() {
+    esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
+    wokeFromVibration = (cause == ESP_SLEEP_WAKEUP_EXT0);
+    realActivitySeenSinceWake = !wokeFromVibration;
+
+    rtc_gpio_deinit(static_cast<gpio_num_t>(PIN_VIB_WAKE));
+    pinMode(PIN_VIB_WAKE, INPUT_PULLUP);
+
+    Serial.printf("[Sleep] Wake cause=%d vibration=%d\n",
+                  static_cast<int>(cause), wokeFromVibration ? 1 : 0);
+}
+
+// ---------------------------------------------------------------------------
+// setupPeripheralPower()
+// ---------------------------------------------------------------------------
+void setupPeripheralPower() {
+    pinMode(PIN_PERIPH_EN, OUTPUT);
+    digitalWrite(PIN_PERIPH_EN, HIGH);
+    delay(50);
+    Serial.printf("[Power] Peripherals enabled on GPIO%d\n", PIN_PERIPH_EN);
+}
+
+// ---------------------------------------------------------------------------
+// markActivity()
+// ---------------------------------------------------------------------------
+void markActivity(const char* reason) {
+    lastActivityMs = millis();
+    realActivitySeenSinceWake = true;
+#if SWEETYAAR_BT_DEBUG
+    Serial.printf("[Sleep] Activity: %s\n", reason);
+#else
+    (void)reason;
+#endif
+}
+
+// ---------------------------------------------------------------------------
+// markBleActivity()
+// ---------------------------------------------------------------------------
+void markBleActivity(const char* reason) {
+    lastBleActivityMs = millis();
+    markActivity(reason);
+}
+
+// ---------------------------------------------------------------------------
+// pollBleConnectionState()
+// ---------------------------------------------------------------------------
+void pollBleConnectionState() {
+    if (!ENABLE_BLE_PARENT_SERVICE) {
+        return;
     }
 
-    uint32_t holdStart = millis();
-    while ((digitalRead(PIN_BTN1) == LOW) && (digitalRead(PIN_BTN2) == LOW)) {
-        if ((millis() - holdStart) >= PORTAL_HOLD_MS) {
-            return true;
+    bool connected = bleService.isConnected();
+    if (connected != lastBleConnected) {
+        lastBleConnected = connected;
+        markBleActivity(connected ? "BLE connected" : "BLE disconnected");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// currentSleepTimeoutMs()
+// ---------------------------------------------------------------------------
+uint32_t currentSleepTimeoutMs() {
+    if (wokeFromVibration && !realActivitySeenSinceWake) {
+        return parentConfig.sleepVibrationWakeIdleMs();
+    }
+    return parentConfig.sleepNormalIdleMs();
+}
+
+// ---------------------------------------------------------------------------
+// bleIdleAllowsSleep()
+// ---------------------------------------------------------------------------
+bool bleIdleAllowsSleep() {
+    if (!ENABLE_BLE_PARENT_SERVICE || !bleService.isConnected()) {
+        return true;
+    }
+    return (millis() - lastBleActivityMs) >= parentConfig.sleepBleIdleMs();
+}
+
+// ---------------------------------------------------------------------------
+// canEnterIdleSleep()
+// ---------------------------------------------------------------------------
+bool canEnterIdleSleep() {
+    if (!parentConfig.sleepEnabled()) {
+        return false;
+    }
+    if (sm.currentState() != State::IDLE) {
+        return false;
+    }
+    if (!wavPlayer.isIdle()) {
+        return false;
+    }
+    if (btLinkConnected || btReopenPending) {
+        return false;
+    }
+    return bleIdleAllowsSleep();
+}
+
+// ---------------------------------------------------------------------------
+// pollIdleSleep()
+// ---------------------------------------------------------------------------
+void pollIdleSleep() {
+    if (!canEnterIdleSleep()) {
+        return;
+    }
+
+    uint32_t timeoutMs = currentSleepTimeoutMs();
+    if ((millis() - lastActivityMs) < timeoutMs) {
+        return;
+    }
+
+    enterIdleDeepSleep();
+}
+
+// ---------------------------------------------------------------------------
+// preparePinsForPeripheralPowerOff()
+// ---------------------------------------------------------------------------
+void preparePinsForPeripheralPowerOff() {
+    digitalWrite(PIN_AMP_MUTE, LOW);
+    if (i2sOut.isActive()) {
+        i2sOut.end();
+    }
+    SD.end();
+    SPI.end();
+
+    pinMode(HW_I2S_BCLK, INPUT);
+    pinMode(HW_I2S_WS, INPUT);
+    pinMode(HW_I2S_DOUT, INPUT);
+    pinMode(PIN_AMP_MUTE, INPUT);
+    pinMode(PIN_SD_SCK, INPUT);
+    pinMode(PIN_SD_MISO, INPUT);
+    pinMode(PIN_SD_MOSI, INPUT);
+    pinMode(PIN_SD_CS, INPUT);
+}
+
+// ---------------------------------------------------------------------------
+// enterIdleDeepSleep()
+// ---------------------------------------------------------------------------
+void enterIdleDeepSleep() {
+    Serial.printf("[Sleep] Entering deep sleep after %lus idle (wake GPIO%d LOW)\n",
+                  static_cast<unsigned long>((millis() - lastActivityMs) / 1000UL),
+                  PIN_VIB_WAKE);
+
+    digitalWrite(PIN_LED, LOW);
+    wavPlayer.stop();
+    preparePinsForPeripheralPowerOff();
+    digitalWrite(PIN_PERIPH_EN, LOW);
+
+    rtc_gpio_deinit(static_cast<gpio_num_t>(PIN_VIB_WAKE));
+    rtc_gpio_init(static_cast<gpio_num_t>(PIN_VIB_WAKE));
+    rtc_gpio_set_direction(static_cast<gpio_num_t>(PIN_VIB_WAKE), RTC_GPIO_MODE_INPUT_ONLY);
+    rtc_gpio_pullup_en(static_cast<gpio_num_t>(PIN_VIB_WAKE));
+    rtc_gpio_pulldown_dis(static_cast<gpio_num_t>(PIN_VIB_WAKE));
+    esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(PIN_VIB_WAKE), 0);
+
+    if (rtc_gpio_get_level(static_cast<gpio_num_t>(PIN_VIB_WAKE)) == 0) {
+        Serial.println("[Sleep] Wake switch is still closed; waiting for release");
+        while (rtc_gpio_get_level(static_cast<gpio_num_t>(PIN_VIB_WAKE)) == 0) {
+            delay(20);
         }
         delay(50);
     }
-    return false;
-}
 
-// ---------------------------------------------------------------------------
-// enterConfigMode()
-// ---------------------------------------------------------------------------
-void enterConfigMode() {
-    configMode = true;
-    digitalWrite(PIN_AMP_MUTE, LOW);
-
-    Serial.println("[Config] Entering configuration mode");
-    Serial.println("[Config] Play-mode services will not start");
-
-    sdReady = wavPlayer.begin();
-    if (!sdReady) {
-        Serial.println("[WARN] SD init failed; config portal will not be able to manage files");
-    } else {
-        parentConfig.load();
-    }
-
-    // TODO Phase 5: start Wi-Fi AP, captive DNS, and HTML management portal.
-    Serial.println("[Config] Captive portal placeholder; restart without buttons for play mode");
-}
-
-// ---------------------------------------------------------------------------
-// loopConfigMode()
-// ---------------------------------------------------------------------------
-void loopConfigMode() {
-    static uint32_t lastToggleMs = 0;
-    static bool ledOn = false;
-
-    uint32_t now = millis();
-    if ((now - lastToggleMs) >= 250) {
-        lastToggleMs = now;
-        ledOn = !ledOn;
-        digitalWrite(PIN_LED, ledOn ? HIGH : LOW);
-    }
-
-    // TODO Phase 5: handle captive portal client requests here.
-    delay(20);
+    Serial.flush();
+    esp_deep_sleep_start();
 }
 
 // ---------------------------------------------------------------------------
@@ -588,6 +714,9 @@ bool handleBleControls() {
         }
     }
 
+    if (writeSeen) {
+        markBleActivity("BLE control write");
+    }
     return writeSeen;
 }
 
@@ -601,6 +730,7 @@ void handleBleConfigCommands() {
 
     String commandJson;
     if (bleService.pollConfigCommand(commandJson)) {
+        markBleActivity("BLE config command");
         handleBleConfigCommand(commandJson);
     }
 }
@@ -885,6 +1015,15 @@ String buildConfigResponse(uint32_t requestId) {
     json += ContentCatalog::jsonEscape(activeTheme);
     json += "\",\"sdReady\":";
     json += sdReady ? "true" : "false";
+    json += ",\"sleep\":{\"enabled\":";
+    json += parentConfig.sleepEnabled() ? "true" : "false";
+    json += ",\"normalIdleSec\":";
+    json += parentConfig.sleepNormalIdleMs() / 1000UL;
+    json += ",\"vibrationWakeIdleSec\":";
+    json += parentConfig.sleepVibrationWakeIdleMs() / 1000UL;
+    json += ",\"bleIdleSec\":";
+    json += parentConfig.sleepBleIdleMs() / 1000UL;
+    json += "}";
     json += "}";
     return json;
 }
@@ -969,6 +1108,8 @@ void applyVolume(uint8_t pct) {
 // handleStateEntry() — called once when the state machine transitions
 // ---------------------------------------------------------------------------
 void handleStateEntry(State prev, State next) {
+    markActivity("state change");
+
     // Stop WAV on any exit from PLAYING states
     bool exitedWav = (prev == State::PLAYING_SONG || prev == State::PLAYING_ANIMAL) &&
                      (next != State::PLAYING_SONG && next != State::PLAYING_ANIMAL);

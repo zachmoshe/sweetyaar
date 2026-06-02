@@ -21,6 +21,10 @@ static constexpr int PIN_SD_CS      = 5;
 static constexpr int PIN_BTN1       = 32;  // Button 1: Songs
 static constexpr int PIN_BTN2       = 33;  // Button 2: Animals
 
+// --- Sleep / power gating ---------------------------------------------------
+static constexpr int PIN_VIB_WAKE   = 27;  // Vibration wake switch to GND
+static constexpr int PIN_PERIPH_EN  = 13;  // Load-switch enable for SD + amp
+
 // --- Status LED -------------------------------------------------------------
 static constexpr int PIN_LED        = 2;   // On-board LED
 
@@ -29,8 +33,11 @@ static constexpr int PIN_LED        = 2;   // On-board LED
 // ---------------------------------------------------------------------------
 static constexpr uint32_t DEBOUNCE_MS          = 50;    // Button debounce window
 static constexpr uint32_t BOTH_PRESS_WINDOW_MS = 100;   // Max gap for "both pressed"
-static constexpr uint32_t PORTAL_HOLD_MS       = 3000;  // Hold both buttons to enter portal
 static constexpr uint32_t KILLSWITCH_MS        = 10UL * 60UL * 1000UL;  // 10 minutes
+static constexpr bool     DEFAULT_SLEEP_ENABLED = true;
+static constexpr uint32_t SLEEP_NORMAL_IDLE_MS = 10UL * 60UL * 1000UL;
+static constexpr uint32_t SLEEP_VIB_WAKE_IDLE_MS = 2UL * 60UL * 1000UL;
+static constexpr uint32_t SLEEP_BLE_IDLE_MS = 2UL * 60UL * 1000UL;
 
 // ---------------------------------------------------------------------------
 // Audio

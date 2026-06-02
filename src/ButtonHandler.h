@@ -37,7 +37,6 @@ public:
     void discardEvents();
 
     // True while both buttons are physically held; does NOT consume the event.
-    // Use to detect the 3-second portal entry hold.
     bool isBothHeld() const;
 
     // How long (ms) both buttons have been held continuously (0 if not both held)

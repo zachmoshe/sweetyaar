@@ -30,8 +30,19 @@ config.json schema:
     "schemaVersion": 2,
     "defaultVolumePct": 75,
     "defaultTheme": "lullabies",
-    "disabledThemes": []
+    "disabledThemes": [],
+    "sleep": {
+      "enabled": true,
+      "normalIdleSec": 600,
+      "vibrationWakeIdleSec": 120,
+      "bleIdleSec": 120
+    }
   }
+
+sleep.enabled controls automatic deep sleep. normalIdleSec is used after real
+toy activity. vibrationWakeIdleSec is used when the device woke only because the
+vibration switch moved and then nobody interacted with it. bleIdleSec is how
+long a connected but idle parent app is allowed to block sleep.
 
 theme metadata.json schema:
   {
