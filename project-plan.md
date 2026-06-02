@@ -2,7 +2,7 @@
 
 ## Context
 
-This project is a v2 redesign of a custom ESP32-based baby toy controller originally written in MicroPython. The key new requirement is that the device must appear as a **Bluetooth A2DP speaker** to phones and computers. MicroPython has no Bluetooth Classic / A2DP support, so the firmware is rewritten in **C++ using the Arduino framework on PlatformIO**. The project also includes a custom PCB, a web-based parent control interface, a Wi-Fi configuration/file-management portal, and a 3D-printed enclosure.
+This project is a v2 redesign of a custom ESP32-based baby toy controller originally written in MicroPython. The key new requirement is that the device must appear as a **Bluetooth A2DP speaker** to phones and computers. MicroPython has no Bluetooth Classic / A2DP support, so the firmware is rewritten in **C++ using the Arduino framework on PlatformIO**. The project also includes a custom PCB, a Web BLE parent control/configuration interface, SD-card content curation, and a 3D-printed enclosure.
 
 ---
 
@@ -19,10 +19,9 @@ This project is a v2 redesign of a custom ESP32-based baby toy controller origin
 | SD card interface | SPI | WAV files for songs and animal sounds |
 | BLE parent control | ESP32 built-in BLEDevice | Dual-mode: Classic BT (A2DP) + BLE simultaneously on same chip |
 | Parent live-control app | Web BLE (single HTML page) | No install; controls normal play mode from Android Chrome + desktop Chrome |
-| Parent management app | Config-mode captive portal | Physical button hold required; manages SD files/settings from a browser |
-| File management | Wi-Fi AP + `esp-fs-webserver`, config mode only | Original ESP32 has no native USB OTG; Wi-Fi stays off in normal play mode |
-| File mgmt library | `cotestatnt/esp-fs-webserver` v3.2+ | Handles config-mode portal + file browser + OTA in one library |
-| OTA firmware | ElegantOTA v3 | Browser-based update from config mode only |
+| Parent config app | Same Web BLE app, settings screen | Device name, default volume/theme, and enabled content are edited over BLE |
+| Asset management | Manual SD-card preparation | Parents/developer curate WAV files and metadata on the SD card; the app does not upload assets |
+| OTA firmware | Not in product plan | Firmware is flashed through PlatformIO/serial during development |
 | Battery | Single-cell LiPo, 3.7V, ~1500–2000 mAh | Compact, rechargeable |
 | Charging / battery safety | Modern single-cell LiPo charger module/IC with battery protection | Safety over fast charging; exact part TBD; use low charge current, fuse protection, and battery temperature protection |
 | Power regulation | Modern 3.3V LDO, not AMS1117 | Simple, lower-dropout 3.3V rail for ESP32 + SD + logic; buck-boost deferred unless testing shows brownouts or poor runtime |
@@ -48,7 +47,7 @@ This project is a v2 redesign of a custom ESP32-based baby toy controller origin
 | Speaker connector | JST-PH 2-pin | Connects to doll's speaker |
 | Button connectors | 2× JST-PH 2-pin | One per button; buttons wired to GND |
 | Power switch | Slide switch (SPDT) | On/off between battery and rest of circuit |
-| Status LED | 0805 + resistor | Power-on and BT/Wi-Fi status indicator |
+| Status LED | 0805 + resistor | Power-on and BT/BLE status indicator |
 
 ### Power and Charging Safety Baseline
 
@@ -89,14 +88,9 @@ This is a child toy, so the power design prioritises safety, low heat, and predi
 
 ## Firmware Architecture
 
-### Boot Modes
+### Runtime Mode
 
-SweetYaar boots into exactly one mode:
-
-1. **Play mode** — normal toy operation. Wi-Fi stays off. A2DP, BLE live controls, WAV playback, buttons, and the state machine are active.
-2. **Config mode** — entered by holding Button 1 + Button 2 for 3 seconds during boot. Normal toy behavior does not start. The device creates a local Wi-Fi AP and serves a captive portal management page for SD-card content, settings, and OTA. After changes, the parent restarts or power-cycles the toy to return to play mode.
-
-There is no home Wi-Fi / STA mode requirement. The device should not expose a management portal during normal play.
+SweetYaar boots directly into normal toy operation. A2DP, BLE live controls, BLE settings/content curation, WAV playback, buttons, and the state machine are active together. Wi-Fi is not part of the product runtime and there is no separate captive-portal/config-mode boot path.
 
 ### Play-Mode State Machine
 
@@ -158,20 +152,21 @@ KILLSWITCH (10-minute timer):
      - `theme` (string, read/write/notify) — sets active song folder for the current session
      - `status` (string, read/notify) — `Idle`, `Playing song - <theme> / <file>`, `Playing animal - <file>`, `BT connected`, or `Killswitch active (<mm:ss> left)`
      - `themes` (JSON string, read) — available song themes scanned from `/songs/<theme>/metadata.json`
-     - `command` (uint8, write) — app equivalents for song, animal, and stop button actions
-   - BLE writes are live controls for local SD/WAV operation only. While A2DP is connected, status is `BT connected`, local controls are ignored, and current values are re-notified. Persistent defaults are edited in config mode and stored on the SD card.
+   - `command` (uint8 or JSON string, write) — app equivalents for song, animal, stop, and config/content commands
+   - `configResponse` / `themes` JSON response path — config/content responses for cached and current GATT schemas
+   - BLE writes are live controls for local SD/WAV operation and persistent settings/content curation. While A2DP is connected, playback controls are read-only/ignored as needed, and current values are re-notified.
 
-4. **Wi-Fi + Web Portal** (`cotestatnt/esp-fs-webserver`)
-   - Runs only in config mode; Wi-Fi is off in play mode
-   - **Enter config mode**: hold Button 1 + Button 2 for 3 sec on power-on
-   - Creates Wi-Fi AP: `SweetYaar-XXXX` (last 4 chars of MAC)
-   - Web interface at `192.168.4.1`:
-     - `/` — parent-friendly management page
-     - `/edit` — optional raw file browser for advanced SD-card edits
-     - `/setup` — device name, default volume, default theme
-     - `/update` — firmware OTA (via ElegantOTA v3)
-   - Parent-facing settings and media metadata are stored on the SD card
-   - Device-local settings that must survive SD-card replacement are stored in NVS as a compact device-config JSON blob
+4. **BLE Settings + Content Curation**
+   - Uses the same Web BLE parent app; no separate Wi-Fi AP or captive portal.
+   - App can read/update:
+     - Device name in NVS-backed device config
+     - Default volume and default theme in `SD:/config.json`
+     - Enabled/disabled themes in `SD:/config.json`
+     - Enabled/disabled songs in each theme or animals `metadata.json`
+   - App can scan available themes/songs through paged BLE config commands.
+   - App does not upload WAV assets or firmware. SD-card content files are prepared manually outside the toy.
+   - Parent-facing settings and media metadata are stored on the SD card.
+   - Device-local settings that must survive SD-card replacement are stored in NVS as a compact device-config JSON blob.
 
 5. **Button Handler**
    - Debounced (50 ms software debounce)
@@ -187,13 +182,14 @@ KILLSWITCH (10-minute timer):
 
 ### Config Storage
 
-Most parent-editable configuration lives on the SD card so it can be changed, backed up, or replaced by the config portal:
+Most parent-editable configuration lives on the SD card so it can be changed, backed up, or replaced by the BLE app:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "defaultVolumePct": 75,
-  "defaultTheme": "lullabies"
+  "defaultTheme": "lullabies",
+  "disabledThemes": []
 }
 ```
 
@@ -249,7 +245,7 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 - Single `docs/index.html` (vanilla JS + CSS, no framework)
 - Hosted on GitHub Pages from `/docs`
 - Uses Web Bluetooth API (Android Chrome + desktop Chrome)
-- Normal local play-mode live controls only; not used for song upload/file management or BT audio control
+- Normal local play-mode live controls and BLE settings/content curation; not used for WAV upload or BT audio control
 - Controls:
   - Connect / Disconnect
   - Play song / Play animal / Stop buttons
@@ -257,24 +253,22 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
   - Song theme selector backed by the firmware `themes` JSON characteristic
   - Killswitch activate/restart and cancel controls
   - Device status indicator
+  - Settings screen for device name, default volume, default theme, enabled themes, and enabled songs
 - When A2DP is connected, the app shows `BT connected` and disables volume, theme, and killswitch controls.
 
 ---
 
-## Wi-Fi File Management + Config Portal (Phase 5)
+## BLE Settings + Content Curation
 
-- Enter by holding both buttons 3 sec on power-on
-- Play-mode services do not start while in config mode
-- ESP32 becomes Wi-Fi AP (`SweetYaar-XXXX`)
-- DNS catchall → captive portal auto-opens on phone/laptop
-- Browser UI served by `esp-fs-webserver`:
-  - **Song themes** — create/rename/delete theme folders, upload songs, reorder files, edit `metadata.json`
-  - **Animal sounds** — upload/delete WAV files in `/animals`
-  - **Toy settings** — edit `SD:/config.json` values like default volume and default theme
-  - **Device settings** — edit the NVS-backed device-config JSON values like BT name
-  - **Advanced file manager** — optional raw SD file browser
-  - **OTA update** — upload new `.bin` firmware file
-- Restart/power-cycle exits config mode and returns to play mode
+- Runs through the same Web BLE app used for live controls.
+- No Wi-Fi AP, captive portal, OTA page, or in-toy asset upload flow.
+- Supported app flows:
+  - **Device settings** — edit the NVS-backed device name.
+  - **Toy defaults** — edit `SD:/config.json` values like default volume and default theme.
+  - **Song themes** — scan themes, enable/disable theme folders, and choose default theme.
+  - **Theme songs** — scan a selected theme and enable/disable individual WAV files.
+  - **Animal sounds** — scan `/animals` and enable/disable individual WAV files.
+- New WAV files and metadata are still prepared on the SD card outside the toy.
 
 ---
 
@@ -309,14 +303,13 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 2. Flash firmware via USB (boot/enable pins accessible on PCB)
 3. End-to-end test: BT speaker, buttons, BLE app, battery
 
-### Phase 5 — Wi-Fi Config + File Management Portal
-1. Integrate `esp-fs-webserver` in config-mode AP only
-2. Captive portal + parent-friendly management page
-3. SD editor for songs, animals, theme metadata, and `SD:/config.json`
-4. Device settings editor for NVS-backed BT name
-5. OTA update via ElegantOTA v3
-6. Restart flow back into play mode
-7. Test full parent setup flow (new unit → configure → restart → use)
+### Phase 5 — BLE Settings + Content Curation
+1. Add BLE config command/response contract
+2. Add settings screen to the Web BLE app
+3. Read/update device name, default volume, and default theme
+4. Scan themes/songs with paged responses
+5. Enable/disable themes and individual songs
+6. Test full parent setup flow through BLE
 
 ### Phase 6 — 3D Enclosure
 1. Choose CAD tool (FreeCAD or Fusion 360 — TBD)
@@ -335,8 +328,6 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 | arduino-audio-tools | `pschatzmann/arduino-audio-tools` | I2S output, WAV decode, volume gain |
 | ESP32 BLEDevice | Arduino-ESP32 core (built-in) | BLE GATT server |
 | SD | Arduino-ESP32 core (built-in) | SD card file access |
-| esp-fs-webserver | `cotestatnt/esp-fs-webserver` | Wi-Fi portal, file manager, OTA |
-| ElegantOTA | `ayushsharma82/ElegantOTA` v3 | Browser-based OTA firmware update |
 
 ---
 
@@ -345,7 +336,7 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 - LiPo capacity (1000 vs 1500 vs 2000 mAh) — depends on doll body space
 - Exact charger module/IC and whether it has NTC temperature-sense input
 - Exact fuse/polyfuse and optional thermal-fuse ratings/placement
-- Exact 3.3V LDO part and thermal/current validation under ESP32 BT/Wi-Fi peaks
+- Exact 3.3V LDO part and thermal/current validation under ESP32 radio peaks
 - CAD tool for enclosure (FreeCAD vs Fusion 360)
 - BT name per-unit strategy (same name "SweetYaar" for all, or personalised per gift?)
 - User's existing MicroPython code — review for any missing features
