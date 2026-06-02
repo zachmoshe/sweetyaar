@@ -2274,46 +2274,60 @@
 
     async function saveSettings() {
       if (settingsBusy() || !state.settings.dirty) return;
+
+      const deviceName = `${els.settingsDeviceName.value || ""}`.trim() || "SweetYaar";
+      const defaultVolumePct = clampVolume(els.settingsVolumeRange.value);
+      const defaultTheme = selectedSettingsDefaultThemeId();
+      const sleepEnabled = els.settingsSleepEnabled.checked;
+      const sleepNormalIdleSec = clampSleepSeconds(
+        els.settingsNormalIdleSec.value, state.settings.sleepNormalIdleSec);
+      const sleepVibrationWakeIdleSec = clampSleepSeconds(
+        els.settingsWakeIdleSec.value, state.settings.sleepVibrationWakeIdleSec);
+      const sleepBleIdleSec = clampSleepSeconds(
+        els.settingsBleIdleSec.value, state.settings.sleepBleIdleSec);
+
+      const configPayloads = [];
+      if (deviceName !== state.settings.originalDeviceName) {
+        configPayloads.push({ op: "setConfig", deviceName });
+      }
+      if (defaultVolumePct !== state.settings.originalDefaultVolumePct) {
+        configPayloads.push({ op: "setConfig", defaultVolumePct });
+      }
+      if (defaultTheme !== state.settings.originalDefaultTheme) {
+        configPayloads.push({ op: "setConfig", defaultTheme });
+      }
+
+      const sleepPayload = {};
+      if (sleepEnabled !== state.settings.originalSleepEnabled) {
+        sleepPayload.enabled = sleepEnabled;
+      }
+      if (sleepNormalIdleSec !== state.settings.originalSleepNormalIdleSec) {
+        sleepPayload.normalIdleSec = sleepNormalIdleSec;
+      }
+      if (sleepVibrationWakeIdleSec !== state.settings.originalSleepVibrationWakeIdleSec) {
+        sleepPayload.vibrationWakeIdleSec = sleepVibrationWakeIdleSec;
+      }
+      if (sleepBleIdleSec !== state.settings.originalSleepBleIdleSec) {
+        sleepPayload.bleIdleSec = sleepBleIdleSec;
+      }
+      if (Object.keys(sleepPayload).length > 0) {
+        configPayloads.push({ op: "setConfig", sleep: sleepPayload });
+      }
+
+      state.settings.deviceName = deviceName;
+      state.settings.defaultVolumePct = defaultVolumePct;
+      state.settings.defaultTheme = defaultTheme;
+      state.settings.sleepEnabled = sleepEnabled;
+      state.settings.sleepNormalIdleSec = sleepNormalIdleSec;
+      state.settings.sleepVibrationWakeIdleSec = sleepVibrationWakeIdleSec;
+      state.settings.sleepBleIdleSec = sleepBleIdleSec;
       state.busy = true;
       state.settings.message = "Saving settings...";
       render();
-      try {
-        const deviceName = `${els.settingsDeviceName.value || ""}`.trim() || "SweetYaar";
-        const defaultVolumePct = clampVolume(els.settingsVolumeRange.value);
-        const defaultTheme = selectedSettingsDefaultThemeId();
-        const sleepEnabled = els.settingsSleepEnabled.checked;
-        const sleepNormalIdleSec = clampSleepSeconds(
-          els.settingsNormalIdleSec.value, state.settings.sleepNormalIdleSec);
-        const sleepVibrationWakeIdleSec = clampSleepSeconds(
-          els.settingsWakeIdleSec.value, state.settings.sleepVibrationWakeIdleSec);
-        const sleepBleIdleSec = clampSleepSeconds(
-          els.settingsBleIdleSec.value, state.settings.sleepBleIdleSec);
-        state.settings.defaultTheme = defaultTheme;
-        state.settings.sleepEnabled = sleepEnabled;
-        state.settings.sleepNormalIdleSec = sleepNormalIdleSec;
-        state.settings.sleepVibrationWakeIdleSec = sleepVibrationWakeIdleSec;
-        state.settings.sleepBleIdleSec = sleepBleIdleSec;
-        const configChanged = deviceName !== state.settings.originalDeviceName ||
-          defaultVolumePct !== state.settings.originalDefaultVolumePct ||
-          defaultTheme !== state.settings.originalDefaultTheme ||
-          sleepEnabled !== state.settings.originalSleepEnabled ||
-          sleepNormalIdleSec !== state.settings.originalSleepNormalIdleSec ||
-          sleepVibrationWakeIdleSec !== state.settings.originalSleepVibrationWakeIdleSec ||
-          sleepBleIdleSec !== state.settings.originalSleepBleIdleSec;
 
-        if (configChanged) {
-          const response = await configRequest({
-            op: "setConfig",
-            deviceName,
-            defaultVolumePct,
-            defaultTheme,
-            sleep: {
-              enabled: sleepEnabled,
-              normalIdleSec: sleepNormalIdleSec,
-              vibrationWakeIdleSec: sleepVibrationWakeIdleSec,
-              bleIdleSec: sleepBleIdleSec
-            }
-          });
+      try {
+        for (const payload of configPayloads) {
+          const response = await configRequest(payload);
           applyConfigResponse(response);
         }
 
