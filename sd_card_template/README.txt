@@ -44,6 +44,11 @@ toy activity. vibrationWakeIdleSec is used when the device woke only because the
 vibration switch moved and then nobody interacted with it. bleIdleSec is how
 long a connected but idle parent app is allowed to block sleep.
 
+Deep sleep is a full reboot on wake. Bluetooth/BLE clients disconnect, playback
+state is not remembered, and the toy starts normally after the vibration switch
+wakes GPIO27. Sleep is skipped while a song/animal is playing, while Classic BT
+audio is connected, and while killswitch is active.
+
 theme metadata.json schema:
   {
     "schemaVersion": 2,

@@ -26,6 +26,8 @@ experiments feel like firmware work again, not jumper-wire debugging.
 - I2C header.
 - External SPI header.
 - Clearly labeled test pads.
+- Exposed GPIO27 and GPIO13 so SweetYaar sleep-mode firmware can test vibration
+  wake and peripheral load-switch enable with external add-on modules.
 
 ## Should Have
 
@@ -50,6 +52,8 @@ experiments feel like firmware work again, not jumper-wire debugging.
 ## Not Rev A
 
 - Battery charging.
+- On-board vibration wake switch.
+- On-board SD/amp peripheral load switch.
 - Tiny final-product size.
 - USB Power Delivery negotiation.
 - Native USB ESP32-S3/C3 style support.
@@ -74,6 +78,21 @@ This is intentionally a strategy, not a final BOM.
 | Speaker | Connect directly to the blue MAX98357A module `+`/`-` holes |
 | Headers | 2.54mm through-hole |
 
+## SweetYaar Sleep-Mode Prototype Add-Ons
+
+Rev A is a reusable lab carrier, not the final battery toy PCB. For the sleep-mode
+firmware branch, connect the sleep parts externally:
+
+| Sleep Function | Rev A Connection |
+|---|---|
+| Passive vibration wake switch | `GPIO27` on the SPI header to GND |
+| SD + amp load-switch enable | `GPIO13` on the GPIO header to an active-HIGH load-switch EN pin |
+
+The final SweetYaar toy PCB should turn those external add-ons into real board
+components: a vibration switch mounted where toy movement is detectable, and a
+load switch or switched peripheral rail that powers the SD card and MAX98357A amp
+together.
+
 ## First Bring-Up Checklist
 
 1. Inspect for shorts before power.
@@ -88,6 +107,7 @@ This is intentionally a strategy, not a final BOM.
 10. Test I2S sine tone.
 11. Test Bluetooth A2DP from phone.
 12. Test spare GPIO headers with an external button or jumper wire.
+13. Test SweetYaar sleep add-ons: GPIO27 vibration wake and GPIO13 load-switch enable.
 
 ## Expected First-Spin Risk
 

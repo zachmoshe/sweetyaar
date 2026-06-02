@@ -61,6 +61,8 @@ For continuing this work in a fresh chat, start with
 - I2C expansion header.
 - SPI expansion header sharing the SD SPI bus.
 - Spare GPIO headers with power and ground nearby.
+- SweetYaar sleep-mode add-on support through headers: GPIO27 for passive
+  vibration wake and GPIO13 for active-HIGH peripheral load-switch enable.
 - Test pads for important rails and buses.
 
 ## Open Rev A Decisions

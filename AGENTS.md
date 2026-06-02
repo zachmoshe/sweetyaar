@@ -13,11 +13,14 @@ Bluetooth, SD-card, or hardware-test workflows.
 - Main PlatformIO environments:
   - `esp32dev`: real application firmware.
   - `btdebug`: debug firmware with extra Classic BT/A2DP event logging.
+  - `vibsleep`: standalone vibration wake/deep-sleep test firmware.
 - Common commands:
   - Build real app: `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e esp32dev`
   - Upload real app: `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e esp32dev -t upload`
   - Build BT debug app: `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e btdebug`
   - Upload BT debug app: `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e btdebug -t upload`
+  - Build vibration sleep test: `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e vibsleep`
+  - Upload vibration sleep test: `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e vibsleep -t upload`
 - The shell may not see this directory as a Git repository. Do not rely on
   `git diff` being available unless you verify it first.
 
@@ -44,6 +47,11 @@ Bluetooth, SD-card, or hardware-test workflows.
   - Button 1: `GPIO32`
   - Button 2: `GPIO33`
   - Wire each button between GPIO and GND; firmware uses pull-ups.
+- Sleep-mode hardware:
+  - Passive vibration switch: `GPIO27 -> switch -> GND`; firmware uses the ESP32 pull-up and EXT0 wake on LOW.
+  - Peripheral load-switch enable: `GPIO13`, active HIGH in firmware.
+  - The switched peripheral rail powers the SD card and MAX98357A amp together. GPIO13 HIGH wakes both; GPIO13 LOW turns both off before deep sleep.
+  - If testing without a load switch, direct SD/amp power is acceptable for functional firmware testing, but sleep-current measurements will not represent the final design.
 
 ## Hardware Findings
 
@@ -163,6 +171,18 @@ Recent successful real-app smoke logs:
 - Local volume controls WAV playback only; do not call A2DP volume APIs for it.
 - Physical/app button events during BT streaming should be ignored, not queued
   for later playback.
+- Idle sleep:
+  - Firmware reads `sleep.enabled`, `normalIdleSec`, `vibrationWakeIdleSec`, and
+    `bleIdleSec` from `SD:/config.json`.
+  - Sleep is considered only in `IDLE`, with no WAV playback, no A2DP connection,
+    no Bluetooth reopen cooldown, and no active killswitch.
+  - Normal idle defaults to 10 minutes; vibration-only wake defaults to 2 minutes;
+    idle connected BLE defaults to 2 minutes.
+  - Deep sleep is a full reboot on wake. BT/BLE connections, current song, and
+    playback position are intentionally not preserved.
+  - Before sleep, firmware stops WAV playback, mutes the amp, ends SD/SPI/I2S,
+    sets SD/I2S pins to input/high-Z, disables the GPIO13 load switch, waits for
+    the wake switch to release if needed, and enables EXT0 wake on GPIO27 LOW.
 - Killswitch:
   - Writing/triggering `1` activates it outside BT mode.
   - Repeated `1` restarts the timer.

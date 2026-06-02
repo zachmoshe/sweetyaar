@@ -22,6 +22,8 @@ This project is a v2 redesign of a custom ESP32-based baby toy controller origin
 | Parent config app | Same Web BLE app, settings screen | Device name, default volume/theme, and enabled content are edited over BLE |
 | Asset management | Manual SD-card preparation | Parents/developer curate WAV files and metadata on the SD card; the app does not upload assets |
 | OTA firmware | Not in product plan | Firmware is flashed through PlatformIO/serial during development |
+| Idle sleep / wake | ESP32 deep sleep with passive vibration wake | Saves battery after inactivity; wake is a full reboot, which is acceptable for the toy |
+| Peripheral power gating | GPIO-controlled load switch for SD + audio amp | SD card and amp are powered only while the ESP32 is awake |
 | Battery | Single-cell LiPo, 3.7V, ~1500–2000 mAh | Compact, rechargeable |
 | Charging / battery safety | Modern single-cell LiPo charger module/IC with battery protection | Safety over fast charging; exact part TBD; use low charge current, fuse protection, and battery temperature protection |
 | Power regulation | Modern 3.3V LDO, not AMS1117 | Simple, lower-dropout 3.3V rail for ESP32 + SD + logic; buck-boost deferred unless testing shows brownouts or poor runtime |
@@ -39,6 +41,8 @@ This project is a v2 redesign of a custom ESP32-based baby toy controller origin
 | MCU module | ESP32-WROOM-32 | 4 MB flash, Wi-Fi + BT dual-mode |
 | DAC + Amp | MAX98357A | SOP-8, I2S input, mono 3W out |
 | SD card | Micro SD push-push slot | SPI, 3.3V logic level; slot on PCB edge (accessible externally) |
+| Vibration wake sensor | Passive vibration/tilt switch | Wakes ESP32 from deep sleep; wired between GPIO27 and GND with ESP32 pull-up |
+| Peripheral load switch | High-side load switch, EN from GPIO13 | Switched rail for SD card and MAX98357A amp; exact final rail topology TBD |
 | USB-C | USB-C 16-pin charging port | Charging only, no data |
 | Charging | Modern 1-cell LiPo charger module/IC, exact part TBD | MCP73831-class if simple/off-while-charging; BQ2407x/BQ2518x/MCP73871-class only if power-path charging is desired |
 | Battery protection | Protected LiPo pack + board-level protection | Prefer pack PCM for overcharge, overdischarge, overcurrent, and short-circuit; add fuse/polyfuse and battery temperature protection |
@@ -48,6 +52,15 @@ This project is a v2 redesign of a custom ESP32-based baby toy controller origin
 | Button connectors | 2× JST-PH 2-pin | One per button; buttons wired to GND |
 | Power switch | Slide switch (SPDT) | On/off between battery and rest of circuit |
 | Status LED | 0805 + resistor | Power-on and BT/BLE status indicator |
+
+### Sleep-Mode Hardware Notes
+
+- The ESP32 remains powered by the 3.3V rail during deep sleep. The SD card and audio amp are behind the switched peripheral rail so their leakage and undefined pin states do not dominate sleep current.
+- `GPIO27` is the wake input. The passive vibration switch connects `GPIO27` to GND when it moves; firmware enables the pull-up and uses ESP32 EXT0 deep-sleep wake on LOW.
+- `GPIO13` drives the peripheral load-switch enable. The current firmware assumes active HIGH: HIGH powers SD + amp, LOW turns them off.
+- One load-switch IC is acceptable if SD and amp are intentionally fed from the same switched rail in the final design. If the final PCB uses different rails for native 3.3V SD and higher-voltage amp power, keep one firmware enable signal but review whether it should drive one load switch, two load switches, or an enabled regulator plus a load switch.
+- Before entering sleep, firmware stops WAV playback, mutes the amp, ends I2S/SPI/SD, sets SD/I2S pins to input/high-Z, turns off the load switch, waits for the vibration switch to release if it is still closed, and then enters deep sleep.
+- Wake from vibration is a normal reboot. BT/BLE clients disconnect, the current song is not remembered, and state returns to normal boot defaults.
 
 ### Power and Charging Safety Baseline
 
@@ -75,6 +88,8 @@ This is a child toy, so the power design prioritises safety, low heat, and predi
 | SD CS | GPIO5 |
 | Button 1 (Songs) | GPIO32 |
 | Button 2 (Animals) | GPIO33 |
+| Vibration wake switch | GPIO27 |
+| SD + amp load-switch enable | GPIO13 |
 | Status LED | GPIO2 |
 
 ### Target PCB Specs
@@ -91,6 +106,19 @@ This is a child toy, so the power design prioritises safety, low heat, and predi
 ### Runtime Mode
 
 SweetYaar boots directly into normal toy operation. A2DP, BLE live controls, BLE settings/content curation, WAV playback, buttons, and the state machine are active together. Wi-Fi is not part of the product runtime and there is no separate captive-portal/config-mode boot path.
+
+### Idle Deep Sleep
+
+The toy automatically enters real ESP32 deep sleep after inactivity, controlled by `SD:/config.json`.
+
+- Default normal idle timeout: 10 minutes (`normalIdleSec: 600`).
+- Default vibration-only wake timeout: 2 minutes (`vibrationWakeIdleSec: 120`). This shorter timeout is used when the only thing that happened was a vibration wake and nobody pressed a button, connected meaningfully, or started playback.
+- Default BLE idle timeout: 2 minutes (`bleIdleSec: 120`). A connected parent app can delay sleep while it is active, but an idle BLE connection is allowed to be dropped by sleep after this timeout.
+- Sleep is considered only in `IDLE`, with WAV playback stopped, no Classic BT/A2DP connection, no Bluetooth reopen cooldown, and no active killswitch.
+- Button presses, BLE writes/config commands, BLE connect/disconnect, BT state changes, and state-machine transitions reset the activity timer.
+- Killswitch does not trigger sleep and sleep does not replace killswitch. While the state machine is in `KILLSWITCH`, the device stays awake until the killswitch exits.
+- Wake source is only the vibration switch on `GPIO27`. Buttons are not wake sources because touching the toy should move it enough to trip the vibration switch.
+- Waking is a full reboot. This is deliberate: no BT client, BLE client, current song, or playback position is preserved.
 
 ### Play-Mode State Machine
 
@@ -180,6 +208,13 @@ KILLSWITCH (10-minute timer):
    - Static firmware default: 75%
    - `SD:/config.json` may override the default volume
    - BLE volume writes change live volume only; they do not persist to NVS
+
+7. **Idle Sleep Manager**
+   - Reads `sleep.enabled`, `normalIdleSec`, `vibrationWakeIdleSec`, and `bleIdleSec` from `SD:/config.json`
+   - Uses ESP32 EXT0 wake on `GPIO27` LOW
+   - Drives the SD + amp load-switch enable on `GPIO13`
+   - Powers peripherals back on during boot before SD, I2S, BT, and BLE init
+   - Exposes the loaded sleep settings in BLE `getConfig`
 
 ### Config Storage
 
@@ -309,6 +344,7 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 1. Assemble first unit (manual or JLCPCB SMT)
 2. Flash firmware via USB (boot/enable pins accessible on PCB)
 3. End-to-end test: BT speaker, buttons, BLE app, battery
+4. Sleep test: normal 10-minute idle, vibration-only 2-minute idle, BLE idle timeout, vibration wake reboot, SD/amp load-switch power-off
 
 ### Phase 5 — BLE Settings + Content Curation
 1. Add BLE config command/response contract
@@ -324,6 +360,13 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 3. Features: USB-C cutout, power switch, SD card slot access, button holes
 4. 3D print prototype, iterate fit
 5. Finalize for gifting
+
+### Phase 7 — Final Toy PCB Power/Sleep Integration
+1. Select orderable vibration switch footprint and placement strategy inside the doll
+2. Select high-side load switch for the switched SD + amp rail
+3. Decide final rail topology for native SD socket and MAX98357A power
+4. Validate deep-sleep current with LiPo, charger/protection, ESP32, vibration switch, and load switch installed
+5. Verify no backfeeding into the powered-off SD card or amp through SPI/I2S/control pins
 
 ---
 
@@ -344,6 +387,9 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 - Exact charger module/IC and whether it has NTC temperature-sense input
 - Exact fuse/polyfuse and optional thermal-fuse ratings/placement
 - Exact 3.3V LDO part and thermal/current validation under ESP32 radio peaks
+- Exact vibration switch part/footprint and mechanical placement in the toy body
+- Exact load-switch part, enabled polarity, current rating, and off-state leakage
+- Final switched-rail topology for SD card and MAX98357A power
 - CAD tool for enclosure (FreeCAD vs Fusion 360)
 - BT name per-unit strategy (same name "SweetYaar" for all, or personalised per gift?)
 - User's existing MicroPython code — review for any missing features

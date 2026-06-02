@@ -173,7 +173,7 @@ Expansion:
 4   GPIO32
 5   GPIO33
 6   GPIO4
-7   GPIO13
+7   GPIO13  (SweetYaar sleep firmware: peripheral load-switch enable)
 8   GPIO15
 9   GPIO35
 10  GPIO36
@@ -182,6 +182,11 @@ Expansion:
 ```
 
 - Test pads `TP1`-`TP18` cover major rails/signals.
+- SweetYaar sleep firmware repurposes GPIO27 (`SPI_CS1` on `J6`) as the passive
+  vibration wake input and GPIO13 (`J8` pin 7) as active-HIGH peripheral
+  load-switch enable. Rev A exposes these as headers; the vibration switch and
+  load switch are external add-ons for this carrier and should become real
+  components on the final toy PCB.
 
 ## Documentation Alignment Status
 
@@ -207,6 +212,8 @@ These drove the PCB design:
   resistors.
 - MAX98357A audio should avoid long breadboard connections and should have local
   decoupling plus optional bulk capacitance.
+- Sleep-current testing needs the SD card and amp behind a load switch; direct
+  power wiring is fine for functional bring-up but not for final current numbers.
 
 ## Next Task: Part/Footprint Lock Pass
 

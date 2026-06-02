@@ -21,6 +21,8 @@ each footprint matches the manufacturer preview.
 | I2C header | `Connector_Generic:Conn_01x04` | `Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical` | Hand-solder. |
 | GPIO headers | Generic pin headers | 2.54mm vertical headers | Hand-solder. |
 | Project buttons/controls | External wiring to GPIO headers | Hand-soldered per project | Do not permanently consume GPIO32/GPIO33 on the carrier. |
+| SweetYaar vibration wake | External passive vibration switch | Hand-wired to GPIO27 and GND | Sleep-branch add-on for Rev A testing; final toy PCB should include a real footprint. |
+| SweetYaar peripheral load switch | External high-side load-switch module | Hand-wired to GPIO13, power in, switched power out, and GND | Sleep-branch add-on for Rev A testing; final toy PCB should include a real load-switch IC or switched peripheral rail. |
 | Test pads | `Connector:TestPoint` | `TestPoint:TestPoint_Pad_D1.5mm` | Scatter generously. |
 | Passives | `Device:R`, `Device:C` | 0805 preferred | Bigger than 0603, easier to inspect/rework. |
 
@@ -40,6 +42,21 @@ each footprint matches the manufacturer preview.
 | Amp decoupling | 100nF + 10uF | Near amp/module power pins. |
 | Amp mode selector | On the blue module | Module defaults to mono average from its onboard 1M SD-to-VIN resistor. |
 | Amp mute transistor | MMBT3904/SS8050 class NPN | GPIO21 HIGH pulls `SD/MODE` low for shutdown/mute. |
+
+## Notes On SweetYaar Sleep Add-Ons
+
+The Rev A carrier intentionally exposes GPIO rather than baking project-specific
+sleep hardware into the lab board. When running SweetYaar sleep firmware on Rev A:
+
+- Wire a passive vibration switch from GPIO27 to GND. Firmware enables the ESP32
+  pull-up and wakes from deep sleep on LOW.
+- Wire GPIO13 to an active-HIGH load-switch enable input.
+- Put the SD card and MAX98357A amp supply behind the switched output if you are
+  measuring realistic sleep current. Leaving them powered directly is acceptable
+  for functional testing, but it will not prove final sleep current.
+
+For the final SweetYaar toy PCB, select orderable footprints for the vibration
+switch and load switch and place them in the actual product schematic/BOM.
 
 ## Notes On The 3.3V Regulator
 

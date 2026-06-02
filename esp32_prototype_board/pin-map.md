@@ -28,13 +28,13 @@ external buttons or controls to the GPIO expansion header.
 |---|---:|---|---|
 | I2C SDA | GPIO16 | `I2C_SDA` | Expose on I2C header with 3V3/GND. |
 | I2C SCL | GPIO17 | `I2C_SCL` | Expose on I2C header with 3V3/GND. |
-| External SPI CS 1 | GPIO27 | `SPI_CS1` | For another SPI peripheral sharing SCK/MOSI/MISO. |
+| External SPI CS 1 / SweetYaar wake input | GPIO27 | `SPI_CS1` | Reusable default is extra SPI CS. SweetYaar sleep firmware repurposes this header pin as `VIB_WAKE`, active LOW to GND. |
 | External SPI CS 2 | GPIO14 | `SPI_CS2` | Boot strap/JTAG-adjacent caution, but usable. |
 | Status LED | GPIO2 | `GPIO2_LED` | Goes through solder jumper `SJ1` before the LED; GPIO2 is a strap pin. |
 | Spare GPIO / project button | GPIO32 | `GPIO32` | Good default for external buttons or controls. |
 | Spare GPIO / project button | GPIO33 | `GPIO33` | Good default for external buttons or controls. |
 | Spare PWM/GPIO | GPIO4 | `GPIO4` | General purpose. Strap-related; avoid strong boot pull-down/up. |
-| Spare GPIO | GPIO13 | `GPIO13` | General purpose. |
+| Spare GPIO / SweetYaar peripheral enable | GPIO13 | `GPIO13` | Reusable default is spare GPIO. SweetYaar sleep firmware uses this as `PERIPH_EN`, active HIGH. |
 | Spare GPIO | GPIO15 | `GPIO15` | Strap pin; expose but label caution. |
 | Spare input/ADC | GPIO35 | `GPIO35` | Input only, no internal pull-up/down. |
 | Spare input/ADC | GPIO36 | `GPIO36` | Input only, no internal pull-up/down. |
@@ -69,6 +69,13 @@ These ESP32 pins affect boot or have limitations:
 8  5V
 ```
 
+For SweetYaar sleep-mode testing, pin 6 is not used as SPI CS1. Wire it to the
+passive vibration switch instead:
+
+```text
+GPIO27 / SPI CS1 header pin -> passive vibration switch -> GND
+```
+
 ### I2C Expansion Header
 
 ```text
@@ -94,6 +101,9 @@ These ESP32 pins affect boot or have limitations:
 11  GPIO39
 12  SD_CD / GPIO34
 ```
+
+For SweetYaar sleep-mode testing, GPIO13 drives the active-HIGH enable input on
+the SD + amp peripheral load switch.
 
 ## SD Socket Pull-Ups
 
@@ -135,4 +145,12 @@ PIN_AMP_MUTE = 21  // HIGH = mute on Rev A amp hardware
 // Wire project buttons to expansion GPIO, for example:
 PIN_BTN1 = 32
 PIN_BTN2 = 33
+
+// SweetYaar sleep branch project wiring:
+PIN_VIB_WAKE  = 27  // GPIO27/SPI CS1 header pin -> vibration switch -> GND
+PIN_PERIPH_EN = 13  // GPIO13 header pin -> active-HIGH load-switch enable
 ```
+
+The Rev A carrier does not include the SweetYaar vibration switch or load-switch
+module on-board. Those parts are external test add-ons for this reusable carrier;
+they are expected to become real components on the final SweetYaar toy PCB.
