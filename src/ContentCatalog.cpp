@@ -538,7 +538,9 @@ String buildSongsPageJson(uint32_t requestId, const String& themeId,
     return json;
 }
 
-bool updateSdConfig(uint8_t defaultVolumePct, const String& defaultTheme) {
+bool updateSdConfig(uint8_t defaultVolumePct, const String& defaultTheme,
+                    bool sleepEnabled, uint32_t sleepNormalIdleSec,
+                    uint32_t sleepVibrationWakeIdleSec, uint32_t sleepBleIdleSec) {
     JsonDocument doc = readJsonFile(SD_CONFIG_FILE);
     doc["schemaVersion"] = 2;
     doc["defaultVolumePct"] = defaultVolumePct > 100 ? 100 : defaultVolumePct;
@@ -546,6 +548,13 @@ bool updateSdConfig(uint8_t defaultVolumePct, const String& defaultTheme) {
     if (!doc["disabledThemes"].is<JsonArray>()) {
         doc["disabledThemes"].to<JsonArray>();
     }
+    JsonObject sleep = doc["sleep"].is<JsonObject>()
+        ? doc["sleep"].as<JsonObject>()
+        : doc["sleep"].to<JsonObject>();
+    sleep["enabled"] = sleepEnabled;
+    sleep["normalIdleSec"] = sleepNormalIdleSec;
+    sleep["vibrationWakeIdleSec"] = sleepVibrationWakeIdleSec;
+    sleep["bleIdleSec"] = sleepBleIdleSec;
     return writeJsonFile(SD_CONFIG_FILE, doc);
 }
 

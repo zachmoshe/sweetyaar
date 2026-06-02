@@ -89,6 +89,7 @@ void markActivity(const char* reason);
 void markBleActivity(const char* reason);
 void pollBleConnectionState();
 uint32_t currentSleepTimeoutMs();
+uint32_t readSleepSeconds(JsonObjectConst sleep, const char* key, uint32_t fallbackMs);
 bool bleIdleAllowsSleep();
 bool canEnterIdleSleep();
 void pollIdleSleep();
@@ -355,6 +356,21 @@ uint32_t currentSleepTimeoutMs() {
         return parentConfig.sleepVibrationWakeIdleMs();
     }
     return parentConfig.sleepNormalIdleMs();
+}
+
+// ---------------------------------------------------------------------------
+// readSleepSeconds()
+// ---------------------------------------------------------------------------
+uint32_t readSleepSeconds(JsonObjectConst sleep, const char* key, uint32_t fallbackMs) {
+    long fallbackSeconds = static_cast<long>(fallbackMs / 1000UL);
+    long seconds = sleep[key] | fallbackSeconds;
+    if (seconds < 1) {
+        return static_cast<uint32_t>(fallbackSeconds);
+    }
+    if (seconds > 24L * 60L * 60L) {
+        seconds = 24L * 60L * 60L;
+    }
+    return static_cast<uint32_t>(seconds);
 }
 
 // ---------------------------------------------------------------------------
@@ -791,10 +807,28 @@ void handleBleConfigCommand(const String& commandJson) {
         nextDefaultTheme.trim();
         if (nextDefaultTheme.isEmpty()) nextDefaultTheme = DEFAULT_THEME;
 
+        bool nextSleepEnabled = parentConfig.sleepEnabled();
+        uint32_t nextSleepNormalIdleSec = parentConfig.sleepNormalIdleMs() / 1000UL;
+        uint32_t nextSleepVibrationWakeIdleSec = parentConfig.sleepVibrationWakeIdleMs() / 1000UL;
+        uint32_t nextSleepBleIdleSec = parentConfig.sleepBleIdleMs() / 1000UL;
+        if (doc["sleep"].is<JsonObjectConst>()) {
+            JsonObjectConst sleep = doc["sleep"].as<JsonObjectConst>();
+            nextSleepEnabled = sleep["enabled"] | nextSleepEnabled;
+            nextSleepNormalIdleSec = readSleepSeconds(
+                sleep, "normalIdleSec", parentConfig.sleepNormalIdleMs());
+            nextSleepVibrationWakeIdleSec = readSleepSeconds(
+                sleep, "vibrationWakeIdleSec", parentConfig.sleepVibrationWakeIdleMs());
+            nextSleepBleIdleSec = readSleepSeconds(
+                sleep, "bleIdleSec", parentConfig.sleepBleIdleMs());
+        }
+
         nvs.setBtName(nextName);
         currentDeviceName = nextName;
         if (sdReady) {
-            ContentCatalog::updateSdConfig(nextVolume, nextDefaultTheme);
+            ContentCatalog::updateSdConfig(
+                nextVolume, nextDefaultTheme, nextSleepEnabled,
+                nextSleepNormalIdleSec, nextSleepVibrationWakeIdleSec,
+                nextSleepBleIdleSec);
             parentConfig.load();
             refreshThemeList();
             activeTheme = parentConfig.defaultTheme();

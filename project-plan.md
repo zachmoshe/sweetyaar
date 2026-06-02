@@ -189,10 +189,10 @@ KILLSWITCH (10-minute timer):
    - App can read/update:
      - Device name in NVS-backed device config
      - Default volume and default theme in `SD:/config.json`
+     - Idle deep-sleep settings in `SD:/config.json`
      - Enabled/disabled themes in `SD:/config.json`
      - Enabled/disabled songs in each theme or animals `metadata.json`
    - App can scan available themes/songs through paged BLE config commands.
-   - Firmware reads idle deep-sleep settings from `SD:/config.json`; BLE `getConfig` exposes the loaded values.
    - App does not upload WAV assets or firmware. SD-card content files are prepared manually outside the toy.
    - Parent-facing settings and media metadata are stored on the SD card.
    - Device-local settings that must survive SD-card replacement are stored in NVS as a compact device-config JSON blob.
@@ -214,7 +214,7 @@ KILLSWITCH (10-minute timer):
    - Uses ESP32 EXT0 wake on `GPIO27` LOW
    - Drives the SD + amp load-switch enable on `GPIO13`
    - Powers peripherals back on during boot before SD, I2S, BT, and BLE init
-   - Exposes the loaded sleep settings in BLE `getConfig`
+   - Exposes sleep settings in BLE `getConfig`; persists edits through BLE `setConfig`
 
 ### Config Storage
 
@@ -296,6 +296,7 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
   - Killswitch activate/restart and cancel controls
   - Device status indicator
   - Settings screen for device name, default volume, default theme, enabled themes, and enabled songs
+  - Sleep settings for automatic sleep and idle timeouts
 - When A2DP is connected, the app shows `BT connected` and disables volume, theme, and killswitch controls.
 
 ---
@@ -307,6 +308,7 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 - Supported app flows:
   - **Device settings** — edit the NVS-backed device name.
   - **Toy defaults** — edit `SD:/config.json` values like default volume and default theme.
+  - **Sleep** — edit automatic sleep, normal idle, vibration-wake idle, and BLE idle timeouts.
   - **Song themes** — scan themes, enable/disable theme folders, and choose default theme.
   - **Theme songs** — scan a selected theme and enable/disable individual WAV files.
   - **Animal sounds** — scan `/animals` and enable/disable individual WAV files.

@@ -990,6 +990,84 @@
       align-items: center;
     }
 
+    .settings-toggle-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      min-height: 44px;
+      color: var(--ink);
+      font-size: clamp(13px, 3.5vw, 15px);
+      font-weight: 760;
+      line-height: 1;
+    }
+
+    .settings-toggle-row input[type="checkbox"] {
+      width: 22px;
+      height: 22px;
+      accent-color: var(--teal);
+    }
+
+    .settings-sleep-list {
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 12px;
+      list-style: none;
+    }
+
+    .settings-sleep-item {
+      display: grid;
+      grid-template-columns: 10px minmax(0, 1fr);
+      column-gap: 10px;
+      color: var(--ink);
+    }
+
+    .settings-sleep-item::before {
+      content: "\2022";
+      padding-top: 7px;
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 830;
+      line-height: 1;
+    }
+
+    .settings-sleep-row {
+      grid-column: 2;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 84px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .settings-sleep-row label {
+      color: var(--ink);
+      font-size: clamp(13px, 3.5vw, 15px);
+      font-weight: 760;
+      line-height: 1.15;
+    }
+
+    .settings-sleep-row label::after {
+      content: ":";
+    }
+
+    .settings-sleep-row .settings-input {
+      width: 84px;
+      min-width: 0;
+      min-height: 38px;
+      padding: 0 10px;
+      justify-self: end;
+      text-align: right;
+    }
+
+    .settings-sleep-help {
+      grid-column: 2;
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: clamp(11px, 3vw, 12px);
+      line-height: 1.28;
+    }
+
     .settings-list {
       display: grid;
       gap: 5px;
@@ -1251,6 +1329,7 @@
       .pause-card {
         grid-template-columns: 1fr;
       }
+
     }
   </style>
 </head>
@@ -1440,6 +1519,42 @@
             </div>
 
             <p class="settings-note" id="settingsNote" hidden></p>
+          </div>
+        </section>
+
+        <section class="card settings-section" aria-label="Sleep settings">
+          <h2>Sleep</h2>
+          <div class="settings-fields">
+            <label class="settings-toggle-row" for="settingsSleepEnabled">
+              <span>Automatic sleep</span>
+              <input id="settingsSleepEnabled" type="checkbox">
+            </label>
+
+            <ul class="settings-sleep-list">
+              <li class="settings-sleep-item">
+                <div class="settings-sleep-row">
+                  <label for="settingsNormalIdleSec">Sleep idle (secs)</label>
+                  <input class="settings-input" id="settingsNormalIdleSec" type="number" min="1" max="86400" step="1" inputmode="numeric" aria-describedby="settingsNormalIdleHelp">
+                </div>
+                <p class="settings-sleep-help" id="settingsNormalIdleHelp">After normal inactivity.</p>
+              </li>
+
+              <li class="settings-sleep-item">
+                <div class="settings-sleep-row">
+                  <label for="settingsWakeIdleSec">Wake idle (secs)</label>
+                  <input class="settings-input" id="settingsWakeIdleSec" type="number" min="1" max="86400" step="1" inputmode="numeric" aria-describedby="settingsWakeIdleHelp">
+                </div>
+                <p class="settings-sleep-help" id="settingsWakeIdleHelp">After movement wakes the toy, sleep again if it stays idle.</p>
+              </li>
+
+              <li class="settings-sleep-item">
+                <div class="settings-sleep-row">
+                  <label for="settingsBleIdleSec">BLE idle (secs)</label>
+                  <input class="settings-input" id="settingsBleIdleSec" type="number" min="1" max="86400" step="1" inputmode="numeric" aria-describedby="settingsBleIdleHelp">
+                </div>
+                <p class="settings-sleep-help" id="settingsBleIdleHelp">How long an idle parent app connection can delay sleep.</p>
+              </li>
+            </ul>
           </div>
         </section>
 
@@ -1687,6 +1802,10 @@
       settingsDefaultThemeTrigger: document.querySelector("#settingsDefaultThemeTrigger"),
       settingsDefaultThemeCurrent: document.querySelector("#settingsDefaultThemeCurrent"),
       settingsDefaultThemeOptions: document.querySelector("#settingsDefaultThemeOptions"),
+      settingsSleepEnabled: document.querySelector("#settingsSleepEnabled"),
+      settingsNormalIdleSec: document.querySelector("#settingsNormalIdleSec"),
+      settingsWakeIdleSec: document.querySelector("#settingsWakeIdleSec"),
+      settingsBleIdleSec: document.querySelector("#settingsBleIdleSec"),
       settingsNote: document.querySelector("#settingsNote"),
       settingsThemeList: document.querySelector("#settingsThemeList"),
       settingsSongsPanel: document.querySelector("#settingsSongsPanel"),
@@ -1725,9 +1844,17 @@
         deviceName: "SweetYaar",
         defaultVolumePct: 75,
         defaultTheme: "",
+        sleepEnabled: true,
+        sleepNormalIdleSec: 600,
+        sleepVibrationWakeIdleSec: 120,
+        sleepBleIdleSec: 120,
         originalDeviceName: "SweetYaar",
         originalDefaultVolumePct: 75,
         originalDefaultTheme: "",
+        originalSleepEnabled: true,
+        originalSleepNormalIdleSec: 600,
+        originalSleepVibrationWakeIdleSec: 120,
+        originalSleepBleIdleSec: 120,
         defaultThemeOpen: false,
         themes: [],
         selectedThemeId: "",
@@ -1884,6 +2011,10 @@
       state.settings.originalDeviceName = state.settings.deviceName;
       state.settings.originalDefaultVolumePct = state.settings.defaultVolumePct;
       state.settings.originalDefaultTheme = state.settings.defaultTheme;
+      state.settings.originalSleepEnabled = state.settings.sleepEnabled;
+      state.settings.originalSleepNormalIdleSec = state.settings.sleepNormalIdleSec;
+      state.settings.originalSleepVibrationWakeIdleSec = state.settings.sleepVibrationWakeIdleSec;
+      state.settings.originalSleepBleIdleSec = state.settings.sleepBleIdleSec;
     }
 
     function formatBytes(bytes) {
@@ -1982,13 +2113,35 @@
       return Math.max(0, Math.min(100, Math.round(number)));
     }
 
+    function clampSleepSeconds(value, fallback) {
+      const fallbackValue = Number.isFinite(Number(fallback)) ? Number(fallback) : 120;
+      const number = Number(value);
+      if (!Number.isFinite(number)) return clampSleepSeconds(fallbackValue, 120);
+      return Math.max(1, Math.min(86400, Math.round(number)));
+    }
+
+    function normalizeSleepConfig(sleep) {
+      const source = sleep && typeof sleep === "object" ? sleep : {};
+      return {
+        enabled: source.enabled !== false,
+        normalIdleSec: clampSleepSeconds(source.normalIdleSec, 600),
+        vibrationWakeIdleSec: clampSleepSeconds(source.vibrationWakeIdleSec, 120),
+        bleIdleSec: clampSleepSeconds(source.bleIdleSec, 120)
+      };
+    }
+
     function applyConfigResponse(config) {
       const deviceName = `${config.deviceName || displayDeviceName()}`.trim() || "SweetYaar";
       const defaultTheme = `${config.defaultTheme || ""}`.trim();
+      const sleep = normalizeSleepConfig(config.sleep);
       state.deviceName = deviceName;
       state.settings.deviceName = deviceName;
       state.settings.defaultVolumePct = clampVolume(config.defaultVolumePct);
       state.settings.defaultTheme = defaultTheme;
+      state.settings.sleepEnabled = sleep.enabled;
+      state.settings.sleepNormalIdleSec = sleep.normalIdleSec;
+      state.settings.sleepVibrationWakeIdleSec = sleep.vibrationWakeIdleSec;
+      state.settings.sleepBleIdleSec = sleep.bleIdleSec;
       if (config.activeTheme) {
         state.theme = `${config.activeTheme}`;
       }
@@ -2128,17 +2281,38 @@
         const deviceName = `${els.settingsDeviceName.value || ""}`.trim() || "SweetYaar";
         const defaultVolumePct = clampVolume(els.settingsVolumeRange.value);
         const defaultTheme = selectedSettingsDefaultThemeId();
+        const sleepEnabled = els.settingsSleepEnabled.checked;
+        const sleepNormalIdleSec = clampSleepSeconds(
+          els.settingsNormalIdleSec.value, state.settings.sleepNormalIdleSec);
+        const sleepVibrationWakeIdleSec = clampSleepSeconds(
+          els.settingsWakeIdleSec.value, state.settings.sleepVibrationWakeIdleSec);
+        const sleepBleIdleSec = clampSleepSeconds(
+          els.settingsBleIdleSec.value, state.settings.sleepBleIdleSec);
         state.settings.defaultTheme = defaultTheme;
-        const generalChanged = deviceName !== state.settings.originalDeviceName ||
+        state.settings.sleepEnabled = sleepEnabled;
+        state.settings.sleepNormalIdleSec = sleepNormalIdleSec;
+        state.settings.sleepVibrationWakeIdleSec = sleepVibrationWakeIdleSec;
+        state.settings.sleepBleIdleSec = sleepBleIdleSec;
+        const configChanged = deviceName !== state.settings.originalDeviceName ||
           defaultVolumePct !== state.settings.originalDefaultVolumePct ||
-          defaultTheme !== state.settings.originalDefaultTheme;
+          defaultTheme !== state.settings.originalDefaultTheme ||
+          sleepEnabled !== state.settings.originalSleepEnabled ||
+          sleepNormalIdleSec !== state.settings.originalSleepNormalIdleSec ||
+          sleepVibrationWakeIdleSec !== state.settings.originalSleepVibrationWakeIdleSec ||
+          sleepBleIdleSec !== state.settings.originalSleepBleIdleSec;
 
-        if (generalChanged) {
+        if (configChanged) {
           const response = await configRequest({
             op: "setConfig",
             deviceName,
             defaultVolumePct,
-            defaultTheme
+            defaultTheme,
+            sleep: {
+              enabled: sleepEnabled,
+              normalIdleSec: sleepNormalIdleSec,
+              vibrationWakeIdleSec: sleepVibrationWakeIdleSec,
+              bleIdleSec: sleepBleIdleSec
+            }
           });
           applyConfigResponse(response);
         }
@@ -2465,6 +2639,20 @@
       els.settingsVolumeValue.textContent = `${settings.defaultVolumePct}%`;
       renderSettingsDefaultThemeOptions();
       els.settingsDefaultThemeTrigger.disabled = busy || settingsDefaultThemeOptions().length === 0;
+      els.settingsSleepEnabled.checked = !!settings.sleepEnabled;
+      els.settingsSleepEnabled.disabled = busy;
+      if (document.activeElement !== els.settingsNormalIdleSec) {
+        els.settingsNormalIdleSec.value = String(settings.sleepNormalIdleSec);
+      }
+      if (document.activeElement !== els.settingsWakeIdleSec) {
+        els.settingsWakeIdleSec.value = String(settings.sleepVibrationWakeIdleSec);
+      }
+      if (document.activeElement !== els.settingsBleIdleSec) {
+        els.settingsBleIdleSec.value = String(settings.sleepBleIdleSec);
+      }
+      els.settingsNormalIdleSec.disabled = busy || !settings.sleepEnabled;
+      els.settingsWakeIdleSec.disabled = busy || !settings.sleepEnabled;
+      els.settingsBleIdleSec.disabled = busy || !settings.sleepEnabled;
       els.settingsSaveButton.disabled = busy || !settings.dirty;
       els.settingsSaveButton.querySelector(".settings-save-label").textContent = state.busy ? "Saving..." : "Save";
       const note = settings.message ||
@@ -2793,6 +2981,29 @@
 
     els.settingsVolumeRange.addEventListener("input", () => {
       state.settings.defaultVolumePct = clampVolume(els.settingsVolumeRange.value);
+      markSettingsDirty();
+    });
+
+    els.settingsSleepEnabled.addEventListener("change", () => {
+      state.settings.sleepEnabled = els.settingsSleepEnabled.checked;
+      markSettingsDirty();
+    });
+
+    els.settingsNormalIdleSec.addEventListener("input", () => {
+      state.settings.sleepNormalIdleSec = clampSleepSeconds(
+        els.settingsNormalIdleSec.value, state.settings.sleepNormalIdleSec);
+      markSettingsDirty();
+    });
+
+    els.settingsWakeIdleSec.addEventListener("input", () => {
+      state.settings.sleepVibrationWakeIdleSec = clampSleepSeconds(
+        els.settingsWakeIdleSec.value, state.settings.sleepVibrationWakeIdleSec);
+      markSettingsDirty();
+    });
+
+    els.settingsBleIdleSec.addEventListener("input", () => {
+      state.settings.sleepBleIdleSec = clampSleepSeconds(
+        els.settingsBleIdleSec.value, state.settings.sleepBleIdleSec);
       markSettingsDirty();
     });
 

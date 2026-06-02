@@ -55,7 +55,9 @@ String buildThemesPageJson(uint32_t requestId, int page, int pageSize);
 String buildSongsPageJson(uint32_t requestId, const String& themeId,
                           int page, int pageSize);
 
-bool updateSdConfig(uint8_t defaultVolumePct, const String& defaultTheme);
+bool updateSdConfig(uint8_t defaultVolumePct, const String& defaultTheme,
+                    bool sleepEnabled, uint32_t sleepNormalIdleSec,
+                    uint32_t sleepVibrationWakeIdleSec, uint32_t sleepBleIdleSec);
 bool setThemeDisabled(const String& themeId, bool disabled);
 bool setThemeShuffle(const String& themeId, bool shuffle);
 bool setSongDisabled(const String& themeId, const String& fileName, bool disabled);
