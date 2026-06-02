@@ -811,8 +811,8 @@ void handleBleConfigCommand(const String& commandJson) {
         uint32_t nextSleepNormalIdleSec = parentConfig.sleepNormalIdleMs() / 1000UL;
         uint32_t nextSleepVibrationWakeIdleSec = parentConfig.sleepVibrationWakeIdleMs() / 1000UL;
         uint32_t nextSleepBleIdleSec = parentConfig.sleepBleIdleMs() / 1000UL;
-        if (doc["sleep"].is<JsonObjectConst>()) {
-            JsonObjectConst sleep = doc["sleep"].as<JsonObjectConst>();
+        if (doc["sleep"].is<JsonObject>()) {
+            JsonObject sleep = doc["sleep"].as<JsonObject>();
             nextSleepEnabled = sleep["enabled"] | nextSleepEnabled;
             nextSleepNormalIdleSec = readSleepSeconds(
                 sleep, "normalIdleSec", parentConfig.sleepNormalIdleMs());

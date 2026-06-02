@@ -53,8 +53,8 @@ bool ParentConfig::load() {
         _defaultTheme = theme;
     }
 
-    if (doc["disabledThemes"].is<JsonArrayConst>()) {
-        for (JsonVariantConst item : doc["disabledThemes"].as<JsonArrayConst>()) {
+    if (doc["disabledThemes"].is<JsonArray>()) {
+        for (JsonVariantConst item : doc["disabledThemes"].as<JsonArray>()) {
             const char* disabledTheme = item | "";
             if (disabledTheme && disabledTheme[0] != '\0' &&
                 _disabledThemeCount < CONFIG_MAX_DISABLED_THEMES) {
@@ -63,8 +63,8 @@ bool ParentConfig::load() {
         }
     }
 
-    if (doc["sleep"].is<JsonObjectConst>()) {
-        JsonObjectConst sleep = doc["sleep"].as<JsonObjectConst>();
+    if (doc["sleep"].is<JsonObject>()) {
+        JsonObject sleep = doc["sleep"].as<JsonObject>();
         _sleepEnabled = sleep["enabled"] | DEFAULT_SLEEP_ENABLED;
         _sleepNormalIdleMs = readSecondsMs(sleep, "normalIdleSec", SLEEP_NORMAL_IDLE_MS);
         _sleepVibrationWakeIdleMs = readSecondsMs(
