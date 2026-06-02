@@ -831,8 +831,8 @@
     .settings-button {
       flex: 0 0 auto;
       display: grid;
-      width: 46px;
-      height: 46px;
+      width: 69px;
+      height: 69px;
       place-items: center;
       border: 0;
       background: transparent;
@@ -842,8 +842,9 @@
     }
 
     .settings-button .button-glyph {
-      font-size: 32px;
+      font-size: 48px;
       font-weight: 900;
+      line-height: 1;
     }
 
     .screen.settings {
@@ -902,7 +903,6 @@
       justify-content: center;
       gap: 7px;
       justify-self: end;
-      margin-right: 22px;
       padding: 0 11px;
       background: linear-gradient(180deg, #1686ff, #006add);
       color: #ffffff;
@@ -1536,7 +1536,7 @@
                   <label for="settingsNormalIdleSec">Sleep idle (secs)</label>
                   <input class="settings-input" id="settingsNormalIdleSec" type="number" min="1" max="86400" step="1" inputmode="numeric" aria-describedby="settingsNormalIdleHelp">
                 </div>
-                <p class="settings-sleep-help" id="settingsNormalIdleHelp">After normal inactivity.</p>
+                <p class="settings-sleep-help" id="settingsNormalIdleHelp">After normal inactivity</p>
               </li>
 
               <li class="settings-sleep-item">
@@ -1544,7 +1544,7 @@
                   <label for="settingsWakeIdleSec">Wake idle (secs)</label>
                   <input class="settings-input" id="settingsWakeIdleSec" type="number" min="1" max="86400" step="1" inputmode="numeric" aria-describedby="settingsWakeIdleHelp">
                 </div>
-                <p class="settings-sleep-help" id="settingsWakeIdleHelp">After movement wakes the toy, sleep again if it stays idle.</p>
+                <p class="settings-sleep-help" id="settingsWakeIdleHelp">After movement wakes the toy, sleep again if it stays idle</p>
               </li>
 
               <li class="settings-sleep-item">
@@ -1552,7 +1552,7 @@
                   <label for="settingsBleIdleSec">BLE idle (secs)</label>
                   <input class="settings-input" id="settingsBleIdleSec" type="number" min="1" max="86400" step="1" inputmode="numeric" aria-describedby="settingsBleIdleHelp">
                 </div>
-                <p class="settings-sleep-help" id="settingsBleIdleHelp">How long an idle parent app connection can delay sleep.</p>
+                <p class="settings-sleep-help" id="settingsBleIdleHelp">How long an idle parent app connection can delay sleep</p>
               </li>
             </ul>
           </div>
