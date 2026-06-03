@@ -69,8 +69,83 @@
           "thermal_relief_spoke_width": 0.5
         }
       },
-      "diff_pair_dimensions": [],
-      "drc_exclusions": [],
+      "diff_pair_dimensions": [
+        {
+          "gap": 0.0,
+          "via_gap": 0.0,
+          "width": 0.0
+        }
+      ],
+      "drc_exclusions": [
+        [
+          "courtyards_overlap|61364022|98875267|36dd4ad2-be8f-4f1c-b711-1d8ada62788a|c5d09304-5983-4994-9dd5-add9f7e82b0f",
+          "will be a single strip of headers"
+        ],
+        [
+          "courtyards_overlap|91844022|98875267|6f9aace7-ffcd-4437-afb1-32d490f39dfe|c5d09304-5983-4994-9dd5-add9f7e82b0f",
+          "will be a single strip of headers"
+        ],
+        [
+          "lib_footprint_mismatch|89350000|51310000|340485ea-1f31-4ac4-ba79-2365dd3f6917|00000000-0000-0000-0000-000000000000",
+          "GND holes in ESP32 are larger"
+        ],
+        [
+          "silk_overlap|100434649|83799580|e53fac2a-fbef-4069-bf27-fdbac618ff7a|fb9e601b-65ce-4229-99c6-c73a6e636ada",
+          ""
+        ],
+        [
+          "silk_overlap|102155714|92330000|f0a7e6cf-6a47-4672-9e99-2ffa9e819f08|fb9e601b-65ce-4229-99c6-c73a6e636ada",
+          ""
+        ],
+        [
+          "silk_overlap|104915714|76980000|2b2d4801-d409-41ee-ba1b-fbcacdbd6422|fb9e601b-65ce-4229-99c6-c73a6e636ada",
+          ""
+        ],
+        [
+          "silk_overlap|104915714|92330000|7e423482-ff45-4f40-9faa-6d5f201ac819|fb9e601b-65ce-4229-99c6-c73a6e636ada",
+          ""
+        ],
+        [
+          "silk_overlap|104915714|92330000|9e62711c-7be1-4dab-9a48-c9f987a3dbb9|fb9e601b-65ce-4229-99c6-c73a6e636ada",
+          ""
+        ],
+        [
+          "silk_overlap|104915714|93600000|0fbbce23-c654-4663-82d3-2448d90cfa30|fb9e601b-65ce-4229-99c6-c73a6e636ada",
+          ""
+        ],
+        [
+          "silk_overlap|104915714|94980000|fb9e601b-65ce-4229-99c6-c73a6e636ada|fff2f71f-8f4f-4810-8e57-ebb7b896d58e",
+          ""
+        ],
+        [
+          "silk_overlap|61254022|102020267|697087e1-14e2-4e06-b192-f22503e6371c|db8f6487-40f2-4138-ab01-112a2a660987",
+          ""
+        ],
+        [
+          "silk_overlap|61364022|102020267|40663097-3960-4f8b-9f43-1fa6bb22b9a3|db8f6487-40f2-4138-ab01-112a2a660987",
+          ""
+        ],
+        [
+          "silk_overlap|61474022|102020267|40663097-3960-4f8b-9f43-1fa6bb22b9a3|d255801d-03af-489a-b5a2-3b3d68e23767",
+          ""
+        ],
+        [
+          "silk_overlap|91734022|102020267|21113122-e9ff-4f72-82e1-3d273e7443fb|ede72167-95ef-4909-8573-0e84d873e5bd",
+          ""
+        ],
+        [
+          "silk_overlap|91844022|102020267|21113122-e9ff-4f72-82e1-3d273e7443fb|8e628bf0-48b9-413c-b31c-452cee91b98e",
+          ""
+        ],
+        [
+          "silk_overlap|91954022|102020267|0e9c883a-c787-4925-87dd-415235e8456a|8e628bf0-48b9-413c-b31c-452cee91b98e",
+          ""
+        ],
+        [
+          "silk_overlap|99720364|93054819|efd0910e-891a-4516-93b8-92d5df7915bb|fb9e601b-65ce-4229-99c6-c73a6e636ada",
+          ""
+        ]
+      ],
       "meta": {
         "version": 2
       },
@@ -114,7 +189,7 @@
         "padstack": "warning",
         "pth_inside_courtyard": "error",
         "shorting_items": "error",
-        "silk_edge_clearance": "warning",
+        "silk_edge_clearance": "ignore",
         "silk_over_copper": "warning",
         "silk_overlap": "warning",
         "skew_out_of_range": "error",
@@ -150,13 +225,13 @@
         "min_microvia_drill": 0.1,
         "min_resolved_spokes": 2,
         "min_silk_clearance": 0.0,
-        "min_text_height": 0.8,
-        "min_text_thickness": 0.08,
+        "min_text_height": 1.0,
+        "min_text_thickness": 0.15,
         "min_through_hole_diameter": 0.3,
         "min_track_width": 0.2,
         "min_via_annular_width": 0.1,
         "min_via_diameter": 0.5,
-        "solder_mask_to_copper_clearance": 0.0,
+        "solder_mask_to_copper_clearance": 0.005,
         "use_height_for_length_calcs": true
       },
       "teardrop_options": [
@@ -203,7 +278,17 @@
           "td_width_to_size_filter_ratio": 0.9
         }
       ],
-      "track_widths": [],
+      "track_widths": [
+        0.0,
+        0.2,
+        0.25,
+        0.35,
+        0.4,
+        0.6,
+        0.8,
+        1.0,
+        1.2
+      ],
       "tuning_pattern_settings": {
         "diff_pair_defaults": {
           "corner_radius_percentage": 80,
@@ -230,7 +315,12 @@
           "spacing": 0.6
         }
       },
-      "via_dimensions": [],
+      "via_dimensions": [
+        {
+          "diameter": 0.0,
+          "drill": 0.0
+        }
+      ],
       "zones_allow_external_fillets": false
     },
     "ipc2581": {
@@ -240,10 +330,162 @@
       "internal_id": "",
       "mfg": "",
       "mpn": "",
-      "sch_revision": ""
+      "sch_revision": "A"
     },
     "layer_pairs": [],
-    "layer_presets": [],
+    "layer_presets": [
+      {
+        "activeLayer": -2,
+        "flipBoard": false,
+        "layers": [
+          0,
+          1,
+          2,
+          3,
+          5,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          18,
+          20,
+          22,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          34,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71,
+          72,
+          73,
+          74,
+          75,
+          76,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87,
+          88,
+          89,
+          90,
+          91,
+          92,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100,
+          101,
+          102,
+          103,
+          104,
+          105,
+          106,
+          107,
+          108,
+          109,
+          110,
+          111,
+          112,
+          113,
+          114,
+          115,
+          116,
+          117,
+          118,
+          119,
+          120,
+          121,
+          122,
+          123,
+          124,
+          125,
+          126,
+          127
+        ],
+        "name": "Zach",
+        "renderLayers": [
+          "vias",
+          "footprint_text",
+          "footprint_anchors",
+          "ratsnest",
+          "grid",
+          "footprints_front",
+          "footprints_back",
+          "footprint_values",
+          "footprint_references",
+          "tracks",
+          "drc_errors",
+          "drawing_sheet",
+          "bitmaps",
+          "pads",
+          "zones",
+          "drc_warnings",
+          "drc_exclusions",
+          "locked_item_shadows",
+          "conflict_shadows",
+          "shapes",
+          "board_outline_area",
+          "ly_points"
+        ]
+      }
+    ],
     "viewports": []
   },
   "boards": [],
@@ -517,9 +759,8 @@
       },
       {
         "bus_width": 12,
-        "clearance": 0.25,
+        "clearance": 0.2,
         "diff_pair_gap": 0.25,
-        "diff_pair_via_gap": 0.25,
         "diff_pair_width": 0.2,
         "line_style": 0,
         "microvia_diameter": 0.3,
@@ -538,7 +779,6 @@
         "bus_width": 12,
         "clearance": 0.2,
         "diff_pair_gap": 0.15,
-        "diff_pair_via_gap": 0.25,
         "diff_pair_width": 0.25,
         "line_style": 0,
         "microvia_diameter": 0.3,
@@ -562,19 +802,19 @@
     "netclass_patterns": [
       {
         "netclass": "Power",
-        "pattern": "5V*"
+        "pattern": "/5V*"
       },
       {
         "netclass": "Power",
-        "pattern": "3V3"
+        "pattern": "/3V3"
       },
       {
         "netclass": "Power",
-        "pattern": "GND"
+        "pattern": "/GND"
       },
       {
         "netclass": "USB",
-        "pattern": "USB_*"
+        "pattern": "/USB_*"
       }
     ]
   },
@@ -582,7 +822,7 @@
     "last_paths": {
       "idf": "",
       "netlist": "",
-      "plot": "",
+      "plot": "fab/",
       "specctra_dsn": "",
       "vrml": ""
     },
@@ -703,16 +943,16 @@
       {
         "filename": "esp32_prototype_board.kicad_sch",
         "name": "esp32_prototype_board",
-        "uuid": "00000000-0000-0000-0000-000000000000"
+        "uuid": "bcf727e3-1682-4248-9086-27d05ee6d361"
       }
     ],
-    "used_designators": "",
+    "used_designators": "SW3",
     "variants": []
   },
   "sheets": [
     [
-      "a1419a85-89a3-4a78-88dc-1a083ed8b2cc",
-      "Root"
+      "bcf727e3-1682-4248-9086-27d05ee6d361",
+      "esp32_prototype_board"
     ]
   ],
   "text_variables": {},

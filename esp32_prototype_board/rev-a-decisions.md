@@ -22,7 +22,7 @@ forever decisions. They are the cleanest first version for a reusable lab board.
 | USB connector | USB-C, USB 2.0 device, 5V sink only | No USB Power Delivery. CC1/CC2 get 5.1k pull-downs. |
 | USB serial | CH340C in SOIC-16 | Visible leads, no crystal, cheap, common. |
 | 3.3V regulator | AP2112K-3.3 / SOT-23-5 LDO | Modern low-dropout 600mA regulator; better margin if the 5V rail sags. |
-| Power selection | Manual 3-pin jumper and shunt | Prevents USB and bench PSU 5V from being tied together. |
+| Power selection | Manual SPDT slide switch | Prevents USB and bench PSU 5V from being tied together. |
 | microSD | Native 3.3V socket wired in SPI mode | No level shifter module, no breadboard contacts. |
 | Audio | Blue MAX98357A breakout/module 1x7 header with GPIO mute | Avoids tiny bare amp packages for Rev A; the module defaults to mono average and the speaker attaches directly to the module. |
 

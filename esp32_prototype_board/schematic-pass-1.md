@@ -7,7 +7,7 @@ electrical design before worrying about exact PCB routing.
 
 - USB-C connector.
 - External 5V screw terminal.
-- Source-select 3-pin jumper. USB 5V and external 5V must not be tied together.
+- Source-select SPDT slide switch. USB 5V and external 5V must not be tied together.
 - `5V_SYS` rail.
 - `5V_SYS` test point.
 - CC1/CC2 5.1k pull-down resistors for USB-C sink mode.

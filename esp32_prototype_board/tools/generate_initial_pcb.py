@@ -37,88 +37,89 @@ class Placement:
 
 PLACEMENTS: dict[str, Placement] = {
     # Left-edge power and USB entry
-    "J1": Placement(53.65, 101.0, 90),
-    "J2": Placement(56.0, 78.0, 90),
-    "JP1": Placement(63.0, 89.0, 90),
-    "U1": Placement(73.0, 101.0, 0),
-    "U2": Placement(73.0, 83.0, 0),
-    "R1": Placement(62.0, 96.0, 90),
-    "R2": Placement(62.0, 99.0, 90),
-    "R3": Placement(63.0, 106.0, 0),
-    "D1": Placement(68.0, 106.0, 0),
-    "C1": Placement(66.0, 82.0, 0),
-    "C2": Placement(80.0, 83.0, 0),
-    "C3": Placement(80.0, 88.0, 0),
-    "C4": Placement(65.0, 103.5, 0),
-    "C5": Placement(65.0, 108.0, 0),
+    "J1": Placement(55.63, 89.32, 90.0),
+    "J2": Placement(54.5325, 65.25, -90.0),
+    "JP1": Placement(52.0, 79.5, 90.0),
+    "U1": Placement(75.025, 96.905, 0.0),
+    "U2": Placement(64.6375, 64.45, 0.0),
+    "R1": Placement(63.0, 99.4125, 90.0),
+    "R2": Placement(63.0, 102.4125, 90.0),
+    "R3": Placement(66.5625, 105.5, 0.0),
+    "D1": Placement(71.5625, 105.5, 0.0),
+    "C1": Placement(67.45, 72.5, 0.0),
+    "C2": Placement(83.45, 81.5, 0.0),
+    "C3": Placement(83.45, 84.0, 0.0),
+    "C14": Placement(60.5, 64.45, 90.0),
+    "C4": Placement(68.5625, 103.0, 0.0),
+    "C5": Placement(68.5625, 107.5, 0.0),
     # ESP32 management
-    "U3": Placement(95.0, 80.1, 0),
-    "R4": Placement(82.0, 97.0, 0),
-    "R5": Placement(82.0, 101.0, 0),
-    "Q1": Placement(86.0, 97.0, 0),
-    "Q2": Placement(86.0, 102.0, 0),
-    "R6": Placement(83.0, 74.5, 0),
-    "C6": Placement(89.0, 97.0, 0),
-    "SW1": Placement(88.0, 109.0, 0),
-    "R7": Placement(94.0, 97.0, 0),
-    "SW2": Placement(98.0, 109.0, 0),
-    "C7": Placement(106.0, 94.0, 0),
-    "C8": Placement(106.0, 89.0, 0),
-    "SJ1": Placement(97.0, 101.0, 0),
-    "R10": Placement(101.0, 101.0, 0),
-    "D2": Placement(105.0, 101.0, 0),
+    "U3": Placement(95.25, 58.72, 0.0),
+    "R4": Placement(82.0, 97.0, 0.0),
+    "R5": Placement(82.0, 101.0, 0.0),
+    "Q1": Placement(86.0, 97.0, 0.0),
+    "Q2": Placement(86.0, 102.0, 0.0),
+    "R6": Placement(79.5, 69.5, 0.0),
+    "C6": Placement(89.0, 97.0, 0.0),
+    "SW1": Placement(88.35, 77.0, 0.0),
+    "R7": Placement(94.0, 97.0, 0.0),
+    "SW2": Placement(101.65, 77.1, 0.0),
+    "C7": Placement(106.0, 94.0, 0.0),
+    "C8": Placement(106.0, 89.0, 0.0),
+    "JP2": Placement(74.0, 66.5, 0.0),
+    "R10": Placement(101.0, 101.0, 0.0),
+    "D2": Placement(105.0, 101.0, 0.0),
     # Right-edge microSD
-    "J4": Placement(133.4, 72.0, 90),
-    "R11": Placement(113.0, 72.0, 0),
-    "R12": Placement(113.0, 75.0, 0),
-    "R13": Placement(113.0, 78.0, 0),
-    "R14": Placement(123.0, 62.0, 90),
-    "R15": Placement(123.0, 65.0, 90),
-    "R16": Placement(123.0, 68.0, 90),
-    "R17": Placement(123.0, 71.0, 90),
-    "R18": Placement(123.0, 74.0, 90),
-    "C9": Placement(124.0, 81.5, 0),
-    "C10": Placement(128.0, 81.5, 0),
+    "J4": Placement(133.4, 72.0, 90.0),
+    "R11": Placement(113.0, 72.0, 0.0),
+    "R12": Placement(113.0, 75.0, 0.0),
+    "R13": Placement(113.0, 78.0, 0.0),
+    "R14": Placement(123.0, 62.0, 90.0),
+    "R15": Placement(123.0, 65.0, 90.0),
+    "R16": Placement(123.0, 68.0, 90.0),
+    "R17": Placement(123.0, 71.0, 90.0),
+    "R18": Placement(123.0, 74.0, 90.0),
+    "C9": Placement(124.0, 81.5, 0.0),
+    "C10": Placement(128.0, 81.5, 0.0),
     # Right/bottom audio module area
-    "U4": Placement(111.0, 113.0, 90),
-    "R24": Placement(105.0, 101.0, 90),
-    "R25": Placement(108.0, 101.0, 90),
-    "Q3": Placement(105.0, 106.0, 0),
-    "C11": Placement(133.0, 100.0, 0),
-    "C12": Placement(107.0, 111.0, 0),
-    "C13": Placement(107.0, 114.0, 0),
+    "U4": Placement(111.0, 113.0, 90.0),
+    "R24": Placement(105.0, 101.0, 90.0),
+    "R25": Placement(108.0, 101.0, 90.0),
+    "Q3": Placement(105.0, 106.0, 0.0),
+    "C11": Placement(133.0, 100.0, 0.0),
+    "C12": Placement(124.0, 91.5, 0.0),
+    "C13": Placement(128.0, 91.5, 0.0),
     # Expansion headers
-    "J6": Placement(91.0, 113.0, 90),
-    "J7": Placement(61.0, 62.0, 0),
-    "J8": Placement(60.5, 113.0, 90),
-    "R19": Placement(66.0, 62.0, 90),
-    "R20": Placement(66.0, 66.0, 90),
+    "J6": Placement(91.0, 113.0, 90.0),
+    "J7": Placement(69.5, 84.42, 0.0),
+    "J8": Placement(60.5, 113.0, 90.0),
+    "R19": Placement(74.5, 84.42, 90.0),
+    "R20": Placement(74.5, 88.42, 90.0),
     # Test pads
-    "TP1": Placement(67.0, 75.0, 0),
-    "TP2": Placement(75.0, 75.0, 0),
-    "TP3": Placement(83.0, 75.0, 0),
-    "TP4": Placement(88.0, 94.0, 0),
-    "TP5": Placement(96.0, 94.0, 0),
-    "TP6": Placement(70.0, 110.0, 0),
-    "TP7": Placement(76.0, 110.0, 0),
-    "TP8": Placement(82.0, 110.0, 0),
-    "TP9": Placement(102.0, 110.0, 0),
-    "TP10": Placement(116.0, 84.0, 0),
-    "TP11": Placement(120.0, 84.0, 0),
-    "TP12": Placement(124.0, 84.0, 0),
-    "TP13": Placement(128.0, 84.0, 0),
-    "TP14": Placement(101.0, 94.0, 0),
-    "TP15": Placement(101.0, 97.0, 0),
-    "TP16": Placement(101.0, 100.0, 0),
-    "TP17": Placement(101.0, 103.0, 0),
-    "TP18": Placement(98.0, 104.0, 0),
+    "TP1": Placement(70.0, 61.5, 0.0),
+    "TP2": Placement(70.0, 64.5, 0.0),
+    "TP3": Placement(70.0, 67.5, 0.0),
+    "TP4": Placement(88.0, 94.0, 0.0),
+    "TP5": Placement(96.0, 94.0, 0.0),
+    "TP6": Placement(70.0, 110.0, 0.0),
+    "TP7": Placement(76.0, 110.0, 0.0),
+    "TP8": Placement(82.0, 110.0, 0.0),
+    "TP9": Placement(102.0, 110.0, 0.0),
+    "TP10": Placement(116.0, 84.0, 0.0),
+    "TP11": Placement(120.0, 84.0, 0.0),
+    "TP12": Placement(124.0, 84.0, 0.0),
+    "TP13": Placement(128.0, 84.0, 0.0),
+    "TP14": Placement(101.0, 94.0, 0.0),
+    "TP15": Placement(101.0, 97.0, 0.0),
+    "TP16": Placement(101.0, 100.0, 0.0),
+    "TP17": Placement(101.0, 103.0, 0.0),
+    "TP18": Placement(98.0, 104.0, 0.0),
 }
 
 MOUNTING_HOLES: dict[str, Placement] = {
-    "H1": Placement(54.0, 56.0, 0),
-    "H2": Placement(136.0, 56.0, 0),
-    "H3": Placement(54.0, 113.0, 0),
-    "H4": Placement(136.0, 113.0, 0),
+    "H1": Placement(54.0, 56.0, 0.0),
+    "H2": Placement(136.0, 56.0, 0.0),
+    "H3": Placement(54.0, 113.0, 0.0),
+    "H4": Placement(136.0, 113.0, 0.0),
 }
 
 
@@ -294,20 +295,25 @@ def add_text(
     board.Add(item)
 
 
+def hide_reference_on_silkscreen(fp: pcbnew.FOOTPRINT) -> None:
+    reference = fp.Reference()
+    reference.SetVisible(False)
+    reference.SetTextSize(vec(0.8, 0.8))
+    reference.SetTextThickness(mm(0.1))
+
+
 def add_board_drawings(board: pcbnew.BOARD) -> None:
     add_rect(board, (BOARD_LEFT, BOARD_TOP), (BOARD_RIGHT, BOARD_BOTTOM), pcbnew.Edge_Cuts)
-    add_rect(board, (70.75, BOARD_TOP), (119.25, 73.7), pcbnew.Dwgs_User, width=0.1)
     add_rect(board, (109.0, 94.0), (130.0, 114.5), pcbnew.Dwgs_User, width=0.1)
 
-    add_text(board, "ESP32 antenna keepout: no copper, traces, parts, screws, or wires", 72.0, 56.0, pcbnew.Dwgs_User, 1.0)
-    add_text(board, "MAX98357A module body clearance", 110.0, 97.0, pcbnew.Dwgs_User, 0.9)
-    add_text(board, "Rev A first placement: 90mm x 65mm", 95.0, 116.0, pcbnew.Dwgs_User, 1.0)
+    add_text(board, "MAX98357A module \nbody clearance", 119.5, 102.0, pcbnew.Dwgs_User, 0.9)
+    add_text(board, "Rev A first placement: 90mm x 65mm", 100.0, 121.0, pcbnew.Dwgs_User, 1.0)
 
-    add_text(board, "USB-C", 57.8, 104.5, pcbnew.F_SilkS, 1.0)
-    add_text(board, "EXT 5V\n+  GND", 58.5, 73.0, pcbnew.F_SilkS, 0.9)
-    add_text(board, "5V SEL", 64.0, 84.0, pcbnew.F_SilkS, 0.8)
+    add_text(board, "USB-C", 56.0, 105.5, pcbnew.F_SilkS, 1.0)
+    add_text(board, "EXT 5V", 55.5, 80.5, pcbnew.F_SilkS, 1.0)
+    add_text(board, "5V SEL", 63.0, 80.5, pcbnew.F_SilkS, 1.0)
     add_text(board, "SD CARD", 127.0, 61.0, pcbnew.F_SilkS, 1.0)
-    add_text(board, "AUDIO MODULE", 112.0, 94.0, pcbnew.F_SilkS, 0.9)
+    add_text(board, "AUDIO MODULE", 112.0, 94.0, pcbnew.F_SilkS, 1.0)
     add_text(board, "J6 SPI", 93.0, 108.0, pcbnew.F_SilkS, 0.8)
     add_text(board, "J7 I2C", 57.0, 70.5, pcbnew.F_SilkS, 0.8)
 
@@ -327,6 +333,7 @@ def add_schematic_footprints(board: pcbnew.BOARD, components: dict[str, dict[str
         placement = PLACEMENTS[ref]
         fp.SetPosition(vec(placement.x, placement.y))
         fp.SetOrientationDegrees(placement.rot)
+        hide_reference_on_silkscreen(fp)
 
         for pad in fp.Pads():
             net_name = pin_nets.get((ref, pad.GetNumber()))
@@ -343,6 +350,7 @@ def add_mounting_holes(board: pcbnew.BOARD) -> None:
         fp.SetValue("M3")
         fp.SetPosition(vec(placement.x, placement.y))
         fp.SetOrientationDegrees(placement.rot)
+        hide_reference_on_silkscreen(fp)
         board.Add(fp)
 
 

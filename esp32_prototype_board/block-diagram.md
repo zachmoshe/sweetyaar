@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart LR
-    USB["USB-C connector\n5V + USB 2.0 data"] --> PSEL["5V source select\n3-pin jumper"]
+    USB["USB-C connector\n5V + USB 2.0 data"] --> PSEL["5V source select\nSPDT slide switch"]
     EXT["External 5V input\nscrew terminal"] --> PSEL
     PSEL --> SYS5["5V_SYS rail"]
 
@@ -30,7 +30,7 @@ flowchart LR
 
     ESP --> I2C["I2C header\nSDA/SCL/3V3/GND"]
     ESP --> GPIO["Spare GPIO headers\nproject buttons/controls connect here"]
-    ESP --> LED["Status LED\njumper optional"]
+    ESP --> LED["Status LED\nswitch optional"]
 ```
 
 ## Physical Layout Concept
@@ -63,11 +63,11 @@ flowchart LR
 
 ## Rev A Power Concept
 
-For the first revision, use a simple source selector:
+For the first revision, use a simple slide-switch source selector:
 
 ```text
 USB_VBUS ----+
-             +-- 3-pin jumper + shunt --> 5V_SYS
+             +-- SPDT slide switch --> 5V_SYS
 EXT_5V  -----+
 ```
 

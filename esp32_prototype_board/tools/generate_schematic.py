@@ -372,6 +372,8 @@ def define_symbols() -> None:
     add_symbol("SweetYaar:LED", 14.0, 9.0, [("1", "A")], [("2", "K")])
     add_symbol("SweetYaar:SW_PUSH", 14.0, 9.0, [("1", "A")], [("2", "B")])
     add_symbol("SweetYaar:JUMPER_2", 14.0, 9.0, [("1", "A")], [("2", "B")])
+    add_symbol("SweetYaar:SW_DPDT_PWR", 18.0, 18.0, [("2", "COM1"), ("1", "A1"), ("4", "A2")], [("3", "B1"), ("5", "COM2"), ("6", "B2")])
+    add_symbol("SweetYaar:SW_DPDT_ONOFF", 18.0, 18.0, [("1", "A1"), ("3", "B1"), ("4", "A2")], [("2", "COM1"), ("5", "COM2"), ("6", "B2")])
     add_symbol("SweetYaar:NPN_BEC", 16.0, 18.0, [("1", "B")], [("2", "E"), ("3", "C")])
     add_symbol("SweetYaar:TESTPOINT", 12.0, 8.0, [("1", "TP")], [])
 
@@ -397,9 +399,10 @@ def add_parts() -> None:
     add_instance("SweetYaar:R", "R1", "5.1k", "Resistor_SMD:R_0805_2012Metric", 90, 42, {"1": "USB_CC1", "2": "GND"})
     add_instance("SweetYaar:R", "R2", "5.1k", "Resistor_SMD:R_0805_2012Metric", 90, 58, {"1": "USB_CC2", "2": "GND"})
     add_instance("SweetYaar:CONN_01X02", "J2", "EXT 5V IN", "TerminalBlock:TerminalBlock_MaiXu_MX126-5.0-02P_1x02_P5.00mm", 95, 86, {"1": "EXT_5V", "2": "GND"})
-    add_instance("SweetYaar:CONN_01X03", "JP1", "5V source select", "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical", 95, 118, {"1": "USB_VBUS", "2": "5V_SYS", "3": "EXT_5V"})
+    add_instance("SweetYaar:SW_DPDT_PWR", "JP1", "5V source switch", "SweetYaar:SW-SMD_MS-22D28-G020", 95, 118, {"1": "USB_VBUS", "2": "5V_SYS", "3": "EXT_5V", "4": None, "5": None, "6": None})
     add_instance("SweetYaar:AP2112K_3V3", "U2", "AP2112K-3.3", "Package_TO_SOT_SMD:SOT-23-5", 122, 50, {"1": "5V_SYS", "2": "GND", "3": "5V_SYS", "4": None, "5": "3V3"})
     add_instance("SweetYaar:C", "C1", "22uF", "Capacitor_SMD:C_0805_2012Metric", 122, 82, {"1": "5V_SYS", "2": "GND"})
+    add_instance("SweetYaar:C", "C14", "100nF", "Capacitor_SMD:C_0805_2012Metric", 122, 151, {"1": "5V_SYS", "2": "GND"})
     add_instance("SweetYaar:C", "C2", "22uF", "Capacitor_SMD:C_0805_2012Metric", 122, 105, {"1": "3V3", "2": "GND"})
     add_instance("SweetYaar:C", "C3", "100nF", "Capacitor_SMD:C_0805_2012Metric", 122, 128, {"1": "3V3", "2": "GND"})
     add_instance("SweetYaar:R", "R3", "2.2k", "Resistor_SMD:R_0805_2012Metric", 70, 155, {"1": "5V_SYS", "2": "LED_5V_A"})
@@ -432,7 +435,7 @@ def add_parts() -> None:
     add_instance("SweetYaar:SW_PUSH", "SW2", "BOOT", "Button_Switch_SMD:SW_SPST_TL3342", 162, 134, {"1": "BOOT", "2": "GND"})
     add_instance("SweetYaar:C", "C7", "22uF", "Capacitor_SMD:C_0805_2012Metric", 262, 35, {"1": "3V3", "2": "GND"})
     add_instance("SweetYaar:C", "C8", "100nF", "Capacitor_SMD:C_0805_2012Metric", 262, 58, {"1": "3V3", "2": "GND"})
-    add_instance("SweetYaar:JUMPER_2", "SJ1", "GPIO2 LED EN", "Jumper:SolderJumper-2_P1.3mm_Open_TrianglePad1.0x1.5mm", 262, 250, {"1": "GPIO2_LED", "2": "LED_STATUS_IN"})
+    add_instance("SweetYaar:SW_DPDT_ONOFF", "JP2", "GPIO2 LED SW", "SweetYaar:SW-SMD_MS-22D28-G020", 262, 250, {"1": "GPIO2_LED", "2": "LED_STATUS_IN", "3": None, "4": None, "5": None, "6": None})
     add_instance("SweetYaar:R", "R10", "1k", "Resistor_SMD:R_0805_2012Metric", 262, 276, {"1": "LED_STATUS_IN", "2": "LED_STATUS_A"})
     add_instance("SweetYaar:LED", "D2", "STATUS", "LED_SMD:LED_0805_2012Metric", 262, 302, {"1": "LED_STATUS_A", "2": "GND"})
 
@@ -547,6 +550,7 @@ def write() -> None:
             f'\t(lib (name "{name}") (type "KiCad") (uri "{fp_base}/{name}.pretty") (options "") (descr ""))\n'
             for name in fp_libs
         )
+        + '\t(lib (name "SweetYaar") (type "KiCad") (uri "${KIPRJMOD}/sweetyaar_rev_a.pretty") (options "") (descr "SweetYaar Rev A local footprints"))\n'
         + ")\n"
     )
 

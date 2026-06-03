@@ -10,7 +10,7 @@ installed KiCad 10 footprint libraries, so ERC can resolve the selected footprin
 
 - USB-C 5V sink with CC pull-downs.
 - External 5V input.
-- Manual 5V source select jumper.
+- Manual 5V source select slide switch.
 - AP2112K-3.3 regulator with EN tied to `5V_SYS` and local decoupling.
 - CH340C USB-UART.
 - ESP32 auto-program/reset network using DTR/RTS and two NPN transistors.
@@ -19,7 +19,7 @@ installed KiCad 10 footprint libraries, so ERC can resolve the selected footprin
 - microSD SPI socket with pull-ups, series resistors, and local decoupling.
 - MAX98357A blue module 1x7 header, direct module speaker connection, and transistor mute control.
 - GPIO32/GPIO33 exposed for project buttons or other external controls.
-- Status LED with GPIO2 disconnect jumper.
+- Status LED with GPIO2 disconnect slide switch.
 - SPI, I2C, GPIO expansion headers.
 - Test pads for major power, serial, SD, and I2S nets.
 

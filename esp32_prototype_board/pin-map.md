@@ -30,7 +30,7 @@ external buttons or controls to the GPIO expansion header.
 | I2C SCL | GPIO17 | `I2C_SCL` | Expose on I2C header with 3V3/GND. |
 | External SPI CS 1 | GPIO27 | `SPI_CS1` | For another SPI peripheral sharing SCK/MOSI/MISO. |
 | External SPI CS 2 | GPIO14 | `SPI_CS2` | Boot strap/JTAG-adjacent caution, but usable. |
-| Status LED | GPIO2 | `GPIO2_LED` | Goes through solder jumper `SJ1` before the LED; GPIO2 is a strap pin. |
+| Status LED | GPIO2 | `GPIO2_LED` | Goes through the `JP2` slide switch before the LED; GPIO2 is a strap pin. |
 | Spare GPIO / project button | GPIO32 | `GPIO32` | Good default for external buttons or controls. |
 | Spare GPIO / project button | GPIO33 | `GPIO33` | Good default for external buttons or controls. |
 | Spare PWM/GPIO | GPIO4 | `GPIO4` | General purpose. Strap-related; avoid strong boot pull-down/up. |
@@ -47,7 +47,7 @@ These ESP32 pins affect boot or have limitations:
 | Pin | Caution |
 |---:|---|
 | GPIO0 | Must be low only for flashing; otherwise high for normal boot. |
-| GPIO2 | Boot strap pin. Use LED only through a removable jumper. |
+| GPIO2 | Boot strap pin. Use LED only through the `JP2` enable switch. |
 | GPIO5 | Boot strap pin. Used as SD CS with 10k pull-up. |
 | GPIO12 | Boot strap pin that can affect flash voltage. Avoid for Rev A expansion default. |
 | GPIO15 | Boot strap pin. Expose, but label it. |
