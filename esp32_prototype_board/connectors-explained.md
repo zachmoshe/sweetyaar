@@ -10,7 +10,7 @@ resistors, capacitors, or test pads.
 |---|---|---|
 | `J1` | USB-C receptacle | One physical USB-C socket for power and serial data. |
 | `J2` | External 5V input | One 2-pin screw terminal or similar connector for bench PSU `+5V` and `GND`. |
-| `JP1` | 5V source select | One 3-pin jumper header. A small jumper/shunt chooses USB 5V or external 5V. |
+| `JP1` | 5V source select | One DPDT top-actuated slide switch chooses USB 5V or external 5V. |
 | `J4` | microSD socket | One physical microSD card socket. |
 | `J6` | SPI expansion | One 8-pin 2.54mm header. Pins can be used individually with jumper wires. |
 | `J7` | I2C expansion | One 4-pin 2.54mm header for `GND`, `3V3`, `SDA`, and `SCL`. |

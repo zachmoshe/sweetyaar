@@ -71,7 +71,7 @@ Power:
 - `J1` is USB-C USB2 sink, 5V only, no USB Power Delivery.
 - `CC1` and `CC2` each have 5.1k pulldowns to GND.
 - `J2` is external 5V input.
-- `JP1` is a 3-pin source-select jumper. A shunt chooses USB 5V or external 5V.
+- `JP1` is an DPDT top-actuated slide switch. It chooses USB 5V or external 5V.
 - `5V_SYS` is the selected 5V system rail.
 - Grounds are common between USB, bench PSU, ESP32, SD, and amp.
 - `U2` is AP2112K-3.3 in SOT-23-5/SOT25. Pinout used:
@@ -195,9 +195,9 @@ The docs were checked and updated to match the final schematic:
 - Old regulator wording was replaced with AP2112K-3.3.
 - Old onboard-user-button wording was removed; GPIO32/GPIO33 are expansion pins.
 - Docs now describe `AMP_MUTE_CTL` with HIGH = mute.
-- Docs now describe `GPIO2_LED` through solder jumper `SJ1`.
+- Docs now describe `GPIO2_LED` through the `JP2` slide switch.
 - Docs now describe the MAX98357A module as 5V-powered.
-- Docs now describe `JP1` as a 3-pin jumper, not a switch.
+- Docs now describe `JP1` as an DPDT top-actuated slide switch.
 
 ## Hardware Lessons From Bring-Up
 

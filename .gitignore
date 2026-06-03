@@ -14,3 +14,25 @@ sd_card_template/**/*.wav
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+
+# KiCad local/editor state
+**/~*.lck
+**/_restore_backup_*/
+
+# PCB fabrication scratch; final JLC files live in esp32_prototype_board/production/
+esp32_prototype_board/fab/
+esp32_prototype_board/fabrication-toolkit-options.json
+esp32_prototype_board/DRC.rpt
+esp32_prototype_board/*.gbr
+esp32_prototype_board/*.gbl
+esp32_prototype_board/*.gbs
+esp32_prototype_board/*.gbp
+esp32_prototype_board/*.gbo
+esp32_prototype_board/*.gm1
+esp32_prototype_board/*.gtl
+esp32_prototype_board/*.gts
+esp32_prototype_board/*.gtp
+esp32_prototype_board/*.gto
+esp32_prototype_board/*.g1
+esp32_prototype_board/*.g2
+esp32_prototype_board/*.gbrjob

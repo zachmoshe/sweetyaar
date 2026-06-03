@@ -11,7 +11,7 @@
 		(on_board yes)
 		(property "Reference" "U"
 			(at 0 -153.670 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20,7 +20,7 @@
 		)
 		(property "Value" "ESP32_WROOM_32E_REVA"
 			(at 0 153.670 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -29,7 +29,7 @@
 		)
 		(property "Footprint" ""
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -39,7 +39,7 @@
 		)
 		(property "Datasheet" "~"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -49,7 +49,7 @@
 		)
 		(property "Description" "Project-local Rev A schematic symbol"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -784,7 +784,7 @@
 		(on_board yes)
 		(property "Reference" "U"
 			(at 0 -69.850 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -793,7 +793,7 @@
 		)
 		(property "Value" "USB_C_USB2_14P"
 			(at 0 69.850 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -802,7 +802,7 @@
 		)
 		(property "Footprint" ""
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -812,7 +812,7 @@
 		)
 		(property "Datasheet" "~"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -822,7 +822,7 @@
 		)
 		(property "Description" "Project-local Rev A schematic symbol"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -1161,7 +1161,7 @@
 		(on_board yes)
 		(property "Reference" "U"
 			(at 0 -62.230 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1170,7 +1170,7 @@
 		)
 		(property "Value" "CH340C"
 			(at 0 62.230 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1179,7 +1179,7 @@
 		)
 		(property "Footprint" ""
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -1189,7 +1189,7 @@
 		)
 		(property "Datasheet" "~"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -1199,7 +1199,7 @@
 		)
 		(property "Description" "Project-local Rev A schematic symbol"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -1520,7 +1520,7 @@
 		(on_board yes)
 		(property "Reference" "U"
 			(at 0 -24.130 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1529,7 +1529,7 @@
 		)
 		(property "Value" "AP2112K_3V3"
 			(at 0 24.130 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1538,7 +1538,7 @@
 		)
 		(property "Footprint" ""
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -1548,7 +1548,7 @@
 		)
 		(property "Datasheet" "~"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -1558,7 +1558,7 @@
 		)
 		(property "Description" "Project-local Rev A schematic symbol"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -1681,7 +1681,7 @@
 		(on_board yes)
 		(property "Reference" "U"
 			(at 0 -46.990 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1690,7 +1690,7 @@
 		)
 		(property "Value" "MICRO_SD_SPI"
 			(at 0 46.990 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1699,7 +1699,7 @@
 		)
 		(property "Footprint" ""
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -1709,7 +1709,7 @@
 		)
 		(property "Datasheet" "~"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -1719,7 +1719,7 @@
 		)
 		(property "Description" "Project-local Rev A schematic symbol"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -1914,7 +1914,7 @@
 		(on_board yes)
 		(property "Reference" "U"
 			(at 0 -31.750 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1923,7 +1923,7 @@
 		)
 		(property "Value" "MAX98357A_MODULE"
 			(at 0 31.750 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1932,7 +1932,7 @@
 		)
 		(property "Footprint" ""
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -1942,7 +1942,7 @@
 		)
 		(property "Datasheet" "~"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -1952,7 +1952,7 @@
 		)
 		(property "Description" "Project-local Rev A schematic symbol"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -2111,7 +2111,7 @@
 		(on_board yes)
 		(property "Reference" "U"
 			(at 0 -10.160 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2120,7 +2120,7 @@
 		)
 		(property "Value" "CONN_01X02"
 			(at 0 10.160 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2129,7 +2129,7 @@
 		)
 		(property "Footprint" ""
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -2139,7 +2139,7 @@
 		)
 		(property "Datasheet" "~"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -2149,7 +2149,7 @@
 		)
 		(property "Description" "Project-local Rev A schematic symbol"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -2218,7 +2218,7 @@
 		(on_board yes)
 		(property "Reference" "U"
 			(at 0 -16.510 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2227,7 +2227,7 @@
 		)
 		(property "Value" "CONN_01X03"
 			(at 0 16.510 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2236,7 +2236,7 @@
 		)
 		(property "Footprint" ""
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -2246,7 +2246,7 @@
 		)
 		(property "Datasheet" "~"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -2256,7 +2256,7 @@
 		)
 		(property "Description" "Project-local Rev A schematic symbol"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -2343,7 +2343,7 @@
 		(on_board yes)
 		(property "Reference" "U"
 			(at 0 -16.510 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2352,7 +2352,7 @@
 		)
 		(property "Value" "CONN_01X04"
 			(at 0 16.510 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2361,7 +2361,7 @@
 		)
 		(property "Footprint" ""
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -2371,7 +2371,7 @@
 		)
 		(property "Datasheet" "~"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -2381,7 +2381,7 @@
 		)
 		(property "Description" "Project-local Rev A schematic symbol"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -2486,7 +2486,7 @@
 		(on_board yes)
 		(property "Reference" "U"
 			(at 0 -31.750 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2495,7 +2495,7 @@
 		)
 		(property "Value" "CONN_01X08"
 			(at 0 31.750 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2504,7 +2504,7 @@
 		)
 		(property "Footprint" ""
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -2514,7 +2514,7 @@
 		)
 		(property "Datasheet" "~"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -2524,7 +2524,7 @@
 		)
 		(property "Description" "Project-local Rev A schematic symbol"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -2701,7 +2701,7 @@
 		(on_board yes)
 		(property "Reference" "U"
 			(at 0 -46.990 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2710,7 +2710,7 @@
 		)
 		(property "Value" "CONN_01X12"
 			(at 0 46.990 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2719,7 +2719,7 @@
 		)
 		(property "Footprint" ""
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -2729,7 +2729,7 @@
 		)
 		(property "Datasheet" "~"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -2739,7 +2739,7 @@
 		)
 		(property "Description" "Project-local Rev A schematic symbol"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -2988,7 +2988,7 @@
 		(on_board yes)
 		(property "Reference" "U"
 			(at 0 -8.890 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2997,7 +2997,7 @@
 		)
 		(property "Value" "R"
 			(at 0 8.890 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3006,7 +3006,7 @@
 		)
 		(property "Footprint" ""
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3016,7 +3016,7 @@
 		)
 		(property "Datasheet" "~"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3026,7 +3026,7 @@
 		)
 		(property "Description" "Project-local Rev A schematic symbol"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3095,7 +3095,7 @@
 		(on_board yes)
 		(property "Reference" "U"
 			(at 0 -8.890 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3104,7 +3104,7 @@
 		)
 		(property "Value" "C"
 			(at 0 8.890 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3113,7 +3113,7 @@
 		)
 		(property "Footprint" ""
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3123,7 +3123,7 @@
 		)
 		(property "Datasheet" "~"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3133,7 +3133,7 @@
 		)
 		(property "Description" "Project-local Rev A schematic symbol"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3202,7 +3202,7 @@
 		(on_board yes)
 		(property "Reference" "U"
 			(at 0 -8.890 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3211,7 +3211,7 @@
 		)
 		(property "Value" "LED"
 			(at 0 8.890 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3220,7 +3220,7 @@
 		)
 		(property "Footprint" ""
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3230,7 +3230,7 @@
 		)
 		(property "Datasheet" "~"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3240,7 +3240,7 @@
 		)
 		(property "Description" "Project-local Rev A schematic symbol"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3309,7 +3309,7 @@
 		(on_board yes)
 		(property "Reference" "U"
 			(at 0 -8.890 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3318,7 +3318,7 @@
 		)
 		(property "Value" "SW_PUSH"
 			(at 0 8.890 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3327,7 +3327,7 @@
 		)
 		(property "Footprint" ""
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3337,7 +3337,7 @@
 		)
 		(property "Datasheet" "~"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3347,7 +3347,7 @@
 		)
 		(property "Description" "Project-local Rev A schematic symbol"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3416,7 +3416,7 @@
 		(on_board yes)
 		(property "Reference" "U"
 			(at 0 -8.890 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3425,7 +3425,7 @@
 		)
 		(property "Value" "JUMPER_2"
 			(at 0 8.890 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3434,7 +3434,7 @@
 		)
 		(property "Footprint" ""
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3444,7 +3444,7 @@
 		)
 		(property "Datasheet" "~"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3454,7 +3454,7 @@
 		)
 		(property "Description" "Project-local Rev A schematic symbol"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3523,7 +3523,7 @@
 		(on_board yes)
 		(property "Reference" "U"
 			(at 0 -16.510 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3532,7 +3532,7 @@
 		)
 		(property "Value" "NPN_BEC"
 			(at 0 16.510 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3541,7 +3541,7 @@
 		)
 		(property "Footprint" ""
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3551,7 +3551,7 @@
 		)
 		(property "Datasheet" "~"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3561,7 +3561,7 @@
 		)
 		(property "Description" "Project-local Rev A schematic symbol"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3648,7 +3648,7 @@
 		(on_board yes)
 		(property "Reference" "U"
 			(at 0 -8.890 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3657,7 +3657,7 @@
 		)
 		(property "Value" "TESTPOINT"
 			(at 0 8.890 0)
-			
+
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3666,7 +3666,7 @@
 		)
 		(property "Footprint" ""
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3676,7 +3676,7 @@
 		)
 		(property "Datasheet" "~"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3686,7 +3686,7 @@
 		)
 		(property "Description" "Project-local Rev A schematic symbol"
 			(at 0 0 0)
-			
+
 			(hide yes)
 			(effects
 				(font
@@ -3728,4 +3728,210 @@
 			)
 		)
 	)
+
+	(symbol "SW_DPDT_MS22D28_SINGLE"
+		(pin_names
+			(offset 1.016)
+		)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(property "Reference" "SW"
+			(at 0 -13.970 0)
+
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "SW_DPDT_MS22D28_SINGLE"
+			(at 0 16.510 0)
+
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "SweetYaar:SW-SMD_MS-22D28-G020"
+			(at 0 0 0)
+
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://lcsc.com/product-detail/Slide-Switches_G-Switch-MS-22D28-G020_C963205.html"
+			(at 0 0 0)
+
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "G-Switch MS-22D28-G020 DPDT top-actuated slide switch, C963205; one pole used, second pole intentionally unused"
+			(at 0 0 0)
+
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(symbol "SW_DPDT_MS22D28_SINGLE_0_1"
+			(rectangle
+				(start -7.620 -6.350)
+				(end 7.620 15.240)
+				(stroke
+					(width 0.254)
+					(type default)
+				)
+				(fill
+					(type background)
+				)
+			)
+			(polyline
+				(pts
+					(xy -2.032 0.254) (xy 2.032 2.286)
+				)
+				(stroke
+					(width 0.254)
+					(type default)
+				)
+				(fill
+					(type none)
+				)
+			)
+			(polyline
+				(pts
+					(xy -2.032 10.414) (xy 2.032 12.446)
+				)
+				(stroke
+					(width 0.254)
+					(type default)
+				)
+				(fill
+					(type none)
+				)
+			)
+		)
+		(symbol "SW_DPDT_MS22D28_SINGLE_1_1"
+			(pin passive line
+				(at 5.080 2.540 180)
+				(length 2.54)
+				(name "A1"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "1"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin passive line
+				(at -5.080 0.000 0)
+				(length 2.54)
+				(name "COM1"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "2"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin passive line
+				(at 5.080 -2.540 180)
+				(length 2.54)
+				(name "B1"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "3"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin no_connect line
+				(at 5.080 12.700 180)
+				(length 2.54)
+				(name "A2_UNUSED"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "4"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin no_connect line
+				(at -5.080 10.160 0)
+				(length 2.54)
+				(name "COM2_UNUSED"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "5"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin no_connect line
+				(at 5.080 7.620 180)
+				(length 2.54)
+				(name "B2_UNUSED"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "6"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+		)
+	)
+
+
 )

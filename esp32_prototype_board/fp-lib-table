@@ -7,6 +7,7 @@
 	(lib (name "Connector_PinHeader_2.54mm") (type "KiCad") (uri "/Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints/Connector_PinHeader_2.54mm.pretty") (options "") (descr ""))
 	(lib (name "Connector_USB") (type "KiCad") (uri "/Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints/Connector_USB.pretty") (options "") (descr ""))
 	(lib (name "Jumper") (type "KiCad") (uri "/Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints/Jumper.pretty") (options "") (descr ""))
+	(lib (name "MountingHole") (type "KiCad") (uri "/Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints/MountingHole.pretty") (options "") (descr ""))
 	(lib (name "LED_SMD") (type "KiCad") (uri "/Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints/LED_SMD.pretty") (options "") (descr ""))
 	(lib (name "Package_SO") (type "KiCad") (uri "/Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints/Package_SO.pretty") (options "") (descr ""))
 	(lib (name "Package_TO_SOT_SMD") (type "KiCad") (uri "/Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints/Package_TO_SOT_SMD.pretty") (options "") (descr ""))
@@ -14,4 +15,5 @@
 	(lib (name "Resistor_SMD") (type "KiCad") (uri "/Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints/Resistor_SMD.pretty") (options "") (descr ""))
 	(lib (name "TerminalBlock") (type "KiCad") (uri "/Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints/TerminalBlock.pretty") (options "") (descr ""))
 	(lib (name "TestPoint") (type "KiCad") (uri "/Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints/TestPoint.pretty") (options "") (descr ""))
+	(lib (name "SweetYaar") (type "KiCad") (uri "${KIPRJMOD}/sweetyaar_rev_a.pretty") (options "") (descr "SweetYaar Rev A local footprints"))
 )
