@@ -167,7 +167,28 @@ Pause panel:
 - Primary pause button: text `Pause for 10 mins`, width about `148px`, min-height `44px`, radius `10px`, gradient `#E9527C` to `#D93E6B`, white `14px/800`, no wrapping.
 - Cancel button: width `147px`, height `44px`, radius `10px`, white background, text `#30324A`.
 
-Use lucide icons for `Bluetooth`, `Info`, `Volume2`, `BookOpen`, and `ChevronDown`. Use the provided PNGs for the 3D/emoji-style controls.
+Use lucide icons for `Bluetooth`, `Info`, `Volume2`, `BookOpen`, `Moon`,
+`Sun`, `Clock`, `CircleAlert`, and `ChevronDown`. Use the provided PNGs for the
+3D/emoji-style controls.
+
+Bedtime mode card and indicators:
+
+- Show a Bedtime/Daytime mode card on the Ready screen only when the Bedtime
+  master setting is enabled.
+- The card acts as the runtime toggle. It does not change the saved master
+  setting.
+- Daytime state: daytime artwork, calm neutral styling, optional `Sun` icon, tap
+  to manually enable Bedtime mode for the current awake session.
+- Bedtime state: bedtime artwork, soft active glow, small glowing `Moon` icon,
+  tap to manually disable Bedtime mode for the current awake session.
+- Time unknown state: muted card with `Clock` plus `CircleAlert` or a broken
+  watch-style graphic, and clear text such as `Time unknown`. Do not present
+  this as Daytime. Tapping may retry/request time sync, but should not force a
+  Bedtime toggle until the toy has reliable local time.
+- Use the glowing moon as the compact indicator wherever Bedtime is affecting a
+  smaller control, such as the volume cap marker or bedtime theme marker.
+- If Bedtime mode is active, visually indicate that local playback is capped
+  without changing the stored parent-selected volume value.
 
 ## Screen Compositions
 
@@ -189,17 +210,40 @@ Bluetooth Streaming:
 - Pink music badge: `54px`, gradient `#F06A92` to `#E44E79`, white music icon.
 - Title copy: “SweetYaar is streaming music now.”
 - Body copy: “Set volume from the streaming device. Remote controls return when the streaming device disconnects.”
-- Do not show local controls on this screen.
+- Do not show local controls on this screen. Bedtime mode has no effect during
+  Bluetooth streaming, including volume.
 
 Ready To Play:
 
 - Normal status card first, text “Ready to play” only; do not show secondary copy in that state.
+- Show the Bedtime/Daytime mode card only if Bedtime mode is enabled. Include
+  daytime, bedtime, or time-unknown artwork based on the current runtime state.
+  Tapping the card acts as the runtime toggle when local time is reliable.
 - Three control buttons below.
-- Volume card below controls.
-- Theme card below volume.
+- Volume card below controls. If volume is capped because Bedtime mode is
+  active, do not let the slider move past the cap. Mark the capped area in
+  yellow and place a small glowing moon icon above the cap marker.
+- Theme card below volume. If Bedtime mode is enabled, mark the configured
+  bedtime theme with a small glowing moon icon on the right side of the selector.
 - Pause panel below theme.
 - Add `.bottom-art` as the final child of the screen root; it is absolute, bottom-aligned, and outside content flow.
 - Content bottom padding should be at least `112px` so controls do not collide with the bottom toy art on short screens.
+
+Settings:
+
+- Add a `Bedtime mode` section after General and before Sleep.
+- Include a master toggle.
+- Include a single bedtime-theme selector using the same theme-picker pattern as
+  Default theme.
+- Include a volume-cap slider using the same visual language as the volume
+  controls.
+- Include two time controls labeled `Starts` and `Ends`.
+- Prefer native mobile time-picker behavior, such as styled `input[type=time]`
+  rows, over a custom slider. Time selection needs exact values, locale-friendly
+  display, keyboard/assistive-technology access, and a compact mobile picker.
+- Store and send time values as `HH:mm`.
+- Mark unusual but allowed values in orange: start before `16:00`, or end after
+  `12:00`. These warnings are advisory only; parents can choose any valid time.
 
 ## Responsive Behavior
 

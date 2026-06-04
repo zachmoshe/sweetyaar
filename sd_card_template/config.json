@@ -3,6 +3,13 @@
   "defaultVolumePct": 75,
   "defaultTheme": "lullabies",
   "disabledThemes": [],
+  "bedtime": {
+    "enabled": true,
+    "startTime": "18:30",
+    "endTime": "06:30",
+    "theme": "lullabies",
+    "volumeCapPct": 45
+  },
   "sleep": {
     "enabled": true,
     "normalIdleSec": 600,

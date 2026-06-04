@@ -6,7 +6,7 @@ is a PlatformIO/Arduino C++ firmware project with:
 - Bluetooth Classic A2DP speaker support.
 - BLE parent controls and settings over a single-page Web Bluetooth app.
 - SD-card WAV playback for songs and animal sounds.
-- Configurable content metadata and sleep-mode behavior.
+- Configurable content metadata, sleep-mode behavior, and planned Bedtime mode.
 - Hardware notes and KiCad design files for the prototype PCB.
 
 ## Repository History
@@ -91,6 +91,7 @@ See `docs/regression-tests.md` for coverage details and hardware options.
 - `tools/`: local Bluetooth/BLE smoke and probe helpers.
 - `esp32_prototype_board/`: PCB design files, manufacturing outputs, and notes.
 - `project-plan.md`: detailed architecture and hardware planning notes.
+- `docs/bedtime-mode.md`: product and UX spec for Bedtime mode.
 - `breadboard-wiring.md`: breadboard wiring reference.
 
 ## Hardware Target

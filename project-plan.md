@@ -120,13 +120,47 @@ The toy automatically enters real ESP32 deep sleep after inactivity, controlled 
 - Wake source is only the vibration switch on `GPIO27`. Buttons are not wake sources because touching the toy should move it enough to trip the vibration switch.
 - Waking is a full reboot. This is deliberate: no BT client, BLE client, current song, or playback position is preserved.
 
+### Bedtime Mode
+
+Bedtime mode is a planned parent-controlled local playback mode. See
+`docs/bedtime-mode.md` for the full product and UX spec.
+
+- The feature has one master setting, one daily bedtime window, one bedtime
+  theme, and one volume cap. It is not a general scheduler.
+- Defaults: bedtime hours `18:30` to `06:30`; bedtime theme `lullabies` in the
+  SD-card template.
+- If the master setting is disabled, the toy behaves as it does today.
+- If reliable local clock time is unavailable, the toy treats Bedtime mode as
+  inactive even when the saved setting is enabled.
+- When reliable local time is available and the current time is inside the
+  bedtime window, the runtime Bedtime state turns on automatically.
+- While Bedtime mode is active, local song playback uses the configured bedtime
+  theme. If the configured bedtime theme is missing, disabled, or has no
+  playable WAV files, firmware logs a serial warning and falls back to the
+  normal active theme for song playback.
+- While Bedtime mode is active, local song and animal WAV playback is capped by
+  `volumeCapPct`. The cap still applies when the bedtime theme falls back to the
+  normal theme. Animal sound selection is otherwise unchanged.
+- Classic BT/A2DP streaming is unaffected by Bedtime mode; neither the bedtime
+  theme nor the volume cap apply during BT streaming.
+- Parents can toggle the runtime Bedtime state from a Bedtime/Daytime mode card
+  in the app. A small glowing moon icon is used as a compact Bedtime indicator.
+- If reliable local time is unavailable, the app shows a `Time unknown` mode
+  card rather than pretending the toy is in Daytime mode.
+- Parent theme changes override Bedtime mode for the current awake session.
+- Runtime Bedtime overrides are cleared by deep sleep/reboot. After wake, the
+  toy returns to automatic Bedtime decisions from saved settings and reliable
+  local time.
+- On BLE connection, the parent app syncs time with a simple config message such
+  as `{ "op": "syncTime", "epochSec": 1780595400, "tzOffsetMin": 180 }`.
+
 ### Play-Mode State Machine
 
 ```
 States: IDLE | PLAYING_SONG | PLAYING_ANIMAL | BT_STREAMING | KILLSWITCH
 
 IDLE:
-  - Button 1 pressed → PLAYING_SONG (next song in current theme)
+  - Button 1 pressed → PLAYING_SONG (next song in current effective theme)
   - Button 2 pressed → PLAYING_ANIMAL (random animal sound)
   - Both buttons pressed → (no-op, already idle)
   - BT device connects → BT_STREAMING
@@ -189,6 +223,7 @@ KILLSWITCH (10-minute timer):
    - App can read/update:
      - Device name in NVS-backed device config
      - Default volume and default theme in `SD:/config.json`
+     - Bedtime mode settings in `SD:/config.json`
      - Idle deep-sleep settings in `SD:/config.json`
      - Enabled/disabled themes in `SD:/config.json`
      - Enabled/disabled songs in each theme or animals `metadata.json`
@@ -208,6 +243,9 @@ KILLSWITCH (10-minute timer):
    - Static firmware default: 75%
    - `SD:/config.json` may override the default volume
    - BLE volume writes change live volume only; they do not persist to NVS
+   - Planned Bedtime mode applies an effective local WAV cap of
+     `min(currentVolumePct, bedtime.volumeCapPct)` while active. The cap applies
+     to songs and animals, but never to Classic BT/A2DP streaming.
 
 7. **Idle Sleep Manager**
    - Reads `sleep.enabled`, `normalIdleSec`, `vibrationWakeIdleSec`, and `bleIdleSec` from `SD:/config.json`
@@ -215,6 +253,16 @@ KILLSWITCH (10-minute timer):
    - Drives the SD + amp load-switch enable on `GPIO13`
    - Powers peripherals back on during boot before SD, I2S, BT, and BLE init
    - Exposes sleep settings in BLE `getConfig`; persists edits through BLE `setConfig`
+
+8. **Bedtime Mode Manager** (planned)
+   - Reads `bedtime.enabled`, `startTime`, `endTime`, `theme`, and
+     `volumeCapPct` from `SD:/config.json`
+   - Tracks whether local clock time is reliable
+   - Accepts BLE time sync from connected controllers
+   - Computes automatic Bedtime state from local time and saved settings
+   - Tracks parent runtime overrides until the next automatic boundary or deep
+     sleep/reboot
+   - Resolves the effective local song theme before starting song playback
 
 ### Config Storage
 
@@ -226,6 +274,13 @@ Most parent-editable configuration lives on the SD card so it can be changed, ba
   "defaultVolumePct": 75,
   "defaultTheme": "lullabies",
   "disabledThemes": [],
+  "bedtime": {
+    "enabled": true,
+    "startTime": "18:30",
+    "endTime": "06:30",
+    "theme": "lullabies",
+    "volumeCapPct": 45
+  },
   "sleep": {
     "enabled": true,
     "normalIdleSec": 600,
@@ -279,6 +334,8 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 
 - `name`: display name shown in the Web BLE parent app (UTF-8, any emoji allowed)
 - `shuffle`: if true, randomise song order once when the theme is selected; the shuffled order is then maintained (and wraps) on every subsequent button press until the theme changes
+- Bedtime theme selection is global in `SD:/config.json`; individual theme
+  metadata does not need a bedtime flag.
 
 ---
 
@@ -293,11 +350,15 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
   - Play song / Play animal / Stop buttons
   - Volume slider for SD/WAV playback
   - Song theme selector backed by the firmware `themes` JSON characteristic
+  - Bedtime/Daytime mode card for Bedtime mode runtime toggle and time-unknown state
   - Killswitch activate/restart and cancel controls
   - Device status indicator
   - Settings screen for device name, default volume, default theme, enabled themes, and enabled songs
+  - Bedtime mode settings for the master toggle, bedtime theme, start/end
+    times, and volume cap
   - Sleep settings for automatic sleep and idle timeouts
 - When A2DP is connected, the app shows `BT connected` and disables volume, theme, and killswitch controls.
+- During A2DP, Bedtime mode does not affect theme selection or volume.
 
 ---
 
@@ -308,6 +369,8 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 - Supported app flows:
   - **Device settings** — edit the NVS-backed device name.
   - **Toy defaults** — edit `SD:/config.json` values like default volume and default theme.
+  - **Bedtime mode** — edit the master toggle, bedtime theme, bedtime start/end
+    times, and volume cap; sync controller time on connection.
   - **Sleep** — edit automatic sleep, normal idle, vibration-wake idle, and BLE idle timeouts.
   - **Song themes** — scan themes, enable/disable theme folders, and choose default theme.
   - **Theme songs** — scan a selected theme and enable/disable individual WAV files.
@@ -355,6 +418,15 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 4. Scan themes/songs with paged responses
 5. Enable/disable themes and individual songs
 6. Test full parent setup flow through BLE
+
+### Phase 5b — Bedtime Mode
+1. Add BLE time-sync command and local clock reliability tracking
+2. Add `bedtime` config parsing/persistence in `SD:/config.json`
+3. Add effective theme resolution for local song playback
+4. Add Bedtime volume cap for local song and animal WAV playback
+5. Add parent app Bedtime/Daytime mode card on the Ready screen
+6. Add Settings controls for master toggle, bedtime theme, start/end times, and volume cap
+7. Test automatic bedtime entry/exit, parent overrides, deep-sleep reset, unreliable-time fallback, and BT streaming exclusion
 
 ### Phase 6 — 3D Enclosure
 1. Choose CAD tool (FreeCAD or Fusion 360 — TBD)
