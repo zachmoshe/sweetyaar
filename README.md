@@ -60,9 +60,32 @@ Useful commands:
 /Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e vibsleep
 ```
 
+## Regression Tests
+
+Install the test runner once:
+
+```bash
+/Users/zmoshe/proj/sweetyaar/.venv/bin/python -m pip install -r requirements-dev.txt
+```
+
+Run the standard regression suite:
+
+```bash
+/Users/zmoshe/proj/sweetyaar/.venv/bin/python -m pytest
+```
+
+If the venv is activated, plain `pytest` is equivalent. Real-device smoke tests
+are collected by pytest; if the ESP32 USB serial device is missing, those
+specific tests skip with a USB prerequisite message. If USB is present, pytest
+resets the ESP32 before BLE smoke checks so a sleeping toy can wake and
+advertise before the test decides whether to skip.
+
+See `docs/regression-tests.md` for coverage details and hardware options.
+
 ## Project Layout
 
 - `src/`: firmware source and diagnostic/test entry points.
+- `tests/`: pytest regression suite, including host tests and real-device smoke tests.
 - `docs/`: Web Bluetooth parent remote.
 - `sd_card_template/`: expected SD-card folder structure, metadata, and config.
 - `tools/`: local Bluetooth/BLE smoke and probe helpers.

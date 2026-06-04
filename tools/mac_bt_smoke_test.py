@@ -13,7 +13,6 @@ import time
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-PIO = ROOT / ".venv" / "bin" / "pio"
 LOG_DIR = ROOT / "tools" / "bt_smoke_logs"
 TOOL_DIRS = [
     pathlib.Path("/opt/homebrew/bin"),
@@ -21,6 +20,18 @@ TOOL_DIRS = [
     pathlib.Path("/usr/bin"),
     pathlib.Path("/bin"),
 ]
+
+
+def find_platformio():
+    for base in (ROOT, *ROOT.parents):
+        candidate = base / ".venv" / "bin" / "pio"
+        if candidate.exists():
+            return candidate
+    found = shutil.which("pio")
+    return pathlib.Path(found) if found else None
+
+
+PIO = find_platformio()
 
 
 def run(cmd, check=True):
@@ -236,8 +247,8 @@ def main():
     parser.add_argument("--no-audio", action="store_true")
     args = parser.parse_args()
 
-    if not PIO.exists():
-        raise SystemExit(f"PlatformIO not found at {PIO}")
+    if PIO is None:
+        raise SystemExit("PlatformIO not found. Expected .venv/bin/pio in this repo or a parent checkout.")
 
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     log_path = LOG_DIR / f"bt-smoke-{dt.datetime.now().strftime('%Y%m%d-%H%M%S')}.log"

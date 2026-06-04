@@ -6,6 +6,10 @@ from typing import Any
 
 from bleak import BleakClient, BleakScanner
 
+VOLUME_UUID = "a1b2c3d4-e5f6-7890-abcd-ef1234567891"
+KILLSWITCH_UUID = "a1b2c3d4-e5f6-7890-abcd-ef1234567892"
+THEME_UUID = "a1b2c3d4-e5f6-7890-abcd-ef1234567893"
+STATUS_UUID = "a1b2c3d4-e5f6-7890-abcd-ef1234567894"
 CONFIG_COMMAND_UUID = "a1b2c3d4-e5f6-7890-abcd-ef1234567897"
 CONFIG_RESPONSE_UUID = "a1b2c3d4-e5f6-7890-abcd-ef1234567898"
 COMMAND_UUID = "a1b2c3d4-e5f6-7890-abcd-ef1234567896"
@@ -29,6 +33,13 @@ def preview(text: str, limit: int = 220) -> str:
 
 async def write_json(client: BleakClient, char_uuid: str, payload: dict[str, Any]) -> None:
     data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    try:
+        await client.write_gatt_char(char_uuid, data, response=True)
+    except Exception:
+        await client.write_gatt_char(char_uuid, data, response=False)
+
+
+async def write_bytes(client: BleakClient, char_uuid: str, data: bytes) -> None:
     try:
         await client.write_gatt_char(char_uuid, data, response=True)
     except Exception:
@@ -85,8 +96,9 @@ async def run_config_api_suite(
     response_uuid: str,
     timeout: float,
     theme: str | None,
+    start_id: int = 1,
 ) -> int:
-    next_id = 1
+    next_id = start_id
 
     async def request(op: str, **extra: Any) -> dict[str, Any]:
         nonlocal next_id
@@ -151,6 +163,150 @@ async def run_config_api_suite(
     return 0
 
 
+async def run_ble_control_smoke(client: BleakClient) -> int:
+    print("\nBLE control smoke:")
+
+    raw_volume = await client.read_gatt_char(VOLUME_UUID)
+    volume = raw_volume[0] if raw_volume else 0
+    await write_bytes(client, VOLUME_UUID, bytes([volume]))
+    print(f"  volume read/write ok: {volume}")
+
+    raw_kill = await client.read_gatt_char(KILLSWITCH_UUID)
+    killswitch = raw_kill[0] if raw_kill else 0
+    await write_bytes(client, KILLSWITCH_UUID, bytes([killswitch]))
+    print(f"  killswitch read/write ok: {killswitch}")
+
+    raw_theme = await client.read_gatt_char(THEME_UUID)
+    theme = raw_theme.decode("utf-8", errors="replace")
+    if theme:
+        await write_bytes(client, THEME_UUID, theme.encode("utf-8"))
+        print(f"  theme read/write ok: {theme}")
+    else:
+        print("  theme is empty; skipped write")
+
+    raw_status = await client.read_gatt_char(STATUS_UUID)
+    status = raw_status.decode("utf-8", errors="replace")
+    print(f"  status read ok: {status or '<empty>'}")
+    return 0
+
+
+def sleep_from_config(config: dict[str, Any]) -> dict[str, Any]:
+    sleep = config.get("sleep") if isinstance(config.get("sleep"), dict) else {}
+    return {
+        "enabled": sleep.get("enabled") is not False,
+        "normalIdleSec": int(sleep.get("normalIdleSec") or 600),
+        "vibrationWakeIdleSec": int(sleep.get("vibrationWakeIdleSec") or 120),
+        "bleIdleSec": int(sleep.get("bleIdleSec") or 120),
+    }
+
+
+def writable_config_from_response(config: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "deviceName": str(config.get("deviceName") or "SweetYaar"),
+        "defaultVolumePct": int(config.get("defaultVolumePct") or 75),
+        "defaultTheme": str(config.get("defaultTheme") or "lullabies"),
+        "sleep": sleep_from_config(config),
+    }
+
+
+def probe_seconds(current: int, floor: int) -> int:
+    if current < 24 * 60 * 60:
+        return max(floor, current + 1)
+    return max(floor, current - 1)
+
+
+def assert_config_matches(label: str, response: dict[str, Any], expected: dict[str, Any]) -> None:
+    actual = writable_config_from_response(response)
+    if actual != expected:
+        raise RuntimeError(f"{label} config mismatch: expected {expected}, got {actual}")
+
+
+def choose_probe_device_name(original: str) -> str:
+    candidate = "SweetYaar Pytest"
+    if original != candidate:
+        return candidate
+    return "SweetYaar Pytest 2"
+
+
+def choose_probe_volume(original: int) -> int:
+    return 42 if original != 42 else 43
+
+
+def choose_probe_theme(original: str, themes: list[dict[str, Any]]) -> str:
+    candidates = [
+        str(theme.get("id") or "")
+        for theme in themes
+        if theme.get("canSetDefault", True) is not False
+        and theme.get("enabled", False)
+        and int(theme.get("activeValid") or 0) > 0
+        and theme.get("id")
+    ]
+    for candidate in candidates:
+        if candidate != original:
+            return candidate
+    return candidates[0] if candidates else original
+
+
+async def run_config_round_trip_suite(
+    client: BleakClient,
+    command_uuid: str,
+    response_uuid: str,
+    timeout: float,
+) -> int:
+    next_id = 1000
+
+    async def request(op: str, **extra: Any) -> dict[str, Any]:
+        nonlocal next_id
+        payload = {"id": next_id, "op": op, **extra}
+        next_id += 1
+        print(f"\n-> {op} {extra if extra else ''}")
+        response = await config_request(client, payload, command_uuid, response_uuid, timeout)
+        compact = json.dumps(response, separators=(",", ":"), sort_keys=True)
+        print(f"<- {op} ok, {len(compact)} bytes")
+        print(preview(compact, 500))
+        return response
+
+    original = await request("getConfig")
+    original_config = writable_config_from_response(original)
+
+    themes_response = await request("scanThemes", page=0)
+    themes = themes_response.get("themes", [])
+    if not isinstance(themes, list):
+        themes = []
+
+    original_sleep = original_config["sleep"]
+    probe_sleep = {
+        "enabled": not original_sleep["enabled"],
+        "normalIdleSec": probe_seconds(original_sleep["normalIdleSec"], 300),
+        "vibrationWakeIdleSec": probe_seconds(original_sleep["vibrationWakeIdleSec"], 120),
+        "bleIdleSec": probe_seconds(original_sleep["bleIdleSec"], 120),
+    }
+    probe_config = {
+        "deviceName": choose_probe_device_name(original_config["deviceName"]),
+        "defaultVolumePct": choose_probe_volume(original_config["defaultVolumePct"]),
+        "defaultTheme": choose_probe_theme(original_config["defaultTheme"], themes),
+        "sleep": probe_sleep,
+    }
+
+    print("\nConfig round-trip probe:")
+    print(f"  original: {original_config}")
+    print(f"  probe:    {probe_config}")
+
+    try:
+        updated = await request("setConfig", **probe_config)
+        assert_config_matches("setConfig response", updated, probe_config)
+        verified = await request("getConfig")
+        assert_config_matches("post-write getConfig", verified, probe_config)
+    finally:
+        restored = await request("setConfig", **original_config)
+        assert_config_matches("restore response", restored, original_config)
+        verified_restore = await request("getConfig")
+        assert_config_matches("post-restore getConfig", verified_restore, original_config)
+
+    print("Config round-trip persisted and restored all config fields.")
+    return 0
+
+
 async def main() -> int:
     parser = argparse.ArgumentParser(description="Probe SweetYaar BLE GATT services")
     parser.add_argument("--name", default="SweetYaar")
@@ -159,6 +315,10 @@ async def main() -> int:
     parser.add_argument("--list", action="store_true", help="List advertisements instead of connecting")
     parser.add_argument("--config-get", action="store_true", help="Probe legacy config transport")
     parser.add_argument("--config-api-test", action="store_true", help="Run app-style config API checks")
+    parser.add_argument("--config-round-trip-test", action="store_true",
+                        help="Write, verify, and restore all config fields through BLE")
+    parser.add_argument("--control-smoke-test", action="store_true",
+                        help="Read/write basic BLE control characteristics without starting playback")
     parser.add_argument("--theme", help="Theme id to use for scanSongs in --config-api-test")
     parser.add_argument("--legacy", action="store_true", help="Force legacy command/themes transport")
     args = parser.parse_args()
@@ -206,20 +366,21 @@ async def main() -> int:
         transport = "direct config characteristics" if use_direct else "legacy command/themes fallback"
         print(f"Config transport: {transport}")
 
-        if args.config_get or args.config_api_test:
+        if args.config_get or args.config_api_test or args.config_round_trip_test or args.control_smoke_test:
             try:
-                if args.config_api_test:
-                    return await run_config_api_suite(
-                        client, command_uuid, response_uuid, args.timeout, args.theme)
+                if args.control_smoke_test:
+                    await run_ble_control_smoke(client)
                 response = await config_request(
-                    client,
-                    {"id": 1, "op": "getConfig"},
-                    command_uuid,
-                    response_uuid,
-                    args.timeout,
-                )
-                print("Config response:")
-                print(json.dumps(response, indent=2, sort_keys=True))
+                    client, {"id": 1, "op": "getConfig"}, command_uuid, response_uuid, args.timeout)
+                if args.config_get:
+                    print("Config response:")
+                    print(json.dumps(response, indent=2, sort_keys=True))
+                if args.config_api_test:
+                    await run_config_api_suite(
+                        client, command_uuid, response_uuid, args.timeout, args.theme, start_id=10)
+                if args.config_round_trip_test:
+                    await run_config_round_trip_suite(
+                        client, command_uuid, response_uuid, args.timeout)
             except Exception as exc:
                 print(f"Config probe failed: {type(exc).__name__}: {exc}")
                 return 3
