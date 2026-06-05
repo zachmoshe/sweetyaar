@@ -85,7 +85,7 @@ def test_parent_app_service_worker_precache_contract(repo_root) -> None:
         assert asset_path.exists(), url
 
     assert 'const CACHE_PREFIX = "sweetyaar-parent";' in sw_source
-    assert 'const CACHE_VERSION = "sweetyaar-parent-v5";' in sw_source
+    assert 'const CACHE_VERSION = "sweetyaar-parent-v6";' in sw_source
     assert "cache.addAll(PRECACHE_URLS)" in sw_source
     assert "self.skipWaiting()" in sw_source
     assert "self.clients.claim()" in sw_source

@@ -1,7 +1,7 @@
 "use strict";
 
 const CACHE_PREFIX = "sweetyaar-parent";
-const CACHE_VERSION = "sweetyaar-parent-v5";
+const CACHE_VERSION = "sweetyaar-parent-v6";
 
 const PRECACHE_URLS = [
   "./",

@@ -417,8 +417,12 @@ function makeBleHarness(options = {}) {
     configResponse: new FakeCharacteristic("configResponse", JSON.stringify(response), readHooks)
   };
 
+  function isJsonConfigWrite(value) {
+    return textFromValue(value).trimStart().startsWith("{");
+  }
+
   chars.command.write = (value) => {
-    if (value.byteLength && value.getUint8?.(0) === 123) {
+    if (isJsonConfigWrite(value)) {
       const payload = JSON.parse(textFromValue(value));
       writes.config.push(payload);
       response = configResponse(payload);
@@ -563,6 +567,40 @@ const tests = [
     assert.strictEqual(els.readyStatusText.textContent, "Ready to play");
     assert.strictEqual(els.volumeValue.textContent, "42%");
     assert.strictEqual(els.themeCurrent.textContent, "Nature");
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config), [
+      { op: "getConfig" },
+      { op: "scanThemes", page: 0 }
+    ]);
+  `],
+  ["empty theme scan leaves remote picker empty", String.raw`
+    const ble = await connectWithFakeBle({
+      themes: [],
+      theme: "nature",
+      config: { activeTheme: "nature", defaultTheme: "nature" }
+    });
+    assert.strictEqual(state.connected, true);
+    assert.strictEqual(state.themes.length, 0);
+    assert.strictEqual(els.themeCurrent.textContent, "");
+    assert.strictEqual(els.themeTrigger.disabled, true);
+    assert.strictEqual(els.themeOptions.children.length, 0);
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config), [
+      { op: "getConfig" },
+      { op: "scanThemes", page: 0 }
+    ]);
+  `],
+  ["connect loads themes through legacy config transport", String.raw`
+    const ble = await connectWithFakeBle({
+      missingCharacteristics: ["configCommand", "configResponse"],
+      theme: "nature",
+      config: { activeTheme: "nature", defaultTheme: "nature" }
+    });
+    assert.strictEqual(state.connected, true);
+    assert.strictEqual(state.configAvailable, false);
+    assert.strictEqual(els.themeCurrent.textContent, "Nature");
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config), [
+      { op: "getConfig" },
+      { op: "scanThemes", page: 0 }
+    ]);
   `],
   ["initial BLE reads are serialized for Android Chrome", String.raw`
     const ble = await connectWithFakeBle({ trackConcurrentReads: true });

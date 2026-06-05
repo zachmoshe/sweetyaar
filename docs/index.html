@@ -1530,7 +1530,7 @@
             <button class="theme-trigger" id="themeTrigger" type="button" aria-expanded="false" aria-controls="themeOptions">
               <span class="theme-trigger-copy">
                 <span class="label">Theme</span>
-                <span class="theme-current" id="themeCurrent">Lullabies</span>
+                <span class="theme-current" id="themeCurrent"></span>
               </span>
               <span class="chevron" aria-hidden="true">⌄</span>
             </button>
@@ -1600,7 +1600,7 @@
                   <button class="theme-trigger" id="settingsDefaultThemeTrigger" type="button" aria-expanded="false" aria-controls="settingsDefaultThemeOptions">
                     <span class="theme-trigger-copy">
                       <span class="label">Theme</span>
-                      <span class="theme-current" id="settingsDefaultThemeCurrent">Lullabies</span>
+                      <span class="theme-current" id="settingsDefaultThemeCurrent"></span>
                     </span>
                     <span class="chevron" aria-hidden="true">⌄</span>
                   </button>
@@ -2024,14 +2024,12 @@
     }
 
     function themeOptions() {
-      return state.themes.length
-        ? state.themes
-        : (state.theme ? [{ id: state.theme, name: state.theme }] : [{ id: "lullabies", name: "Lullabies" }]);
+      return state.themes;
     }
 
     function selectedThemeName() {
-      const selected = themeOptions().find((theme) => theme.id === (state.theme || "lullabies"));
-      return selected ? selected.name : (state.theme || "Lullabies");
+      const selected = themeOptions().find((theme) => theme.id === state.theme);
+      return selected ? selected.name : "";
     }
 
     function settingsSelectedTheme() {
@@ -2058,7 +2056,7 @@
       const options = settingsDefaultThemeOptions();
       const current = selectedSettingsDefaultThemeId();
       const selected = options.find((theme) => theme.id === current);
-      return selected ? (selected.name || selected.id) : (current || "Lullabies");
+      return selected ? (selected.name || selected.id) : "";
     }
 
     function sortSettingsThemes(themes) {
@@ -2339,6 +2337,20 @@
       return sortSettingsThemes(applyPendingThemeChanges(themes));
     }
 
+    function applyScannedThemeList(themes) {
+      state.settings.themes = themes;
+      state.themes = themes
+        .filter((theme) => theme.enabled && theme.canSetDefault !== false)
+        .map((theme) => ({ id: theme.id, name: theme.name || theme.id }));
+      if (state.themes.length > 0 && !state.themes.some((theme) => theme.id === state.theme)) {
+        state.theme = state.themes[0].id;
+      }
+    }
+
+    async function refreshRemoteThemes() {
+      applyScannedThemeList(await fetchThemeScan());
+    }
+
     async function fetchSongScan(themeId) {
       const songs = [];
       if (!themeId) return songs;
@@ -2352,13 +2364,7 @@
 
     async function reloadSettingsTables() {
       const previousSelection = state.settings.selectedThemeId;
-      state.settings.themes = await fetchThemeScan();
-      state.themes = state.settings.themes
-        .filter((theme) => theme.enabled && theme.canSetDefault !== false)
-        .map((theme) => ({ id: theme.id, name: theme.name || theme.id }));
-      if (state.themes.length > 0 && !state.themes.some((theme) => theme.id === state.theme)) {
-        state.theme = state.themes[0].id;
-      }
+      await refreshRemoteThemes();
       if (!state.settings.themes.some((theme) => theme.id === previousSelection)) {
         state.settings.selectedThemeId = state.settings.defaultTheme ||
           state.settings.themes[0]?.id ||
@@ -2593,10 +2599,11 @@
         button.type = "button";
         button.dataset.themeId = theme.id;
         button.textContent = theme.name;
-        button.setAttribute("aria-selected", theme.id === (state.theme || options[0].id) ? "true" : "false");
+        button.setAttribute("aria-selected", theme.id === state.theme ? "true" : "false");
         button.disabled = controlsDisabled();
         els.themeOptions.append(button);
       }
+      return options;
     }
 
     function renderSettingsDefaultThemeOptions() {
@@ -2862,14 +2869,15 @@
       els.volumeValue.value = `${state.volume}%`;
       els.volumeValue.textContent = `${state.volume}%`;
 
-      renderThemeOptions();
+      const remoteThemeOptions = renderThemeOptions();
+      const themePickerDisabled = disabled || remoteThemeOptions.length === 0;
       els.themeCurrent.textContent = selectedThemeName();
-      els.themeCard.classList.toggle("expanded", state.themeOpen);
-      els.themeTrigger.setAttribute("aria-expanded", state.themeOpen ? "true" : "false");
-      els.themeOptions.hidden = !state.themeOpen;
+      els.themeCard.classList.toggle("expanded", state.themeOpen && remoteThemeOptions.length > 0);
+      els.themeTrigger.setAttribute("aria-expanded", state.themeOpen && remoteThemeOptions.length > 0 ? "true" : "false");
+      els.themeOptions.hidden = !state.themeOpen || remoteThemeOptions.length === 0;
 
       els.volumeRange.disabled = disabled;
-      els.themeTrigger.disabled = disabled;
+      els.themeTrigger.disabled = themePickerDisabled;
       els.playSongButton.disabled = playbackDisabled();
       els.playAnimalButton.disabled = playbackDisabled();
       els.stopButton.disabled = playbackDisabled();
@@ -3076,13 +3084,17 @@
         }
 
         await readInitialValues();
-        if (state.configAvailable) {
-          try {
-            applyConfigResponse(await configRequest({ op: "getConfig" }));
-          } catch (error) {
-            state.configError = error;
-            console.error("[SweetYaar technical error]", error.technicalMessage || error);
-          }
+        try {
+          applyConfigResponse(await configRequest({ op: "getConfig" }));
+        } catch (error) {
+          state.configError = error;
+          console.error("[SweetYaar technical error]", error.technicalMessage || error);
+        }
+        try {
+          await refreshRemoteThemes();
+        } catch (error) {
+          state.configError = error;
+          console.error("[SweetYaar technical error]", error.technicalMessage || error);
         }
         await subscribeToNotifications();
 
@@ -3227,7 +3239,7 @@
     });
 
     function chooseTheme(nextTheme) {
-      if (controlsDisabled()) return;
+      if (controlsDisabled() || !themeOptions().some((theme) => theme.id === nextTheme)) return;
       const previousTheme = state.theme;
       state.theme = nextTheme;
       state.themeOpen = false;
@@ -3241,7 +3253,7 @@
     }
 
     els.themeTrigger.addEventListener("click", () => {
-      if (controlsDisabled()) return;
+      if (controlsDisabled() || themeOptions().length === 0) return;
       state.themeOpen = !state.themeOpen;
       render();
     });
