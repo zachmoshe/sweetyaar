@@ -955,35 +955,38 @@
 
     .settings-back,
     .settings-save {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       min-height: 42px;
       border: 0;
       border-radius: 12px;
       cursor: pointer;
       font-size: clamp(14px, 3.7vw, 16px);
       font-weight: 800;
+      line-height: 1;
     }
 
     .settings-back {
-      display: grid;
-      grid-template-columns: auto auto;
-      gap: 3px;
-      align-items: center;
+      gap: 4px;
+      justify-self: start;
       background: transparent;
       color: var(--muted);
       padding: 0 6px 0 0;
     }
 
     .settings-back .button-glyph {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
       font-size: 20px;
       font-weight: 900;
       line-height: 1;
     }
 
     .settings-save {
-      display: grid;
-      grid-template-columns: auto auto;
-      align-items: center;
-      justify-content: center;
       gap: 7px;
       justify-self: end;
       padding: 0 11px;
@@ -993,8 +996,14 @@
     }
 
     .settings-save .button-glyph {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 17px;
+      height: 17px;
       font-size: 17px;
       font-weight: 900;
+      line-height: 1;
     }
 
     .settings-theme-picker {
