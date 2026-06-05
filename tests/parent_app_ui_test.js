@@ -261,9 +261,10 @@ function textFromValue(value) {
 }
 
 class FakeCharacteristic {
-  constructor(name, initialValue) {
+  constructor(name, initialValue, hooks = {}) {
     this.name = name;
     this.value = initialValue;
+    this.hooks = hooks;
     this.writes = [];
     this.listeners = {};
     this.properties = {
@@ -276,9 +277,18 @@ class FakeCharacteristic {
   }
 
   async readValue() {
-    if (typeof this.value === "number") return uint8View(this.value);
-    if (this.value instanceof DataView) return this.value;
-    return textView(String(this.value ?? ""));
+    if (this.hooks.beforeRead) {
+      await this.hooks.beforeRead(this.name);
+    }
+    try {
+      if (typeof this.value === "number") return uint8View(this.value);
+      if (this.value instanceof DataView) return this.value;
+      return textView(String(this.value ?? ""));
+    } finally {
+      if (this.hooks.afterRead) {
+        this.hooks.afterRead(this.name);
+      }
+    }
   }
 
   async writeValueWithResponse(value) {
@@ -384,15 +394,27 @@ function makeBleHarness(options = {}) {
   }
 
   let response = { id: 0, ok: true };
+  let activeReads = 0;
+  let maxConcurrentReads = 0;
+  const readHooks = options.trackConcurrentReads ? {
+    async beforeRead() {
+      activeReads += 1;
+      maxConcurrentReads = Math.max(maxConcurrentReads, activeReads);
+      await delay(5);
+    },
+    afterRead() {
+      activeReads -= 1;
+    }
+  } : {};
   const chars = {
-    volume: new FakeCharacteristic("volume", options.volume ?? 75),
-    killswitch: new FakeCharacteristic("killswitch", options.killswitch ? 1 : 0),
-    theme: new FakeCharacteristic("theme", options.theme || "lullabies"),
-    status: new FakeCharacteristic("status", options.status || "Idle"),
-    themes: new FakeCharacteristic("themes", JSON.stringify(themes.filter((theme) => theme.enabled).map((theme) => ({ id: theme.id, name: theme.name })))),
-    command: new FakeCharacteristic("command", ""),
-    configCommand: new FakeCharacteristic("configCommand", "{}"),
-    configResponse: new FakeCharacteristic("configResponse", JSON.stringify(response))
+    volume: new FakeCharacteristic("volume", options.volume ?? 75, readHooks),
+    killswitch: new FakeCharacteristic("killswitch", options.killswitch ? 1 : 0, readHooks),
+    theme: new FakeCharacteristic("theme", options.theme || "lullabies", readHooks),
+    status: new FakeCharacteristic("status", options.status || "Idle", readHooks),
+    themes: new FakeCharacteristic("themes", JSON.stringify(themes.filter((theme) => theme.enabled).map((theme) => ({ id: theme.id, name: theme.name }))), readHooks),
+    command: new FakeCharacteristic("command", "", readHooks),
+    configCommand: new FakeCharacteristic("configCommand", "{}", readHooks),
+    configResponse: new FakeCharacteristic("configResponse", JSON.stringify(response), readHooks)
   };
 
   chars.command.write = (value) => {
@@ -481,7 +503,14 @@ function makeBleHarness(options = {}) {
     return device;
   };
 
-  return { chars, writes, config, device, get requestCount() { return requestCount; } };
+  return {
+    chars,
+    writes,
+    config,
+    device,
+    get maxConcurrentReads() { return maxConcurrentReads; },
+    get requestCount() { return requestCount; }
+  };
 }
 
 async function connectWithFakeBle(options = {}) {
@@ -534,6 +563,11 @@ const tests = [
     assert.strictEqual(els.readyStatusText.textContent, "Ready to play");
     assert.strictEqual(els.volumeValue.textContent, "42%");
     assert.strictEqual(els.themeCurrent.textContent, "Nature");
+  `],
+  ["initial BLE reads are serialized for Android Chrome", String.raw`
+    const ble = await connectWithFakeBle({ trackConcurrentReads: true });
+    assert.strictEqual(state.connected, true);
+    assert.strictEqual(ble.maxConcurrentReads, 1);
   `],
   ["connect cancel stays on opening screen", String.raw`
     const error = new Error("User cancelled");

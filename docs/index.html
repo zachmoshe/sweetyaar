@@ -2,9 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#08736c">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="SweetYaar">
   <title>SweetYaar Parent Remote</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/pwa-icon-192.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <style>
     :root {
       --page: #f8f4ef;
@@ -473,6 +479,83 @@
     .info-card p {
       min-width: 0;
       overflow-wrap: anywhere;
+    }
+
+    .install-banner {
+      position: sticky;
+      z-index: 5;
+      bottom: max(12px, env(safe-area-inset-bottom));
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      margin: 0 var(--side-pad) 16px;
+      padding: 13px 12px 13px 15px;
+      border-color: rgba(52, 184, 169, 0.24);
+      background: rgba(255, 253, 249, 0.98);
+    }
+
+    .install-copy {
+      min-width: 0;
+    }
+
+    .install-title {
+      margin: 0 0 3px;
+      color: var(--teal-dark);
+      font-size: clamp(15px, 4vw, 17px);
+      font-weight: 840;
+      line-height: 1.15;
+    }
+
+    .install-copy p {
+      margin: 0;
+      color: var(--ink);
+      font-size: clamp(13px, 3.5vw, 15px);
+      line-height: 1.25;
+    }
+
+    .install-actions {
+      display: grid;
+      grid-template-columns: auto 40px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .install-button {
+      min-height: 40px;
+      border: 0;
+      border-radius: 12px;
+      padding: 0 15px;
+      background: linear-gradient(180deg, #34b8a9, #08736c);
+      color: #ffffff;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 850;
+      box-shadow: 0 7px 14px rgba(8, 115, 108, 0.24);
+    }
+
+    .install-button:hover:not(:disabled) {
+      background: linear-gradient(180deg, #2da99b, #06635d);
+    }
+
+    .install-dismiss {
+      display: grid;
+      width: 40px;
+      height: 40px;
+      place-items: center;
+      border: 1px solid rgba(72, 96, 99, 0.18);
+      border-radius: 50%;
+      background: rgba(255, 250, 242, 0.82);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .install-dismiss:hover:not(:disabled) {
+      background: #ffffff;
+      color: var(--ink);
     }
 
     .info-icon {
@@ -1330,6 +1413,14 @@
         grid-template-columns: 1fr;
       }
 
+      .install-banner {
+        grid-template-columns: 1fr;
+      }
+
+      .install-actions {
+        grid-template-columns: minmax(0, 1fr) 40px;
+      }
+
     }
   </style>
 </head>
@@ -1576,6 +1667,17 @@
         </section>
       </div>
     </section>
+
+    <aside class="card install-banner" id="installBanner" aria-label="Install SweetYaar" hidden>
+      <div class="install-copy">
+        <p class="install-title">Install SweetYaar</p>
+        <p>Add the parent remote to this device.</p>
+      </div>
+      <div class="install-actions">
+        <button class="install-button" id="installButton" type="button">Install</button>
+        <button class="install-dismiss" id="installDismissButton" type="button" aria-label="Dismiss install prompt">&times;</button>
+      </div>
+    </aside>
   </main>
 
   <script>
@@ -1778,6 +1880,9 @@
       openingMessage: document.querySelector("#openingMessage"),
       connectButton: document.querySelector("#connectButton"),
       connectButtonLabel: document.querySelector("#connectButtonLabel"),
+      installBanner: document.querySelector("#installBanner"),
+      installButton: document.querySelector("#installButton"),
+      installDismissButton: document.querySelector("#installDismissButton"),
       readyStatusCard: document.querySelector("#readyView .status-card"),
       readyStatusText: document.querySelector("#readyStatusText"),
       readyMessage: document.querySelector("#readyMessage"),
@@ -1838,6 +1943,9 @@
       suppressNextDisconnectMessage: false,
       configAvailable: false,
       configError: null,
+      installPromptEvent: null,
+      installDismissed: false,
+      appInstalled: false,
       settings: {
         loading: false,
         dirty: false,
@@ -2048,6 +2156,46 @@
     function setMessage(message) {
       state.message = message || "";
       render();
+    }
+
+    function isStandaloneDisplay() {
+      return navigator.standalone === true ||
+        window.matchMedia?.("(display-mode: standalone)")?.matches === true;
+    }
+
+    function installPromptVisible() {
+      return !!state.installPromptEvent &&
+        !state.installDismissed &&
+        !state.appInstalled &&
+        !isStandaloneDisplay();
+    }
+
+    function renderInstallBanner() {
+      const visible = installPromptVisible();
+      els.installBanner.hidden = !visible;
+      els.installButton.disabled = !visible;
+      els.installDismissButton.disabled = !visible;
+    }
+
+    async function promptInstall() {
+      const promptEvent = state.installPromptEvent;
+      if (!promptEvent || typeof promptEvent.prompt !== "function") {
+        return;
+      }
+
+      state.installPromptEvent = null;
+      render();
+      try {
+        await promptEvent.prompt();
+        const choice = await promptEvent.userChoice;
+        if (choice?.outcome === "accepted") {
+          state.appInstalled = true;
+        }
+      } catch (error) {
+        console.warn("[SweetYaar PWA] Install prompt failed", error);
+      } finally {
+        render();
+      }
     }
 
     async function writeCharacteristic(characteristic, value) {
@@ -2728,6 +2876,7 @@
       els.killswitchOnButton.disabled = disabled;
       els.killswitchOffButton.disabled = disabled || !state.killswitch;
       els.openSettingsButton.disabled = state.busy || !state.connected;
+      renderInstallBanner();
 
       if (settings) {
         renderSettings();
@@ -2768,14 +2917,16 @@
       }
     }
 
+    async function readInitialCharacteristic(name) {
+      return state.chars[name].readValue();
+    }
+
     async function readInitialValues() {
-      const [themesValue, volumeValue, killswitchValue, themeValue, statusValue] = await Promise.all([
-        state.chars.themes.readValue(),
-        state.chars.volume.readValue(),
-        state.chars.killswitch.readValue(),
-        state.chars.theme.readValue(),
-        state.chars.status.readValue()
-      ]);
+      const volumeValue = await readInitialCharacteristic("volume");
+      const killswitchValue = await readInitialCharacteristic("killswitch");
+      const themeValue = await readInitialCharacteristic("theme");
+      const statusValue = await readInitialCharacteristic("status");
+      const themesValue = await readInitialCharacteristic("themes");
 
       state.themes = parseThemes(readText(themesValue));
       state.volume = readUint8(volumeValue);
@@ -2811,6 +2962,20 @@
         }
         render();
       });
+    }
+
+    async function registerServiceWorker() {
+      if (!("serviceWorker" in navigator) || !window.isSecureContext) {
+        return;
+      }
+      try {
+        const registration = await navigator.serviceWorker.register("sw.js", { scope: "./" });
+        if (typeof registration.update === "function") {
+          await registration.update();
+        }
+      } catch (error) {
+        console.warn("[SweetYaar PWA] Service worker registration failed", error);
+      }
     }
 
     function describeError(error) {
@@ -2979,6 +3144,12 @@
     }
 
     els.connectButton.addEventListener("click", connect);
+    els.installButton.addEventListener("click", promptInstall);
+    els.installDismissButton.addEventListener("click", () => {
+      state.installDismissed = true;
+      state.installPromptEvent = null;
+      render();
+    });
     els.openSettingsButton.addEventListener("click", openSettings);
     els.settingsBackButton.addEventListener("click", () => {
       state.view = "remote";
@@ -3129,6 +3300,20 @@
       );
     });
 
+    window.addEventListener("beforeinstallprompt", (event) => {
+      event.preventDefault();
+      state.installPromptEvent = event;
+      state.installDismissed = false;
+      render();
+    });
+
+    window.addEventListener("appinstalled", () => {
+      state.installPromptEvent = null;
+      state.installDismissed = true;
+      state.appInstalled = true;
+      render();
+    });
+
     if (!("bluetooth" in navigator)) {
       state.message = "This browser does not support Web Bluetooth. Use Chrome or Edge on desktop or Android.";
     } else if (!window.isSecureContext) {
@@ -3136,6 +3321,7 @@
     }
 
     render();
+    registerServiceWorker();
   </script>
 </body>
 </html>
