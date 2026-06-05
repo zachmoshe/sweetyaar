@@ -92,6 +92,7 @@ See `docs/regression-tests.md` for coverage details and hardware options.
 - `esp32_prototype_board/`: PCB design files, manufacturing outputs, and notes.
 - `project-plan.md`: detailed architecture and hardware planning notes.
 - `docs/bedtime-mode.md`: product and UX spec for Bedtime mode.
+- `docs/pwa.md`: parent remote PWA, offline, and deployment notes.
 - `breadboard-wiring.md`: breadboard wiring reference.
 
 ## Hardware Target

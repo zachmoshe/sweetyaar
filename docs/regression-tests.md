@@ -23,6 +23,7 @@ If the venv is active, plain `pytest` is equivalent. The command runs:
 
 - Python config-contract tests for the checked-in `SD:/config.json` template.
 - A pytest-backed mocked Web Bluetooth parent-app UI test against `docs/index.html`.
+- PWA manifest, icon, service-worker, and offline shell contract checks.
 - A pytest-backed native C++ unit test that compiles the real `src/StateMachine.cpp` with Arduino/FreeRTOS stubs.
 - A pytest firmware-build test that runs `pio run -e esp32dev`.
 - Real-device smoke tests that are collected and reported as skipped when their hardware prerequisites are missing.

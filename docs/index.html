@@ -2,9 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#08736c">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="SweetYaar">
   <title>SweetYaar Parent Remote</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/pwa-icon-192.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <style>
     :root {
       --page: #f8f4ef;
@@ -475,6 +481,83 @@
       overflow-wrap: anywhere;
     }
 
+    .install-banner {
+      position: sticky;
+      z-index: 5;
+      bottom: max(12px, env(safe-area-inset-bottom));
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      margin: 0 var(--side-pad) 16px;
+      padding: 13px 12px 13px 15px;
+      border-color: rgba(52, 184, 169, 0.24);
+      background: rgba(255, 253, 249, 0.98);
+    }
+
+    .install-copy {
+      min-width: 0;
+    }
+
+    .install-title {
+      margin: 0 0 3px;
+      color: var(--teal-dark);
+      font-size: clamp(15px, 4vw, 17px);
+      font-weight: 840;
+      line-height: 1.15;
+    }
+
+    .install-copy p {
+      margin: 0;
+      color: var(--ink);
+      font-size: clamp(13px, 3.5vw, 15px);
+      line-height: 1.25;
+    }
+
+    .install-actions {
+      display: grid;
+      grid-template-columns: auto 40px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .install-button {
+      min-height: 40px;
+      border: 0;
+      border-radius: 12px;
+      padding: 0 15px;
+      background: linear-gradient(180deg, #34b8a9, #08736c);
+      color: #ffffff;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 850;
+      box-shadow: 0 7px 14px rgba(8, 115, 108, 0.24);
+    }
+
+    .install-button:hover:not(:disabled) {
+      background: linear-gradient(180deg, #2da99b, #06635d);
+    }
+
+    .install-dismiss {
+      display: grid;
+      width: 40px;
+      height: 40px;
+      place-items: center;
+      border: 1px solid rgba(72, 96, 99, 0.18);
+      border-radius: 50%;
+      background: rgba(255, 250, 242, 0.82);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .install-dismiss:hover:not(:disabled) {
+      background: #ffffff;
+      color: var(--ink);
+    }
+
     .info-icon {
       display: grid;
       width: 34px;
@@ -568,10 +651,21 @@
 
     .volume-card {
       display: grid;
-      grid-template-columns: 46px 1fr auto;
+      grid-template-columns: 46px minmax(0, 1fr) auto;
+      grid-template-rows: auto auto;
       align-items: center;
-      gap: 12px;
+      column-gap: 12px;
+      row-gap: 2px;
       min-height: 64px;
+    }
+
+    .volume-card .control-icon {
+      grid-row: 1 / 3;
+      align-self: center;
+    }
+
+    .volume-card .control-title {
+      margin: 0;
     }
 
     .control-icon {
@@ -590,9 +684,10 @@
 
     .volume-range {
       grid-column: 2 / 4;
+      grid-row: 2;
       width: 100%;
       height: 24px;
-      margin: -8px 0 0;
+      margin: 0;
       appearance: none;
       -webkit-appearance: none;
       background: transparent;
@@ -927,6 +1022,8 @@
       z-index: 3;
       display: flex;
       justify-content: flex-end;
+      justify-self: stretch;
+      width: min(100%, calc(100vw - (2 * var(--side-pad))));
       margin: -8px 2px 0;
     }
 
@@ -940,13 +1037,13 @@
       background: transparent;
       color: var(--teal-dark);
       cursor: pointer;
-      text-shadow: 0 2px 4px rgba(73, 55, 34, 0.16);
     }
 
-    .settings-button .button-glyph {
-      font-size: 48px;
-      font-weight: 900;
-      line-height: 1;
+    .settings-button .settings-icon {
+      display: block;
+      width: 52px;
+      height: 52px;
+      filter: drop-shadow(0 2px 4px rgba(73, 55, 34, 0.16));
     }
 
     .screen.settings {
@@ -974,35 +1071,52 @@
 
     .settings-back,
     .settings-save {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       min-height: 42px;
       border: 0;
       border-radius: 12px;
       cursor: pointer;
       font-size: clamp(14px, 3.7vw, 16px);
       font-weight: 800;
+      line-height: 1;
     }
 
     .settings-back {
-      display: grid;
-      grid-template-columns: auto auto;
-      gap: 3px;
-      align-items: center;
+      gap: 4px;
+      justify-self: start;
       background: transparent;
       color: var(--muted);
       padding: 0 6px 0 0;
     }
 
     .settings-back .button-glyph {
-      font-size: 20px;
-      font-weight: 900;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      flex: 0 0 18px;
+      width: 18px;
+      height: 18px;
+      font-size: 0;
       line-height: 1;
     }
 
+    .settings-back .button-glyph::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 9px;
+      height: 9px;
+      border-left: 3px solid currentColor;
+      border-bottom: 3px solid currentColor;
+      border-radius: 1px;
+      transform: translate(-35%, -50%) rotate(45deg);
+    }
+
     .settings-save {
-      display: grid;
-      grid-template-columns: auto auto;
-      align-items: center;
-      justify-content: center;
       gap: 7px;
       justify-self: end;
       padding: 0 11px;
@@ -1012,8 +1126,14 @@
     }
 
     .settings-save .button-glyph {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 17px;
+      height: 17px;
       font-size: 17px;
       font-weight: 900;
+      line-height: 1;
     }
 
     .settings-theme-picker {
@@ -1457,6 +1577,14 @@
         grid-template-columns: 1fr;
       }
 
+      .install-banner {
+        grid-template-columns: 1fr;
+      }
+
+      .install-actions {
+        grid-template-columns: minmax(0, 1fr) 40px;
+      }
+
     }
   </style>
 </head>
@@ -1577,7 +1705,7 @@
             <button class="theme-trigger" id="themeTrigger" type="button" aria-expanded="false" aria-controls="themeOptions">
               <span class="theme-trigger-copy">
                 <span class="label">Theme</span>
-                <span class="theme-current" id="themeCurrent">Lullabies</span>
+                <span class="theme-current" id="themeCurrent"></span>
               </span>
               <span class="chevron" aria-hidden="true">⌄</span>
             </button>
@@ -1601,7 +1729,7 @@
 
         <div class="ready-settings-row">
           <button class="settings-button" id="openSettingsButton" type="button" aria-label="Settings">
-            <span class="button-glyph" aria-hidden="true">⚙</span>
+            <img class="settings-icon" src="assets/icon-settings-sliders.svg" alt="">
           </button>
         </div>
       </div>
@@ -1613,7 +1741,7 @@
       <div class="stack">
         <div class="settings-toolbar">
           <button class="settings-back" id="settingsBackButton" type="button">
-            <span class="button-glyph" aria-hidden="true">←</span>
+            <span class="button-glyph" aria-hidden="true"></span>
             <span>Back</span>
           </button>
           <h1 class="settings-title">Settings</h1>
@@ -1647,7 +1775,7 @@
                   <button class="theme-trigger" id="settingsDefaultThemeTrigger" type="button" aria-expanded="false" aria-controls="settingsDefaultThemeOptions">
                     <span class="theme-trigger-copy">
                       <span class="label">Theme</span>
-                      <span class="theme-current" id="settingsDefaultThemeCurrent">Lullabies</span>
+                      <span class="theme-current" id="settingsDefaultThemeCurrent"></span>
                     </span>
                     <span class="chevron" aria-hidden="true">⌄</span>
                   </button>
@@ -1762,6 +1890,17 @@
         </section>
       </div>
     </section>
+
+    <aside class="card install-banner" id="installBanner" aria-label="Install SweetYaar" hidden>
+      <div class="install-copy">
+        <p class="install-title">Install SweetYaar</p>
+        <p>Add the parent remote to this device.</p>
+      </div>
+      <div class="install-actions">
+        <button class="install-button" id="installButton" type="button">Install</button>
+        <button class="install-dismiss" id="installDismissButton" type="button" aria-label="Dismiss install prompt">&times;</button>
+      </div>
+    </aside>
   </main>
 
   <script>
@@ -1964,6 +2103,9 @@
       openingMessage: document.querySelector("#openingMessage"),
       connectButton: document.querySelector("#connectButton"),
       connectButtonLabel: document.querySelector("#connectButtonLabel"),
+      installBanner: document.querySelector("#installBanner"),
+      installButton: document.querySelector("#installButton"),
+      installDismissButton: document.querySelector("#installDismissButton"),
       readyStatusCard: document.querySelector("#readyView .status-card"),
       readyStatusText: document.querySelector("#readyStatusText"),
       readyMessage: document.querySelector("#readyMessage"),
@@ -2056,6 +2198,9 @@
       suppressNextDisconnectMessage: false,
       configAvailable: false,
       configError: null,
+      installPromptEvent: null,
+      installDismissed: false,
+      appInstalled: false,
       settings: {
         loading: false,
         dirty: false,
@@ -2145,14 +2290,12 @@
     }
 
     function themeOptions() {
-      return state.themes.length
-        ? state.themes
-        : (state.theme ? [{ id: state.theme, name: state.theme }] : [{ id: "lullabies", name: "Lullabies" }]);
+      return state.themes;
     }
 
     function selectedThemeName() {
-      const selected = themeOptions().find((theme) => theme.id === (state.theme || "lullabies"));
-      return selected ? selected.name : (state.theme || "Lullabies");
+      const selected = themeOptions().find((theme) => theme.id === state.theme);
+      return selected ? selected.name : "";
     }
 
     function settingsSelectedTheme() {
@@ -2179,7 +2322,7 @@
       const options = settingsDefaultThemeOptions();
       const current = selectedSettingsDefaultThemeId();
       const selected = options.find((theme) => theme.id === current);
-      return selected ? (selected.name || selected.id) : (current || "Lullabies");
+      return selected ? (selected.name || selected.id) : "";
     }
 
     function settingsBedtimeThemeOptions() {
@@ -2325,6 +2468,46 @@
     function setMessage(message) {
       state.message = message || "";
       render();
+    }
+
+    function isStandaloneDisplay() {
+      return navigator.standalone === true ||
+        window.matchMedia?.("(display-mode: standalone)")?.matches === true;
+    }
+
+    function installPromptVisible() {
+      return !!state.installPromptEvent &&
+        !state.installDismissed &&
+        !state.appInstalled &&
+        !isStandaloneDisplay();
+    }
+
+    function renderInstallBanner() {
+      const visible = installPromptVisible();
+      els.installBanner.hidden = !visible;
+      els.installButton.disabled = !visible;
+      els.installDismissButton.disabled = !visible;
+    }
+
+    async function promptInstall() {
+      const promptEvent = state.installPromptEvent;
+      if (!promptEvent || typeof promptEvent.prompt !== "function") {
+        return;
+      }
+
+      state.installPromptEvent = null;
+      render();
+      try {
+        await promptEvent.prompt();
+        const choice = await promptEvent.userChoice;
+        if (choice?.outcome === "accepted") {
+          state.appInstalled = true;
+        }
+      } catch (error) {
+        console.warn("[SweetYaar PWA] Install prompt failed", error);
+      } finally {
+        render();
+      }
     }
 
     async function writeCharacteristic(characteristic, value) {
@@ -2502,6 +2685,20 @@
       return sortSettingsThemes(applyPendingThemeChanges(themes));
     }
 
+    function applyScannedThemeList(themes) {
+      state.settings.themes = themes;
+      state.themes = themes
+        .filter((theme) => theme.enabled && theme.canSetDefault !== false)
+        .map((theme) => ({ id: theme.id, name: theme.name || theme.id }));
+      if (state.themes.length > 0 && !state.themes.some((theme) => theme.id === state.theme)) {
+        state.theme = state.themes[0].id;
+      }
+    }
+
+    async function refreshRemoteThemes() {
+      applyScannedThemeList(await fetchThemeScan());
+    }
+
     async function fetchSongScan(themeId) {
       const songs = [];
       if (!themeId) return songs;
@@ -2515,13 +2712,7 @@
 
     async function reloadSettingsTables() {
       const previousSelection = state.settings.selectedThemeId;
-      state.settings.themes = await fetchThemeScan();
-      state.themes = state.settings.themes
-        .filter((theme) => theme.enabled && theme.canSetDefault !== false)
-        .map((theme) => ({ id: theme.id, name: theme.name || theme.id }));
-      if (state.themes.length > 0 && !state.themes.some((theme) => theme.id === state.theme)) {
-        state.theme = state.themes[0].id;
-      }
+      await refreshRemoteThemes();
       if (!state.settings.themes.some((theme) => theme.id === previousSelection)) {
         state.settings.selectedThemeId = state.settings.defaultTheme ||
           state.settings.themes[0]?.id ||
@@ -2808,10 +2999,11 @@
         button.type = "button";
         button.dataset.themeId = theme.id;
         button.textContent = theme.name;
-        button.setAttribute("aria-selected", theme.id === (state.theme || options[0].id) ? "true" : "false");
+        button.setAttribute("aria-selected", theme.id === state.theme ? "true" : "false");
         button.disabled = controlsDisabled();
         els.themeOptions.append(button);
       }
+      return options;
     }
 
     function renderSettingsDefaultThemeOptions() {
@@ -3157,20 +3349,22 @@
       els.volumeValue.value = `${state.volume}%`;
       els.volumeValue.textContent = `${state.volume}%`;
 
-      renderThemeOptions();
+      const remoteThemeOptions = renderThemeOptions();
+      const themePickerDisabled = disabled || remoteThemeOptions.length === 0;
       els.themeCurrent.textContent = selectedThemeName();
-      els.themeCard.classList.toggle("expanded", state.themeOpen);
-      els.themeTrigger.setAttribute("aria-expanded", state.themeOpen ? "true" : "false");
-      els.themeOptions.hidden = !state.themeOpen;
+      els.themeCard.classList.toggle("expanded", state.themeOpen && remoteThemeOptions.length > 0);
+      els.themeTrigger.setAttribute("aria-expanded", state.themeOpen && remoteThemeOptions.length > 0 ? "true" : "false");
+      els.themeOptions.hidden = !state.themeOpen || remoteThemeOptions.length === 0;
 
       els.volumeRange.disabled = disabled;
-      els.themeTrigger.disabled = disabled;
+      els.themeTrigger.disabled = themePickerDisabled;
       els.playSongButton.disabled = playbackDisabled();
       els.playAnimalButton.disabled = playbackDisabled();
       els.stopButton.disabled = playbackDisabled();
       els.killswitchOnButton.disabled = disabled;
       els.killswitchOffButton.disabled = disabled || !state.killswitch;
       els.openSettingsButton.disabled = state.busy || !state.connected;
+      renderInstallBanner();
 
       if (settings) {
         renderSettings();
@@ -3211,14 +3405,16 @@
       }
     }
 
+    async function readInitialCharacteristic(name) {
+      return state.chars[name].readValue();
+    }
+
     async function readInitialValues() {
-      const [themesValue, volumeValue, killswitchValue, themeValue, statusValue] = await Promise.all([
-        state.chars.themes.readValue(),
-        state.chars.volume.readValue(),
-        state.chars.killswitch.readValue(),
-        state.chars.theme.readValue(),
-        state.chars.status.readValue()
-      ]);
+      const volumeValue = await readInitialCharacteristic("volume");
+      const killswitchValue = await readInitialCharacteristic("killswitch");
+      const themeValue = await readInitialCharacteristic("theme");
+      const statusValue = await readInitialCharacteristic("status");
+      const themesValue = await readInitialCharacteristic("themes");
 
       state.themes = parseThemes(readText(themesValue));
       state.volume = readUint8(volumeValue);
@@ -3254,6 +3450,20 @@
         }
         render();
       });
+    }
+
+    async function registerServiceWorker() {
+      if (!("serviceWorker" in navigator) || !window.isSecureContext) {
+        return;
+      }
+      try {
+        const registration = await navigator.serviceWorker.register("sw.js", { scope: "./" });
+        if (typeof registration.update === "function") {
+          await registration.update();
+        }
+      } catch (error) {
+        console.warn("[SweetYaar PWA] Service worker registration failed", error);
+      }
     }
 
     function describeError(error) {
@@ -3366,6 +3576,12 @@
             console.error("[SweetYaar technical error]", error.technicalMessage || error);
           }
         }
+        try {
+          await refreshRemoteThemes();
+        } catch (error) {
+          state.configError = error;
+          console.error("[SweetYaar technical error]", error.technicalMessage || error);
+        }
         await subscribeToNotifications();
 
         state.connected = true;
@@ -3426,6 +3642,12 @@
     }
 
     els.connectButton.addEventListener("click", connect);
+    els.installButton.addEventListener("click", promptInstall);
+    els.installDismissButton.addEventListener("click", () => {
+      state.installDismissed = true;
+      state.installPromptEvent = null;
+      render();
+    });
     els.openSettingsButton.addEventListener("click", openSettings);
     els.bedtimeToggleButton.addEventListener("click", toggleBedtimeMode);
     els.settingsBackButton.addEventListener("click", () => {
@@ -3541,7 +3763,7 @@
     });
 
     function chooseTheme(nextTheme) {
-      if (controlsDisabled()) return;
+      if (controlsDisabled() || !themeOptions().some((theme) => theme.id === nextTheme)) return;
       const previousTheme = state.theme;
       state.theme = nextTheme;
       if (state.bedtime.active) {
@@ -3560,7 +3782,7 @@
     }
 
     els.themeTrigger.addEventListener("click", () => {
-      if (controlsDisabled()) return;
+      if (controlsDisabled() || themeOptions().length === 0) return;
       state.themeOpen = !state.themeOpen;
       render();
     });
@@ -3619,6 +3841,20 @@
       );
     });
 
+    window.addEventListener("beforeinstallprompt", (event) => {
+      event.preventDefault();
+      state.installPromptEvent = event;
+      state.installDismissed = false;
+      render();
+    });
+
+    window.addEventListener("appinstalled", () => {
+      state.installPromptEvent = null;
+      state.installDismissed = true;
+      state.appInstalled = true;
+      render();
+    });
+
     if (!("bluetooth" in navigator)) {
       state.message = "This browser does not support Web Bluetooth. Use Chrome or Edge on desktop or Android.";
     } else if (!window.isSecureContext) {
@@ -3626,6 +3862,7 @@
     }
 
     render();
+    registerServiceWorker();
   </script>
 </body>
 </html>
