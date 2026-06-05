@@ -21,3 +21,10 @@ def test_sd_template_has_versioned_sleep_config() -> None:
         "vibrationWakeIdleSec",
         "bleIdleSec",
     }
+    assert config["bedtime"] == {
+        "enabled": True,
+        "startTime": "18:30",
+        "endTime": "06:30",
+        "theme": "lullabies",
+        "volumeCapPct": 45,
+    }

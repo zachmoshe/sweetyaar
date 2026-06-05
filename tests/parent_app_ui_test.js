@@ -329,6 +329,19 @@ function makeBleHarness(options = {}) {
       vibrationWakeIdleSec: 120,
       bleIdleSec: 120
     },
+    bedtime: {
+      enabled: true,
+      startTime: "18:30",
+      endTime: "06:30",
+      theme: "lullabies",
+      volumeCapPct: 45,
+      timeKnown: false,
+      active: false,
+      autoActive: false,
+      override: "none",
+      effectiveVolumePct: 75,
+      effectiveTheme: "lullabies"
+    },
     ...(options.config || {})
   };
   config.sleep = {
@@ -337,6 +350,20 @@ function makeBleHarness(options = {}) {
     vibrationWakeIdleSec: 120,
     bleIdleSec: 120,
     ...(options.config?.sleep || {})
+  };
+  config.bedtime = {
+    enabled: true,
+    startTime: "18:30",
+    endTime: "06:30",
+    theme: "lullabies",
+    volumeCapPct: 45,
+    timeKnown: false,
+    active: false,
+    autoActive: false,
+    override: "none",
+    effectiveVolumePct: 75,
+    effectiveTheme: "lullabies",
+    ...(options.config?.bedtime || {})
   };
 
   const themes = options.themes || [
@@ -349,6 +376,13 @@ function makeBleHarness(options = {}) {
   };
 
   function configResponse(payload) {
+    if (payload.op === "syncTime") {
+      if (options.rejectSyncTime) {
+        return { id: payload.id, ok: false, error: "Unknown config command" };
+      }
+      config.bedtime.timeKnown = true;
+      return { id: payload.id, ok: true, op: "getConfig", sdReady: true, ...config };
+    }
     if (payload.op === "getConfig") {
       return { id: payload.id, ok: true, op: "getConfig", sdReady: true, ...config };
     }
@@ -360,6 +394,16 @@ function makeBleHarness(options = {}) {
         config.activeTheme = payload.defaultTheme;
       }
       if (payload.sleep) config.sleep = { ...config.sleep, ...payload.sleep };
+      if (payload.bedtime) config.bedtime = { ...config.bedtime, ...payload.bedtime };
+      return { id: payload.id, ok: true, op: "getConfig", sdReady: true, ...config };
+    }
+    if (payload.op === "setBedtimeMode") {
+      config.bedtime.active = !!payload.active && config.bedtime.enabled && config.bedtime.timeKnown;
+      config.bedtime.override = payload.active ? "on" : "off";
+      config.bedtime.effectiveVolumePct = config.bedtime.active
+        ? Math.min(config.defaultVolumePct, config.bedtime.volumeCapPct)
+        : config.defaultVolumePct;
+      config.bedtime.effectiveTheme = config.bedtime.active ? config.bedtime.theme : config.activeTheme;
       return { id: payload.id, ok: true, op: "getConfig", sdReady: true, ...config };
     }
     if (payload.op === "scanThemes") {
@@ -534,6 +578,27 @@ const tests = [
     assert.strictEqual(els.readyStatusText.textContent, "Ready to play");
     assert.strictEqual(els.volumeValue.textContent, "42%");
     assert.strictEqual(els.themeCurrent.textContent, "Nature");
+    assert.strictEqual(payloadsWithoutIds(ble.writes.config)[0].op, "syncTime");
+    assert.strictEqual(els.bedtimeTitle.textContent, "Daytime mode");
+    assert.strictEqual(els.bedtimeMessage.textContent, "Starts at 18:30");
+  `],
+  ["bedtime card shows time unknown when sync is unavailable", String.raw`
+    await connectWithFakeBle({ rejectSyncTime: true });
+    assert.strictEqual(state.connected, true);
+    assert.strictEqual(state.bedtime.timeKnown, false);
+    assert.strictEqual(els.bedtimeTitle.textContent, "Daytime mode");
+    assert.strictEqual(els.bedtimeMessage.textContent, "Time unknown");
+    assert.strictEqual(els.bedtimeBadge.textContent, "?");
+    assert.strictEqual(els.bedtimeToggleButton.disabled, true);
+  `],
+  ["bedtime card toggles runtime mode", String.raw`
+    const ble = await connectWithFakeBle();
+    await els.bedtimeToggleButton.click();
+    const payloads = payloadsWithoutIds(ble.writes.config);
+    assert(payloads.some((payload) => payload.op === "setBedtimeMode" && payload.active === true));
+    assert.strictEqual(state.bedtime.active, true);
+    assert.strictEqual(els.bedtimeTitle.textContent, "Bedtime mode");
+    assert.strictEqual(els.bedtimeBadge.textContent, "On");
   `],
   ["connect cancel stays on opening screen", String.raw`
     const error = new Error("User cancelled");
@@ -593,6 +658,9 @@ const tests = [
     assert.strictEqual(state.settings.loading, false);
     assert.strictEqual(els.settingsDeviceName.value, "SweetYaar");
     assert.strictEqual(els.settingsVolumeValue.textContent, "75%");
+    assert.strictEqual(els.settingsBedtimeStartTime.value, "18:30");
+    assert.strictEqual(els.settingsBedtimeEndTime.value, "06:30");
+    assert.strictEqual(els.settingsBedtimeVolumeValue.textContent, "45%");
     assert.strictEqual(els.settingsNormalIdleSec.value, "600");
     assert(els.settingsThemeList.children.length >= 2, "settings themes should render");
     assert(els.settingsSongList.children.length >= 1, "settings songs should render");
@@ -610,6 +678,10 @@ const tests = [
     await els.settingsDeviceName.input("SweetYaar Night");
     await els.settingsVolumeRange.input("42");
     state.settings.defaultTheme = "nature";
+    state.settings.bedtimeTheme = "nature";
+    await els.settingsBedtimeStartTime.input("15:00");
+    await els.settingsBedtimeEndTime.input("13:00");
+    await els.settingsBedtimeVolumeRange.input("33");
     await els.settingsSleepEnabled.change(false);
     await els.settingsNormalIdleSec.input("901");
     await els.settingsWakeIdleSec.input("181");
@@ -626,6 +698,11 @@ const tests = [
       payload.sleep.normalIdleSec === 901 &&
       payload.sleep.vibrationWakeIdleSec === 181 &&
       payload.sleep.bleIdleSec === 301));
+    assert(payloads.some((payload) => payload.op === "setConfig" && payload.bedtime &&
+      payload.bedtime.startTime === "15:00" &&
+      payload.bedtime.endTime === "13:00" &&
+      payload.bedtime.theme === "nature" &&
+      payload.bedtime.volumeCapPct === 33));
     assert(payloads.some((payload) => payload.op === "setTheme" && payload.theme === "nature" && payload.enabled === false && payload.shuffle === true));
     assert(payloads.some((payload) => payload.op === "setSong" && payload.theme === "nature" && payload.file === "rain.wav" && payload.enabled === false));
     assert.strictEqual(state.settings.dirty, false);

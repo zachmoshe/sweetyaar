@@ -42,6 +42,11 @@ def test_real_device_ble_config_round_trip(pytestconfig: pytest.Config, repo_roo
     ], check=False)
     if result.returncode == 2 and "No matching BLE advertisement found." in result.stdout:
         pytest.skip(f"No BLE advertisement found for {device_name}.")
+    if result.returncode != 0 and (
+        "BleakBluetoothNotAvailableError" in result.stdout or
+        "Bluetooth is unsupported" in result.stdout
+    ):
+        pytest.skip("Backend process cannot access macOS Bluetooth; run the BLE probe through Terminal.app.")
     if result.returncode != 0:
         pytest.fail(result.stdout)
     assert "Config round-trip persisted and restored all config fields." in result.stdout

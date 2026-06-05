@@ -2,6 +2,7 @@
 import argparse
 import asyncio
 import json
+from datetime import datetime
 from typing import Any
 
 from bleak import BleakClient, BleakScanner
@@ -29,6 +30,15 @@ def preview(text: str, limit: int = 220) -> str:
     if len(text) <= limit:
         return text
     return text[:limit] + "..."
+
+
+def local_time_payload() -> dict[str, int]:
+    now = datetime.now().astimezone()
+    offset = now.utcoffset()
+    return {
+        "epochSec": int(now.timestamp()),
+        "tzOffsetMin": int(offset.total_seconds() // 60) if offset else 0,
+    }
 
 
 async def write_json(client: BleakClient, char_uuid: str, payload: dict[str, Any]) -> None:
@@ -113,6 +123,16 @@ async def run_config_api_suite(
 
     config = await request("getConfig")
     print(f"Device: {config.get('deviceName')} defaultTheme={config.get('defaultTheme')}")
+    synced = await request("syncTime", **local_time_payload())
+    bedtime = synced.get("bedtime") if isinstance(synced.get("bedtime"), dict) else {}
+    if bedtime.get("timeKnown") is not True:
+        raise RuntimeError("syncTime did not mark bedtime timeKnown=true")
+    if bedtime.get("enabled") is not False:
+        runtime_on = await request("setBedtimeMode", active=True)
+        bedtime_on = runtime_on.get("bedtime") if isinstance(runtime_on.get("bedtime"), dict) else {}
+        if bedtime_on.get("active") is not True:
+            raise RuntimeError("setBedtimeMode active=true did not enable runtime bedtime mode")
+        await request("setBedtimeMode", active=False)
 
     themes: list[dict[str, Any]] = []
     for page in range(40):
@@ -200,12 +220,24 @@ def sleep_from_config(config: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def bedtime_from_config(config: dict[str, Any]) -> dict[str, Any]:
+    bedtime = config.get("bedtime") if isinstance(config.get("bedtime"), dict) else {}
+    return {
+        "enabled": bedtime.get("enabled") is not False,
+        "startTime": str(bedtime.get("startTime") or "18:30"),
+        "endTime": str(bedtime.get("endTime") or "06:30"),
+        "theme": str(bedtime.get("theme") or "lullabies"),
+        "volumeCapPct": int(bedtime.get("volumeCapPct") if bedtime.get("volumeCapPct") is not None else 45),
+    }
+
+
 def writable_config_from_response(config: dict[str, Any]) -> dict[str, Any]:
     return {
         "deviceName": str(config.get("deviceName") or "SweetYaar"),
         "defaultVolumePct": int(config.get("defaultVolumePct") or 75),
         "defaultTheme": str(config.get("defaultTheme") or "lullabies"),
         "sleep": sleep_from_config(config),
+        "bedtime": bedtime_from_config(config),
     }
 
 
@@ -247,6 +279,10 @@ def choose_probe_theme(original: str, themes: list[dict[str, Any]]) -> str:
     return candidates[0] if candidates else original
 
 
+def choose_probe_time(original: str, preferred: str, alternate: str) -> str:
+    return preferred if original != preferred else alternate
+
+
 async def run_config_round_trip_suite(
     client: BleakClient,
     command_uuid: str,
@@ -275,17 +311,26 @@ async def run_config_round_trip_suite(
         themes = []
 
     original_sleep = original_config["sleep"]
+    original_bedtime = original_config["bedtime"]
     probe_sleep = {
         "enabled": not original_sleep["enabled"],
         "normalIdleSec": probe_seconds(original_sleep["normalIdleSec"], 300),
         "vibrationWakeIdleSec": probe_seconds(original_sleep["vibrationWakeIdleSec"], 120),
         "bleIdleSec": probe_seconds(original_sleep["bleIdleSec"], 120),
     }
+    probe_bedtime = {
+        "enabled": not original_bedtime["enabled"],
+        "startTime": choose_probe_time(original_bedtime["startTime"], "19:15", "18:45"),
+        "endTime": choose_probe_time(original_bedtime["endTime"], "07:15", "06:45"),
+        "theme": choose_probe_theme(original_bedtime["theme"], themes),
+        "volumeCapPct": choose_probe_volume(original_bedtime["volumeCapPct"]),
+    }
     probe_config = {
         "deviceName": choose_probe_device_name(original_config["deviceName"]),
         "defaultVolumePct": choose_probe_volume(original_config["defaultVolumePct"]),
         "defaultTheme": choose_probe_theme(original_config["defaultTheme"], themes),
         "sleep": probe_sleep,
+        "bedtime": probe_bedtime,
     }
 
     print("\nConfig round-trip probe:")

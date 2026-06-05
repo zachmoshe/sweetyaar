@@ -29,9 +29,13 @@ def serial_ports() -> list[str]:
         "/dev/cu.usbmodem*",
     ]
     ports: list[str] = []
+    seen: set[str] = set()
     for pattern in patterns:
-        ports.extend(glob.glob(pattern))
-    return sorted(set(ports))
+        for port in sorted(glob.glob(pattern)):
+            if port not in seen:
+                seen.add(port)
+                ports.append(port)
+    return ports
 
 
 def require_usb_serial() -> str:

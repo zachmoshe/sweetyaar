@@ -30,3 +30,25 @@ def test_state_machine_native_transitions(repo_root: pathlib.Path, tmp_path: pat
     ])
     result = run_checked([exe])
     assert "state-machine native test passed" in result.stdout
+
+
+def test_bedtime_mode_native_rules(repo_root: pathlib.Path, tmp_path: pathlib.Path) -> None:
+    compiler = shutil.which("c++") or shutil.which("g++") or shutil.which("clang++")
+    if not compiler:
+        pytest.skip("No C++ compiler found for native bedtime-mode regression test.")
+
+    exe = tmp_path / "bedtime_mode_native_test"
+    run_checked([
+        compiler,
+        "-std=c++17",
+        "-Wall",
+        "-Wextra",
+        "-I",
+        repo_root / "src",
+        repo_root / "src" / "BedtimeMode.cpp",
+        repo_root / "tests" / "bedtime_mode_native_test.cpp",
+        "-o",
+        exe,
+    ])
+    result = run_checked([exe])
+    assert "bedtime-mode native test passed" in result.stdout
