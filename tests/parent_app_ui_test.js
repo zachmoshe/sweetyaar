@@ -491,6 +491,10 @@ function makeBleHarness(options = {}) {
     const text = textFromValue(value);
     writes.theme.push(text);
     chars.theme.value = text;
+    config.activeTheme = text;
+    if (config.bedtime.active) {
+      config.bedtime.effectiveTheme = text;
+    }
   };
   chars.killswitch.write = (value) => {
     writes.killswitch.push(value[0]);
@@ -612,26 +616,51 @@ const tests = [
     assert.strictEqual(els.volumeValue.textContent, "42%");
     assert.strictEqual(els.themeCurrent.textContent, "Nature");
     assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime", "scanThemes"]);
-    assert.strictEqual(els.bedtimeTitle.textContent, "Daytime mode");
-    assert.strictEqual(els.bedtimeMessage.textContent, "Starts at 18:30");
+    assert.strictEqual(els.bedtimeTitle.textContent, "Daytime");
+    assert.strictEqual(els.bedtimeMessage.textContent, "(ends at 18:30)");
   `],
   ["bedtime card shows time unknown when sync is unavailable", String.raw`
     await connectWithFakeBle({ rejectSyncTime: true });
     assert.strictEqual(state.connected, true);
     assert.strictEqual(state.bedtime.timeKnown, false);
-    assert.strictEqual(els.bedtimeTitle.textContent, "Daytime mode");
-    assert.strictEqual(els.bedtimeMessage.textContent, "Time unknown");
-    assert.strictEqual(els.bedtimeBadge.textContent, "?");
+    assert.strictEqual(els.bedtimeTitle.textContent, "Daytime");
+    assert.strictEqual(els.bedtimeMessage.textContent, "time unknown");
     assert.strictEqual(els.bedtimeToggleButton.disabled, true);
   `],
   ["bedtime card toggles runtime mode", String.raw`
-    const ble = await connectWithFakeBle();
+    const ble = await connectWithFakeBle({
+      theme: "nature",
+      config: { activeTheme: "nature", defaultTheme: "nature" }
+    });
+    assert.strictEqual(state.theme, "nature");
+    assert.strictEqual(els.themeCurrent.textContent, "Nature");
     await els.bedtimeToggleButton.click();
     const payloads = payloadsWithoutIds(ble.writes.config);
     assert(payloads.some((payload) => payload.op === "setBedtimeMode" && payload.active === true));
     assert.strictEqual(state.bedtime.active, true);
-    assert.strictEqual(els.bedtimeTitle.textContent, "Bedtime mode");
-    assert.strictEqual(els.bedtimeBadge.textContent, "On");
+    assert.strictEqual(state.theme, "nature");
+    assert.strictEqual(els.themeCurrent.textContent, "Lullabies");
+    assert.strictEqual(els.themeHelper.hidden, false);
+    assert.strictEqual(els.themeHelper.textContent.trim(), "☾ bedtime mode");
+    assert.strictEqual(state.volume, 75);
+    assert.strictEqual(els.volumeRange.value, "45");
+    assert.strictEqual(els.volumeValue.textContent, "45%");
+    assert.strictEqual(els.volumeCapMarker.hidden, false);
+    assert.strictEqual(els.volumeRange.style.values["--volume-cap"], "45%");
+    assert.strictEqual(els.bedtimeTitle.textContent, "Bedtime");
+    assert.strictEqual(els.bedtimeMessage.textContent, "(ends at 06:30)");
+  `],
+  ["bedtime volume slider clamps writes to the volume cap", String.raw`
+    const ble = await connectWithFakeBle();
+    await els.bedtimeToggleButton.click();
+    assert.strictEqual(state.bedtime.active, true);
+    await els.volumeRange.input(90);
+    assert.strictEqual(state.volume, 45);
+    assert.strictEqual(els.volumeRange.value, "45");
+    await els.volumeRange.change(90);
+    assertJsonEqual(ble.writes.volume, [45]);
+    assert.strictEqual(state.volume, 45);
+    assert.strictEqual(els.volumeValue.textContent, "45%");
   `],
   ["empty theme scan leaves remote picker empty", String.raw`
     const ble = await connectWithFakeBle({
@@ -701,6 +730,27 @@ const tests = [
     assertJsonEqual(ble.writes.theme, ["nature"]);
     assert.strictEqual(state.theme, "nature");
     assert.strictEqual(els.themeOptions.hidden, true);
+  `],
+  ["remote theme picker overrides theme without leaving bedtime", String.raw`
+    const ble = await connectWithFakeBle({
+      theme: "nature",
+      config: { activeTheme: "nature", defaultTheme: "nature" }
+    });
+    await els.bedtimeToggleButton.click();
+    assert.strictEqual(state.bedtime.active, true);
+    assert.strictEqual(els.bedtimeTitle.textContent, "Bedtime");
+    assert.strictEqual(els.themeCurrent.textContent, "Lullabies");
+    await els.themeTrigger.click();
+    const nature = els.themeOptions.children.find((child) => child.dataset.themeId === "nature");
+    assert(nature, "nature theme option should render");
+    await nature.click();
+    assertJsonEqual(ble.writes.theme, ["nature"]);
+    assert.strictEqual(state.theme, "nature");
+    assert.strictEqual(state.bedtime.active, true);
+    assert.strictEqual(state.bedtime.effectiveTheme, "nature");
+    assert.strictEqual(els.bedtimeTitle.textContent, "Bedtime");
+    assert.strictEqual(els.themeCurrent.textContent, "Nature");
+    assert.strictEqual(els.themeHelper.hidden, false);
   `],
   ["killswitch buttons write optimistic values", String.raw`
     const ble = await connectWithFakeBle();

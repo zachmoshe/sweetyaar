@@ -291,6 +291,24 @@
       padding: 16px 18px;
     }
 
+    .ready-top-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 62px;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .screen.ready .status-card {
+      gap: 12px;
+      min-height: 76px;
+      padding: 12px 14px;
+    }
+
+    .screen.ready .status-icon {
+      width: 48px;
+      height: 48px;
+    }
+
     .status-icon {
       position: relative;
       display: grid;
@@ -352,6 +370,11 @@
       margin-bottom: 5px;
       font-size: clamp(19px, 5vw, 22px);
       font-weight: 800;
+    }
+
+    .screen.ready .status-copy h1 {
+      font-size: clamp(17px, 4.4vw, 20px);
+      font-weight: 780;
     }
 
     .status-card.ready-compact .status-copy h1 {
@@ -620,8 +643,9 @@
       box-shadow: var(--soft-shadow);
       color: var(--ink);
       cursor: pointer;
-      font-size: clamp(14px, 3.8vw, 17px);
+      font-size: clamp(13px, 3.4vw, 15px);
       font-weight: 760;
+      line-height: 1.12;
       letter-spacing: 0;
     }
 
@@ -650,6 +674,7 @@
     }
 
     .volume-card {
+      position: relative;
       display: grid;
       grid-template-columns: 46px minmax(0, 1fr) auto;
       grid-template-rows: auto auto;
@@ -682,9 +707,18 @@
       line-height: 1;
     }
 
-    .volume-range {
+    .volume-slider-wrap {
       grid-column: 2 / 4;
       grid-row: 2;
+      position: relative;
+      display: grid;
+      align-items: center;
+      min-width: 0;
+      height: 28px;
+      --volume-cap: 100%;
+    }
+
+    .volume-range {
       width: 100%;
       height: 24px;
       margin: 0;
@@ -695,12 +729,16 @@
       touch-action: none;
       user-select: none;
       --volume-fill: 75%;
+      --volume-cap: 100%;
     }
 
     .volume-range::-webkit-slider-runnable-track {
       height: 8px;
       border-radius: 99px;
-      background: linear-gradient(90deg, var(--teal) 0 var(--volume-fill), #d9d9d9 var(--volume-fill) 100%);
+      background: linear-gradient(90deg,
+        var(--teal) 0 var(--volume-fill),
+        #d9d9d9 var(--volume-fill) var(--volume-cap),
+        #f3d367 var(--volume-cap) 100%);
     }
 
     .volume-range::-webkit-slider-thumb {
@@ -718,7 +756,9 @@
     .volume-range::-moz-range-track {
       height: 8px;
       border-radius: 99px;
-      background: #d9d9d9;
+      background: linear-gradient(90deg,
+        #d9d9d9 0 var(--volume-cap),
+        #f3d367 var(--volume-cap) 100%);
     }
 
     .volume-range::-moz-range-progress {
@@ -734,6 +774,28 @@
       border-radius: 50%;
       background: #ffffff;
       box-shadow: 0 2px 8px rgba(59, 50, 39, 0.18);
+    }
+
+    .volume-cap-marker {
+      position: absolute;
+      left: var(--volume-cap);
+      top: -9px;
+      z-index: 1;
+      width: 18px;
+      height: 18px;
+      display: grid;
+      place-items: center;
+      transform: translateX(-50%);
+      color: var(--purple);
+      font-size: 16px;
+      font-weight: 900;
+      line-height: 1;
+      pointer-events: none;
+      text-shadow: 0 0 8px rgba(255, 223, 108, 0.95), 0 0 14px rgba(255, 223, 108, 0.56);
+    }
+
+    .volume-cap-marker[hidden] {
+      display: none;
     }
 
     .volume-value {
@@ -801,6 +863,17 @@
       white-space: nowrap;
     }
 
+    .theme-helper {
+      min-width: 0;
+      color: var(--muted);
+      font-size: clamp(11px, 3vw, 13px);
+      font-weight: 720;
+      line-height: 1.08;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .chevron {
       display: grid;
       width: 22px;
@@ -853,105 +926,104 @@
     }
 
     .bedtime-card {
+      position: relative;
+      min-height: 116px;
       padding: 0;
       overflow: hidden;
-      border-color: rgba(210, 198, 248, 0.9);
-      background: linear-gradient(180deg, #fbf9ff, #f2efff);
+      border-color: rgba(174, 151, 226, 0.58);
+      background: linear-gradient(180deg, rgba(190, 171, 235, 0.36) 0%, rgba(169, 145, 226, 0.34) 62%, rgba(150, 125, 215, 0.32) 100%);
+      box-shadow: 0 12px 26px rgba(73, 55, 34, 0.13);
     }
 
     .bedtime-card.active {
-      border-color: rgba(112, 85, 190, 0.44);
-      box-shadow: 0 12px 28px rgba(70, 51, 126, 0.18);
+      border-color: rgba(142, 128, 202, 0.62);
+      background: linear-gradient(180deg, rgba(130, 119, 198, 0.58) 0%, rgba(96, 88, 164, 0.55) 60%, rgba(76, 71, 139, 0.52) 100%);
+      box-shadow: 0 14px 30px rgba(70, 51, 126, 0.22);
     }
 
     .bedtime-card.time-unknown {
-      border-color: rgba(239, 145, 45, 0.56);
-      background: linear-gradient(180deg, #fffaf1, #fff1d9);
+      border-color: rgba(239, 145, 45, 0.74);
+      background: linear-gradient(180deg, rgba(190, 171, 235, 0.34) 0%, rgba(169, 145, 226, 0.32) 62%, rgba(150, 125, 215, 0.3) 100%);
+    }
+
+    .bedtime-card::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 50px;
+      background: linear-gradient(180deg, rgba(88, 68, 159, 0), rgba(54, 39, 110, 0.12));
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .bedtime-art {
+      position: absolute;
+      top: 2px;
+      left: 50%;
+      z-index: 0;
+      width: auto;
+      max-width: 82%;
+      height: 85%;
+      object-fit: contain;
+      transform: translateX(-50%);
+      pointer-events: none;
+      user-select: none;
+      filter: drop-shadow(0 8px 10px rgba(51, 32, 112, 0.18));
+    }
+
+    .bedtime-card.time-unknown .bedtime-art {
+      opacity: 0.72;
+      filter: saturate(0.82) drop-shadow(0 8px 10px rgba(51, 32, 112, 0.16));
     }
 
     .bedtime-toggle {
+      position: relative;
+      z-index: 1;
       width: 100%;
-      min-height: 72px;
+      min-height: 116px;
       display: grid;
-      grid-template-columns: 48px minmax(0, 1fr) auto;
-      gap: 12px;
-      align-items: center;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0;
+      align-items: end;
       border: 0;
       background: transparent;
-      color: var(--ink);
+      color: #ffffff;
       cursor: pointer;
-      padding: 12px 14px 12px 16px;
+      padding: 77px 18px 10px;
       text-align: left;
     }
 
-    .bedtime-icon {
-      display: grid;
-      width: 48px;
-      height: 48px;
-      place-items: center;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.82);
-      color: var(--purple);
-      font-size: 30px;
-      font-weight: 900;
-      line-height: 1;
-      box-shadow: var(--soft-shadow);
-    }
-
-    .bedtime-card.active .bedtime-icon {
-      color: #ffffff;
-      background: linear-gradient(180deg, #9182dc, #654db7);
-      text-shadow: 0 0 10px rgba(255, 244, 184, 0.94), 0 0 18px rgba(255, 216, 96, 0.62);
-    }
-
-    .bedtime-card.time-unknown .bedtime-icon {
-      color: #b76712;
-      background: rgba(255, 255, 255, 0.88);
+    .bedtime-toggle:disabled {
+      cursor: default;
     }
 
     .bedtime-copy {
       min-width: 0;
-      display: grid;
-      gap: 3px;
+      display: flex;
+      align-items: baseline;
+      justify-content: flex-start;
+      gap: 8px;
+      white-space: nowrap;
     }
 
     .bedtime-title {
       color: var(--ink);
-      font-size: clamp(16px, 4.2vw, 18px);
-      font-weight: 830;
-      line-height: 1.05;
+      font-size: clamp(14px, 3.8vw, 17px);
+      font-weight: 760;
+      line-height: 1.1;
     }
 
     .bedtime-message {
       min-width: 0;
-      color: var(--muted);
-      font-size: clamp(12px, 3.3vw, 14px);
+      color: var(--ink);
+      font-size: clamp(12px, 3.2vw, 14px);
       font-weight: 650;
       line-height: 1.24;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-    }
-
-    .bedtime-badge {
-      min-width: 42px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.86);
-      color: var(--purple);
-      padding: 7px 10px;
-      text-align: center;
-      font-size: 13px;
-      font-weight: 850;
-      box-shadow: var(--soft-shadow);
-    }
-
-    .bedtime-card.active .bedtime-badge {
-      background: #ffffff;
-      color: var(--purple);
-    }
-
-    .bedtime-card.time-unknown .bedtime-badge {
-      color: #b76712;
     }
 
     .pause-card {
@@ -1018,20 +1090,16 @@
     }
 
     .ready-settings-row {
-      position: relative;
-      z-index: 3;
-      display: flex;
-      justify-content: flex-end;
-      justify-self: stretch;
-      width: min(100%, calc(100vw - (2 * var(--side-pad))));
-      margin: -8px 2px 0;
+      display: grid;
+      place-items: center;
     }
 
     .settings-button {
       flex: 0 0 auto;
       display: grid;
-      width: 69px;
-      height: 69px;
+      width: 62px;
+      height: 100%;
+      min-height: 76px;
       place-items: center;
       border: 0;
       background: transparent;
@@ -1041,8 +1109,8 @@
 
     .settings-button .settings-icon {
       display: block;
-      width: 52px;
-      height: 52px;
+      width: 48px;
+      height: 48px;
       filter: drop-shadow(0 2px 4px rgba(73, 55, 34, 0.16));
     }
 
@@ -1653,25 +1721,31 @@
 
     <section class="screen ready" id="readyView" aria-label="SweetYaar controls" hidden>
       <div class="stack">
-        <article class="card status-card">
-          <div class="status-icon green" aria-hidden="true">
-            <span class="status-glyph">✓</span>
+        <div class="ready-top-row">
+          <article class="card status-card">
+            <div class="status-icon green" aria-hidden="true">
+              <span class="status-glyph">✓</span>
+            </div>
+            <div class="status-copy">
+              <h1 id="readyStatusText">Ready to play</h1>
+              <p id="readyMessage"></p>
+            </div>
+            <span class="status-dot" aria-hidden="true"></span>
+          </article>
+          <div class="ready-settings-row">
+            <button class="settings-button" id="openSettingsButton" type="button" aria-label="Settings">
+              <img class="settings-icon" src="assets/icon-settings-sliders.svg" alt="">
+            </button>
           </div>
-          <div class="status-copy">
-            <h1 id="readyStatusText">Ready to play</h1>
-            <p id="readyMessage">You can control SweetYaar.</p>
-          </div>
-          <span class="status-dot" aria-hidden="true"></span>
-        </article>
+        </div>
 
         <section class="card bedtime-card" id="bedtimeCard" aria-label="Bedtime mode">
+          <img class="bedtime-art" id="bedtimeArt" src="assets/bedtime-day-art.png" alt="">
           <button class="bedtime-toggle" id="bedtimeToggleButton" type="button">
-            <span class="bedtime-icon" id="bedtimeIcon" aria-hidden="true">☾</span>
             <span class="bedtime-copy">
-              <span class="bedtime-title" id="bedtimeTitle">Daytime mode</span>
-              <span class="bedtime-message" id="bedtimeMessage">Starts at 18:30</span>
+              <span class="bedtime-title" id="bedtimeTitle">Daytime</span>
+              <span class="bedtime-message" id="bedtimeMessage">(ends at 18:30)</span>
             </span>
-            <span class="bedtime-badge" id="bedtimeBadge">Off</span>
           </button>
         </section>
 
@@ -1696,7 +1770,10 @@
             <p class="control-title">Volume</p>
           </div>
           <output class="volume-value" id="volumeValue" for="volumeRange">75%</output>
-          <input class="volume-range" id="volumeRange" type="range" min="0" max="100" value="75" step="1">
+          <div class="volume-slider-wrap" id="volumeSliderWrap">
+            <input class="volume-range" id="volumeRange" type="range" min="0" max="100" value="75" step="1">
+            <span class="volume-cap-marker" id="volumeCapMarker" aria-hidden="true" hidden>☾</span>
+          </div>
         </section>
 
         <section class="card control-card theme-card" aria-label="Theme">
@@ -1706,6 +1783,7 @@
               <span class="theme-trigger-copy">
                 <span class="label">Theme</span>
                 <span class="theme-current" id="themeCurrent"></span>
+                <span class="theme-helper" id="themeHelper" hidden></span>
               </span>
               <span class="chevron" aria-hidden="true">⌄</span>
             </button>
@@ -1727,11 +1805,6 @@
           </div>
         </section>
 
-        <div class="ready-settings-row">
-          <button class="settings-button" id="openSettingsButton" type="button" aria-label="Settings">
-            <img class="settings-icon" src="assets/icon-settings-sliders.svg" alt="">
-          </button>
-        </div>
       </div>
 
       <img class="bottom-art" src="assets/ready-bottom-graphics.png" srcset="assets/ready-bottom-graphics.png 1x, assets/ready-bottom-graphics@2x.png 2x" alt="">
@@ -2110,19 +2183,21 @@
       readyStatusText: document.querySelector("#readyStatusText"),
       readyMessage: document.querySelector("#readyMessage"),
       bedtimeCard: document.querySelector("#bedtimeCard"),
+      bedtimeArt: document.querySelector("#bedtimeArt"),
       bedtimeToggleButton: document.querySelector("#bedtimeToggleButton"),
-      bedtimeIcon: document.querySelector("#bedtimeIcon"),
       bedtimeTitle: document.querySelector("#bedtimeTitle"),
       bedtimeMessage: document.querySelector("#bedtimeMessage"),
-      bedtimeBadge: document.querySelector("#bedtimeBadge"),
       playSongButton: document.querySelector("#playSongButton"),
       playAnimalButton: document.querySelector("#playAnimalButton"),
       stopButton: document.querySelector("#stopButton"),
       volumeRange: document.querySelector("#volumeRange"),
       volumeValue: document.querySelector("#volumeValue"),
+      volumeSliderWrap: document.querySelector("#volumeSliderWrap"),
+      volumeCapMarker: document.querySelector("#volumeCapMarker"),
       themeCard: document.querySelector(".theme-card"),
       themeTrigger: document.querySelector("#themeTrigger"),
       themeCurrent: document.querySelector("#themeCurrent"),
+      themeHelper: document.querySelector("#themeHelper"),
       themeOptions: document.querySelector("#themeOptions"),
       killswitchOnButton: document.querySelector("#killswitchOnButton"),
       killswitchOffButton: document.querySelector("#killswitchOffButton"),
@@ -2274,7 +2349,7 @@
       if (isKillswitchActive()) {
         return "Toy inputs are paused for a little while.";
       }
-      return state.message || `You can control ${displayDeviceName()}.`;
+      return state.message || "";
     }
 
     function displayDeviceName() {
@@ -2293,8 +2368,17 @@
       return state.themes;
     }
 
+    function bedtimeModeActive() {
+      return !!state.bedtime.enabled && !!state.bedtime.timeKnown && !!state.bedtime.active;
+    }
+
+    function displayedThemeId() {
+      const bedtimeTheme = `${state.bedtime.effectiveTheme || ""}`.trim();
+      return bedtimeModeActive() && bedtimeTheme ? bedtimeTheme : state.theme;
+    }
+
     function selectedThemeName() {
-      const selected = themeOptions().find((theme) => theme.id === state.theme);
+      const selected = themeOptions().find((theme) => theme.id === displayedThemeId());
       return selected ? selected.name : "";
     }
 
@@ -2580,6 +2664,22 @@
       const number = Number(value);
       if (!Number.isFinite(number)) return 75;
       return Math.max(0, Math.min(100, Math.round(number)));
+    }
+
+    function readyVolumeCap() {
+      return bedtimeModeActive() ? clampVolume(state.bedtime.volumeCapPct) : 100;
+    }
+
+    function readyVolumeCapped() {
+      return readyVolumeCap() < 100;
+    }
+
+    function clampReadyVolume(value) {
+      return Math.min(clampVolume(value), readyVolumeCap());
+    }
+
+    function displayedReadyVolume() {
+      return Math.min(clampVolume(state.volume), readyVolumeCap());
     }
 
     function clampSleepSeconds(value, fallback) {
@@ -2999,7 +3099,7 @@
         button.type = "button";
         button.dataset.themeId = theme.id;
         button.textContent = theme.name;
-        button.setAttribute("aria-selected", theme.id === state.theme ? "true" : "false");
+        button.setAttribute("aria-selected", theme.id === displayedThemeId() ? "true" : "false");
         button.disabled = controlsDisabled();
         els.themeOptions.append(button);
       }
@@ -3221,28 +3321,25 @@
       const timeKnown = !!bedtime.timeKnown;
       const active = enabled && timeKnown && !!bedtime.active;
       const disabled = controlsDisabled() || !enabled || !timeKnown;
-      const themeName = themeOptions().find((theme) => theme.id === (bedtime.effectiveTheme || bedtime.theme))?.name ||
-        bedtime.effectiveTheme || bedtime.theme || "Lullabies";
 
       els.bedtimeCard.hidden = !enabled;
       els.bedtimeCard.classList.toggle("active", active);
       els.bedtimeCard.classList.toggle("time-unknown", enabled && !timeKnown);
+      const bedtimeArtSrc = active ? "assets/bedtime-night-art.png" : "assets/bedtime-day-art.png";
+      if (els.bedtimeArt.getAttribute("src") !== bedtimeArtSrc) {
+        els.bedtimeArt.src = bedtimeArtSrc;
+      }
       els.bedtimeToggleButton.disabled = disabled;
-      els.bedtimeIcon.textContent = active ? "☾" : (enabled && !timeKnown ? "◷" : "☼");
-      els.bedtimeTitle.textContent = active ? "Bedtime mode" : "Daytime mode";
+      els.bedtimeTitle.textContent = active ? "Bedtime" : "Daytime";
 
       if (!enabled) {
         els.bedtimeMessage.textContent = "Off in settings";
-        els.bedtimeBadge.textContent = "Off";
       } else if (!timeKnown) {
-        els.bedtimeMessage.textContent = "Time unknown";
-        els.bedtimeBadge.textContent = "?";
+        els.bedtimeMessage.textContent = "time unknown";
       } else if (active) {
-        els.bedtimeMessage.textContent = `${themeName} · cap ${bedtime.volumeCapPct}%`;
-        els.bedtimeBadge.textContent = "On";
+        els.bedtimeMessage.textContent = `(ends at ${bedtime.endTime})`;
       } else {
-        els.bedtimeMessage.textContent = `Starts at ${bedtime.startTime}`;
-        els.bedtimeBadge.textContent = "Off";
+        els.bedtimeMessage.textContent = `(ends at ${bedtime.startTime})`;
       }
     }
 
@@ -3337,21 +3434,29 @@
 
       const readyStatusText = readyStatus();
       const readyMessageText = readyMessage();
-      const hideReadyMessage = readyStatusText === "Ready to play";
+      const hideReadyMessage = readyMessageText === "";
       els.readyStatusText.textContent = readyStatusText;
       els.readyMessage.textContent = hideReadyMessage ? "" : readyMessageText;
       els.readyMessage.hidden = hideReadyMessage;
       els.readyStatusCard.classList.toggle("ready-compact", hideReadyMessage);
       renderBedtimeCard();
 
-      els.volumeRange.value = String(state.volume);
-      els.volumeRange.style.setProperty("--volume-fill", `${state.volume}%`);
-      els.volumeValue.value = `${state.volume}%`;
-      els.volumeValue.textContent = `${state.volume}%`;
+      const volumeCap = readyVolumeCap();
+      const displayedVolume = displayedReadyVolume();
+      const cappedVolume = readyVolumeCapped();
+      els.volumeRange.value = String(displayedVolume);
+      els.volumeRange.style.setProperty("--volume-fill", `${displayedVolume}%`);
+      els.volumeRange.style.setProperty("--volume-cap", `${volumeCap}%`);
+      els.volumeSliderWrap.style.setProperty("--volume-cap", `${volumeCap}%`);
+      els.volumeValue.value = `${displayedVolume}%`;
+      els.volumeValue.textContent = `${displayedVolume}%`;
+      els.volumeCapMarker.hidden = !cappedVolume;
 
       const remoteThemeOptions = renderThemeOptions();
       const themePickerDisabled = disabled || remoteThemeOptions.length === 0;
       els.themeCurrent.textContent = selectedThemeName();
+      els.themeHelper.textContent = bedtimeModeActive() ? "☾ bedtime mode" : "";
+      els.themeHelper.hidden = !bedtimeModeActive();
       els.themeCard.classList.toggle("expanded", state.themeOpen && remoteThemeOptions.length > 0);
       els.themeTrigger.setAttribute("aria-expanded", state.themeOpen && remoteThemeOptions.length > 0 ? "true" : "false");
       els.themeOptions.hidden = !state.themeOpen || remoteThemeOptions.length === 0;
@@ -3753,22 +3858,23 @@
     });
 
     els.volumeRange.addEventListener("input", () => {
-      state.volume = Number(els.volumeRange.value);
+      state.volume = clampReadyVolume(els.volumeRange.value);
       render();
     });
 
     els.volumeRange.addEventListener("change", () => {
-      const nextVolume = Number(els.volumeRange.value);
+      const nextVolume = clampReadyVolume(els.volumeRange.value);
+      state.volume = nextVolume;
+      render();
       safeWrite(() => writeUint8("volume", nextVolume), "", controlsDisabled());
     });
 
     function chooseTheme(nextTheme) {
       if (controlsDisabled() || !themeOptions().some((theme) => theme.id === nextTheme)) return;
       const previousTheme = state.theme;
+      const previousBedtimeEffectiveTheme = state.bedtime.effectiveTheme;
       state.theme = nextTheme;
-      if (state.bedtime.active) {
-        state.bedtime.active = false;
-        state.bedtime.override = "off";
+      if (bedtimeModeActive()) {
         state.bedtime.effectiveTheme = nextTheme;
       }
       state.themeOpen = false;
@@ -3777,7 +3883,10 @@
         () => writeText("theme", nextTheme),
         "",
         controlsDisabled(),
-        () => { state.theme = previousTheme; }
+        () => {
+          state.theme = previousTheme;
+          state.bedtime.effectiveTheme = previousBedtimeEffectiveTheme;
+        }
       );
     }
 
