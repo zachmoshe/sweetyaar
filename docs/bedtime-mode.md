@@ -87,8 +87,9 @@ change the saved `bedtime.enabled` setting.
 - If a parent turns Bedtime mode off during bedtime hours, that override is
   respected for the current awake session until the next automatic boundary or
   deep sleep/reboot.
-- If a parent changes the active theme while Bedtime mode is active, that theme
-  selection overrides Bedtime mode for the current awake session.
+- If a parent changes the active theme while Bedtime mode is active, Bedtime
+  mode stays active. The selected theme becomes the effective song theme for
+  the current awake session, while the bedtime volume cap still applies.
 - After deep sleep wake, runtime overrides are cleared. The toy returns to
   automatic Bedtime mode decisions based on saved settings and reliable local
   time.
@@ -143,8 +144,10 @@ Main Ready screen:
   volume value intact but prevent the Ready-screen volume slider from moving
   past the cap. Mark the capped region in yellow and show a small glowing moon
   indicator above the cap.
-- If the theme selector is visible while Bedtime mode is enabled, mark the
-  configured bedtime theme with a small glowing moon icon.
+- If the theme selector shows a bedtime-provided theme, include a helper line
+  with a small glowing moon icon so parents can tell that Bedtime mode is why
+  this theme is active. If a parent manually selects a different theme during
+  Bedtime mode, keep Bedtime mode active and keep showing the helper line.
 
 Settings screen:
 

@@ -72,6 +72,7 @@ int16_t bedtimeTzOffsetMin = 0;
 BedtimeMode::Override bedtimeOverride = BedtimeMode::Override::None;
 time_t bedtimeOverrideUntilUtc = 0;
 bool lastBedtimeActive = false;
+String bedtimeThemeOverride;
 String lastInvalidBedtimeThemeLog;
 
 RTC_DATA_ATTR uint32_t rtcBedtimeClockMagic = 0;
@@ -552,6 +553,11 @@ void pollBedtimeMode() {
     }
 
     lastBedtimeActive = active;
+    if (!active && !bedtimeThemeOverride.isEmpty()) {
+        Serial.printf("[Bedtime] Clearing theme override \"%s\"\n",
+                      bedtimeThemeOverride.c_str());
+        bedtimeThemeOverride = "";
+    }
     Serial.printf("[Bedtime] Runtime %s (auto=%d override=%s timeKnown=%d)\n",
                   active ? "active" : "inactive",
                   bedtimeAutomaticActive() ? 1 : 0,
@@ -575,6 +581,10 @@ void pollBedtimeMode() {
 String bedtimeEffectiveSongTheme() {
     if (!bedtimeRuntimeActive()) {
         return activeTheme;
+    }
+
+    if (!bedtimeThemeOverride.isEmpty() && isKnownTheme(bedtimeThemeOverride)) {
+        return bedtimeThemeOverride;
     }
 
     String theme = parentConfig.bedtimeTheme();
@@ -980,7 +990,10 @@ bool handleBleControls() {
             bool changedTheme = newTheme != activeTheme;
             activeTheme = newTheme;
             if (bedtimeRuntimeActive()) {
-                setBedtimeRuntimeActive(false, "parent theme change");
+                bedtimeThemeOverride = newTheme;
+                lastInvalidBedtimeThemeLog = "";
+                Serial.printf("[Bedtime] Theme override \"%s\" while bedtime remains active\n",
+                              bedtimeThemeOverride.c_str());
             }
             sm.postStringEvent(Event::THEME_CHANGED, newTheme);
             if (changedTheme && sm.currentState() == State::PLAYING_SONG) {
@@ -1164,6 +1177,7 @@ void handleBleConfigCommand(const String& commandJson) {
             activeTheme = parentConfig.defaultTheme();
             applyActiveThemeFallback();
             lastInvalidBedtimeThemeLog = "";
+            bedtimeThemeOverride = "";
             if (bedtimeConfigTouched) {
                 bedtimeOverride = BedtimeMode::Override::None;
                 bedtimeOverrideUntilUtc = 0;
