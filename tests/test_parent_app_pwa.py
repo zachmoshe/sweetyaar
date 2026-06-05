@@ -120,6 +120,8 @@ def test_parent_app_index_links_pwa_assets(repo_root) -> None:
     assert 'id="installBanner"' in index_html
     assert 'id="installButton"' in index_html
     assert 'id="installDismissButton"' in index_html
+    assert 'src="assets/icon-settings-sliders.svg"' in index_html
+    assert ">⚙<" not in index_html
     assert 'settings-back .button-glyph::before' in index_html
     assert ">←<" not in index_html
     assert 'window.addEventListener("beforeinstallprompt"' in index_html
@@ -144,6 +146,7 @@ def test_parent_app_service_worker_precache_contract(repo_root) -> None:
     assert "./" in urls
     assert "./index.html" in urls
     assert "./manifest.webmanifest" in urls
+    assert "./assets/icon-settings-sliders.svg" in urls
     assert "./assets/pwa-icon-192.png" in urls
     assert "./assets/pwa-icon-512.png" in urls
     assert "./assets/pwa-icon-maskable-512.png" in urls
@@ -156,7 +159,7 @@ def test_parent_app_service_worker_precache_contract(repo_root) -> None:
         assert asset_path.exists(), url
 
     assert 'const CACHE_PREFIX = "sweetyaar-parent";' in sw_source
-    assert 'const CACHE_VERSION = "sweetyaar-parent-v8";' in sw_source
+    assert 'const CACHE_VERSION = "sweetyaar-parent-v9";' in sw_source
     assert "cache.addAll(PRECACHE_URLS)" in sw_source
     assert "self.skipWaiting()" in sw_source
     assert "self.clients.claim()" in sw_source

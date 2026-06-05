@@ -920,6 +920,8 @@
       z-index: 3;
       display: flex;
       justify-content: flex-end;
+      justify-self: stretch;
+      width: min(100%, calc(100vw - (2 * var(--side-pad))));
       margin: -8px 2px 0;
     }
 
@@ -933,13 +935,13 @@
       background: transparent;
       color: var(--teal-dark);
       cursor: pointer;
-      text-shadow: 0 2px 4px rgba(73, 55, 34, 0.16);
     }
 
-    .settings-button .button-glyph {
-      font-size: 48px;
-      font-weight: 900;
-      line-height: 1;
+    .settings-button .settings-icon {
+      display: block;
+      width: 52px;
+      height: 52px;
+      filter: drop-shadow(0 2px 4px rgba(73, 55, 34, 0.16));
     }
 
     .screen.settings {
@@ -1589,7 +1591,7 @@
 
         <div class="ready-settings-row">
           <button class="settings-button" id="openSettingsButton" type="button" aria-label="Settings">
-            <span class="button-glyph" aria-hidden="true">⚙</span>
+            <img class="settings-icon" src="assets/icon-settings-sliders.svg" alt="">
           </button>
         </div>
       </div>
