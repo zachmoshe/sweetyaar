@@ -37,6 +37,7 @@ String baseNameOf(const String& path);
 bool isIgnoredFilesystemEntry(const String& name);
 bool isAnimalsTheme(const String& themeId);
 String jsonEscape(const String& input);
+String formatTimeOfDay(uint16_t minuteOfDay);
 
 JsonDocument readJsonFile(const String& path);
 JsonDocument readThemeMetadata(const String& themePath);
@@ -57,7 +58,10 @@ String buildSongsPageJson(uint32_t requestId, const String& themeId,
 
 bool updateSdConfig(uint8_t defaultVolumePct, const String& defaultTheme,
                     bool sleepEnabled, uint32_t sleepNormalIdleSec,
-                    uint32_t sleepVibrationWakeIdleSec, uint32_t sleepBleIdleSec);
+                    uint32_t sleepVibrationWakeIdleSec, uint32_t sleepBleIdleSec,
+                    bool bedtimeEnabled, uint16_t bedtimeStartMinutes,
+                    uint16_t bedtimeEndMinutes, const String& bedtimeTheme,
+                    uint8_t bedtimeVolumeCapPct);
 bool setThemeDisabled(const String& themeId, bool disabled);
 bool setThemeShuffle(const String& themeId, bool shuffle);
 bool setSongDisabled(const String& themeId, const String& fileName, bool disabled);

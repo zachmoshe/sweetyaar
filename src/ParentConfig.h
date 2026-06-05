@@ -22,6 +22,11 @@ public:
     uint32_t sleepNormalIdleMs() const { return _sleepNormalIdleMs; }
     uint32_t sleepVibrationWakeIdleMs() const { return _sleepVibrationWakeIdleMs; }
     uint32_t sleepBleIdleMs() const { return _sleepBleIdleMs; }
+    bool bedtimeEnabled() const { return _bedtimeEnabled; }
+    uint16_t bedtimeStartMinutes() const { return _bedtimeStartMinutes; }
+    uint16_t bedtimeEndMinutes() const { return _bedtimeEndMinutes; }
+    String bedtimeTheme() const { return _bedtimeTheme; }
+    uint8_t bedtimeVolumeCapPct() const { return _bedtimeVolumeCapPct; }
 
 private:
     uint8_t _defaultVolumePct = DEFAULT_VOLUME_PCT;
@@ -32,4 +37,9 @@ private:
     uint32_t _sleepNormalIdleMs = SLEEP_NORMAL_IDLE_MS;
     uint32_t _sleepVibrationWakeIdleMs = SLEEP_VIB_WAKE_IDLE_MS;
     uint32_t _sleepBleIdleMs = SLEEP_BLE_IDLE_MS;
+    bool     _bedtimeEnabled = DEFAULT_BEDTIME_ENABLED;
+    uint16_t _bedtimeStartMinutes = DEFAULT_BEDTIME_START_MINUTES;
+    uint16_t _bedtimeEndMinutes = DEFAULT_BEDTIME_END_MINUTES;
+    String   _bedtimeTheme = DEFAULT_BEDTIME_THEME;
+    uint8_t  _bedtimeVolumeCapPct = DEFAULT_BEDTIME_VOLUME_CAP_PCT;
 };

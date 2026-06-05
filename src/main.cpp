@@ -6,6 +6,8 @@
 #include <esp_bt_device.h>
 #include <esp_gap_bt_api.h>
 #include <esp_sleep.h>
+#include <sys/time.h>
+#include <time.h>
 #include <driver/rtc_io.h>
 
 // --- Audio tools ---
@@ -19,6 +21,7 @@
 #include "NVSConfig.h"
 #include "ParentConfig.h"
 #include "ContentCatalog.h"
+#include "BedtimeMode.h"
 #include "ButtonHandler.h"
 #include "WavPlayer.h"
 #include "BLEParentService.h"
@@ -45,12 +48,14 @@ BluetoothA2DPSink* btSink = nullptr;
 State prevState = State::IDLE;
 bool sdReady = false;
 String activeTheme = DEFAULT_THEME;
+String currentPlaybackTheme = DEFAULT_THEME;
 String currentDeviceName = DEFAULT_BT_NAME;
 String themeIds[BLE_MAX_THEMES];
 String themeNames[BLE_MAX_THEMES];
 String bleThemesJson = "[]";
 int themeCount = 0;
 uint8_t currentVolumePct = DEFAULT_VOLUME_PCT;
+uint8_t currentEffectiveVolumePct = DEFAULT_VOLUME_PCT;
 bool btReopenPending = false;
 bool btNameApplyPending = false;
 uint32_t btReopenAtMs = 0;
@@ -62,6 +67,16 @@ bool realActivitySeenSinceWake = false;
 bool lastBleConnected = false;
 uint32_t lastActivityMs = 0;
 uint32_t lastBleActivityMs = 0;
+bool bedtimeClockReliable = false;
+int16_t bedtimeTzOffsetMin = 0;
+BedtimeMode::Override bedtimeOverride = BedtimeMode::Override::None;
+time_t bedtimeOverrideUntilUtc = 0;
+bool lastBedtimeActive = false;
+String lastInvalidBedtimeThemeLog;
+
+RTC_DATA_ATTR uint32_t rtcBedtimeClockMagic = 0;
+RTC_DATA_ATTR int16_t rtcBedtimeTzOffsetMin = 0;
+static constexpr uint32_t RTC_BEDTIME_CLOCK_MAGIC = 0xBED71AAB;
 
 // ---------------------------------------------------------------------------
 // Forward declarations
@@ -78,6 +93,8 @@ void reopenBluetoothForPairing(const char* reason);
 void pollBluetoothReopen();
 void pollBtDebug();
 void applyVolume(uint8_t pct);
+void applyEffectiveVolume(const char* reason);
+uint8_t effectiveVolumePct();
 void handleStateEntry(State prev, State next);
 bool processStateMachineTransitions();
 bool handleBleControls();
@@ -85,6 +102,20 @@ void handleBleConfigCommands();
 void handleBleConfigCommand(const String& commandJson);
 void handleBleCommand(uint8_t command);
 void publishBleValues();
+void setupBedtimeClock(esp_sleep_wakeup_cause_t wakeCause);
+void syncBedtimeClock(time_t epochSec, int16_t tzOffsetMin);
+void pollBedtimeMode();
+bool bedtimeTimeKnown();
+bool bedtimeLocalMinute(uint16_t& minuteOut);
+uint32_t bedtimeLocalSecondOfDay();
+bool bedtimeAutomaticActive();
+bool bedtimeRuntimeActive();
+void setBedtimeRuntimeActive(bool active, const char* reason);
+void clearExpiredBedtimeOverride();
+String bedtimeEffectiveSongTheme();
+String bedtimeOverrideName();
+String bedtimeTimeString(uint16_t minuteOfDay);
+uint16_t parseBedtimeTimeString(const char* value, uint16_t fallback);
 void markActivity(const char* reason);
 void markBleActivity(const char* reason);
 void pollBleConnectionState();
@@ -200,6 +231,7 @@ void setup() {
         bleService.updateConfigResponse(buildConfigResponse(0));
         bleService.updateThemes(bleThemesJson);
         publishBleValues();
+        pollBedtimeMode();
     } else {
         Serial.println("[BLE] Parent service disabled for A2DP audio test");
     }
@@ -255,6 +287,7 @@ void loop() {
     //    during BT streaming they are ignored and current values are restored.
     bool bleWriteSeen = handleBleControls();
     handleBleConfigCommands();
+    pollBedtimeMode();
     pollBleConnectionState();
 
     // 4. WAV player: signal SM when track ends
@@ -300,6 +333,7 @@ void setupWakeState() {
 
     Serial.printf("[Sleep] Wake cause=%d vibration=%d\n",
                   static_cast<int>(cause), wokeFromVibration ? 1 : 0);
+    setupBedtimeClock(cause);
 }
 
 // ---------------------------------------------------------------------------
@@ -346,6 +380,238 @@ void pollBleConnectionState() {
         lastBleConnected = connected;
         markBleActivity(connected ? "BLE connected" : "BLE disconnected");
     }
+}
+
+// ---------------------------------------------------------------------------
+// setupBedtimeClock()
+// ---------------------------------------------------------------------------
+void setupBedtimeClock(esp_sleep_wakeup_cause_t wakeCause) {
+    bedtimeClockReliable =
+        wakeCause == ESP_SLEEP_WAKEUP_EXT0 &&
+        rtcBedtimeClockMagic == RTC_BEDTIME_CLOCK_MAGIC;
+    if (bedtimeClockReliable) {
+        bedtimeTzOffsetMin = rtcBedtimeTzOffsetMin;
+        Serial.printf("[Bedtime] Clock retained from deep sleep (tzOffsetMin=%d)\n",
+                      bedtimeTzOffsetMin);
+    } else {
+        bedtimeTzOffsetMin = 0;
+        Serial.println("[Bedtime] Clock unknown until parent app syncs local time");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// syncBedtimeClock()
+// ---------------------------------------------------------------------------
+void syncBedtimeClock(time_t epochSec, int16_t tzOffsetMin) {
+    timeval tv;
+    tv.tv_sec = epochSec;
+    tv.tv_usec = 0;
+    settimeofday(&tv, nullptr);
+
+    bedtimeClockReliable = true;
+    bedtimeTzOffsetMin = tzOffsetMin;
+    rtcBedtimeClockMagic = RTC_BEDTIME_CLOCK_MAGIC;
+    rtcBedtimeTzOffsetMin = tzOffsetMin;
+
+    Serial.printf("[Bedtime] Time synced epoch=%ld tzOffsetMin=%d\n",
+                  static_cast<long>(epochSec), tzOffsetMin);
+    pollBedtimeMode();
+}
+
+// ---------------------------------------------------------------------------
+// bedtimeTimeKnown()
+// ---------------------------------------------------------------------------
+bool bedtimeTimeKnown() {
+    if (!bedtimeClockReliable) {
+        return false;
+    }
+    return time(nullptr) >= 946684800;  // 2000-01-01; filters out unset RTC.
+}
+
+// ---------------------------------------------------------------------------
+// bedtimeLocalMinute()
+// ---------------------------------------------------------------------------
+bool bedtimeLocalMinute(uint16_t& minuteOut) {
+    if (!bedtimeTimeKnown()) {
+        return false;
+    }
+
+    time_t localEpoch = time(nullptr) + static_cast<time_t>(bedtimeTzOffsetMin) * 60;
+    tm localTm;
+    gmtime_r(&localEpoch, &localTm);
+    minuteOut = static_cast<uint16_t>(localTm.tm_hour * 60 + localTm.tm_min);
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// bedtimeLocalSecondOfDay()
+// ---------------------------------------------------------------------------
+uint32_t bedtimeLocalSecondOfDay() {
+    if (!bedtimeTimeKnown()) {
+        return 0;
+    }
+
+    time_t localEpoch = time(nullptr) + static_cast<time_t>(bedtimeTzOffsetMin) * 60;
+    tm localTm;
+    gmtime_r(&localEpoch, &localTm);
+    return static_cast<uint32_t>(localTm.tm_hour) * 3600UL +
+           static_cast<uint32_t>(localTm.tm_min) * 60UL +
+           static_cast<uint32_t>(localTm.tm_sec);
+}
+
+// ---------------------------------------------------------------------------
+// bedtimeAutomaticActive()
+// ---------------------------------------------------------------------------
+bool bedtimeAutomaticActive() {
+    uint16_t minute = 0;
+    if (!bedtimeLocalMinute(minute)) {
+        return false;
+    }
+    return BedtimeMode::evaluate(
+        parentConfig.bedtimeEnabled(), true, minute,
+        parentConfig.bedtimeStartMinutes(), parentConfig.bedtimeEndMinutes(),
+        BedtimeMode::Override::None).automaticActive;
+}
+
+// ---------------------------------------------------------------------------
+// bedtimeRuntimeActive()
+// ---------------------------------------------------------------------------
+bool bedtimeRuntimeActive() {
+    uint16_t minute = 0;
+    if (!bedtimeLocalMinute(minute)) {
+        return false;
+    }
+    return BedtimeMode::evaluate(
+        parentConfig.bedtimeEnabled(), true, minute,
+        parentConfig.bedtimeStartMinutes(), parentConfig.bedtimeEndMinutes(),
+        bedtimeOverride).active;
+}
+
+// ---------------------------------------------------------------------------
+// setBedtimeRuntimeActive()
+// ---------------------------------------------------------------------------
+void setBedtimeRuntimeActive(bool active, const char* reason) {
+    if (!parentConfig.bedtimeEnabled()) {
+        bedtimeOverride = BedtimeMode::Override::None;
+        bedtimeOverrideUntilUtc = 0;
+        Serial.printf("[Bedtime] Ignoring runtime %s; mode disabled in settings (%s)\n",
+                      active ? "enable" : "disable", reason);
+        pollBedtimeMode();
+        return;
+    }
+    if (!bedtimeTimeKnown()) {
+        bedtimeOverride = BedtimeMode::Override::None;
+        bedtimeOverrideUntilUtc = 0;
+        Serial.printf("[Bedtime] Ignoring runtime %s; local time unknown (%s)\n",
+                      active ? "enable" : "disable", reason);
+        pollBedtimeMode();
+        return;
+    }
+
+    uint16_t targetMinute = active
+        ? parentConfig.bedtimeEndMinutes()
+        : parentConfig.bedtimeStartMinutes();
+    uint32_t secondsUntilBoundary = BedtimeMode::secondsUntilNextMinuteOfDay(
+        bedtimeLocalSecondOfDay(), targetMinute);
+    bedtimeOverride = active ? BedtimeMode::Override::ForceOn
+                             : BedtimeMode::Override::ForceOff;
+    bedtimeOverrideUntilUtc = time(nullptr) + static_cast<time_t>(secondsUntilBoundary);
+
+    Serial.printf("[Bedtime] Runtime override=%s until %s (%s)\n",
+                  BedtimeMode::overrideName(bedtimeOverride),
+                  bedtimeTimeString(targetMinute).c_str(),
+                  reason);
+    pollBedtimeMode();
+}
+
+// ---------------------------------------------------------------------------
+// clearExpiredBedtimeOverride()
+// ---------------------------------------------------------------------------
+void clearExpiredBedtimeOverride() {
+    if (bedtimeOverride == BedtimeMode::Override::None) {
+        return;
+    }
+    if (!parentConfig.bedtimeEnabled() || !bedtimeTimeKnown() ||
+        time(nullptr) >= bedtimeOverrideUntilUtc) {
+        Serial.printf("[Bedtime] Clearing runtime override=%s\n",
+                      BedtimeMode::overrideName(bedtimeOverride));
+        bedtimeOverride = BedtimeMode::Override::None;
+        bedtimeOverrideUntilUtc = 0;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// pollBedtimeMode()
+// ---------------------------------------------------------------------------
+void pollBedtimeMode() {
+    clearExpiredBedtimeOverride();
+
+    bool active = bedtimeRuntimeActive();
+    if (active == lastBedtimeActive) {
+        return;
+    }
+
+    lastBedtimeActive = active;
+    Serial.printf("[Bedtime] Runtime %s (auto=%d override=%s timeKnown=%d)\n",
+                  active ? "active" : "inactive",
+                  bedtimeAutomaticActive() ? 1 : 0,
+                  BedtimeMode::overrideName(bedtimeOverride),
+                  bedtimeTimeKnown() ? 1 : 0);
+    applyEffectiveVolume("bedtime state");
+
+    if (sm.currentState() == State::PLAYING_SONG) {
+        String nextTheme = bedtimeEffectiveSongTheme();
+        if (nextTheme != currentPlaybackTheme) {
+            currentPlaybackTheme = nextTheme;
+            wavPlayer.startSong(currentPlaybackTheme);
+        }
+    }
+    publishBleValues();
+}
+
+// ---------------------------------------------------------------------------
+// bedtimeEffectiveSongTheme()
+// ---------------------------------------------------------------------------
+String bedtimeEffectiveSongTheme() {
+    if (!bedtimeRuntimeActive()) {
+        return activeTheme;
+    }
+
+    String theme = parentConfig.bedtimeTheme();
+    theme.trim();
+    if (!theme.isEmpty() && isKnownTheme(theme)) {
+        lastInvalidBedtimeThemeLog = "";
+        return theme;
+    }
+
+    if (lastInvalidBedtimeThemeLog != theme) {
+        Serial.printf("[Bedtime] Theme \"%s\" is unavailable; using normal theme \"%s\" (volume cap still applies)\n",
+                      theme.c_str(), activeTheme.c_str());
+        lastInvalidBedtimeThemeLog = theme;
+    }
+    return activeTheme;
+}
+
+String bedtimeOverrideName() {
+    return String(BedtimeMode::overrideName(bedtimeOverride));
+}
+
+String bedtimeTimeString(uint16_t minuteOfDay) {
+    return ContentCatalog::formatTimeOfDay(minuteOfDay);
+}
+
+uint16_t parseBedtimeTimeString(const char* value, uint16_t fallback) {
+    if (value == nullptr || value[0] == '\0') {
+        return fallback;
+    }
+    int hour = -1;
+    int minute = -1;
+    char extra = '\0';
+    int matched = sscanf(value, "%d:%d%c", &hour, &minute, &extra);
+    if (matched < 2 || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+        return fallback;
+    }
+    return static_cast<uint16_t>(hour * 60 + minute);
 }
 
 // ---------------------------------------------------------------------------
@@ -713,9 +979,14 @@ bool handleBleControls() {
         } else {
             bool changedTheme = newTheme != activeTheme;
             activeTheme = newTheme;
+            if (bedtimeRuntimeActive()) {
+                setBedtimeRuntimeActive(false, "parent theme change");
+            }
             sm.postStringEvent(Event::THEME_CHANGED, newTheme);
             if (changedTheme && sm.currentState() == State::PLAYING_SONG) {
-                wavPlayer.startSong(activeTheme);
+                currentPlaybackTheme = bedtimeEffectiveSongTheme();
+                applyEffectiveVolume("theme change");
+                wavPlayer.startSong(currentPlaybackTheme);
             }
         }
     }
@@ -789,6 +1060,34 @@ void handleBleConfigCommand(const String& commandJson) {
         return;
     }
 
+    if (op == "syncTime") {
+        long epochValue = doc["epochSec"] | 0L;
+        int tzOffsetValue = doc["tzOffsetMin"] | 0;
+        if (epochValue < 946684800L ||
+            tzOffsetValue < -14 * 60 || tzOffsetValue > 14 * 60) {
+            bleService.updateConfigResponse(
+                buildConfigErrorResponse(requestId, "Invalid time sync payload"));
+            return;
+        }
+        syncBedtimeClock(static_cast<time_t>(epochValue),
+                         static_cast<int16_t>(tzOffsetValue));
+        publishBleValues();
+        bleService.updateConfigResponse(buildConfigResponse(requestId));
+        return;
+    }
+
+    if (op == "setBedtimeMode") {
+        if (!doc["active"].is<bool>()) {
+            bleService.updateConfigResponse(
+                buildConfigErrorResponse(requestId, "Missing bedtime active flag"));
+            return;
+        }
+        setBedtimeRuntimeActive(doc["active"].as<bool>(), "BLE runtime toggle");
+        publishBleValues();
+        bleService.updateConfigResponse(buildConfigResponse(requestId));
+        return;
+    }
+
     if (op == "setConfig") {
         const char* deviceNameValue = doc["deviceName"] | currentDeviceName.c_str();
         String nextName = deviceNameValue;
@@ -822,19 +1121,56 @@ void handleBleConfigCommand(const String& commandJson) {
                 sleep, "bleIdleSec", parentConfig.sleepBleIdleMs());
         }
 
+        bool bedtimeConfigTouched = false;
+        bool nextBedtimeEnabled = parentConfig.bedtimeEnabled();
+        uint16_t nextBedtimeStartMinutes = parentConfig.bedtimeStartMinutes();
+        uint16_t nextBedtimeEndMinutes = parentConfig.bedtimeEndMinutes();
+        String nextBedtimeTheme = parentConfig.bedtimeTheme();
+        uint8_t nextBedtimeVolumeCapPct = parentConfig.bedtimeVolumeCapPct();
+        if (doc["bedtime"].is<JsonObject>()) {
+            bedtimeConfigTouched = true;
+            JsonObject bedtime = doc["bedtime"].as<JsonObject>();
+            nextBedtimeEnabled = bedtime["enabled"] | nextBedtimeEnabled;
+            nextBedtimeStartMinutes = parseBedtimeTimeString(
+                bedtime["startTime"] | "",
+                nextBedtimeStartMinutes);
+            nextBedtimeEndMinutes = parseBedtimeTimeString(
+                bedtime["endTime"] | "",
+                nextBedtimeEndMinutes);
+            const char* themeValue = bedtime["theme"] | nextBedtimeTheme.c_str();
+            nextBedtimeTheme = themeValue;
+            nextBedtimeTheme.trim();
+            if (nextBedtimeTheme.isEmpty()) {
+                nextBedtimeTheme = DEFAULT_BEDTIME_THEME;
+            }
+            int cap = bedtime["volumeCapPct"] | nextBedtimeVolumeCapPct;
+            if (cap < 0) cap = 0;
+            if (cap > 100) cap = 100;
+            nextBedtimeVolumeCapPct = static_cast<uint8_t>(cap);
+        }
+
         nvs.setBtName(nextName);
         currentDeviceName = nextName;
         if (sdReady) {
             ContentCatalog::updateSdConfig(
                 nextVolume, nextDefaultTheme, nextSleepEnabled,
                 nextSleepNormalIdleSec, nextSleepVibrationWakeIdleSec,
-                nextSleepBleIdleSec);
+                nextSleepBleIdleSec,
+                nextBedtimeEnabled, nextBedtimeStartMinutes,
+                nextBedtimeEndMinutes, nextBedtimeTheme,
+                nextBedtimeVolumeCapPct);
             parentConfig.load();
             refreshThemeList();
             activeTheme = parentConfig.defaultTheme();
             applyActiveThemeFallback();
+            lastInvalidBedtimeThemeLog = "";
+            if (bedtimeConfigTouched) {
+                bedtimeOverride = BedtimeMode::Override::None;
+                bedtimeOverrideUntilUtc = 0;
+            }
         }
         applyVolume(nextVolume);
+        pollBedtimeMode();
         applyDeviceName(nextName);
         publishBleValues();
         bleService.updateConfigResponse(buildConfigResponse(requestId));
@@ -857,6 +1193,14 @@ void handleBleConfigCommand(const String& commandJson) {
         parentConfig.load();
         refreshThemeList();
         applyActiveThemeFallback();
+        lastInvalidBedtimeThemeLog = "";
+        if (sm.currentState() == State::PLAYING_SONG) {
+            String nextTheme = bedtimeEffectiveSongTheme();
+            if (nextTheme != currentPlaybackTheme) {
+                currentPlaybackTheme = nextTheme;
+                wavPlayer.startSong(currentPlaybackTheme);
+            }
+        }
         publishBleValues();
         bleService.updateConfigResponse(buildConfigOkResponse(requestId, op));
         return;
@@ -874,6 +1218,14 @@ void handleBleConfigCommand(const String& commandJson) {
         ContentCatalog::setSongDisabled(String(themeValue), String(fileValue), !doc["enabled"].as<bool>());
         refreshThemeList();
         applyActiveThemeFallback();
+        lastInvalidBedtimeThemeLog = "";
+        if (sm.currentState() == State::PLAYING_SONG) {
+            String nextTheme = bedtimeEffectiveSongTheme();
+            if (nextTheme != currentPlaybackTheme) {
+                currentPlaybackTheme = nextTheme;
+                wavPlayer.startSong(currentPlaybackTheme);
+            }
+        }
         publishBleValues();
         bleService.updateConfigResponse(buildConfigOkResponse(requestId, op));
         return;
@@ -942,7 +1294,7 @@ String bleStatusForState(State state) {
 
         case State::PLAYING_SONG: {
             String status = "Playing song - ";
-            status += themeDisplayName(activeTheme);
+            status += themeDisplayName(currentPlaybackTheme);
             String file = fileNameOf(wavPlayer.currentPath());
             if (file.length() > 0) {
                 status += " / ";
@@ -1058,6 +1410,29 @@ String buildConfigResponse(uint32_t requestId) {
     json += ",\"bleIdleSec\":";
     json += parentConfig.sleepBleIdleMs() / 1000UL;
     json += "}";
+    json += ",\"bedtime\":{\"enabled\":";
+    json += parentConfig.bedtimeEnabled() ? "true" : "false";
+    json += ",\"startTime\":\"";
+    json += bedtimeTimeString(parentConfig.bedtimeStartMinutes());
+    json += "\",\"endTime\":\"";
+    json += bedtimeTimeString(parentConfig.bedtimeEndMinutes());
+    json += "\",\"theme\":\"";
+    json += ContentCatalog::jsonEscape(parentConfig.bedtimeTheme());
+    json += "\",\"volumeCapPct\":";
+    json += parentConfig.bedtimeVolumeCapPct();
+    json += ",\"timeKnown\":";
+    json += bedtimeTimeKnown() ? "true" : "false";
+    json += ",\"active\":";
+    json += bedtimeRuntimeActive() ? "true" : "false";
+    json += ",\"autoActive\":";
+    json += bedtimeAutomaticActive() ? "true" : "false";
+    json += ",\"override\":\"";
+    json += bedtimeOverrideName();
+    json += "\",\"effectiveVolumePct\":";
+    json += effectiveVolumePct();
+    json += ",\"effectiveTheme\":\"";
+    json += ContentCatalog::jsonEscape(bedtimeEffectiveSongTheme());
+    json += "\"}";
     json += "}";
     return json;
 }
@@ -1133,9 +1508,31 @@ String formatRemaining(uint32_t remainingMs) {
 void applyVolume(uint8_t pct) {
     if (pct > 100) pct = 100;
     currentVolumePct = pct;
+    applyEffectiveVolume("volume request");
+}
+
+uint8_t effectiveVolumePct() {
+    if (btLinkConnected || sm.currentState() == State::BT_STREAMING) {
+        return currentVolumePct;
+    }
+    if (bedtimeRuntimeActive()) {
+        uint8_t cap = parentConfig.bedtimeVolumeCapPct();
+        return currentVolumePct < cap ? currentVolumePct : cap;
+    }
+    return currentVolumePct;
+}
+
+void applyEffectiveVolume(const char* reason) {
+    uint8_t pct = effectiveVolumePct();
+    currentEffectiveVolumePct = pct;
     float v = pct / 100.0f;
     volumeOut.setVolume(v);
-    Serial.printf("[Vol] %u%% (%.2f)\n", pct, v);
+    if (pct == currentVolumePct) {
+        Serial.printf("[Vol] %u%% (%.2f, %s)\n", pct, v, reason);
+    } else {
+        Serial.printf("[Vol] requested=%u%% effective=%u%% bedtimeCap=%u%% (%.2f, %s)\n",
+                      currentVolumePct, pct, parentConfig.bedtimeVolumeCapPct(), v, reason);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1163,13 +1560,15 @@ void handleStateEntry(State prev, State next) {
         case State::PLAYING_SONG: {
             // Fresh song start (prev != PLAYING_SONG); "next song" is handled
             // directly in loop() via wavPlayer.nextSong() when btn1 is pressed.
-            String theme = activeTheme;
+            currentPlaybackTheme = bedtimeEffectiveSongTheme();
+            applyEffectiveVolume("song start");
             digitalWrite(PIN_AMP_MUTE, HIGH);  // unmute amp
-            wavPlayer.startSong(theme);
+            wavPlayer.startSong(currentPlaybackTheme);
             break;
         }
 
         case State::PLAYING_ANIMAL:
+            applyEffectiveVolume("animal start");
             digitalWrite(PIN_AMP_MUTE, HIGH);  // unmute amp
             wavPlayer.startRandomAnimal();
             break;

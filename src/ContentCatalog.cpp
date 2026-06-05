@@ -202,6 +202,15 @@ String jsonEscape(const String& input) {
     return out;
 }
 
+String formatTimeOfDay(uint16_t minuteOfDay) {
+    if (minuteOfDay >= 24U * 60U) {
+        minuteOfDay = 24U * 60U - 1U;
+    }
+    char buf[6];
+    snprintf(buf, sizeof(buf), "%02u:%02u", minuteOfDay / 60U, minuteOfDay % 60U);
+    return String(buf);
+}
+
 JsonDocument readJsonFile(const String& path) {
     JsonDocument doc;
     File f = SD.open(path.c_str());
@@ -540,7 +549,10 @@ String buildSongsPageJson(uint32_t requestId, const String& themeId,
 
 bool updateSdConfig(uint8_t defaultVolumePct, const String& defaultTheme,
                     bool sleepEnabled, uint32_t sleepNormalIdleSec,
-                    uint32_t sleepVibrationWakeIdleSec, uint32_t sleepBleIdleSec) {
+                    uint32_t sleepVibrationWakeIdleSec, uint32_t sleepBleIdleSec,
+                    bool bedtimeEnabled, uint16_t bedtimeStartMinutes,
+                    uint16_t bedtimeEndMinutes, const String& bedtimeTheme,
+                    uint8_t bedtimeVolumeCapPct) {
     JsonDocument doc = readJsonFile(SD_CONFIG_FILE);
     doc["schemaVersion"] = 2;
     doc["defaultVolumePct"] = defaultVolumePct > 100 ? 100 : defaultVolumePct;
@@ -555,6 +567,16 @@ bool updateSdConfig(uint8_t defaultVolumePct, const String& defaultTheme,
     sleep["normalIdleSec"] = sleepNormalIdleSec;
     sleep["vibrationWakeIdleSec"] = sleepVibrationWakeIdleSec;
     sleep["bleIdleSec"] = sleepBleIdleSec;
+
+    JsonObject bedtime = doc["bedtime"].is<JsonObject>()
+        ? doc["bedtime"].as<JsonObject>()
+        : doc["bedtime"].to<JsonObject>();
+    bedtime["enabled"] = bedtimeEnabled;
+    bedtime["startTime"] = formatTimeOfDay(bedtimeStartMinutes);
+    bedtime["endTime"] = formatTimeOfDay(bedtimeEndMinutes);
+    bedtime["theme"] = bedtimeTheme.isEmpty() ? String(DEFAULT_BEDTIME_THEME) : bedtimeTheme;
+    bedtime["volumeCapPct"] = bedtimeVolumeCapPct > 100 ? 100 : bedtimeVolumeCapPct;
+
     return writeJsonFile(SD_CONFIG_FILE, doc);
 }
 

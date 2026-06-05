@@ -46,6 +46,10 @@ static constexpr int     SAMPLE_RATE        = 44100;
 static constexpr int     CHANNELS           = 2;   // Stereo PCM; MAX98357A mixes to mono
 static constexpr int     BITS_PER_SAMPLE    = 16;
 static constexpr uint8_t DEFAULT_VOLUME_PCT = 75;  // Static default; SD config may override
+static constexpr bool    DEFAULT_BEDTIME_ENABLED = true;
+static constexpr uint16_t DEFAULT_BEDTIME_START_MINUTES = 18U * 60U + 30U;
+static constexpr uint16_t DEFAULT_BEDTIME_END_MINUTES = 6U * 60U + 30U;
+static constexpr uint8_t DEFAULT_BEDTIME_VOLUME_CAP_PCT = 45;
 static constexpr int     BT_A2DP_RINGBUFFER_BYTES = 16 * 1024;
 static constexpr int     BT_A2DP_I2S_TASK_STACK_BYTES = 3072;
 
@@ -64,6 +68,7 @@ static constexpr char SONGS_ROOT[]    = "/songs";
 static constexpr char ANIMALS_PATH[]  = "/animals";
 static constexpr char METADATA_FILE[] = "metadata.json";
 static constexpr char DEFAULT_THEME[] = "lullabies";
+static constexpr char DEFAULT_BEDTIME_THEME[] = "lullabies";
 static constexpr char ANIMALS_THEME_ID[] = "__animals";
 static constexpr char ANIMALS_DISPLAY_NAME[] = "Animals";
 
