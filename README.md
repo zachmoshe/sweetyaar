@@ -91,6 +91,7 @@ See `docs/regression-tests.md` for coverage details and hardware options.
 - `tools/`: local Bluetooth/BLE smoke and probe helpers.
 - `esp32_prototype_board/`: PCB design files, manufacturing outputs, and notes.
 - `project-plan.md`: detailed architecture and hardware planning notes.
+- `docs/pwa.md`: parent remote PWA, offline, and deployment notes.
 - `breadboard-wiring.md`: breadboard wiring reference.
 
 ## Hardware Target
