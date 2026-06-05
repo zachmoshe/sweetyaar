@@ -651,10 +651,21 @@
 
     .volume-card {
       display: grid;
-      grid-template-columns: 46px 1fr auto;
+      grid-template-columns: 46px minmax(0, 1fr) auto;
+      grid-template-rows: auto auto;
       align-items: center;
-      gap: 12px;
+      column-gap: 12px;
+      row-gap: 2px;
       min-height: 64px;
+    }
+
+    .volume-card .control-icon {
+      grid-row: 1 / 3;
+      align-self: center;
+    }
+
+    .volume-card .control-title {
+      margin: 0;
     }
 
     .control-icon {
@@ -673,9 +684,10 @@
 
     .volume-range {
       grid-column: 2 / 4;
+      grid-row: 2;
       width: 100%;
       height: 24px;
-      margin: -8px 0 0;
+      margin: 0;
       appearance: none;
       -webkit-appearance: none;
       background: transparent;
@@ -979,11 +991,25 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 20px;
-      height: 20px;
-      font-size: 20px;
-      font-weight: 900;
+      position: relative;
+      flex: 0 0 18px;
+      width: 18px;
+      height: 18px;
+      font-size: 0;
       line-height: 1;
+    }
+
+    .settings-back .button-glyph::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 9px;
+      height: 9px;
+      border-left: 3px solid currentColor;
+      border-bottom: 3px solid currentColor;
+      border-radius: 1px;
+      transform: translate(-35%, -50%) rotate(45deg);
     }
 
     .settings-save {
@@ -1575,7 +1601,7 @@
       <div class="stack">
         <div class="settings-toolbar">
           <button class="settings-back" id="settingsBackButton" type="button">
-            <span class="button-glyph" aria-hidden="true">←</span>
+            <span class="button-glyph" aria-hidden="true"></span>
             <span>Back</span>
           </button>
           <h1 class="settings-title">Settings</h1>
