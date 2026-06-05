@@ -757,6 +757,108 @@
       background: rgba(239, 233, 255, 0.86);
     }
 
+    .bedtime-card {
+      padding: 0;
+      overflow: hidden;
+      border-color: rgba(210, 198, 248, 0.9);
+      background: linear-gradient(180deg, #fbf9ff, #f2efff);
+    }
+
+    .bedtime-card.active {
+      border-color: rgba(112, 85, 190, 0.44);
+      box-shadow: 0 12px 28px rgba(70, 51, 126, 0.18);
+    }
+
+    .bedtime-card.time-unknown {
+      border-color: rgba(239, 145, 45, 0.56);
+      background: linear-gradient(180deg, #fffaf1, #fff1d9);
+    }
+
+    .bedtime-toggle {
+      width: 100%;
+      min-height: 72px;
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+      padding: 12px 14px 12px 16px;
+      text-align: left;
+    }
+
+    .bedtime-icon {
+      display: grid;
+      width: 48px;
+      height: 48px;
+      place-items: center;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.82);
+      color: var(--purple);
+      font-size: 30px;
+      font-weight: 900;
+      line-height: 1;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .bedtime-card.active .bedtime-icon {
+      color: #ffffff;
+      background: linear-gradient(180deg, #9182dc, #654db7);
+      text-shadow: 0 0 10px rgba(255, 244, 184, 0.94), 0 0 18px rgba(255, 216, 96, 0.62);
+    }
+
+    .bedtime-card.time-unknown .bedtime-icon {
+      color: #b76712;
+      background: rgba(255, 255, 255, 0.88);
+    }
+
+    .bedtime-copy {
+      min-width: 0;
+      display: grid;
+      gap: 3px;
+    }
+
+    .bedtime-title {
+      color: var(--ink);
+      font-size: clamp(16px, 4.2vw, 18px);
+      font-weight: 830;
+      line-height: 1.05;
+    }
+
+    .bedtime-message {
+      min-width: 0;
+      color: var(--muted);
+      font-size: clamp(12px, 3.3vw, 14px);
+      font-weight: 650;
+      line-height: 1.24;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .bedtime-badge {
+      min-width: 42px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.86);
+      color: var(--purple);
+      padding: 7px 10px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 850;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .bedtime-card.active .bedtime-badge {
+      background: #ffffff;
+      color: var(--purple);
+    }
+
+    .bedtime-card.time-unknown .bedtime-badge {
+      color: #b76712;
+    }
+
     .pause-card {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(148px, 44%);
@@ -988,6 +1090,31 @@
       grid-template-columns: 1fr auto;
       gap: 10px;
       align-items: center;
+    }
+
+    .settings-time-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .settings-time-field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .settings-time-field.warning .settings-input {
+      border-color: rgba(239, 145, 45, 0.82);
+      background: #fff6e8;
+    }
+
+    .settings-time-warning {
+      min-height: 16px;
+      margin: 0;
+      color: #b76712;
+      font-size: clamp(11px, 3vw, 12px);
+      font-weight: 760;
+      line-height: 1.22;
     }
 
     .settings-toggle-row {
@@ -1409,6 +1536,17 @@
           <span class="status-dot" aria-hidden="true"></span>
         </article>
 
+        <section class="card bedtime-card" id="bedtimeCard" aria-label="Bedtime mode">
+          <button class="bedtime-toggle" id="bedtimeToggleButton" type="button">
+            <span class="bedtime-icon" id="bedtimeIcon" aria-hidden="true">☾</span>
+            <span class="bedtime-copy">
+              <span class="bedtime-title" id="bedtimeTitle">Daytime mode</span>
+              <span class="bedtime-message" id="bedtimeMessage">Starts at 18:30</span>
+            </span>
+            <span class="bedtime-badge" id="bedtimeBadge">Off</span>
+          </button>
+        </section>
+
         <section class="actions" aria-label="Playback">
           <button class="action-button song" id="playSongButton" type="button">
             <img src="assets/icon-song.png" alt="">
@@ -1519,6 +1657,54 @@
             </div>
 
             <p class="settings-note" id="settingsNote" hidden></p>
+          </div>
+        </section>
+
+        <section class="card settings-section" aria-label="Bedtime mode settings">
+          <h2>Bedtime mode</h2>
+          <div class="settings-fields">
+            <label class="settings-toggle-row" for="settingsBedtimeEnabled">
+              <span>Enable bedtime mode</span>
+              <input id="settingsBedtimeEnabled" type="checkbox">
+            </label>
+
+            <div class="settings-field">
+              <span class="settings-field-title">Bedtime theme</span>
+              <section class="settings-theme-picker" id="settingsBedtimeThemeCard" aria-label="Bedtime theme">
+                <img class="control-icon" src="assets/icon-theme.png" alt="">
+                <div class="theme-field">
+                  <button class="theme-trigger" id="settingsBedtimeThemeTrigger" type="button" aria-expanded="false" aria-controls="settingsBedtimeThemeOptions">
+                    <span class="theme-trigger-copy">
+                      <span class="label">Theme</span>
+                      <span class="theme-current" id="settingsBedtimeThemeCurrent">Lullabies</span>
+                    </span>
+                    <span class="chevron" aria-hidden="true">⌄</span>
+                  </button>
+                  <div class="theme-options" id="settingsBedtimeThemeOptions" hidden></div>
+                </div>
+              </section>
+            </div>
+
+            <div class="settings-time-grid">
+              <div class="settings-time-field" id="settingsBedtimeStartField">
+                <label for="settingsBedtimeStartTime">Starts</label>
+                <input class="settings-input" id="settingsBedtimeStartTime" type="time" step="60">
+                <p class="settings-time-warning" id="settingsBedtimeStartWarning"></p>
+              </div>
+              <div class="settings-time-field" id="settingsBedtimeEndField">
+                <label for="settingsBedtimeEndTime">Ends</label>
+                <input class="settings-input" id="settingsBedtimeEndTime" type="time" step="60">
+                <p class="settings-time-warning" id="settingsBedtimeEndWarning"></p>
+              </div>
+            </div>
+
+            <div class="settings-field">
+              <div class="settings-volume-line">
+                <span class="settings-field-title">Volume cap</span>
+                <output class="volume-value" id="settingsBedtimeVolumeValue" for="settingsBedtimeVolumeRange">45%</output>
+              </div>
+              <input class="volume-range" id="settingsBedtimeVolumeRange" type="range" min="0" max="100" value="45" step="1">
+            </div>
           </div>
         </section>
 
@@ -1781,6 +1967,12 @@
       readyStatusCard: document.querySelector("#readyView .status-card"),
       readyStatusText: document.querySelector("#readyStatusText"),
       readyMessage: document.querySelector("#readyMessage"),
+      bedtimeCard: document.querySelector("#bedtimeCard"),
+      bedtimeToggleButton: document.querySelector("#bedtimeToggleButton"),
+      bedtimeIcon: document.querySelector("#bedtimeIcon"),
+      bedtimeTitle: document.querySelector("#bedtimeTitle"),
+      bedtimeMessage: document.querySelector("#bedtimeMessage"),
+      bedtimeBadge: document.querySelector("#bedtimeBadge"),
       playSongButton: document.querySelector("#playSongButton"),
       playAnimalButton: document.querySelector("#playAnimalButton"),
       stopButton: document.querySelector("#stopButton"),
@@ -1802,6 +1994,19 @@
       settingsDefaultThemeTrigger: document.querySelector("#settingsDefaultThemeTrigger"),
       settingsDefaultThemeCurrent: document.querySelector("#settingsDefaultThemeCurrent"),
       settingsDefaultThemeOptions: document.querySelector("#settingsDefaultThemeOptions"),
+      settingsBedtimeEnabled: document.querySelector("#settingsBedtimeEnabled"),
+      settingsBedtimeThemeCard: document.querySelector("#settingsBedtimeThemeCard"),
+      settingsBedtimeThemeTrigger: document.querySelector("#settingsBedtimeThemeTrigger"),
+      settingsBedtimeThemeCurrent: document.querySelector("#settingsBedtimeThemeCurrent"),
+      settingsBedtimeThemeOptions: document.querySelector("#settingsBedtimeThemeOptions"),
+      settingsBedtimeStartField: document.querySelector("#settingsBedtimeStartField"),
+      settingsBedtimeStartTime: document.querySelector("#settingsBedtimeStartTime"),
+      settingsBedtimeStartWarning: document.querySelector("#settingsBedtimeStartWarning"),
+      settingsBedtimeEndField: document.querySelector("#settingsBedtimeEndField"),
+      settingsBedtimeEndTime: document.querySelector("#settingsBedtimeEndTime"),
+      settingsBedtimeEndWarning: document.querySelector("#settingsBedtimeEndWarning"),
+      settingsBedtimeVolumeRange: document.querySelector("#settingsBedtimeVolumeRange"),
+      settingsBedtimeVolumeValue: document.querySelector("#settingsBedtimeVolumeValue"),
       settingsSleepEnabled: document.querySelector("#settingsSleepEnabled"),
       settingsNormalIdleSec: document.querySelector("#settingsNormalIdleSec"),
       settingsWakeIdleSec: document.querySelector("#settingsWakeIdleSec"),
@@ -1832,6 +2037,19 @@
       theme: "",
       themes: [],
       killswitch: false,
+      bedtime: {
+        enabled: true,
+        startTime: "18:30",
+        endTime: "06:30",
+        theme: "lullabies",
+        volumeCapPct: 45,
+        timeKnown: false,
+        active: false,
+        autoActive: false,
+        override: "none",
+        effectiveVolumePct: 75,
+        effectiveTheme: "lullabies"
+      },
       themeOpen: false,
       message: "",
       requestId: 0,
@@ -1848,6 +2066,11 @@
         sleepNormalIdleSec: 600,
         sleepVibrationWakeIdleSec: 120,
         sleepBleIdleSec: 120,
+        bedtimeEnabled: true,
+        bedtimeStartTime: "18:30",
+        bedtimeEndTime: "06:30",
+        bedtimeTheme: "lullabies",
+        bedtimeVolumeCapPct: 45,
         originalDeviceName: "SweetYaar",
         originalDefaultVolumePct: 75,
         originalDefaultTheme: "",
@@ -1855,7 +2078,13 @@
         originalSleepNormalIdleSec: 600,
         originalSleepVibrationWakeIdleSec: 120,
         originalSleepBleIdleSec: 120,
+        originalBedtimeEnabled: true,
+        originalBedtimeStartTime: "18:30",
+        originalBedtimeEndTime: "06:30",
+        originalBedtimeTheme: "lullabies",
+        originalBedtimeVolumeCapPct: 45,
         defaultThemeOpen: false,
+        bedtimeThemeOpen: false,
         themes: [],
         selectedThemeId: "",
         songs: [],
@@ -1953,6 +2182,49 @@
       return selected ? (selected.name || selected.id) : (current || "Lullabies");
     }
 
+    function settingsBedtimeThemeOptions() {
+      return settingsDefaultThemeOptions();
+    }
+
+    function selectedSettingsBedtimeThemeId() {
+      const options = settingsBedtimeThemeOptions();
+      if (options.some((theme) => theme.id === state.settings.bedtimeTheme)) {
+        return state.settings.bedtimeTheme;
+      }
+      if (options.some((theme) => theme.id === state.settings.defaultTheme)) {
+        return state.settings.defaultTheme;
+      }
+      return options[0]?.id || "";
+    }
+
+    function selectedSettingsBedtimeThemeName() {
+      const options = settingsBedtimeThemeOptions();
+      const current = selectedSettingsBedtimeThemeId();
+      const selected = options.find((theme) => theme.id === current);
+      return selected ? (selected.name || selected.id) : (current || "Lullabies");
+    }
+
+    function normalizeTimeString(value, fallback = "18:30") {
+      const text = `${value || ""}`.trim();
+      const match = /^(\d{1,2}):(\d{2})$/.exec(text);
+      if (!match) return fallback;
+      const hour = Number(match[1]);
+      const minute = Number(match[2]);
+      if (!Number.isInteger(hour) || !Number.isInteger(minute) ||
+          hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+        return fallback;
+      }
+      return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+    }
+
+    function timeToMinutes(value, fallbackMinutes) {
+      const fallback = Number.isFinite(Number(fallbackMinutes)) ? Number(fallbackMinutes) : 0;
+      const text = normalizeTimeString(value, "00:00");
+      const [hour, minute] = text.split(":").map(Number);
+      if (!Number.isFinite(hour) || !Number.isFinite(minute)) return fallback;
+      return hour * 60 + minute;
+    }
+
     function sortSettingsThemes(themes) {
       return [...themes].sort((a, b) => {
         if (!!a.special !== !!b.special) return a.special ? -1 : 1;
@@ -2015,6 +2287,11 @@
       state.settings.originalSleepNormalIdleSec = state.settings.sleepNormalIdleSec;
       state.settings.originalSleepVibrationWakeIdleSec = state.settings.sleepVibrationWakeIdleSec;
       state.settings.originalSleepBleIdleSec = state.settings.sleepBleIdleSec;
+      state.settings.originalBedtimeEnabled = state.settings.bedtimeEnabled;
+      state.settings.originalBedtimeStartTime = state.settings.bedtimeStartTime;
+      state.settings.originalBedtimeEndTime = state.settings.bedtimeEndTime;
+      state.settings.originalBedtimeTheme = state.settings.bedtimeTheme;
+      state.settings.originalBedtimeVolumeCapPct = state.settings.bedtimeVolumeCapPct;
     }
 
     function formatBytes(bytes) {
@@ -2107,6 +2384,15 @@
       throw new Error("The toy did not answer the settings command.");
     }
 
+    async function syncLocalTime() {
+      const now = new Date();
+      return configRequest({
+        op: "syncTime",
+        epochSec: Math.floor(now.getTime() / 1000),
+        tzOffsetMin: -now.getTimezoneOffset()
+      });
+    }
+
     function clampVolume(value) {
       const number = Number(value);
       if (!Number.isFinite(number)) return 75;
@@ -2130,10 +2416,29 @@
       };
     }
 
+    function normalizeBedtimeConfig(bedtime) {
+      const source = bedtime && typeof bedtime === "object" ? bedtime : {};
+      return {
+        enabled: source.enabled !== false,
+        startTime: normalizeTimeString(source.startTime, "18:30"),
+        endTime: normalizeTimeString(source.endTime, "06:30"),
+        theme: `${source.theme || "lullabies"}`.trim() || "lullabies",
+        volumeCapPct: clampVolume(
+          Object.prototype.hasOwnProperty.call(source, "volumeCapPct") ? source.volumeCapPct : 45),
+        timeKnown: !!source.timeKnown,
+        active: !!source.active,
+        autoActive: !!source.autoActive,
+        override: ["none", "on", "off"].includes(source.override) ? source.override : "none",
+        effectiveVolumePct: clampVolume(source.effectiveVolumePct),
+        effectiveTheme: `${source.effectiveTheme || source.theme || "lullabies"}`.trim() || "lullabies"
+      };
+    }
+
     function applyConfigResponse(config) {
       const deviceName = `${config.deviceName || displayDeviceName()}`.trim() || "SweetYaar";
       const defaultTheme = `${config.defaultTheme || ""}`.trim();
       const sleep = normalizeSleepConfig(config.sleep);
+      const bedtime = normalizeBedtimeConfig(config.bedtime);
       state.deviceName = deviceName;
       state.settings.deviceName = deviceName;
       state.settings.defaultVolumePct = clampVolume(config.defaultVolumePct);
@@ -2142,6 +2447,12 @@
       state.settings.sleepNormalIdleSec = sleep.normalIdleSec;
       state.settings.sleepVibrationWakeIdleSec = sleep.vibrationWakeIdleSec;
       state.settings.sleepBleIdleSec = sleep.bleIdleSec;
+      state.bedtime = bedtime;
+      state.settings.bedtimeEnabled = bedtime.enabled;
+      state.settings.bedtimeStartTime = bedtime.startTime;
+      state.settings.bedtimeEndTime = bedtime.endTime;
+      state.settings.bedtimeTheme = bedtime.theme;
+      state.settings.bedtimeVolumeCapPct = bedtime.volumeCapPct;
       if (config.activeTheme) {
         state.theme = `${config.activeTheme}`;
       }
@@ -2217,6 +2528,7 @@
           "";
       }
       state.settings.defaultTheme = selectedSettingsDefaultThemeId();
+      state.settings.bedtimeTheme = selectedSettingsBedtimeThemeId();
       state.settings.songs = await fetchSongScan(state.settings.selectedThemeId);
       recomputeSelectedThemeFromSongs();
     }
@@ -2232,6 +2544,7 @@
         state.settings.pendingThemeChanges = {};
         state.settings.pendingSongChanges = {};
         state.settings.defaultThemeOpen = false;
+        state.settings.bedtimeThemeOpen = false;
         state.settings.selectedThemeId = state.settings.selectedThemeId ||
           config.activeTheme ||
           config.defaultTheme ||
@@ -2285,6 +2598,13 @@
         els.settingsWakeIdleSec.value, state.settings.sleepVibrationWakeIdleSec);
       const sleepBleIdleSec = clampSleepSeconds(
         els.settingsBleIdleSec.value, state.settings.sleepBleIdleSec);
+      const bedtimeEnabled = els.settingsBedtimeEnabled.checked;
+      const bedtimeStartTime = normalizeTimeString(
+        els.settingsBedtimeStartTime.value, state.settings.bedtimeStartTime);
+      const bedtimeEndTime = normalizeTimeString(
+        els.settingsBedtimeEndTime.value, state.settings.bedtimeEndTime);
+      const bedtimeTheme = selectedSettingsBedtimeThemeId();
+      const bedtimeVolumeCapPct = clampVolume(els.settingsBedtimeVolumeRange.value);
 
       const configPayloads = [];
       if (deviceName !== state.settings.originalDeviceName) {
@@ -2314,6 +2634,26 @@
         configPayloads.push({ op: "setConfig", sleep: sleepPayload });
       }
 
+      const bedtimePayload = {};
+      if (bedtimeEnabled !== state.settings.originalBedtimeEnabled) {
+        bedtimePayload.enabled = bedtimeEnabled;
+      }
+      if (bedtimeStartTime !== state.settings.originalBedtimeStartTime) {
+        bedtimePayload.startTime = bedtimeStartTime;
+      }
+      if (bedtimeEndTime !== state.settings.originalBedtimeEndTime) {
+        bedtimePayload.endTime = bedtimeEndTime;
+      }
+      if (bedtimeTheme !== state.settings.originalBedtimeTheme) {
+        bedtimePayload.theme = bedtimeTheme;
+      }
+      if (bedtimeVolumeCapPct !== state.settings.originalBedtimeVolumeCapPct) {
+        bedtimePayload.volumeCapPct = bedtimeVolumeCapPct;
+      }
+      if (Object.keys(bedtimePayload).length > 0) {
+        configPayloads.push({ op: "setConfig", bedtime: bedtimePayload });
+      }
+
       state.settings.deviceName = deviceName;
       state.settings.defaultVolumePct = defaultVolumePct;
       state.settings.defaultTheme = defaultTheme;
@@ -2321,6 +2661,11 @@
       state.settings.sleepNormalIdleSec = sleepNormalIdleSec;
       state.settings.sleepVibrationWakeIdleSec = sleepVibrationWakeIdleSec;
       state.settings.sleepBleIdleSec = sleepBleIdleSec;
+      state.settings.bedtimeEnabled = bedtimeEnabled;
+      state.settings.bedtimeStartTime = bedtimeStartTime;
+      state.settings.bedtimeEndTime = bedtimeEndTime;
+      state.settings.bedtimeTheme = bedtimeTheme;
+      state.settings.bedtimeVolumeCapPct = bedtimeVolumeCapPct;
       state.busy = true;
       state.settings.message = "Saving settings...";
       render();
@@ -2419,8 +2764,26 @@
       state.view = "settings";
       state.themeOpen = false;
       state.settings.defaultThemeOpen = false;
+      state.settings.bedtimeThemeOpen = false;
       render();
       loadSettingsData();
+    }
+
+    async function toggleBedtimeMode() {
+      if (controlsDisabled() || !state.bedtime.enabled || !state.bedtime.timeKnown) return;
+      const targetActive = !state.bedtime.active;
+      state.busy = true;
+      render();
+      try {
+        const response = await configRequest({ op: "setBedtimeMode", active: targetActive });
+        applyConfigResponse(response);
+        state.message = "";
+      } catch (error) {
+        state.message = describeError(error);
+      } finally {
+        state.busy = false;
+        render();
+      }
     }
 
     function parseThemes(jsonText) {
@@ -2470,6 +2833,28 @@
         button.setAttribute("aria-selected", theme.id === current ? "true" : "false");
         button.disabled = settingsBusy();
         els.settingsDefaultThemeOptions.append(button);
+      }
+    }
+
+    function renderSettingsBedtimeThemeOptions() {
+      const options = settingsBedtimeThemeOptions();
+      const current = selectedSettingsBedtimeThemeId();
+
+      els.settingsBedtimeThemeCurrent.textContent = selectedSettingsBedtimeThemeName();
+      els.settingsBedtimeThemeTrigger.setAttribute("aria-expanded", state.settings.bedtimeThemeOpen ? "true" : "false");
+      els.settingsBedtimeThemeCard.classList.toggle("expanded", state.settings.bedtimeThemeOpen);
+      els.settingsBedtimeThemeOptions.hidden = !state.settings.bedtimeThemeOpen;
+      els.settingsBedtimeThemeOptions.replaceChildren();
+
+      for (const theme of options) {
+        const button = document.createElement("button");
+        button.className = "theme-option";
+        button.type = "button";
+        button.dataset.themeId = theme.id;
+        button.textContent = theme.name || theme.id;
+        button.setAttribute("aria-selected", theme.id === current ? "true" : "false");
+        button.disabled = settingsBusy() || !state.settings.bedtimeEnabled;
+        els.settingsBedtimeThemeOptions.append(button);
       }
     }
 
@@ -2638,9 +3023,43 @@
       }
     }
 
+    function renderBedtimeCard() {
+      const bedtime = state.bedtime;
+      const enabled = !!bedtime.enabled;
+      const timeKnown = !!bedtime.timeKnown;
+      const active = enabled && timeKnown && !!bedtime.active;
+      const disabled = controlsDisabled() || !enabled || !timeKnown;
+      const themeName = themeOptions().find((theme) => theme.id === (bedtime.effectiveTheme || bedtime.theme))?.name ||
+        bedtime.effectiveTheme || bedtime.theme || "Lullabies";
+
+      els.bedtimeCard.hidden = !enabled;
+      els.bedtimeCard.classList.toggle("active", active);
+      els.bedtimeCard.classList.toggle("time-unknown", enabled && !timeKnown);
+      els.bedtimeToggleButton.disabled = disabled;
+      els.bedtimeIcon.textContent = active ? "☾" : (enabled && !timeKnown ? "◷" : "☼");
+      els.bedtimeTitle.textContent = active ? "Bedtime mode" : "Daytime mode";
+
+      if (!enabled) {
+        els.bedtimeMessage.textContent = "Off in settings";
+        els.bedtimeBadge.textContent = "Off";
+      } else if (!timeKnown) {
+        els.bedtimeMessage.textContent = "Time unknown";
+        els.bedtimeBadge.textContent = "?";
+      } else if (active) {
+        els.bedtimeMessage.textContent = `${themeName} · cap ${bedtime.volumeCapPct}%`;
+        els.bedtimeBadge.textContent = "On";
+      } else {
+        els.bedtimeMessage.textContent = `Starts at ${bedtime.startTime}`;
+        els.bedtimeBadge.textContent = "Off";
+      }
+    }
+
     function renderSettings() {
       const settings = state.settings;
       const busy = settingsBusy();
+      if (!settings.bedtimeEnabled) {
+        settings.bedtimeThemeOpen = false;
+      }
 
       if (document.activeElement !== els.settingsDeviceName) {
         els.settingsDeviceName.value = settings.deviceName || "";
@@ -2653,6 +3072,29 @@
       els.settingsVolumeValue.textContent = `${settings.defaultVolumePct}%`;
       renderSettingsDefaultThemeOptions();
       els.settingsDefaultThemeTrigger.disabled = busy || settingsDefaultThemeOptions().length === 0;
+      renderSettingsBedtimeThemeOptions();
+      els.settingsBedtimeEnabled.checked = !!settings.bedtimeEnabled;
+      els.settingsBedtimeEnabled.disabled = busy;
+      els.settingsBedtimeThemeTrigger.disabled = busy || !settings.bedtimeEnabled || settingsBedtimeThemeOptions().length === 0;
+      if (document.activeElement !== els.settingsBedtimeStartTime) {
+        els.settingsBedtimeStartTime.value = settings.bedtimeStartTime;
+      }
+      if (document.activeElement !== els.settingsBedtimeEndTime) {
+        els.settingsBedtimeEndTime.value = settings.bedtimeEndTime;
+      }
+      const bedtimeStartUnusual = timeToMinutes(settings.bedtimeStartTime, 18 * 60 + 30) < 16 * 60;
+      const bedtimeEndUnusual = timeToMinutes(settings.bedtimeEndTime, 6 * 60 + 30) > 12 * 60;
+      els.settingsBedtimeStartField.classList.toggle("warning", bedtimeStartUnusual);
+      els.settingsBedtimeEndField.classList.toggle("warning", bedtimeEndUnusual);
+      els.settingsBedtimeStartWarning.textContent = bedtimeStartUnusual ? "Unusual start time" : "";
+      els.settingsBedtimeEndWarning.textContent = bedtimeEndUnusual ? "Unusual end time" : "";
+      els.settingsBedtimeStartTime.disabled = busy || !settings.bedtimeEnabled;
+      els.settingsBedtimeEndTime.disabled = busy || !settings.bedtimeEnabled;
+      els.settingsBedtimeVolumeRange.value = String(settings.bedtimeVolumeCapPct);
+      els.settingsBedtimeVolumeRange.style.setProperty("--volume-fill", `${settings.bedtimeVolumeCapPct}%`);
+      els.settingsBedtimeVolumeRange.disabled = busy || !settings.bedtimeEnabled;
+      els.settingsBedtimeVolumeValue.value = `${settings.bedtimeVolumeCapPct}%`;
+      els.settingsBedtimeVolumeValue.textContent = `${settings.bedtimeVolumeCapPct}%`;
       els.settingsSleepEnabled.checked = !!settings.sleepEnabled;
       els.settingsSleepEnabled.disabled = busy;
       if (document.activeElement !== els.settingsNormalIdleSec) {
@@ -2708,6 +3150,7 @@
       els.readyMessage.textContent = hideReadyMessage ? "" : readyMessageText;
       els.readyMessage.hidden = hideReadyMessage;
       els.readyStatusCard.classList.toggle("ready-compact", hideReadyMessage);
+      renderBedtimeCard();
 
       els.volumeRange.value = String(state.volume);
       els.volumeRange.style.setProperty("--volume-fill", `${state.volume}%`);
@@ -2911,7 +3354,11 @@
         }
 
         await readInitialValues();
-        if (state.configAvailable) {
+        try {
+          applyConfigResponse(await syncLocalTime());
+        } catch (syncError) {
+          state.configError = syncError;
+          console.error("[SweetYaar technical error]", syncError.technicalMessage || syncError);
           try {
             applyConfigResponse(await configRequest({ op: "getConfig" }));
           } catch (error) {
@@ -2980,10 +3427,12 @@
 
     els.connectButton.addEventListener("click", connect);
     els.openSettingsButton.addEventListener("click", openSettings);
+    els.bedtimeToggleButton.addEventListener("click", toggleBedtimeMode);
     els.settingsBackButton.addEventListener("click", () => {
       state.view = "remote";
       state.settings.message = "";
       state.settings.defaultThemeOpen = false;
+      state.settings.bedtimeThemeOpen = false;
       render();
     });
     els.settingsSaveButton.addEventListener("click", saveSettings);
@@ -3000,6 +3449,28 @@
 
     els.settingsSleepEnabled.addEventListener("change", () => {
       state.settings.sleepEnabled = els.settingsSleepEnabled.checked;
+      markSettingsDirty();
+    });
+
+    els.settingsBedtimeEnabled.addEventListener("change", () => {
+      state.settings.bedtimeEnabled = els.settingsBedtimeEnabled.checked;
+      markSettingsDirty();
+    });
+
+    els.settingsBedtimeStartTime.addEventListener("input", () => {
+      state.settings.bedtimeStartTime = normalizeTimeString(
+        els.settingsBedtimeStartTime.value, state.settings.bedtimeStartTime);
+      markSettingsDirty();
+    });
+
+    els.settingsBedtimeEndTime.addEventListener("input", () => {
+      state.settings.bedtimeEndTime = normalizeTimeString(
+        els.settingsBedtimeEndTime.value, state.settings.bedtimeEndTime);
+      markSettingsDirty();
+    });
+
+    els.settingsBedtimeVolumeRange.addEventListener("input", () => {
+      state.settings.bedtimeVolumeCapPct = clampVolume(els.settingsBedtimeVolumeRange.value);
       markSettingsDirty();
     });
 
@@ -3025,6 +3496,20 @@
       if (settingsBusy() || settingsDefaultThemeOptions().length === 0) return;
       state.settings.defaultThemeOpen = !state.settings.defaultThemeOpen;
       render();
+    });
+
+    els.settingsBedtimeThemeTrigger.addEventListener("click", () => {
+      if (settingsBusy() || !state.settings.bedtimeEnabled || settingsBedtimeThemeOptions().length === 0) return;
+      state.settings.bedtimeThemeOpen = !state.settings.bedtimeThemeOpen;
+      render();
+    });
+
+    els.settingsBedtimeThemeOptions.addEventListener("click", (event) => {
+      const button = event.target.closest(".theme-option");
+      if (!button || settingsBusy()) return;
+      state.settings.bedtimeTheme = button.dataset.themeId;
+      state.settings.bedtimeThemeOpen = false;
+      markSettingsDirty();
     });
 
     els.settingsDefaultThemeOptions.addEventListener("click", (event) => {
@@ -3059,6 +3544,11 @@
       if (controlsDisabled()) return;
       const previousTheme = state.theme;
       state.theme = nextTheme;
+      if (state.bedtime.active) {
+        state.bedtime.active = false;
+        state.bedtime.override = "off";
+        state.bedtime.effectiveTheme = nextTheme;
+      }
       state.themeOpen = false;
       render();
       safeWrite(
