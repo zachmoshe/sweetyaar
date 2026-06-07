@@ -114,7 +114,7 @@ The toy automatically enters real ESP32 deep sleep after inactivity, controlled 
 - Default normal idle timeout: 10 minutes (`normalIdleSec: 600`).
 - Default vibration-only wake timeout: 2 minutes (`vibrationWakeIdleSec: 120`). This shorter timeout is used when the only thing that happened was a vibration wake and nobody pressed a button, connected meaningfully, or started playback.
 - Default BLE idle timeout: 2 minutes (`bleIdleSec: 120`). A connected parent app can delay sleep while it is active, but an idle BLE connection is allowed to be dropped by sleep after this timeout.
-- Sleep is considered only in `IDLE`, with WAV playback stopped, no Classic BT/A2DP connection, no Bluetooth reopen cooldown, and no active killswitch.
+- Sleep is considered only in `IDLE`, or while Classic BT is connected with A2DP audio stopped/remote-suspended, with WAV playback stopped, no Bluetooth reopen cooldown, and no active killswitch.
 - Button presses, BLE writes/config commands, BLE connect/disconnect, BT state changes, and state-machine transitions reset the activity timer.
 - Killswitch does not trigger sleep and sleep does not replace killswitch. While the state machine is in `KILLSWITCH`, the device stays awake until the killswitch exits.
 - Wake source is only the vibration switch on `GPIO27`. Buttons are not wake sources because touching the toy should move it enough to trip the vibration switch.

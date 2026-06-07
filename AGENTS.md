@@ -4,6 +4,12 @@ These notes capture the current working setup and the debugging lessons from the
 ESP32 bring-up. Future agents should read this before touching firmware,
 Bluetooth, SD-card, or hardware-test workflows.
 
+## Implementation Isolation
+
+- For every agent-initiated implementation in any chat, create a separate Git
+  worktree and a new `codex/...` branch before editing files, unless the user
+  explicitly says to reuse an existing branch or worktree.
+
 ## Project Environment
 
 - Repo root: `/Users/zmoshe/proj/sweetyaar`
@@ -174,8 +180,9 @@ Recent successful real-app smoke logs:
 - Idle sleep:
   - Firmware reads `sleep.enabled`, `normalIdleSec`, `vibrationWakeIdleSec`, and
     `bleIdleSec` from `SD:/config.json`.
-  - Sleep is considered only in `IDLE`, with no WAV playback, no A2DP connection,
-    no Bluetooth reopen cooldown, and no active killswitch.
+  - Sleep is considered only in `IDLE`, or while Classic BT is connected with
+    A2DP audio stopped/remote-suspended, with no WAV playback, no Bluetooth
+    reopen cooldown, and no active killswitch.
   - Normal idle defaults to 10 minutes; vibration-only wake defaults to 2 minutes;
     idle connected BLE defaults to 2 minutes.
   - Deep sleep is a full reboot on wake. BT/BLE connections, current song, and
