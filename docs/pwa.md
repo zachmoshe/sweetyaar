@@ -63,7 +63,7 @@ make unsupported browsers support BLE.
 
 - `index.html`
 - `manifest.webmanifest`
-- PWA icons
+- favicon, Apple touch icon, and PWA icons
 - UI images in `docs/assets/`
 
 Navigation requests use a network-first strategy with cached fallback. This

@@ -9,8 +9,12 @@
   <meta name="apple-mobile-web-app-title" content="SweetYaar">
   <title>SweetYaar Parent Remote</title>
   <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="48x48" href="assets/favicon-48.png">
   <link rel="icon" type="image/png" sizes="192x192" href="assets/pwa-icon-192.png">
-  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
   <style>
     :root {
       --page: #f8f4ef;
@@ -509,13 +513,21 @@
       z-index: 5;
       bottom: max(12px, env(safe-area-inset-bottom));
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: 44px minmax(0, 1fr) auto;
       gap: 12px;
       align-items: center;
       margin: 0 var(--side-pad) 16px;
-      padding: 13px 12px 13px 15px;
+      padding: 12px;
       border-color: rgba(52, 184, 169, 0.24);
       background: rgba(255, 253, 249, 0.98);
+    }
+
+    .install-app-icon {
+      display: block;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      box-shadow: 0 5px 12px rgba(73, 55, 34, 0.14);
     }
 
     .install-copy {
@@ -1646,10 +1658,11 @@
       }
 
       .install-banner {
-        grid-template-columns: 1fr;
+        grid-template-columns: 44px 1fr;
       }
 
       .install-actions {
+        grid-column: 1 / -1;
         grid-template-columns: minmax(0, 1fr) 40px;
       }
 
@@ -1965,6 +1978,7 @@
     </section>
 
     <aside class="card install-banner" id="installBanner" aria-label="Install SweetYaar" hidden>
+      <img class="install-app-icon" src="assets/pwa-icon-192.png" alt="" aria-hidden="true">
       <div class="install-copy">
         <p class="install-title">Install SweetYaar</p>
         <p>Add the parent remote to this device.</p>

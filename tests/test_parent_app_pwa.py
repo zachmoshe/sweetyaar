@@ -13,7 +13,7 @@ def png_size(path):
     return struct.unpack(">II", header[16:24])
 
 
-def png_rgba_alpha_bounds(path):
+def png_rgba_alpha_stats(path):
     data = path.read_bytes()
     assert data.startswith(b"\x89PNG\r\n\x1a\n")
 
@@ -40,6 +40,8 @@ def png_rgba_alpha_bounds(path):
     stride = width * bytes_per_pixel
     stream = zlib.decompress(b"".join(chunks))
     previous = [0] * stride
+    min_alpha = 255
+    max_alpha = 0
     points = []
     cursor = 0
 
@@ -71,14 +73,27 @@ def png_rgba_alpha_bounds(path):
             row[x] = (value + predicted) & 0xFF
 
         for x in range(width):
-            if row[x * bytes_per_pixel + 3] > 10:
+            alpha = row[x * bytes_per_pixel + 3]
+            min_alpha = min(min_alpha, alpha)
+            max_alpha = max(max_alpha, alpha)
+            if alpha > 10:
                 points.append((x, y))
         previous = row
 
     assert points
     xs = [point[0] for point in points]
     ys = [point[1] for point in points]
-    return width, height, (min(xs), min(ys), max(xs), max(ys))
+    return {
+        "width": width,
+        "height": height,
+        "alpha": (min_alpha, max_alpha),
+        "bounds": (min(xs), min(ys), max(xs), max(ys)),
+    }
+
+
+def png_rgba_alpha_bounds(path):
+    stats = png_rgba_alpha_stats(path)
+    return stats["width"], stats["height"], stats["bounds"]
 
 
 def test_parent_app_manifest_contract(repo_root) -> None:
@@ -99,7 +114,10 @@ def test_parent_app_manifest_contract(repo_root) -> None:
     icons = {icon["src"]: icon for icon in manifest["icons"]}
     assert icons["assets/pwa-icon-192.png"]["sizes"] == "192x192"
     assert icons["assets/pwa-icon-512.png"]["sizes"] == "512x512"
+    assert icons["assets/pwa-icon-maskable-192.png"]["purpose"] == "maskable"
+    assert icons["assets/pwa-icon-maskable-192.png"]["sizes"] == "192x192"
     assert icons["assets/pwa-icon-maskable-512.png"]["purpose"] == "maskable"
+    assert icons["assets/pwa-icon-maskable-512.png"]["sizes"] == "512x512"
 
     for icon_src, icon in icons.items():
         icon_path = docs_dir / icon_src
@@ -115,8 +133,13 @@ def test_parent_app_index_links_pwa_assets(repo_root) -> None:
     assert '<meta name="mobile-web-app-capable" content="yes">' in index_html
     assert "apple-mobile-web-app-capable" not in index_html
     assert '<link rel="manifest" href="manifest.webmanifest">' in index_html
+    assert 'href="favicon.ico"' in index_html
+    assert 'href="assets/favicon-16.png"' in index_html
+    assert 'href="assets/favicon-32.png"' in index_html
+    assert 'href="assets/favicon-48.png"' in index_html
     assert 'href="assets/pwa-icon-192.png"' in index_html
-    assert 'href="assets/apple-touch-icon.png"' in index_html
+    assert '<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">' in index_html
+    assert 'class="install-app-icon" src="assets/pwa-icon-192.png"' in index_html
     assert 'id="installBanner"' in index_html
     assert 'id="installButton"' in index_html
     assert 'id="installDismissButton"' in index_html
@@ -129,6 +152,28 @@ def test_parent_app_index_links_pwa_assets(repo_root) -> None:
     assert "promptInstall" in index_html
     assert 'navigator.serviceWorker.register("sw.js", { scope: "./" })' in index_html
     assert "registration.update" in index_html
+
+
+def test_parent_app_icon_alpha_contract(repo_root) -> None:
+    docs_dir = repo_root / "docs"
+
+    for icon_name in [
+        "apple-touch-icon.png",
+        "pwa-icon-192.png",
+        "pwa-icon-512.png",
+        "pwa-icon-maskable-192.png",
+        "pwa-icon-maskable-512.png",
+    ]:
+        stats = png_rgba_alpha_stats(docs_dir / "assets" / icon_name)
+        assert stats["alpha"] == (255, 255), icon_name
+        assert stats["bounds"] == (0, 0, stats["width"] - 1, stats["height"] - 1), icon_name
+
+    for icon_name in ["favicon-16.png", "favicon-32.png", "favicon-48.png"]:
+        stats = png_rgba_alpha_stats(docs_dir / "assets" / icon_name)
+        assert stats["alpha"] == (0, 255), icon_name
+        min_x, min_y, max_x, max_y = stats["bounds"]
+        assert min_x > 0 or min_y > 0, icon_name
+        assert max_x < stats["width"] - 1 or max_y < stats["height"] - 1, icon_name
 
 
 def test_parent_app_service_worker_precache_contract(repo_root) -> None:
@@ -144,11 +189,16 @@ def test_parent_app_service_worker_precache_contract(repo_root) -> None:
 
     urls = re.findall(r'"([^"]+)"', precache_match.group("urls"))
     assert "./" in urls
+    assert "./favicon.ico" in urls
     assert "./index.html" in urls
     assert "./manifest.webmanifest" in urls
+    assert "./assets/favicon-16.png" in urls
+    assert "./assets/favicon-32.png" in urls
+    assert "./assets/favicon-48.png" in urls
     assert "./assets/icon-settings-sliders.svg" in urls
     assert "./assets/pwa-icon-192.png" in urls
     assert "./assets/pwa-icon-512.png" in urls
+    assert "./assets/pwa-icon-maskable-192.png" in urls
     assert "./assets/pwa-icon-maskable-512.png" in urls
 
     for url in urls:
@@ -159,7 +209,7 @@ def test_parent_app_service_worker_precache_contract(repo_root) -> None:
         assert asset_path.exists(), url
 
     assert 'const CACHE_PREFIX = "sweetyaar-parent";' in sw_source
-    assert 'const CACHE_VERSION = "sweetyaar-parent-v9";' in sw_source
+    assert 'const CACHE_VERSION = "sweetyaar-parent-v10";' in sw_source
     assert "cache.addAll(PRECACHE_URLS)" in sw_source
     assert "self.skipWaiting()" in sw_source
     assert "self.clients.claim()" in sw_source

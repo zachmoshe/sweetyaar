@@ -1,13 +1,17 @@
 "use strict";
 
 const CACHE_PREFIX = "sweetyaar-parent";
-const CACHE_VERSION = "sweetyaar-parent-v9";
+const CACHE_VERSION = "sweetyaar-parent-v10";
 
 const PRECACHE_URLS = [
   "./",
+  "./favicon.ico",
   "./index.html",
   "./manifest.webmanifest",
   "./assets/apple-touch-icon.png",
+  "./assets/favicon-16.png",
+  "./assets/favicon-32.png",
+  "./assets/favicon-48.png",
   "./assets/header-decoration-teddy.png",
   "./assets/header-decoration-teddy@2x.png",
   "./assets/icon-animal.png",
@@ -21,6 +25,7 @@ const PRECACHE_URLS = [
   "./assets/opening-hero-art.png",
   "./assets/pwa-icon-192.png",
   "./assets/pwa-icon-512.png",
+  "./assets/pwa-icon-maskable-192.png",
   "./assets/pwa-icon-maskable-512.png",
   "./assets/ready-bottom-graphics.png",
   "./assets/ready-bottom-graphics@2x.png",
