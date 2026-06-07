@@ -116,6 +116,7 @@ void clearExpiredBedtimeOverride();
 String bedtimeEffectiveSongTheme();
 String bedtimeOverrideName();
 String bedtimeTimeString(uint16_t minuteOfDay);
+String bedtimeCurrentTimeString();
 uint16_t parseBedtimeTimeString(const char* value, uint16_t fallback);
 void markActivity(const char* reason);
 void markBleActivity(const char* reason);
@@ -608,6 +609,14 @@ String bedtimeOverrideName() {
 
 String bedtimeTimeString(uint16_t minuteOfDay) {
     return ContentCatalog::formatTimeOfDay(minuteOfDay);
+}
+
+String bedtimeCurrentTimeString() {
+    uint16_t minute = 0;
+    if (!bedtimeLocalMinute(minute)) {
+        return "";
+    }
+    return bedtimeTimeString(minute);
 }
 
 uint16_t parseBedtimeTimeString(const char* value, uint16_t fallback) {
@@ -1436,6 +1445,12 @@ String buildConfigResponse(uint32_t requestId) {
     json += parentConfig.bedtimeVolumeCapPct();
     json += ",\"timeKnown\":";
     json += bedtimeTimeKnown() ? "true" : "false";
+    json += ",\"currentTime\":\"";
+    json += bedtimeCurrentTimeString();
+    json += "\",\"currentSecondOfDay\":";
+    json += bedtimeTimeKnown()
+        ? static_cast<int32_t>(bedtimeLocalSecondOfDay())
+        : -1;
     json += ",\"active\":";
     json += bedtimeRuntimeActive() ? "true" : "false";
     json += ",\"autoActive\":";

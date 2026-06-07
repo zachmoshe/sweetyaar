@@ -1101,6 +1101,15 @@
       color: #34314d;
     }
 
+    .device-watch {
+      margin: 2px 4px 0;
+      color: rgba(72, 96, 99, 0.68);
+      text-align: center;
+      font-size: clamp(11px, 3vw, 12px);
+      font-weight: 720;
+      line-height: 1.15;
+    }
+
     .ready-settings-row {
       display: grid;
       place-items: center;
@@ -1818,6 +1827,8 @@
           </div>
         </section>
 
+        <p class="device-watch" id="deviceWatch" aria-label="Device clock">Device time unknown</p>
+
       </div>
 
       <img class="bottom-art" src="assets/ready-bottom-graphics.png" srcset="assets/ready-bottom-graphics.png 1x, assets/ready-bottom-graphics@2x.png 2x" alt="">
@@ -2201,6 +2212,7 @@
       bedtimeToggleButton: document.querySelector("#bedtimeToggleButton"),
       bedtimeTitle: document.querySelector("#bedtimeTitle"),
       bedtimeMessage: document.querySelector("#bedtimeMessage"),
+      deviceWatch: document.querySelector("#deviceWatch"),
       playSongButton: document.querySelector("#playSongButton"),
       playAnimalButton: document.querySelector("#playAnimalButton"),
       stopButton: document.querySelector("#stopButton"),
@@ -2275,6 +2287,9 @@
         theme: "lullabies",
         volumeCapPct: 45,
         timeKnown: false,
+        currentTime: "",
+        currentSecondOfDay: null,
+        currentTimeReceivedAtMs: 0,
         active: false,
         autoActive: false,
         override: "none",
@@ -2464,6 +2479,21 @@
       const [hour, minute] = text.split(":").map(Number);
       if (!Number.isFinite(hour) || !Number.isFinite(minute)) return fallback;
       return hour * 60 + minute;
+    }
+
+    function normalizeSecondOfDay(value) {
+      if (value === null || value === undefined || value === "") return null;
+      const number = Number(value);
+      if (!Number.isFinite(number)) return null;
+      const rounded = Math.round(number);
+      return rounded >= 0 && rounded < 86400 ? rounded : null;
+    }
+
+    function formatSecondOfDay(value) {
+      const total = ((Math.floor(Number(value) || 0) % 86400) + 86400) % 86400;
+      const hour = Math.floor(total / 3600);
+      const minute = Math.floor((total % 3600) / 60);
+      return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
     }
 
     function sortSettingsThemes(themes) {
@@ -2674,6 +2704,29 @@
       });
     }
 
+    async function refreshDeviceClock({ renderAfter = true } = {}) {
+      try {
+        applyConfigResponse(await syncLocalTime());
+        state.configError = null;
+        return true;
+      } catch (syncError) {
+        state.configError = syncError;
+        console.error("[SweetYaar technical error]", syncError.technicalMessage || syncError);
+        try {
+          applyConfigResponse(await configRequest({ op: "getConfig" }));
+          return true;
+        } catch (error) {
+          state.configError = error;
+          console.error("[SweetYaar technical error]", error.technicalMessage || error);
+          return false;
+        }
+      } finally {
+        if (renderAfter) {
+          render();
+        }
+      }
+    }
+
     function clampVolume(value) {
       const number = Number(value);
       if (!Number.isFinite(number)) return 75;
@@ -2723,6 +2776,9 @@
         volumeCapPct: clampVolume(
           Object.prototype.hasOwnProperty.call(source, "volumeCapPct") ? source.volumeCapPct : 45),
         timeKnown: !!source.timeKnown,
+        currentTime: normalizeTimeString(source.currentTime, ""),
+        currentSecondOfDay: normalizeSecondOfDay(source.currentSecondOfDay),
+        currentTimeReceivedAtMs: 0,
         active: !!source.active,
         autoActive: !!source.autoActive,
         override: ["none", "on", "off"].includes(source.override) ? source.override : "none",
@@ -2744,6 +2800,7 @@
       state.settings.sleepNormalIdleSec = sleep.normalIdleSec;
       state.settings.sleepVibrationWakeIdleSec = sleep.vibrationWakeIdleSec;
       state.settings.sleepBleIdleSec = sleep.bleIdleSec;
+      bedtime.currentTimeReceivedAtMs = Date.now();
       state.bedtime = bedtime;
       state.settings.bedtimeEnabled = bedtime.enabled;
       state.settings.bedtimeStartTime = bedtime.startTime;
@@ -3074,6 +3131,15 @@
       loadSettingsData();
     }
 
+    async function returnToRemote() {
+      state.view = "remote";
+      state.settings.message = "";
+      state.settings.defaultThemeOpen = false;
+      state.settings.bedtimeThemeOpen = false;
+      render();
+      await refreshDeviceClock();
+    }
+
     async function toggleBedtimeMode() {
       if (controlsDisabled() || !state.bedtime.enabled || !state.bedtime.timeKnown) return;
       const targetActive = !state.bedtime.active;
@@ -3357,6 +3423,23 @@
       }
     }
 
+    function deviceWatchText() {
+      const currentSecondOfDay = state.bedtime.currentSecondOfDay;
+      if (state.bedtime.timeKnown && Number.isFinite(currentSecondOfDay)) {
+        const receivedAt = state.bedtime.currentTimeReceivedAtMs || Date.now();
+        const elapsedSec = Math.max(0, Math.floor((Date.now() - receivedAt) / 1000));
+        return `Device time ${formatSecondOfDay(currentSecondOfDay + elapsedSec)}`;
+      }
+      const currentTime = normalizeTimeString(state.bedtime.currentTime, "");
+      return state.bedtime.timeKnown && currentTime
+        ? `Device time ${currentTime}`
+        : "Device time unknown";
+    }
+
+    function refreshDeviceWatch() {
+      els.deviceWatch.textContent = deviceWatchText();
+    }
+
     function renderSettings() {
       const settings = state.settings;
       const busy = settingsBusy();
@@ -3454,6 +3537,7 @@
       els.readyMessage.hidden = hideReadyMessage;
       els.readyStatusCard.classList.toggle("ready-compact", hideReadyMessage);
       renderBedtimeCard();
+      refreshDeviceWatch();
 
       const volumeCap = readyVolumeCap();
       const displayedVolume = displayedReadyVolume();
@@ -3566,6 +3650,9 @@
         state.status = readText(event.target.value) || "Idle";
         if (wasBtConnected && !isBtConnected()) {
           state.message = "";
+          render();
+          refreshDeviceClock();
+          return;
         }
         render();
       });
@@ -3683,18 +3770,7 @@
         }
 
         await readInitialValues();
-        try {
-          applyConfigResponse(await syncLocalTime());
-        } catch (syncError) {
-          state.configError = syncError;
-          console.error("[SweetYaar technical error]", syncError.technicalMessage || syncError);
-          try {
-            applyConfigResponse(await configRequest({ op: "getConfig" }));
-          } catch (error) {
-            state.configError = error;
-            console.error("[SweetYaar technical error]", error.technicalMessage || error);
-          }
-        }
+        await refreshDeviceClock({ renderAfter: false });
         try {
           await refreshRemoteThemes();
         } catch (error) {
@@ -3769,13 +3845,7 @@
     });
     els.openSettingsButton.addEventListener("click", openSettings);
     els.bedtimeToggleButton.addEventListener("click", toggleBedtimeMode);
-    els.settingsBackButton.addEventListener("click", () => {
-      state.view = "remote";
-      state.settings.message = "";
-      state.settings.defaultThemeOpen = false;
-      state.settings.bedtimeThemeOpen = false;
-      render();
-    });
+    els.settingsBackButton.addEventListener("click", returnToRemote);
     els.settingsSaveButton.addEventListener("click", saveSettings);
 
     els.settingsDeviceName.addEventListener("input", () => {
@@ -3977,6 +4047,12 @@
       state.appInstalled = true;
       render();
     });
+
+    setInterval(() => {
+      if (state.connected && state.view === "remote") {
+        refreshDeviceWatch();
+      }
+    }, 1000);
 
     if (!("bluetooth" in navigator)) {
       state.message = "This browser does not support Web Bluetooth. Use Chrome or Edge on desktop or Android.";

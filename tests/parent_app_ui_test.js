@@ -221,6 +221,8 @@ function createContext() {
     Uint8Array,
     setTimeout,
     clearTimeout,
+    setInterval: () => 0,
+    clearInterval: () => {},
     document,
     window,
     navigator: { bluetooth: {} },
@@ -346,6 +348,8 @@ function makeBleHarness(options = {}) {
       theme: "lullabies",
       volumeCapPct: 45,
       timeKnown: false,
+      currentTime: "",
+      currentSecondOfDay: null,
       active: false,
       autoActive: false,
       override: "none",
@@ -391,6 +395,8 @@ function makeBleHarness(options = {}) {
         return { id: payload.id, ok: false, error: "Unknown config command" };
       }
       config.bedtime.timeKnown = true;
+      config.bedtime.currentTime = options.deviceTime || config.bedtime.currentTime || "21:05";
+      config.bedtime.currentSecondOfDay = options.deviceSecondOfDay ?? config.bedtime.currentSecondOfDay ?? 75907;
       return { id: payload.id, ok: true, op: "getConfig", sdReady: true, ...config };
     }
     if (payload.op === "getConfig") {
@@ -618,6 +624,7 @@ const tests = [
     assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime", "scanThemes"]);
     assert.strictEqual(els.bedtimeTitle.textContent, "Daytime");
     assert.strictEqual(els.bedtimeMessage.textContent, "(ends at 18:30)");
+    assert.strictEqual(els.deviceWatch.textContent, "Device time 21:05");
   `],
   ["bedtime card shows time unknown when sync is unavailable", String.raw`
     await connectWithFakeBle({ rejectSyncTime: true });
@@ -626,6 +633,7 @@ const tests = [
     assert.strictEqual(els.bedtimeTitle.textContent, "Daytime");
     assert.strictEqual(els.bedtimeMessage.textContent, "time unknown");
     assert.strictEqual(els.bedtimeToggleButton.disabled, true);
+    assert.strictEqual(els.deviceWatch.textContent, "Device time unknown");
   `],
   ["bedtime card toggles runtime mode", String.raw`
     const ble = await connectWithFakeBle({
@@ -782,6 +790,19 @@ const tests = [
       { op: "scanThemes", page: 0 },
       { op: "scanSongs", theme: "lullabies", page: 0 }
     ]);
+  `],
+  ["returning to remote refreshes the device clock", String.raw`
+    const ble = await connectWithFakeBle();
+    assert.strictEqual(els.deviceWatch.textContent, "Device time 21:05");
+    await els.openSettingsButton.click();
+    await waitForSettingsLoaded();
+    ble.config.bedtime.currentTime = "22:14";
+    ble.config.bedtime.currentSecondOfDay = 80040;
+    await els.settingsBackButton.click();
+    await waitUntil(() => els.deviceWatch.textContent === "Device time 22:14", "device clock refresh");
+    assertVisible(els.readyView, [els.openingView, els.streamingView, els.settingsView]);
+    const syncPayloads = payloadsWithoutIds(ble.writes.config).filter((payload) => payload.op === "syncTime");
+    assert.strictEqual(syncPayloads.length, 2);
   `],
   ["settings save writes config, theme, and song payloads", String.raw`
     const ble = await connectWithFakeBle();
