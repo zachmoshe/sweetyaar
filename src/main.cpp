@@ -61,6 +61,7 @@ bool btNameApplyPending = false;
 uint32_t btReopenAtMs = 0;
 const uint32_t BT_REOPEN_DELAY_MS = 1500;
 volatile bool btLinkConnected = false;
+volatile bool btAudioActive = false;
 uint32_t lastBleStatusPublishMs = 0;
 bool wokeFromVibration = false;
 bool realActivitySeenSinceWake = false;
@@ -124,6 +125,7 @@ void pollBleConnectionState();
 uint32_t currentSleepTimeoutMs();
 uint32_t readSleepSeconds(JsonObjectConst sleep, const char* key, uint32_t fallbackMs);
 bool bleIdleAllowsSleep();
+bool stateAllowsIdleSleep(State state);
 bool canEnterIdleSleep();
 void pollIdleSleep();
 void preparePinsForPeripheralPowerOff();
@@ -152,6 +154,7 @@ static void btConnectionStateChanged(esp_a2d_connection_state_t state,
         sm.postEvent(Event::BT_CONNECTED);
     } else if (state == ESP_A2D_CONNECTION_STATE_DISCONNECTED) {
         btLinkConnected = false;
+        btAudioActive = false;
         Serial.println("[BT] Disconnected");
         sm.postEvent(Event::BT_DISCONNECTED);
     }
@@ -172,6 +175,18 @@ static const char* btAudioStateName(esp_a2d_audio_state_t state) {
 
 static void btAudioStateChanged(esp_a2d_audio_state_t state, void*) {
     Serial.printf("[BT] Audio state: %s\n", btAudioStateName(state));
+    if (state == ESP_A2D_AUDIO_STATE_STARTED) {
+        if (!btAudioActive) {
+            markActivity("BT audio started");
+        }
+        btAudioActive = true;
+    } else if (state == ESP_A2D_AUDIO_STATE_STOPPED ||
+               state == ESP_A2D_AUDIO_STATE_REMOTE_SUSPEND) {
+        if (btAudioActive) {
+            markActivity("BT audio inactive");
+        }
+        btAudioActive = false;
+    }
 }
 
 static void btSampleRateChanged(uint16_t rate) {
@@ -669,19 +684,32 @@ bool bleIdleAllowsSleep() {
 }
 
 // ---------------------------------------------------------------------------
+// stateAllowsIdleSleep()
+// ---------------------------------------------------------------------------
+bool stateAllowsIdleSleep(State state) {
+    if (state == State::IDLE) {
+        return !btLinkConnected;
+    }
+    if (state == State::BT_STREAMING) {
+        return btLinkConnected && !btAudioActive;
+    }
+    return false;
+}
+
+// ---------------------------------------------------------------------------
 // canEnterIdleSleep()
 // ---------------------------------------------------------------------------
 bool canEnterIdleSleep() {
     if (!parentConfig.sleepEnabled()) {
         return false;
     }
-    if (sm.currentState() != State::IDLE) {
+    if (!stateAllowsIdleSleep(sm.currentState())) {
         return false;
     }
     if (!wavPlayer.isIdle()) {
         return false;
     }
-    if (btLinkConnected || btReopenPending) {
+    if (btReopenPending) {
         return false;
     }
     return bleIdleAllowsSleep();
