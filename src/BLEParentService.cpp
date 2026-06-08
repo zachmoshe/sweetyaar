@@ -80,8 +80,10 @@ void BLEParentService::begin(const String& deviceName) {
     BLEAdvertising* adv = BLEDevice::getAdvertising();
     adv->addServiceUUID(BLE_SERVICE_UUID);
     adv->setScanResponse(true);
-    adv->setMinPreferred(0x06);  // help iPhone connections
-    adv->setMinPreferred(0x12);  // maintainer coex example uses both hints
+    adv->setMinPreferred(0x06);   // help iPhone connections (min connection interval hint)
+    adv->setMaxPreferred(0x12);   // max connection interval hint
+    adv->setMinInterval(0xA0);    // 100ms — coexistence headroom for Classic BT
+    adv->setMaxInterval(0x190);   // 250ms
     BLEDevice::startAdvertising();
 
     Serial.printf("[BLE] Advertising as \"%s\" service=%s configCmd=%s configResp=%s\n",
@@ -212,4 +214,11 @@ bool BLEParentService::pollConfigCommand(String& out) {
 
 bool BLEParentService::isConnected() const {
     return _connected;
+}
+
+void BLEParentService::pollAdvertising() {
+    if (_restartAdvPending) {
+        _restartAdvPending = false;
+        BLEDevice::startAdvertising();
+    }
 }

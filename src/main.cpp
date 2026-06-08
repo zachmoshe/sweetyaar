@@ -331,6 +331,7 @@ void loop() {
     // 8. Re-open BT after a short disconnect cooldown.
     pollBluetoothReopen();
     applyPendingBtNameIfPossible();
+    if (ENABLE_BLE_PARENT_SERVICE) bleService.pollAdvertising();
     pollBtDebug();
     pollIdleSleep();
 

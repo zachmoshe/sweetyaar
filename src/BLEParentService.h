@@ -72,6 +72,9 @@ public:
     // True if at least one BLE central is connected
     bool isConnected() const;
 
+    // Call from main loop to safely restart advertising after a disconnect
+    void pollAdvertising();
+
 private:
     BLEServer*         _server   = nullptr;
     BLECharacteristic* _volChar  = nullptr;
@@ -100,6 +103,7 @@ private:
     char             _pendingConfigCommand[384] = {0};
 
     volatile bool    _connected = false;
+    volatile bool    _restartAdvPending = false;
     portMUX_TYPE     _mux = portMUX_INITIALIZER_UNLOCKED;
 
     // Server callbacks (connect/disconnect)
@@ -112,9 +116,8 @@ private:
         }
         void onDisconnect(BLEServer*) override {
             _owner->_connected = false;
+            _owner->_restartAdvPending = true;  // defer out of BT stack callback
             Serial.println("[BLE] Client disconnected");
-            // Restart advertising so a new client can connect
-            BLEDevice::startAdvertising();
         }
     private:
         BLEParentService* _owner;
