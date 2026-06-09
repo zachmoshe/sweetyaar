@@ -311,7 +311,11 @@ class FakeCharacteristic {
     this.listeners[name].push(handler);
   }
 
-  async startNotifications() {}
+  async startNotifications() {
+    if (this.hooks.onStartNotifications) {
+      this.hooks.onStartNotifications(this.name);
+    }
+  }
 
   emit(value) {
     this.value = value;
@@ -446,16 +450,24 @@ function makeBleHarness(options = {}) {
   let response = { id: 0, ok: true };
   let activeReads = 0;
   let maxConcurrentReads = 0;
-  const readHooks = options.trackConcurrentReads ? {
-    async beforeRead() {
+  const reads = [];
+  const notifications = [];
+  const readHooks = {
+    async beforeRead(name) {
+      reads.push(name);
+      if (!options.trackConcurrentReads) return;
       activeReads += 1;
       maxConcurrentReads = Math.max(maxConcurrentReads, activeReads);
       await delay(5);
     },
     afterRead() {
+      if (!options.trackConcurrentReads) return;
       activeReads -= 1;
+    },
+    onStartNotifications(name) {
+      notifications.push(name);
     }
-  } : {};
+  };
   const chars = {
     volume: new FakeCharacteristic("volume", options.volume ?? 75, readHooks),
     killswitch: new FakeCharacteristic("killswitch", options.killswitch ? 1 : 0, readHooks),
@@ -566,6 +578,8 @@ function makeBleHarness(options = {}) {
     writes,
     config,
     device,
+    reads,
+    notifications,
     get maxConcurrentReads() { return maxConcurrentReads; },
     get requestCount() { return requestCount; }
   };
@@ -720,6 +734,32 @@ const tests = [
     assertVisible(els.streamingView, [els.openingView, els.readyView, els.settingsView]);
     assert.strictEqual(els.playSongButton.disabled, true);
     assert.strictEqual(els.volumeRange.disabled, true);
+  `],
+  ["BT streaming initial status uses status-only connection", String.raw`
+    const ble = await connectWithFakeBle({ status: "BT connected" });
+    assert.strictEqual(state.connected, true);
+    assert.strictEqual(state.statusOnlyConnection, true);
+    assertVisible(els.streamingView, [els.openingView, els.readyView, els.settingsView]);
+    assert.deepStrictEqual(ble.reads, ["status"]);
+    assert.deepStrictEqual(ble.notifications, ["status"]);
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config), []);
+    assert.strictEqual(els.playSongButton.disabled, true);
+    assert.strictEqual(els.volumeRange.disabled, true);
+  `],
+  ["BT streaming status-only connection hydrates after BT disconnects", String.raw`
+    const ble = await connectWithFakeBle({
+      status: "BT connected",
+      volume: 31,
+      theme: "nature",
+      config: { activeTheme: "nature", defaultTheme: "nature" }
+    });
+    ble.chars.status.emit("Idle");
+    await waitUntil(() => state.connected && !state.statusOnlyConnection && !state.busy, "status-only hydration");
+    assertVisible(els.readyView, [els.openingView, els.streamingView, els.settingsView]);
+    assert.strictEqual(els.volumeValue.textContent, "31%");
+    assert.strictEqual(els.themeCurrent.textContent, "Nature");
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime", "scanThemes"]);
+    assert.deepStrictEqual(ble.notifications, ["status", "volume", "killswitch", "theme"]);
   `],
   ["remote playback buttons write command values", String.raw`
     const ble = await connectWithFakeBle();
