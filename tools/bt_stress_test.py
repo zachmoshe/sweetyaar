@@ -59,6 +59,7 @@ _RE_BT_CONNECTED = re.compile(r"\[BT\] Connected")
 _RE_BT_DISC      = re.compile(r"\[BT\] Disconnected")
 _RE_GRACEFUL     = re.compile(r"Restarting cleanly")
 _RE_HEAP         = re.compile(r"free=(\d+)")
+_RE_AUDIO_STARTED = re.compile(r"\[BT\] Audio state: STARTED")
 
 
 # ---------------------------------------------------------------------------
@@ -98,6 +99,7 @@ class IterResult:
     duration_s: float = 0.0
     crash_detail: str = ""
     reboot_seen: bool = False  # reboot detected during/after outcome
+    audio_streamed: bool = False  # audio was routed and played during BT hold
 
 
 # ---------------------------------------------------------------------------
@@ -234,8 +236,11 @@ def bt_connect(address: str) -> bool:
     if not tool:
         return False
     # Disconnect first so macOS doesn't skip if it thinks it's already connected
-    subprocess.run([tool, "--disconnect", address],
-                   capture_output=True, timeout=5)
+    try:
+        subprocess.run([tool, "--disconnect", address],
+                       capture_output=True, timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
     time.sleep(0.5)
     r = subprocess.run([tool, "--connect", address],
                        capture_output=True, text=True, timeout=10)
@@ -303,12 +308,71 @@ def kill_ble(proc: Optional[subprocess.Popen]) -> str:
     return out or ""
 
 
+def switch_audio_source() -> Optional[str]:
+    """Return path to SwitchAudioSource if available."""
+    return shutil.which("SwitchAudioSource")
+
+
+def start_audio_stream(device_name: str, verbose: bool) -> Optional[subprocess.Popen]:
+    """Route macOS audio output to device_name and start playing a looping tone.
+
+    Returns the afplay subprocess, or None if routing/playback could not be started.
+    The caller is responsible for calling stop_audio_stream() when done.
+    """
+    # Route macOS audio output to the BT device
+    routed = False
+    sas = switch_audio_source()
+    if sas:
+        try:
+            r = subprocess.run([sas, "-s", device_name, "-t", "output"],
+                               capture_output=True, timeout=5)
+            routed = r.returncode == 0
+        except Exception:
+            pass
+
+    if not routed:
+        # Fallback: osascript (works without SwitchAudioSource but is flaky)
+        script = (
+            f'tell application "System Events" to tell process "SystemUIServer" to '
+            f'set value of pop up button 1 of menu bar item "Volume" of menu bar 1 to "{device_name}"'
+        )
+        try:
+            subprocess.run(["osascript", "-e", script], capture_output=True, timeout=5)
+            routed = True  # best-effort, can't reliably detect success
+        except Exception:
+            pass
+
+    if not routed:
+        _vprint(verbose, "(audio route failed, continuing without audio) ", end="")
+
+    # Play a looping system sound — anything that produces a continuous audio stream
+    sound = "/System/Library/Sounds/Purr.aiff"
+    try:
+        proc = subprocess.Popen(
+            ["bash", "-c", f"while true; do afplay '{sound}'; done"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        return proc
+    except Exception:
+        return None
+
+
+def stop_audio_stream(proc: Optional[subprocess.Popen]) -> None:
+    if proc is None:
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+
+
 # ---------------------------------------------------------------------------
 # Single iteration
 # ---------------------------------------------------------------------------
 def run_ble_first(
     n: int, mon: SerialMonitor, bt_address: str, device_name: str,
-    bt_hold_s: float, verbose: bool,
+    bt_hold_s: float, verbose: bool, play_audio: bool = True,
 ) -> IterResult:
     """Connect BLE, then Classic BT; watch for crash or graceful restart."""
     res = IterResult(n=n, sequence="ble-first", outcome=Outcome.TIMEOUT)
@@ -395,7 +459,18 @@ def run_ble_first(
     _vprint(verbose,
             f"BT✓(free={res.heap_at_bt_connect or '?'}) ", end="")
 
-    # -- 5. Hold BT; also watch for early crash/restart during the hold -------
+    # -- 5. Stream audio during hold (real-world simulation) ------------------
+    audio_proc = None
+    if play_audio:
+        _vprint(verbose, "→ audio ... ", end="")
+        # Wait briefly for A2DP to be ready before routing audio
+        mon.wait_for(_RE_AUDIO_STARTED, timeout=3, since_ts=bt_req_ts)
+        audio_proc = start_audio_stream(device_name, verbose)
+        if audio_proc:
+            res.audio_streamed = True
+            _vprint(verbose, "♪ ", end="")
+
+    # -- 6. Hold BT; also watch for early crash/restart during the hold -------
     # Watch from BT-connected time so we catch events that fire before disconnect.
     watch_ts = time.monotonic()
     early = mon.wait_for_any(
@@ -412,6 +487,7 @@ def run_ble_first(
                            else Outcome.CRASH_OTHER)
             res.crash_detail = ol.strip()
             _vprint(verbose, f"→ early CRASH ← {res.outcome.value}")
+        stop_audio_stream(audio_proc)
         kill_ble(ble_proc)
         bt_disconnect(bt_address)
         res.min_heap = mon.min_heap_since(boot_ts)
@@ -419,7 +495,8 @@ def run_ble_first(
         res.duration_s = time.monotonic() - iter_start
         return res
 
-    # Normal path: disconnect BT and watch for outcome.
+    # Normal path: stop audio, disconnect BT, watch for outcome.
+    stop_audio_stream(audio_proc)
     _vprint(verbose, "→ BT disconnect ... ", end="")
     disc_ts = time.monotonic()  # before bt_disconnect so we catch fast restarts
     bt_disconnect(bt_address)
@@ -456,7 +533,7 @@ def run_ble_first(
 
 def run_bt_first(
     n: int, mon: SerialMonitor, bt_address: str, device_name: str,
-    bt_hold_s: float, verbose: bool,
+    bt_hold_s: float, verbose: bool, play_audio: bool = True,
 ) -> IterResult:
     """Connect Classic BT first, then BLE, then disconnect BT; watch outcome."""
     res = IterResult(n=n, sequence="bt-first", outcome=Outcome.TIMEOUT)
@@ -521,7 +598,17 @@ def run_bt_first(
     res.heap_at_bt_connect = mon.heap_at_first_match(_RE_BT_CONNECTED, bt_req_ts)
     _vprint(verbose, f"BT✓(free={res.heap_at_bt_connect or '?'}) ", end="")
 
-    # -- 3. Connect BLE while BT streaming -----------------------------------
+    # -- 3. Stream audio (real-world simulation) ------------------------------
+    audio_proc = None
+    if play_audio:
+        _vprint(verbose, "→ audio ... ", end="")
+        mon.wait_for(_RE_AUDIO_STARTED, timeout=3, since_ts=bt_req_ts)
+        audio_proc = start_audio_stream(device_name, verbose)
+        if audio_proc:
+            res.audio_streamed = True
+            _vprint(verbose, "♪ ", end="")
+
+    # -- 4. Connect BLE while BT streaming -----------------------------------
     _vprint(verbose, "→ BLE connecting ... ", end="")
     ble_proc = start_ble_background(device_name, hold_seconds=bt_hold_s + 30)
     ble_connected = ble_wait_connected(ble_proc, timeout=12)
@@ -531,7 +618,7 @@ def run_bt_first(
     else:
         _vprint(verbose, "(BLE failed, continuing) ", end="")
 
-    # -- 4. Hold BT; watch for early crash/restart ----------------------------
+    # -- 5. Hold BT; watch for early crash/restart ----------------------------
     watch_ts = time.monotonic()
     early = mon.wait_for_any(
         [_RE_GRACEFUL, _RE_CRASH],
@@ -547,6 +634,7 @@ def run_bt_first(
                            else Outcome.CRASH_OTHER)
             res.crash_detail = ol.strip()
             _vprint(verbose, f"→ early CRASH ← {res.outcome.value}")
+        stop_audio_stream(audio_proc)
         kill_ble(ble_proc)
         bt_disconnect(bt_address)
         res.min_heap = mon.min_heap_since(boot_ts)
@@ -554,6 +642,7 @@ def run_bt_first(
         res.duration_s = time.monotonic() - iter_start
         return res
 
+    stop_audio_stream(audio_proc)
     _vprint(verbose, "→ BT disconnect ... ", end="")
     disc_ts = time.monotonic()
     bt_disconnect(bt_address)
@@ -609,8 +698,9 @@ def print_summary(results: list[IterResult], use_color: bool) -> None:
     for r in results:
         counts[r.outcome] += 1
 
-    bt_conn = sum(1 for r in results if r.bt_connected)
-    ble_conn = sum(1 for r in results if r.ble_connected)
+    bt_conn      = sum(1 for r in results if r.bt_connected)
+    ble_conn     = sum(1 for r in results if r.ble_connected)
+    audio_str_ct = sum(1 for r in results if r.audio_streamed)
 
     heap_at_bt = [r.heap_at_bt_connect for r in results if r.heap_at_bt_connect]
     min_heaps  = [r.min_heap for r in results if r.min_heap]
@@ -628,6 +718,8 @@ def print_summary(results: list[IterResult], use_color: bool) -> None:
     print(f"{'='*60}")
     print(f"  BT connected:           {pct(bt_conn)}")
     print(f"  BLE connected:          {pct(ble_conn)}")
+    if audio_str_ct > 0:
+        print(f"  Audio streamed:         {pct(audio_str_ct)}")
     print()
     for o in Outcome:
         c = counts[o]
@@ -692,14 +784,17 @@ def main() -> int:
                         help="Serial port (auto-detected if omitted)")
     parser.add_argument("--bt-hold-seconds", type=float, default=6.0,
                         help="Seconds to hold BT A2DP connected per iteration (default: 6)")
+    parser.add_argument("--no-audio", action="store_true",
+                        help="Disable audio streaming during BT hold (default: audio ON)")
     parser.add_argument("--no-color", action="store_true",
                         help="Disable ANSI colour output")
     parser.add_argument("--quiet", "-q", action="store_true",
                         help="Suppress per-step progress (show only result lines)")
     args = parser.parse_args()
 
-    use_color = not args.no_color and sys.stdout.isatty()
-    verbose   = not args.quiet
+    use_color  = not args.no_color and sys.stdout.isatty()
+    verbose    = not args.quiet
+    play_audio = not args.no_audio
 
     # Check prerequisites
     if not blueutil():
@@ -717,8 +812,15 @@ def main() -> int:
               file=sys.stderr)
         return 1
 
+    if play_audio and not switch_audio_source():
+        print("WARNING: SwitchAudioSource not found. Audio routing may fail.", file=sys.stderr)
+        print("         Install with: brew install switchaudio-osx", file=sys.stderr)
+        print("         Or run with --no-audio to disable streaming.", file=sys.stderr)
+        print()
+
+    audio_str = "audio=ON (real-world)" if play_audio else "audio=OFF"
     print(f"Device : {args.device_name}  BT={args.bt_address}  serial={port}")
-    print(f"Plan   : {args.iterations} × {args.sequence}  (BT hold={args.bt_hold_seconds:.0f}s/iter)")
+    print(f"Plan   : {args.iterations} × {args.sequence}  (BT hold={args.bt_hold_seconds:.0f}s/iter  {audio_str})")
     print()
 
     mon = SerialMonitor(port)
@@ -739,10 +841,10 @@ def main() -> int:
 
             if seq == "ble-first":
                 res = run_ble_first(i, mon, args.bt_address, args.device_name,
-                                    args.bt_hold_seconds, verbose)
+                                    args.bt_hold_seconds, verbose, play_audio)
             else:
                 res = run_bt_first(i, mon, args.bt_address, args.device_name,
-                                   args.bt_hold_seconds, verbose)
+                                   args.bt_hold_seconds, verbose, play_audio)
 
             results.append(res)
 

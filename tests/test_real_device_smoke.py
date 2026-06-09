@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import sys
 
 import pytest
@@ -143,3 +144,45 @@ def test_real_device_classic_bt_audio_smoke(pytestconfig: pytest.Config, repo_ro
     if result.returncode != 0:
         pytest.fail(result.stdout)
     assert "A2DP" in result.stdout or "Audio output routed" in result.stdout
+
+
+def test_real_device_dual_mode_stability(pytestconfig: pytest.Config, repo_root) -> None:
+    """Stress-test BLE + Classic BT dual-mode stability over 10 iterations.
+
+    Runs 5 ble-first and 5 bt-first connection sequences with audio streaming
+    to reproduce the real-world usage pattern.  Any firmware crash fails the test.
+    Requires: blueutil, pyserial, USB serial connection to the device.
+    """
+    serial_port = require_usb_serial()
+
+    if not shutil.which("blueutil"):
+        pytest.skip("blueutil not found (brew install blueutil).")
+
+    bt_address  = pytestconfig.getoption("--bt-address")
+    device_name = pytestconfig.getoption("--device-name")
+
+    cmd = [
+        sys.executable,
+        repo_root / "tools" / "bt_stress_test.py",
+        "--iterations", "10",
+        "--sequence", "both",
+        "--bt-address", bt_address,
+        "--device-name", device_name,
+        "--serial-port", serial_port,
+        "--bt-hold-seconds", "6",
+        "--no-color",
+        "--quiet",
+    ]
+    result = run_command(cmd, check=False)
+
+    if result.returncode != 0 and "No USB serial port found" in result.stdout:
+        pytest.skip("No USB serial port found.")
+    if result.returncode != 0 and "blueutil not found" in result.stdout:
+        pytest.skip("blueutil not found.")
+
+    if result.returncode != 0:
+        pytest.fail(
+            f"Dual-mode stability test detected firmware crashes.\n\n{result.stdout}"
+        )
+
+    assert "Summary" in result.stdout
