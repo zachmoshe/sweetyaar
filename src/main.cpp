@@ -63,6 +63,12 @@ const uint32_t BT_REOPEN_DELAY_MS = 1500;
 volatile bool btLinkConnected = false;
 volatile bool btAudioActive = false;
 uint32_t lastBleStatusPublishMs = 0;
+// After BT A2DP connects, hold off BLE notify() calls for this many ms.
+// The BTDM HCI transport asserts if BLE packets are injected while A2DP is
+// still completing its stream setup (hci_hal_h4.c:553).
+static const uint32_t BT_SETTLE_MS = 400;
+uint32_t btConnectedAtMs = 0;
+bool btSettleBlePublishPending = false;
 bool wokeFromVibration = false;
 bool realActivitySeenSinceWake = false;
 bool lastBleConnected = false;
@@ -150,7 +156,9 @@ static void btConnectionStateChanged(esp_a2d_connection_state_t state,
                                      void* /*obj*/) {
     if (state == ESP_A2D_CONNECTION_STATE_CONNECTED) {
         btLinkConnected = true;
-        Serial.println("[BT] Connected");
+        btConnectedAtMs = millis();
+        Serial.printf("[BT] Connected (free=%u largest=%u)\n",
+                      ESP.getFreeHeap(), ESP.getMaxAllocHeap());
         sm.postEvent(Event::BT_CONNECTED);
     } else if (state == ESP_A2D_CONNECTION_STATE_DISCONNECTED) {
         btLinkConnected = false;
@@ -319,6 +327,10 @@ void loop() {
     if (bleWriteSeen && !changed) {
         publishBleValues();
     }
+    if (btSettleBlePublishPending && millis() - btConnectedAtMs >= BT_SETTLE_MS) {
+        btSettleBlePublishPending = false;
+        publishBleValues();
+    }
     if (ENABLE_BLE_PARENT_SERVICE && sm.currentState() == State::KILLSWITCH &&
         (millis() - lastBleStatusPublishMs) >= 1000) {
         bleService.updateStatus(bleStatusForState(sm.currentState()));
@@ -331,6 +343,7 @@ void loop() {
     // 8. Re-open BT after a short disconnect cooldown.
     pollBluetoothReopen();
     applyPendingBtNameIfPossible();
+    if (ENABLE_BLE_PARENT_SERVICE) bleService.pollAdvertising();
     pollBtDebug();
     pollIdleSleep();
 
@@ -936,6 +949,20 @@ void pollBluetoothReopen() {
     }
 
     btReopenPending = false;
+
+    // After a BT session the Bluedroid A2DP stack leaks ~160 KB that is never
+    // freed. If the remaining heap is below a safe floor, a future BLE notify
+    // will malloc-fail inside Bluedroid and call abort().  Restart cleanly
+    // instead of crashing with a garbage stack trace.
+    uint32_t freeNow = ESP.getFreeHeap();
+    const uint32_t SAFE_HEAP_FLOOR = 20000;
+    if (freeNow < SAFE_HEAP_FLOOR) {
+        Serial.printf("[BT] Heap critically low after BT session (free=%lu). Restarting cleanly.\n",
+                      static_cast<unsigned long>(freeNow));
+        delay(200);
+        esp_restart();
+    }
+
     reopenBluetoothForPairing("BT cooldown elapsed");
 }
 
@@ -977,7 +1004,11 @@ bool processStateMachineTransitions() {
     if (changed || newState != prevState) {
         handleStateEntry(prevState, newState);
         prevState = newState;
-        publishBleValues();
+        if (millis() - btConnectedAtMs >= BT_SETTLE_MS) {
+            publishBleValues();
+        } else {
+            btSettleBlePublishPending = true;
+        }
         return true;
     }
     return false;

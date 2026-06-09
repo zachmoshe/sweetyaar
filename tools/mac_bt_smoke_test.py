@@ -12,8 +12,11 @@ import threading
 import time
 
 
+import re
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 LOG_DIR = ROOT / "tools" / "bt_smoke_logs"
+MIN_FREE_HEAP_BYTES = 20_000
 TOOL_DIRS = [
     pathlib.Path("/opt/homebrew/bin"),
     pathlib.Path("/usr/local/bin"),
@@ -230,6 +233,35 @@ def play_sine(duration, frequency, volume):
     run([sys.executable, script, "--duration", duration, "--frequency", frequency, "--volume", volume])
 
 
+def start_ble_background(device_name, hold_seconds):
+    cmd = [
+        sys.executable,
+        str(ROOT / "tools" / "ble_gatt_probe.py"),
+        "--name", device_name,
+        "--control-smoke-test",
+        "--hold-open-seconds", str(int(hold_seconds)),
+        "--timeout", "15",
+    ]
+    print("+", " ".join(cmd), flush=True)
+    return subprocess.Popen(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+
+def check_heap_in_log(log_path):
+    """Return the minimum free= heap value seen in the serial log, or None."""
+    pattern = re.compile(r'free=(\d+)')
+    min_seen = None
+    try:
+        with open(log_path, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                for m in pattern.finditer(line):
+                    val = int(m.group(1))
+                    if min_seen is None or val < min_seen:
+                        min_seen = val
+    except FileNotFoundError:
+        pass
+    return min_seen
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Build/upload BT debug firmware, capture serial logs, and optionally connect/play from macOS.")
@@ -245,6 +277,8 @@ def main():
     parser.add_argument("--volume", type=float, default=0.25)
     parser.add_argument("--no-connect", action="store_true")
     parser.add_argument("--no-audio", action="store_true")
+    parser.add_argument("--concurrent-ble", action="store_true",
+                        help="Hold a BLE connection open during the Classic BT A2DP test")
     args = parser.parse_args()
 
     if PIO is None:
@@ -265,6 +299,16 @@ def main():
     else:
         print("No serial port found; continuing without firmware log capture.", flush=True)
 
+    ble_proc = None
+    if args.concurrent_ble:
+        ble_proc = start_ble_background(args.device_name, hold_seconds=args.duration + 15)
+        print("Waiting 3s for BLE background connection...", flush=True)
+        time.sleep(3.0)
+        if ble_proc.poll() is not None:
+            ble_out, _ = ble_proc.communicate(timeout=5)
+            print("--- BLE background output ---\n" + ble_out + "\n---", flush=True)
+            raise SystemExit("BLE background process exited before Classic BT test started.")
+
     try:
         if not args.no_connect:
             address = args.bt_address or find_blueutil_address(args.device_name)
@@ -280,8 +324,27 @@ def main():
         remaining = max(0.0, args.duration - args.sine_duration)
         time.sleep(remaining)
     finally:
+        if ble_proc is not None:
+            ble_proc.terminate()
+            try:
+                ble_out, _ = ble_proc.communicate(timeout=10)
+            except subprocess.TimeoutExpired:
+                ble_proc.kill()
+                ble_out, _ = ble_proc.communicate()
+            print("--- BLE background output ---", flush=True)
+            print(ble_out, flush=True)
         stop_event.set()
         time.sleep(0.5)
+
+    if args.concurrent_ble and port:
+        min_heap = check_heap_in_log(log_path)
+        if min_heap is not None:
+            print(f"Heap check: min free={min_heap} bytes (threshold={MIN_FREE_HEAP_BYTES})", flush=True)
+            if min_heap < MIN_FREE_HEAP_BYTES:
+                raise SystemExit(
+                    f"Heap critically low during concurrent BLE+A2DP: {min_heap} bytes (< {MIN_FREE_HEAP_BYTES})")
+        else:
+            print("Heap check: no free= values found in serial log.", flush=True)
 
     print(f"Log file: {log_path}", flush=True)
 

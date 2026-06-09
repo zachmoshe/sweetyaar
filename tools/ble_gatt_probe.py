@@ -352,6 +352,44 @@ async def run_config_round_trip_suite(
     return 0
 
 
+async def run_reconnect_test(device_name: str, service_uuid: str, timeout: float) -> int:
+    """Connect BLE, disconnect, verify the device re-advertises and accepts a second connection."""
+    def match(d, adv):
+        name = d.name or adv.local_name or ""
+        advertised = {u.lower() for u in adv.service_uuids}
+        return name == device_name or service_uuid in advertised
+
+    print(f"Reconnect test: scanning for {device_name!r}...")
+    device = await BleakScanner.find_device_by_filter(match, timeout=timeout)
+    if device is None:
+        print("No matching BLE advertisement found.")
+        return 2
+
+    print(f"Found: {device.name!r} {device.address!r}")
+    async with BleakClient(device) as client:
+        raw = await client.read_gatt_char(STATUS_UUID)
+        status = raw.decode("utf-8", errors="replace")
+        print(f"  First connection: status={status!r}")
+
+    print("  Disconnected. Waiting 2s for advertising to restart...")
+    await asyncio.sleep(2.0)
+
+    print("  Scanning for device after disconnect...")
+    device2 = await BleakScanner.find_device_by_filter(match, timeout=timeout)
+    if device2 is None:
+        print("Device did not reappear after disconnect — firmware likely crashed or advertising did not restart.")
+        return 3
+
+    print(f"  Reappeared: {device2.name!r} {device2.address!r}")
+    async with BleakClient(device2) as client2:
+        raw2 = await client2.read_gatt_char(STATUS_UUID)
+        status2 = raw2.decode("utf-8", errors="replace")
+        print(f"  Second connection: status={status2!r}")
+
+    print("BLE reconnect test passed.")
+    return 0
+
+
 async def main() -> int:
     parser = argparse.ArgumentParser(description="Probe SweetYaar BLE GATT services")
     parser.add_argument("--name", default="SweetYaar")
@@ -364,6 +402,10 @@ async def main() -> int:
                         help="Write, verify, and restore all config fields through BLE")
     parser.add_argument("--control-smoke-test", action="store_true",
                         help="Read/write basic BLE control characteristics without starting playback")
+    parser.add_argument("--reconnect-test", action="store_true",
+                        help="Connect, disconnect, verify firmware re-advertises and accepts a second connection")
+    parser.add_argument("--hold-open-seconds", type=float, default=0.0,
+                        help="Hold the BLE connection open for N extra seconds after tests complete (useful as a background process for concurrent tests)")
     parser.add_argument("--theme", help="Theme id to use for scanSongs in --config-api-test")
     parser.add_argument("--legacy", action="store_true", help="Force legacy command/themes transport")
     args = parser.parse_args()
@@ -383,6 +425,9 @@ async def main() -> int:
             services = ", ".join(adv.service_uuids)
             print(f"{address} name={name!r} rssi={adv.rssi} services=[{services}]")
         return 0
+
+    if args.reconnect_test:
+        return await run_reconnect_test(args.name, service_uuid, args.timeout)
 
     print(f"Scanning for {args.name!r} / service {service_uuid}...")
     device = await BleakScanner.find_device_by_filter(match, timeout=args.timeout)
@@ -429,6 +474,11 @@ async def main() -> int:
             except Exception as exc:
                 print(f"Config probe failed: {type(exc).__name__}: {exc}")
                 return 3
+
+        if args.hold_open_seconds > 0:
+            print(f"Holding BLE connection open for {args.hold_open_seconds:.1f}s...", flush=True)
+            await asyncio.sleep(args.hold_open_seconds)
+            print("Hold complete; disconnecting.", flush=True)
 
     return 0
 
