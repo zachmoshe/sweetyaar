@@ -3,6 +3,7 @@
 #include <SD.h>
 #include <esp_heap_caps.h>
 #include <esp_log.h>
+#include <esp_random.h>
 #include <esp_bt_device.h>
 #include <esp_gap_bt_api.h>
 #include <esp_sleep.h>
@@ -235,6 +236,12 @@ void setup() {
     // Bluetooth A2DP sink. Reserve its audio queue before SD/WAV playback has
     // a chance to fragment heap; otherwise connection-time allocation can fail.
     setupBT(currentDeviceName);
+
+    // Seed the PRNG used for song/animal shuffling. esp_random() is the
+    // hardware RNG, now true-random with the BT RF subsystem running. Without
+    // this, random() returns the same sequence every boot and "shuffle" picks
+    // the identical order each power-on.
+    randomSeed(esp_random());
 
     // SD card + WAV player
     sdReady = wavPlayer.begin();
