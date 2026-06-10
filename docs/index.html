@@ -379,6 +379,14 @@
       font-weight: 780;
     }
 
+    /* Ready screen: headline and sub-line stay on one line, ellipsized if long. */
+    .screen.ready .status-copy h1,
+    .screen.ready .status-copy p {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .status-card.ready-compact .status-copy h1 {
       margin-bottom: 0;
     }
@@ -637,6 +645,10 @@
       font-weight: 840;
     }
 
+    .message-copy p {
+      text-wrap: balance;
+    }
+
     .actions {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -645,8 +657,13 @@
 
     .action-button {
       min-width: 0;
-      padding: 0 6px;
-      min-height: 94px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 14px 6px;
+      min-height: 96px;
       border: 0;
       border-radius: var(--radius-control);
       box-shadow: var(--soft-shadow);
@@ -654,7 +671,7 @@
       cursor: pointer;
       font-size: clamp(13px, 3.4vw, 15px);
       font-weight: 760;
-      line-height: 1.12;
+      line-height: 1.15;
       letter-spacing: 0;
       transition: transform 70ms ease, box-shadow 120ms ease;
     }
@@ -670,10 +687,19 @@
 
     .action-button img {
       display: block;
-      width: 56px;
-      height: 56px;
-      margin: 0 auto 6px;
+      width: 50px;
+      height: 50px;
+      flex: 0 0 auto;
       object-fit: contain;
+    }
+
+    .action-button span {
+      display: block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: center;
     }
 
     .action-button.song {
@@ -1773,9 +1799,8 @@
           <span class="icon-glyph">♪</span>
         </div>
         <div class="message-copy">
-          <h2>Remote paused for now</h2>
-          <p>Volume is set on the device that's playing.</p>
-          <p>Your controls come back when it disconnects.</p>
+          <h2>Remote paused</h2>
+          <p>Your controls return when the other device disconnects.</p>
         </div>
       </article>
     </section>
@@ -1807,7 +1832,7 @@
           </button>
           <button class="action-button animal" id="playAnimalButton" type="button">
             <img src="assets/icon-animal.png" alt="">
-            <span>Animal sound</span>
+            <span>Animal</span>
           </button>
           <button class="action-button stop" id="stopButton" type="button">
             <img src="assets/icon-stop.png" alt="">
@@ -2413,14 +2438,14 @@
         return "Ready to play";
       }
       if (state.status.startsWith("Killswitch active")) {
-        return state.status.replace("Killswitch active", "Quiet time");
+        return "Quiet time";
       }
       return state.status;
     }
 
     function readyMessage() {
       if (isKillswitchActive()) {
-        return "The toy is ignoring its buttons for now.";
+        return "";
       }
       return state.message || "";
     }

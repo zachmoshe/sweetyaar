@@ -817,7 +817,8 @@ const tests = [
     ble.chars.status.emit("Killswitch active (9:32 left)");
     assert.strictEqual(els.quietCard.classList.contains("active"), true);
     assert.strictEqual(els.quietSub.textContent, "Paused · 9:32 left");
-    assert.strictEqual(els.readyStatusText.textContent, "Quiet time (9:32 left)");
+    assert.strictEqual(els.readyStatusText.textContent, "Quiet time");
+    assert.strictEqual(els.readyMessage.hidden, true);
   `],
   ["settings screen loads config and content scans", String.raw`
     const ble = await connectWithFakeBle();
