@@ -618,7 +618,7 @@ const tests = [
     assertVisible(els.openingView, [els.readyView, els.streamingView, els.settingsView]);
     assert.strictEqual(els.connectButton.disabled, false);
     assert.strictEqual(els.connectButtonLabel.textContent, "Connect to SweetYaar");
-    assert.strictEqual(els.openingMessage.textContent, "Connect to control songs, animal sounds, volume, themes, and pause mode.");
+    assert.strictEqual(els.openingMessage.textContent, "Connect to play songs and animal sounds, set the volume, and more.");
     assert.strictEqual(els.brandName.textContent, "SweetYaar");
   `],
   ["connect success shows ready remote", String.raw`
@@ -638,16 +638,16 @@ const tests = [
     assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime", "scanThemes"]);
     assert.strictEqual(els.bedtimeTitle.textContent, "Daytime");
     assert.strictEqual(els.bedtimeMessage.textContent, "(ends at 18:30)");
-    assert.strictEqual(els.deviceWatch.textContent, "Device time 21:05");
+    assert.strictEqual(els.deviceWatch.textContent, "Toy clock 21:05");
   `],
   ["bedtime card shows time unknown when sync is unavailable", String.raw`
     await connectWithFakeBle({ rejectSyncTime: true });
     assert.strictEqual(state.connected, true);
     assert.strictEqual(state.bedtime.timeKnown, false);
     assert.strictEqual(els.bedtimeTitle.textContent, "Daytime");
-    assert.strictEqual(els.bedtimeMessage.textContent, "time unknown");
+    assert.strictEqual(els.bedtimeMessage.textContent, "clock not set");
     assert.strictEqual(els.bedtimeToggleButton.disabled, true);
-    assert.strictEqual(els.deviceWatch.textContent, "Device time unknown");
+    assert.strictEqual(els.deviceWatch.textContent, "Toy clock not set");
   `],
   ["bedtime card toggles runtime mode", String.raw`
     const ble = await connectWithFakeBle({
@@ -833,13 +833,13 @@ const tests = [
   `],
   ["returning to remote refreshes the device clock", String.raw`
     const ble = await connectWithFakeBle();
-    assert.strictEqual(els.deviceWatch.textContent, "Device time 21:05");
+    assert.strictEqual(els.deviceWatch.textContent, "Toy clock 21:05");
     await els.openSettingsButton.click();
     await waitForSettingsLoaded();
     ble.config.bedtime.currentTime = "22:14";
     ble.config.bedtime.currentSecondOfDay = 80040;
     await els.settingsBackButton.click();
-    await waitUntil(() => els.deviceWatch.textContent === "Device time 22:14", "device clock refresh");
+    await waitUntil(() => els.deviceWatch.textContent === "Toy clock 22:14", "device clock refresh");
     assertVisible(els.readyView, [els.openingView, els.streamingView, els.settingsView]);
     const syncPayloads = payloadsWithoutIds(ble.writes.config).filter((payload) => payload.op === "syncTime");
     assert.strictEqual(syncPayloads.length, 2);

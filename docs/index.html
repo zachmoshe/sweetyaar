@@ -659,6 +659,16 @@
       font-weight: 760;
       line-height: 1.12;
       letter-spacing: 0;
+      transition: transform 70ms ease, box-shadow 120ms ease;
+    }
+
+    .action-button:active:not(:disabled) {
+      transform: scale(0.95);
+      box-shadow: 0 3px 9px rgba(73, 55, 34, 0.16);
+    }
+
+    .action-button.playing {
+      box-shadow: 0 0 0 3px rgba(21, 146, 95, 0.55), var(--soft-shadow);
     }
 
     .action-button img {
@@ -1697,7 +1707,7 @@
           </div>
           <div class="status-copy">
             <h1 style="color: var(--ink)">Remote not connected</h1>
-            <p id="openingMessage">Connect to control songs, animal sounds, volume, themes, and pause mode.</p>
+            <p id="openingMessage">Connect to play songs and animal sounds, set the volume, and more.</p>
           </div>
         </article>
 
@@ -1721,8 +1731,8 @@
           <img class="bt-icon" src="assets/icon-bluetooth.svg" alt="">
         </div>
         <div class="status-copy">
-          <h2>BT connected</h2>
-          <p>Device is streaming audio.</p>
+          <h2>Used as a speaker</h2>
+          <p>Another device is playing audio through the toy.</p>
         </div>
         <span class="status-dot" aria-hidden="true"></span>
       </article>
@@ -1734,9 +1744,9 @@
           <span class="icon-glyph">♪</span>
         </div>
         <div class="message-copy">
-          <h2>Device is streaming music now.</h2>
-          <p>Set volume from the streaming device.</p>
-          <p>Remote controls return when the streaming device disconnects.</p>
+          <h2>Remote paused for now</h2>
+          <p>Volume is set on the device that's playing.</p>
+          <p>Your controls come back when it disconnects.</p>
         </div>
       </article>
     </section>
@@ -1761,16 +1771,6 @@
           </div>
         </div>
 
-        <section class="card bedtime-card" id="bedtimeCard" aria-label="Bedtime mode">
-          <img class="bedtime-art" id="bedtimeArt" src="assets/bedtime-day-art.png" alt="">
-          <button class="bedtime-toggle" id="bedtimeToggleButton" type="button">
-            <span class="bedtime-copy">
-              <span class="bedtime-title" id="bedtimeTitle">Daytime</span>
-              <span class="bedtime-message" id="bedtimeMessage">(ends at 18:30)</span>
-            </span>
-          </button>
-        </section>
-
         <section class="actions" aria-label="Playback">
           <button class="action-button song" id="playSongButton" type="button">
             <img src="assets/icon-song.png" alt="">
@@ -1783,6 +1783,16 @@
           <button class="action-button stop" id="stopButton" type="button">
             <img src="assets/icon-stop.png" alt="">
             <span>Stop</span>
+          </button>
+        </section>
+
+        <section class="card bedtime-card" id="bedtimeCard" aria-label="Bedtime mode">
+          <img class="bedtime-art" id="bedtimeArt" src="assets/bedtime-day-art.png" alt="">
+          <button class="bedtime-toggle" id="bedtimeToggleButton" type="button">
+            <span class="bedtime-copy">
+              <span class="bedtime-title" id="bedtimeTitle">Daytime</span>
+              <span class="bedtime-message" id="bedtimeMessage">(ends at 18:30)</span>
+            </span>
           </button>
         </section>
 
@@ -1818,7 +1828,7 @@
             <img class="pause-icon" src="assets/icon-pause.png" alt="">
             <div class="pause-copy">
               <h2>Pause mode</h2>
-              <p>Disables toy inputs for 10 minutes.</p>
+              <p>The toy ignores its buttons for 10 minutes.</p>
             </div>
           </div>
           <div class="pause-actions">
@@ -3416,7 +3426,7 @@
       if (!enabled) {
         els.bedtimeMessage.textContent = "Off in settings";
       } else if (!timeKnown) {
-        els.bedtimeMessage.textContent = "time unknown";
+        els.bedtimeMessage.textContent = "clock not set";
       } else if (active) {
         els.bedtimeMessage.textContent = `(ends at ${bedtime.endTime})`;
       } else {
@@ -3429,12 +3439,12 @@
       if (state.bedtime.timeKnown && Number.isFinite(currentSecondOfDay)) {
         const receivedAt = state.bedtime.currentTimeReceivedAtMs || Date.now();
         const elapsedSec = Math.max(0, Math.floor((Date.now() - receivedAt) / 1000));
-        return `Device time ${formatSecondOfDay(currentSecondOfDay + elapsedSec)}`;
+        return `Toy clock ${formatSecondOfDay(currentSecondOfDay + elapsedSec)}`;
       }
       const currentTime = normalizeTimeString(state.bedtime.currentTime, "");
       return state.bedtime.timeKnown && currentTime
-        ? `Device time ${currentTime}`
-        : "Device time unknown";
+        ? `Toy clock ${currentTime}`
+        : "Toy clock not set";
     }
 
     function refreshDeviceWatch() {
@@ -3528,7 +3538,7 @@
       els.connectButton.setAttribute("aria-busy", state.busy ? "true" : "false");
       els.connectButtonLabel.textContent = state.busy ? "Connecting..." : `Connect to ${displayDeviceName()}`;
       els.openingMessage.textContent =
-        state.message || "Connect to control songs, animal sounds, volume, themes, and pause mode.";
+        state.message || "Connect to play songs and animal sounds, set the volume, and more.";
 
       const readyStatusText = readyStatus();
       const readyMessageText = readyMessage();
@@ -3565,6 +3575,8 @@
       els.playSongButton.disabled = playbackDisabled();
       els.playAnimalButton.disabled = playbackDisabled();
       els.stopButton.disabled = playbackDisabled();
+      els.playSongButton.classList.toggle("playing", state.status.startsWith("Playing song"));
+      els.playAnimalButton.classList.toggle("playing", state.status.startsWith("Playing animal"));
       els.killswitchOnButton.disabled = disabled;
       els.killswitchOffButton.disabled = disabled || !state.killswitch;
       els.openSettingsButton.disabled = state.busy || !state.connected;
