@@ -5,26 +5,10 @@ import sys
 
 import pytest
 
-from helpers import find_platformio, require_usb_serial, reset_esp32_via_serial, run_command
+from helpers import find_platformio, require_ble_advertisement, require_usb_serial, reset_esp32_via_serial, run_command
 
 
 pytestmark = pytest.mark.hardware
-
-
-def require_ble_advertisement(repo_root, device_name: str, serial_port: str) -> None:
-    reset_esp32_via_serial(serial_port)
-    result = run_command([
-        sys.executable,
-        repo_root / "tools" / "ble_gatt_probe.py",
-        "--name",
-        device_name,
-        "--timeout",
-        "10",
-    ], check=False)
-    if result.returncode == 2 and "No matching BLE advertisement found." in result.stdout:
-        pytest.skip(f"No BLE advertisement found for {device_name}.")
-    if result.returncode != 0:
-        pytest.skip(result.stdout.strip().splitlines()[-1] if result.stdout.strip() else "BLE preflight failed.")
 
 
 def test_real_device_ble_config_round_trip(pytestconfig: pytest.Config, repo_root) -> None:
@@ -186,3 +170,33 @@ def test_real_device_dual_mode_stability(pytestconfig: pytest.Config, repo_root)
         )
 
     assert "Summary" in result.stdout
+
+
+def test_real_device_bedtime_activation(pytestconfig: pytest.Config, repo_root) -> None:
+    """Verify that syncing the device time inside/outside the configured bedtime window
+    causes the firmware to report the expected bedtime.active state."""
+    serial_port = require_usb_serial()
+    device_name = pytestconfig.getoption("--device-name")
+    require_ble_advertisement(repo_root, device_name, serial_port)
+
+    result = run_command([
+        sys.executable,
+        repo_root / "tools" / "ble_gatt_probe.py",
+        "--name",
+        device_name,
+        "--bedtime-activation-test",
+        "--timeout",
+        "15",
+    ], check=False)
+    if result.returncode == 2 and "No matching BLE advertisement found." in result.stdout:
+        pytest.skip(f"No BLE advertisement found for {device_name}.")
+    if result.returncode != 0 and (
+        "BleakBluetoothNotAvailableError" in result.stdout or
+        "Bluetooth is unsupported" in result.stdout
+    ):
+        pytest.skip("Backend process cannot access macOS Bluetooth; run the BLE probe through Terminal.app.")
+    if result.returncode != 0 and "Bedtime is disabled" in result.stdout:
+        pytest.skip("Bedtime is disabled on device; enable it in the parent app to run this test.")
+    if result.returncode != 0:
+        pytest.fail(result.stdout)
+    assert "Bedtime activation test passed." in result.stdout

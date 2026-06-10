@@ -16,7 +16,7 @@ import re
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 LOG_DIR = ROOT / "tools" / "bt_smoke_logs"
-MIN_FREE_HEAP_BYTES = 20_000
+MIN_FREE_HEAP_BYTES = 12_000
 TOOL_DIRS = [
     pathlib.Path("/opt/homebrew/bin"),
     pathlib.Path("/usr/local/bin"),

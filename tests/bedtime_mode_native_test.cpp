@@ -46,6 +46,25 @@ void testEvaluateDisabledAndUnknownTime() {
     assert(!unknown.active);
 }
 
+void testEvaluateNoOverride() {
+    auto inside = BedtimeMode::evaluate(
+        true, true, minutes(20, 0), minutes(18, 30), minutes(6, 30),
+        BedtimeMode::Override::None);
+    assert(inside.automaticActive && inside.active);
+
+    auto outside = BedtimeMode::evaluate(
+        true, true, minutes(12, 0), minutes(18, 30), minutes(6, 30),
+        BedtimeMode::Override::None);
+    assert(!outside.automaticActive && !outside.active);
+}
+
+void testSameStartEndAlwaysActive() {
+    uint16_t m = minutes(12, 0);
+    assert(BedtimeMode::isMinuteInWindow(minutes(0, 0), m, m));
+    assert(BedtimeMode::isMinuteInWindow(minutes(12, 0), m, m));
+    assert(BedtimeMode::isMinuteInWindow(minutes(23, 59), m, m));
+}
+
 void testOverrides() {
     auto forceOn = BedtimeMode::evaluate(
         true, true, minutes(14, 0), minutes(18, 30), minutes(6, 30),
@@ -73,6 +92,8 @@ int main() {
     testOvernightWindow();
     testSameDayWindow();
     testEvaluateDisabledAndUnknownTime();
+    testEvaluateNoOverride();
+    testSameStartEndAlwaysActive();
     testOverrides();
     testNextBoundarySeconds();
     std::cout << "bedtime-mode native test passed\n";

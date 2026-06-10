@@ -41,6 +41,28 @@ def local_time_payload() -> dict[str, int]:
     }
 
 
+def _epoch_for_local_minute(minute_of_day: int, tz_offset_min: int) -> dict[str, int]:
+    """Return a syncTime payload whose local time-of-day is exactly minute_of_day."""
+    from datetime import timezone, timedelta
+    tz = timezone(timedelta(minutes=tz_offset_min))
+    local_midnight = datetime.now(tz).replace(hour=0, minute=0, second=0, microsecond=0)
+    target = local_midnight + timedelta(minutes=minute_of_day)
+    return {"epochSec": int(target.timestamp()), "tzOffsetMin": tz_offset_min}
+
+
+def _pick_inside_outside_minutes(start_minutes: int, end_minutes: int) -> tuple[int, int]:
+    """Return (inside_minute, outside_minute) for a bedtime window."""
+    day = 24 * 60
+    inside = (start_minutes + 30) % day
+    if start_minutes > end_minutes:  # crosses midnight
+        gap = start_minutes - end_minutes
+        outside = (end_minutes + gap // 2) % day
+    else:
+        gap = day - end_minutes + start_minutes
+        outside = (end_minutes + gap // 2) % day
+    return inside, outside
+
+
 async def write_json(client: BleakClient, char_uuid: str, payload: dict[str, Any]) -> None:
     data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
     try:
@@ -352,6 +374,69 @@ async def run_config_round_trip_suite(
     return 0
 
 
+async def run_bedtime_activation_test(
+    client: BleakClient,
+    command_uuid: str,
+    response_uuid: str,
+    timeout: float,
+) -> None:
+    """Verify time-based bedtime activation by syncing times inside/outside the window."""
+    next_id = [200]
+
+    async def request(op: str, **extra: Any) -> dict[str, Any]:
+        payload = {"id": next_id[0], "op": op, **extra}
+        next_id[0] += 1
+        return await config_request(client, payload, command_uuid, response_uuid, timeout)
+
+    print("\nBedtime activation test:")
+
+    config = await request("getConfig")
+    bedtime_cfg = bedtime_from_config(config)
+    if not bedtime_cfg["enabled"]:
+        raise RuntimeError("Bedtime is disabled in device config; enable it to run this test.")
+
+    def parse_hm(t: str) -> int:
+        h, m = t.split(":")
+        return int(h) * 60 + int(m)
+
+    start_min = parse_hm(bedtime_cfg["startTime"])
+    end_min   = parse_hm(bedtime_cfg["endTime"])
+    inside, outside = _pick_inside_outside_minutes(start_min, end_min)
+    tz = local_time_payload()["tzOffsetMin"]
+
+    def fmt(m: int) -> str:
+        return f"{m // 60:02d}:{m % 60:02d}"
+
+    print(f"  Window: {bedtime_cfg['startTime']} – {bedtime_cfg['endTime']}")
+    print(f"  Testing inside:  {fmt(inside)}")
+    print(f"  Testing outside: {fmt(outside)}")
+
+    resp = await request("syncTime", **_epoch_for_local_minute(inside, tz))
+    b = resp.get("bedtime") or {}
+    if b.get("timeKnown") is not True:
+        raise RuntimeError("syncTime (inside) did not set timeKnown=true")
+    if b.get("active") is not True:
+        raise RuntimeError(
+            f"Expected bedtime active at {fmt(inside)} but got active={b.get('active')} "
+            f"autoActive={b.get('autoActive')}"
+        )
+    print(f"  ✓ Active inside window")
+
+    resp = await request("syncTime", **_epoch_for_local_minute(outside, tz))
+    b = resp.get("bedtime") or {}
+    if b.get("active") is not False:
+        raise RuntimeError(
+            f"Expected bedtime inactive at {fmt(outside)} but got active={b.get('active')} "
+            f"autoActive={b.get('autoActive')}"
+        )
+    print(f"  ✓ Inactive outside window")
+
+    # Restore real current time
+    await request("syncTime", **local_time_payload())
+    print(f"  ✓ Time restored")
+    print("Bedtime activation test passed.")
+
+
 async def run_reconnect_test(device_name: str, service_uuid: str, timeout: float) -> int:
     """Connect BLE, disconnect, verify the device re-advertises and accepts a second connection."""
     def match(d, adv):
@@ -408,6 +493,8 @@ async def main() -> int:
                         help="Hold the BLE connection open for N extra seconds after tests complete (useful as a background process for concurrent tests)")
     parser.add_argument("--theme", help="Theme id to use for scanSongs in --config-api-test")
     parser.add_argument("--legacy", action="store_true", help="Force legacy command/themes transport")
+    parser.add_argument("--bedtime-activation-test", action="store_true",
+                        help="Verify bedtime activates/deactivates by syncing time inside/outside the configured window")
     args = parser.parse_args()
 
     service_uuid = args.service.lower()
@@ -456,7 +543,7 @@ async def main() -> int:
         transport = "direct config characteristics" if use_direct else "legacy command/themes fallback"
         print(f"Config transport: {transport}")
 
-        if args.config_get or args.config_api_test or args.config_round_trip_test or args.control_smoke_test:
+        if args.config_get or args.config_api_test or args.config_round_trip_test or args.control_smoke_test or args.bedtime_activation_test:
             try:
                 if args.control_smoke_test:
                     await run_ble_control_smoke(client)
@@ -470,6 +557,9 @@ async def main() -> int:
                         client, command_uuid, response_uuid, args.timeout, args.theme, start_id=10)
                 if args.config_round_trip_test:
                     await run_config_round_trip_suite(
+                        client, command_uuid, response_uuid, args.timeout)
+                if args.bedtime_activation_test:
+                    await run_bedtime_activation_test(
                         client, command_uuid, response_uuid, args.timeout)
             except Exception as exc:
                 print(f"Config probe failed: {type(exc).__name__}: {exc}")

@@ -4,6 +4,7 @@ import glob
 import pathlib
 import shutil
 import subprocess
+import sys
 import time
 
 import pytest
@@ -85,3 +86,19 @@ def run_command(
 
 def run_checked(cmd: list[str | pathlib.Path], *, cwd: pathlib.Path = ROOT) -> subprocess.CompletedProcess[str]:
     return run_command(cmd, cwd=cwd, check=True)
+
+
+def require_ble_advertisement(repo_root: pathlib.Path, device_name: str, serial_port: str) -> None:
+    reset_esp32_via_serial(serial_port)
+    result = run_command([
+        sys.executable,
+        repo_root / "tools" / "ble_gatt_probe.py",
+        "--name",
+        device_name,
+        "--timeout",
+        "10",
+    ], check=False)
+    if result.returncode == 2 and "No matching BLE advertisement found." in result.stdout:
+        pytest.skip(f"No BLE advertisement found for {device_name}.")
+    if result.returncode != 0:
+        pytest.skip(result.stdout.strip().splitlines()[-1] if result.stdout.strip() else "BLE preflight failed.")
