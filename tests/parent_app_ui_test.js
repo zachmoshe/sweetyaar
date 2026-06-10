@@ -819,6 +819,38 @@ const tests = [
     assert.strictEqual(els.quietSub.textContent, "Paused · 9:32 left");
     assert.strictEqual(els.readyStatusText.textContent, "Quiet time");
     assert.strictEqual(els.readyMessage.hidden, true);
+    assert.strictEqual(els.readyStatusIcon.classList.contains("tint-quiet"), true);
+    assert.strictEqual(els.readyStatusIllus.hidden, false);
+  `],
+  ["playing song shows song icon, file headline, theme subline", String.raw`
+    const ble = await connectWithFakeBle();
+    ble.chars.status.emit("Playing song - Lullabies / twinkle.wav");
+    assert.strictEqual(els.readyStatusText.textContent, "twinkle.wav");
+    assert.strictEqual(els.readyMessage.textContent, "Lullabies");
+    assert.strictEqual(els.readyMessage.hidden, false);
+    assert.strictEqual(els.readyStatusIcon.classList.contains("tint-song"), true);
+    assert.strictEqual(els.readyStatusIllus.hidden, false);
+    assert.ok(els.readyStatusIllus.src.endsWith("icon-song.png"));
+    assert.strictEqual(els.playSongButton.classList.contains("playing"), true);
+  `],
+  ["playing animal shows animal icon and file headline only", String.raw`
+    const ble = await connectWithFakeBle();
+    ble.chars.status.emit("Playing animal - cat.wav");
+    assert.strictEqual(els.readyStatusText.textContent, "cat.wav");
+    assert.strictEqual(els.readyMessage.hidden, true);
+    assert.strictEqual(els.readyStatusIcon.classList.contains("tint-animal"), true);
+    assert.ok(els.readyStatusIllus.src.endsWith("icon-animal.png"));
+    assert.strictEqual(els.playAnimalButton.classList.contains("playing"), true);
+  `],
+  ["returning to ready restores green checkmark", String.raw`
+    const ble = await connectWithFakeBle();
+    ble.chars.status.emit("Playing song - Lullabies / twinkle.wav");
+    ble.chars.status.emit("Idle");
+    assert.strictEqual(els.readyStatusText.textContent, "Ready to play");
+    assert.strictEqual(els.readyStatusIcon.classList.contains("green"), true);
+    assert.strictEqual(els.readyStatusGlyph.hidden, false);
+    assert.strictEqual(els.readyStatusGlyph.textContent, "✓");
+    assert.strictEqual(els.readyStatusIllus.hidden, true);
   `],
   ["settings screen loads config and content scans", String.raw`
     const ble = await connectWithFakeBle();

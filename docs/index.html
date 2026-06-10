@@ -359,6 +359,30 @@
       background: linear-gradient(180deg, #58cf91, #38b979);
     }
 
+    /* Playback / quiet states: soft tint behind the illustrated icon. */
+    .status-icon.tint-song {
+      background: linear-gradient(180deg, #c9f0eb, #a8ddd4);
+    }
+
+    .status-icon.tint-animal {
+      background: linear-gradient(180deg, #ffe9a8, #ffd56f);
+    }
+
+    .status-icon.tint-quiet {
+      background: linear-gradient(180deg, #e7e0f7, #d2c7ed);
+    }
+
+    .status-illus {
+      width: 34px;
+      height: 34px;
+      object-fit: contain;
+    }
+
+    .screen.ready .status-illus {
+      width: 32px;
+      height: 32px;
+    }
+
     .status-copy h1,
     .status-copy h2,
     .message-copy h2 {
@@ -1809,8 +1833,9 @@
       <div class="stack">
         <div class="ready-top-row">
           <article class="card status-card">
-            <div class="status-icon green" aria-hidden="true">
-              <span class="status-glyph">✓</span>
+            <div class="status-icon green" id="readyStatusIcon" aria-hidden="true">
+              <span class="status-glyph" id="readyStatusGlyph">✓</span>
+              <img class="status-illus" id="readyStatusIllus" src="" alt="" hidden>
             </div>
             <div class="status-copy">
               <h1 id="readyStatusText">Ready to play</h1>
@@ -2266,6 +2291,9 @@
       installButton: document.querySelector("#installButton"),
       installDismissButton: document.querySelector("#installDismissButton"),
       readyStatusCard: document.querySelector("#readyView .status-card"),
+      readyStatusIcon: document.querySelector("#readyStatusIcon"),
+      readyStatusGlyph: document.querySelector("#readyStatusGlyph"),
+      readyStatusIllus: document.querySelector("#readyStatusIllus"),
       readyStatusText: document.querySelector("#readyStatusText"),
       readyMessage: document.querySelector("#readyMessage"),
       bedtimeCard: document.querySelector("#bedtimeCard"),
@@ -2421,6 +2449,23 @@
       return match ? match[1] : "";
     }
 
+    // Parse the firmware status string into a structured playback descriptor.
+    // Firmware sends "Playing song - <theme> / <file>" (file optional) and
+    // "Playing animal - <file>" (file optional). The file name is shown raw
+    // for now; a friendlier song-name scheme is planned.
+    function parsePlayback() {
+      const s = state.status;
+      let m = /^Playing song - (.*?)(?: \/ (.*))?$/.exec(s);
+      if (m) {
+        return { kind: "song", theme: (m[1] || "").trim(), file: (m[2] || "").trim() };
+      }
+      m = /^Playing animal(?: - (.*))?$/.exec(s);
+      if (m) {
+        return { kind: "animal", file: (m[1] || "").trim() };
+      }
+      return null;
+    }
+
     function controlsDisabled() {
       return state.busy || !state.connected || isBtConnected();
     }
@@ -2440,6 +2485,12 @@
       if (state.status.startsWith("Killswitch active")) {
         return "Quiet time";
       }
+      const playback = parsePlayback();
+      if (playback) {
+        // Headline is the specific thing playing (song/animal name), falling
+        // back to the theme name when no file is reported.
+        return playback.file || playback.theme || "Playing";
+      }
       return state.status;
     }
 
@@ -2447,7 +2498,28 @@
       if (isKillswitchActive()) {
         return "";
       }
+      const playback = parsePlayback();
+      if (playback) {
+        // Sub-line is the theme name; only shown when it adds context beyond
+        // the headline (i.e. the headline is the file, not the theme itself).
+        return playback.kind === "song" && playback.file ? playback.theme : "";
+      }
       return state.message || "";
+    }
+
+    // Icon shown in the ready-screen status badge for the current state.
+    function readyStatusIcon() {
+      if (isKillswitchActive()) {
+        return { tint: "tint-quiet", img: "assets/icon-pause.png" };
+      }
+      const playback = parsePlayback();
+      if (playback && playback.kind === "song") {
+        return { tint: "tint-song", img: "assets/icon-song.png" };
+      }
+      if (playback && playback.kind === "animal") {
+        return { tint: "tint-animal", img: "assets/icon-animal.png" };
+      }
+      return { tint: "green", glyph: "✓" };
     }
 
     function displayDeviceName() {
@@ -3605,6 +3677,22 @@
       els.readyMessage.textContent = hideReadyMessage ? "" : readyMessageText;
       els.readyMessage.hidden = hideReadyMessage;
       els.readyStatusCard.classList.toggle("ready-compact", hideReadyMessage);
+
+      const statusIcon = readyStatusIcon();
+      els.readyStatusIcon.classList.remove("green", "tint-song", "tint-animal", "tint-quiet");
+      els.readyStatusIcon.classList.add(statusIcon.tint);
+      if (statusIcon.img) {
+        if (els.readyStatusIllus.getAttribute("src") !== statusIcon.img) {
+          els.readyStatusIllus.src = statusIcon.img;
+        }
+        els.readyStatusIllus.hidden = false;
+        els.readyStatusGlyph.hidden = true;
+        els.readyStatusGlyph.textContent = "";
+      } else {
+        els.readyStatusIllus.hidden = true;
+        els.readyStatusGlyph.hidden = false;
+        els.readyStatusGlyph.textContent = statusIcon.glyph || "✓";
+      }
       renderBedtimeCard();
       refreshDeviceWatch();
 
