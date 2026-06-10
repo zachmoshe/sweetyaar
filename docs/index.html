@@ -1656,11 +1656,31 @@
       align-items: center;
     }
 
+    .song-name-lines {
+      min-width: 0;
+      display: grid;
+      gap: 1px;
+    }
+
     .song-name-text {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .song-file-text {
+      min-width: 0;
+      color: var(--muted);
+      font-size: clamp(11px, 3vw, 12px);
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .rtl-text {
+      text-align: right;
     }
 
     .song-status-icon {
@@ -2466,6 +2486,35 @@
       return null;
     }
 
+    // Strong right-to-left scripts (Hebrew, Arabic, and presentation forms).
+    const RTL_CHARS = /[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/;
+
+    function isRtlText(text) {
+      return RTL_CHARS.test(`${text || ""}`);
+    }
+
+    // Set an element's direction from its content so RTL names align right and
+    // mixed digits/Latin render correctly. LTR is the default.
+    function applyTextDir(el, text) {
+      const rtl = isRtlText(text);
+      el.dir = rtl ? "rtl" : "ltr";
+      el.classList.toggle("rtl-text", rtl);
+    }
+
+    // Turn a raw SD filename into a friendly display name. Unicode/RTL preserved;
+    // casing is only applied to cased scripts (Hebrew/Arabic/CJK are untouched).
+    function prettifyName(file) {
+      const raw = `${file || ""}`.trim();
+      let name = raw
+        .replace(/\.wav$/i, "")          // drop the extension
+        .replace(/^0\d*[\s._\-)]+/, "")  // drop a zero-padded track prefix (01_, 02 -, ...)
+        .replace(/_+/g, " ")             // underscores -> spaces
+        .replace(/\s+/g, " ")            // collapse whitespace
+        .trim();
+      if (!name) return raw;             // fall back to the raw filename
+      return name.replace(/(^|\s)(\p{L})/gu, (match, sep, ch) => sep + ch.toLocaleUpperCase());
+    }
+
     function controlsDisabled() {
       return state.busy || !state.connected || isBtConnected();
     }
@@ -2489,7 +2538,7 @@
       if (playback) {
         // Headline is the specific thing playing (song/animal name), falling
         // back to the theme name when no file is reported.
-        return playback.file || playback.theme || "Playing";
+        return prettifyName(playback.file) || playback.theme || "Playing";
       }
       return state.status;
     }
@@ -3512,10 +3561,18 @@
           icon.classList.add("bad");
           icon.textContent = "×";
         }
+        const lines = document.createElement("span");
+        lines.className = "song-name-lines";
         const text = document.createElement("span");
         text.className = "song-name-text";
-        text.textContent = song.file || "";
-        name.append(icon, text);
+        const pretty = prettifyName(song.file);
+        text.textContent = pretty;
+        applyTextDir(text, pretty);
+        const fileLine = document.createElement("span");
+        fileLine.className = "song-file-text";
+        fileLine.textContent = song.file || "";
+        lines.append(text, fileLine);
+        name.append(icon, lines);
 
         const size = document.createElement("span");
         size.className = "song-meta";
@@ -3677,6 +3734,8 @@
       els.readyMessage.textContent = hideReadyMessage ? "" : readyMessageText;
       els.readyMessage.hidden = hideReadyMessage;
       els.readyStatusCard.classList.toggle("ready-compact", hideReadyMessage);
+      applyTextDir(els.readyStatusText, readyStatusText);
+      applyTextDir(els.readyMessage, hideReadyMessage ? "" : readyMessageText);
 
       const statusIcon = readyStatusIcon();
       els.readyStatusIcon.classList.remove("green", "tint-song", "tint-animal", "tint-quiet");

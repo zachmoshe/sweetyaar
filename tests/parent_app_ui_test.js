@@ -822,10 +822,11 @@ const tests = [
     assert.strictEqual(els.readyStatusIcon.classList.contains("tint-quiet"), true);
     assert.strictEqual(els.readyStatusIllus.hidden, false);
   `],
-  ["playing song shows song icon, file headline, theme subline", String.raw`
+  ["playing song shows song icon, prettified headline, theme subline", String.raw`
     const ble = await connectWithFakeBle();
-    ble.chars.status.emit("Playing song - Lullabies / twinkle.wav");
-    assert.strictEqual(els.readyStatusText.textContent, "twinkle.wav");
+    ble.chars.status.emit("Playing song - Lullabies / 01_twinkle_twinkle.wav");
+    assert.strictEqual(els.readyStatusText.textContent, "Twinkle Twinkle");
+    assert.strictEqual(els.readyStatusText.dir, "ltr");
     assert.strictEqual(els.readyMessage.textContent, "Lullabies");
     assert.strictEqual(els.readyMessage.hidden, false);
     assert.strictEqual(els.readyStatusIcon.classList.contains("tint-song"), true);
@@ -833,14 +834,33 @@ const tests = [
     assert.ok(els.readyStatusIllus.src.endsWith("icon-song.png"));
     assert.strictEqual(els.playSongButton.classList.contains("playing"), true);
   `],
-  ["playing animal shows animal icon and file headline only", String.raw`
+  ["playing animal shows animal icon and prettified headline only", String.raw`
     const ble = await connectWithFakeBle();
     ble.chars.status.emit("Playing animal - cat.wav");
-    assert.strictEqual(els.readyStatusText.textContent, "cat.wav");
+    assert.strictEqual(els.readyStatusText.textContent, "Cat");
     assert.strictEqual(els.readyMessage.hidden, true);
     assert.strictEqual(els.readyStatusIcon.classList.contains("tint-animal"), true);
     assert.ok(els.readyStatusIllus.src.endsWith("icon-animal.png"));
     assert.strictEqual(els.playAnimalButton.classList.contains("playing"), true);
+  `],
+  ["RTL song name sets right-to-left direction on the headline", String.raw`
+    const ble = await connectWithFakeBle();
+    ble.chars.status.emit("Playing song - Lullabies / שיר_ערש.wav");
+    assert.strictEqual(els.readyStatusText.textContent, "שיר ערש");
+    assert.strictEqual(els.readyStatusText.dir, "rtl");
+    assert.strictEqual(els.readyStatusText.classList.contains("rtl-text"), true);
+  `],
+  ["prettifyName derives friendly names with zero-padded number stripping", String.raw`
+    assert.strictEqual(prettifyName("twinkle_twinkle.wav"), "Twinkle Twinkle");
+    assert.strictEqual(prettifyName("cow.wav"), "Cow");
+    assert.strictEqual(prettifyName("01_twinkle.wav"), "Twinkle");
+    assert.strictEqual(prettifyName("02 - lullaby.wav"), "Lullaby");
+    assert.strictEqual(prettifyName("3 little pigs.wav"), "3 Little Pigs");
+    assert.strictEqual(prettifyName("10.wav"), "10");
+    assert.strictEqual(prettifyName("שיר_ערש.wav"), "שיר ערש");
+    assert.strictEqual(prettifyName("Lullaby (slow).WAV"), "Lullaby (slow)");
+    assert.strictEqual(isRtlText("שיר"), true);
+    assert.strictEqual(isRtlText("Twinkle"), false);
   `],
   ["returning to ready restores green checkmark", String.raw`
     const ble = await connectWithFakeBle();
