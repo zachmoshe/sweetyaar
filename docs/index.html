@@ -281,7 +281,6 @@
     .stack > *,
     .status-copy,
     .message-copy,
-    .pause-copy,
     .theme-field {
       min-width: 0;
     }
@@ -362,8 +361,7 @@
 
     .status-copy h1,
     .status-copy h2,
-    .message-copy h2,
-    .pause-copy h2 {
+    .message-copy h2 {
       margin: 0;
       letter-spacing: 0;
       line-height: 1.15;
@@ -395,8 +393,7 @@
 
     .status-copy p,
     .message-copy p,
-    .info-card p,
-    .pause-copy p {
+    .info-card p {
       margin: 0;
       color: var(--ink);
       font-size: clamp(14px, 3.8vw, 16px);
@@ -1048,67 +1045,103 @@
       white-space: nowrap;
     }
 
-    .pause-card {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(148px, 44%);
-      gap: 10px;
-      align-items: center;
-      border-color: rgba(255, 214, 224, 0.9);
-      background: linear-gradient(180deg, #fff3f7, #ffe9f0);
-      padding: 12px;
+    .quiet-card {
+      padding: 0;
+      border-color: rgba(239, 229, 218, 0.92);
+      background: rgba(255, 253, 249, 0.97);
     }
 
-    .pause-copy-wrap {
+    .quiet-card.active {
+      border-color: rgba(217, 62, 111, 0.4);
+      background: linear-gradient(180deg, #fff3f7, #ffe9f0);
+    }
+
+    .quiet-toggle {
+      width: 100%;
+      min-height: 64px;
+      display: grid;
+      grid-template-columns: 38px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      padding: 11px 16px;
+      text-align: left;
+    }
+
+    .quiet-icon {
+      width: 38px;
+      height: 38px;
+      object-fit: contain;
+      opacity: 0.85;
+    }
+
+    .quiet-card.active .quiet-icon {
+      opacity: 1;
+    }
+
+    .quiet-copy {
       min-width: 0;
       display: grid;
-      grid-template-columns: 56px 1fr;
-      gap: 8px;
-      align-items: center;
+      gap: 2px;
     }
 
-    .pause-icon {
-      width: 56px;
-      height: 56px;
-      object-fit: contain;
-    }
-
-    .pause-copy h2 {
-      margin-bottom: 4px;
-      color: var(--pink);
-      font-size: clamp(17px, 4.2vw, 18px);
-      font-weight: 830;
-    }
-
-    .pause-copy p {
-      font-size: clamp(12px, 3.3vw, 14px);
+    .quiet-title {
       color: var(--ink);
+      font-size: clamp(15px, 4vw, 17px);
+      font-weight: 790;
+      line-height: 1.1;
     }
 
-    .pause-actions {
-      display: grid;
-      gap: 8px;
+    .quiet-card.active .quiet-title {
+      color: var(--pink);
     }
 
-    .pause-button {
-      min-height: 44px;
-      border: 0;
-      border-radius: 12px;
-      box-shadow: var(--soft-shadow);
-      cursor: pointer;
-      padding: 0 8px;
-      font-size: clamp(13px, 3.35vw, 14px);
-      font-weight: 760;
+    .quiet-sub {
+      min-width: 0;
+      color: var(--muted);
+      font-size: clamp(12px, 3.2vw, 13px);
+      font-weight: 700;
+      line-height: 1.15;
+      overflow: hidden;
+      text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    .pause-button.on {
-      background: linear-gradient(180deg, #ef6088, #dc3e70);
-      color: #ffffff;
+    .quiet-switch {
+      position: relative;
+      flex: 0 0 auto;
+      width: 50px;
+      height: 30px;
+      border-radius: 999px;
+      background: #d7d2cb;
+      transition: background 160ms ease;
     }
 
-    .pause-button.off {
-      background: rgba(255, 255, 255, 0.94);
-      color: #34314d;
+    .quiet-card.active .quiet-switch {
+      background: linear-gradient(180deg, #ef6088, #dc3e70);
+    }
+
+    .quiet-knob {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 2px 5px rgba(59, 50, 39, 0.24);
+      transition: transform 160ms ease;
+    }
+
+    .quiet-card.active .quiet-knob {
+      transform: translateX(20px);
+    }
+
+    .quiet-toggle:disabled {
+      cursor: not-allowed;
+      opacity: 0.56;
     }
 
     .device-watch {
@@ -1672,10 +1705,6 @@
         font-size: 13px;
       }
 
-      .pause-card {
-        grid-template-columns: 1fr;
-      }
-
       .install-banner {
         grid-template-columns: 44px 1fr;
       }
@@ -1823,21 +1852,18 @@
           </div>
         </section>
 
-        <section class="card pause-card" aria-label="Pause mode">
-          <div class="pause-copy-wrap">
-            <img class="pause-icon" src="assets/icon-pause.png" alt="">
-            <div class="pause-copy">
-              <h2>Pause mode</h2>
-              <p>The toy ignores its buttons for 10 minutes.</p>
-            </div>
-          </div>
-          <div class="pause-actions">
-            <button class="pause-button on" id="killswitchOnButton" type="button">Pause for 10 mins</button>
-            <button class="pause-button off" id="killswitchOffButton" type="button">Cancel pause</button>
-          </div>
+        <section class="card quiet-card" aria-label="Quiet time">
+          <button class="quiet-toggle" id="killswitchToggle" type="button" role="switch" aria-checked="false">
+            <img class="quiet-icon" src="assets/icon-pause.png" alt="">
+            <span class="quiet-copy">
+              <span class="quiet-title" id="quietTitle">Quiet time</span>
+              <span class="quiet-sub" id="quietSub">Pause the toy's buttons for 10 min</span>
+            </span>
+            <span class="quiet-switch" aria-hidden="true"><span class="quiet-knob"></span></span>
+          </button>
         </section>
 
-        <p class="device-watch" id="deviceWatch" aria-label="Device clock">Device time unknown</p>
+        <p class="device-watch" id="deviceWatch" aria-label="Device clock">Toy clock not set</p>
 
       </div>
 
@@ -2235,8 +2261,10 @@
       themeCurrent: document.querySelector("#themeCurrent"),
       themeHelper: document.querySelector("#themeHelper"),
       themeOptions: document.querySelector("#themeOptions"),
-      killswitchOnButton: document.querySelector("#killswitchOnButton"),
-      killswitchOffButton: document.querySelector("#killswitchOffButton"),
+      killswitchToggle: document.querySelector("#killswitchToggle"),
+      quietCard: document.querySelector(".quiet-card"),
+      quietTitle: document.querySelector("#quietTitle"),
+      quietSub: document.querySelector("#quietSub"),
       openSettingsButton: document.querySelector("#openSettingsButton"),
       settingsBackButton: document.querySelector("#settingsBackButton"),
       settingsSaveButton: document.querySelector("#settingsSaveButton"),
@@ -2363,6 +2391,11 @@
       return state.killswitch || state.status.startsWith("Killswitch active");
     }
 
+    function killswitchRemainingText() {
+      const match = /\(([0-9]+:[0-9]{2}) left\)/.exec(state.status);
+      return match ? match[1] : "";
+    }
+
     function controlsDisabled() {
       return state.busy || !state.connected || isBtConnected();
     }
@@ -2380,14 +2413,14 @@
         return "Ready to play";
       }
       if (state.status.startsWith("Killswitch active")) {
-        return state.status.replace("Killswitch active", "Pause mode active");
+        return state.status.replace("Killswitch active", "Quiet time");
       }
       return state.status;
     }
 
     function readyMessage() {
       if (isKillswitchActive()) {
-        return "Toy inputs are paused for a little while.";
+        return "The toy is ignoring its buttons for now.";
       }
       return state.message || "";
     }
@@ -3577,8 +3610,17 @@
       els.stopButton.disabled = playbackDisabled();
       els.playSongButton.classList.toggle("playing", state.status.startsWith("Playing song"));
       els.playAnimalButton.classList.toggle("playing", state.status.startsWith("Playing animal"));
-      els.killswitchOnButton.disabled = disabled;
-      els.killswitchOffButton.disabled = disabled || !state.killswitch;
+      const quietActive = isKillswitchActive();
+      els.killswitchToggle.disabled = disabled;
+      els.killswitchToggle.setAttribute("aria-checked", quietActive ? "true" : "false");
+      els.quietCard.classList.toggle("active", quietActive);
+      els.quietTitle.textContent = "Quiet time";
+      if (quietActive) {
+        const remaining = killswitchRemainingText();
+        els.quietSub.textContent = remaining ? `Paused · ${remaining} left` : "Paused";
+      } else {
+        els.quietSub.textContent = "Pause the toy's buttons for 10 min";
+      }
       els.openSettingsButton.disabled = state.busy || !state.connected;
       renderInstallBanner();
 
@@ -4086,33 +4128,16 @@
       safeWrite(() => writeUint8("command", 3), "", playbackDisabled());
     });
 
-    els.killswitchOnButton.addEventListener("click", () => {
+    els.killswitchToggle.addEventListener("click", () => {
       if (controlsDisabled()) return;
+      const turnOn = !isKillswitchActive();
       const previousKillswitch = state.killswitch;
       const previousStatus = state.status;
-      state.killswitch = true;
-      state.status = "Killswitch active";
+      state.killswitch = turnOn;
+      state.status = turnOn ? "Killswitch active" : "Idle";
       render();
       safeWrite(
-        () => writeUint8("killswitch", 1),
-        "",
-        controlsDisabled(),
-        () => {
-          state.killswitch = previousKillswitch;
-          state.status = previousStatus;
-        }
-      );
-    });
-
-    els.killswitchOffButton.addEventListener("click", () => {
-      if (controlsDisabled()) return;
-      const previousKillswitch = state.killswitch;
-      const previousStatus = state.status;
-      state.killswitch = false;
-      state.status = "Idle";
-      render();
-      safeWrite(
-        () => writeUint8("killswitch", 0),
+        () => writeUint8("killswitch", turnOn ? 1 : 0),
         "",
         controlsDisabled(),
         () => {

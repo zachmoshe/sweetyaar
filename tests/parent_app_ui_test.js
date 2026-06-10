@@ -800,15 +800,24 @@ const tests = [
     assert.strictEqual(els.themeCurrent.textContent, "Nature");
     assert.strictEqual(els.themeHelper.hidden, false);
   `],
-  ["killswitch buttons write optimistic values", String.raw`
+  ["quiet-time toggle writes optimistic values", String.raw`
     const ble = await connectWithFakeBle();
-    await els.killswitchOnButton.click();
+    await els.killswitchToggle.click();
     assertJsonEqual(ble.writes.killswitch, [1]);
     assert.strictEqual(state.killswitch, true);
-    assert.strictEqual(els.killswitchOffButton.disabled, false);
-    await els.killswitchOffButton.click();
+    assert.strictEqual(els.killswitchToggle.getAttribute("aria-checked"), "true");
+    assert.strictEqual(els.quietCard.classList.contains("active"), true);
+    await els.killswitchToggle.click();
     assertJsonEqual(ble.writes.killswitch, [1, 0]);
     assert.strictEqual(state.killswitch, false);
+    assert.strictEqual(els.killswitchToggle.getAttribute("aria-checked"), "false");
+  `],
+  ["quiet-time toggle shows live countdown from status", String.raw`
+    const ble = await connectWithFakeBle();
+    ble.chars.status.emit("Killswitch active (9:32 left)");
+    assert.strictEqual(els.quietCard.classList.contains("active"), true);
+    assert.strictEqual(els.quietSub.textContent, "Paused · 9:32 left");
+    assert.strictEqual(els.readyStatusText.textContent, "Quiet time (9:32 left)");
   `],
   ["settings screen loads config and content scans", String.raw`
     const ble = await connectWithFakeBle();
