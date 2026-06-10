@@ -174,6 +174,23 @@ bool WavPlayer::begin() {
         return false;
     }
     Serial.println("[WavPlayer] SD OK");
+    // Claim the decode pipeline up-front, before SD/WAV traffic fragments the
+    // heap (same rationale as reserving the BT audio queue early).
+    ensureDecoder();
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+bool WavPlayer::ensureDecoder() {
+    if (_encodedOut != nullptr) {
+        return true;
+    }
+    _wavDecoder = new WAVDecoder();
+    _encodedOut = new EncodedAudioOutput(&_output, _wavDecoder);
+    if (_wavDecoder == nullptr || _encodedOut == nullptr) {
+        Serial.println("[WavPlayer] Decode pipeline allocation failed");
+        return false;
+    }
     return true;
 }
 
@@ -338,8 +355,13 @@ bool WavPlayer::openFile(const String& path) {
         return false;
     }
 
-    _wavDecoder = new WAVDecoder();
-    _encodedOut = new EncodedAudioOutput(&_output, _wavDecoder);
+    if (!ensureDecoder()) {
+        _sdFile.close();
+        _currentPath = "";
+        return false;
+    }
+    // Reuse the persistent decoder; begin() resets per-file state (the library
+    // requires begin() before each new WAV) so no reallocation is needed.
     _encodedOut->begin();
 
     _currentPath = path;
@@ -350,8 +372,10 @@ bool WavPlayer::openFile(const String& path) {
 // ---------------------------------------------------------------------------
 void WavPlayer::teardown() {
     if (_sdFile)     { _sdFile.close(); }
-    if (_encodedOut) { delete _encodedOut; _encodedOut = nullptr; }
-    if (_wavDecoder) { delete _wavDecoder; _wavDecoder = nullptr; }
+    // Reset the decoder for the next file but keep it allocated for reuse.
+    // The pipeline is intentionally never freed (WavPlayer is a lifetime-long
+    // singleton); end() returns it to an inactive, ready-to-begin() state.
+    if (_encodedOut) { _encodedOut->end(); }
     _currentPath = "";
 }
 

@@ -80,8 +80,11 @@ private:
     static constexpr int MAX_ANIMALS = 32;
 
     VolumeStream&       _output;
+    // Decode pipeline (WAVDecoder -> VolumeStream). Allocated once via
+    // ensureDecoder() and reused for every file; per-file state is reset with
+    // begin()/end() rather than reallocating, to avoid heap fragmentation.
     WAVDecoder*         _wavDecoder = nullptr;
-    EncodedAudioOutput* _encodedOut = nullptr;  // WAVDecoder -> VolumeStream
+    EncodedAudioOutput* _encodedOut = nullptr;
     File                _sdFile;
     String              _currentPath;
 
@@ -106,4 +109,7 @@ private:
     bool openCurrentAnimal();
     bool openFile(const String& path);
     void teardown();
+
+    // Allocate the decode pipeline exactly once; returns false on alloc failure.
+    bool ensureDecoder();
 };
