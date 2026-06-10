@@ -2506,8 +2506,7 @@
     // and reserved filename characters that should never reach the display.
     function sanitizeName(text) {
       return `${text || ""}`
-        .replace(/[\u0000-\u001F\u007F]/g, "")               // control characters
-        .replace(/[\u200B-\u200F\u202A-\u202E\u2060\uFEFF]/g, "")  // zero-width / bidi format
+        .replace(/[\p{Cc}\p{Cf}\p{Cn}\p{Co}\p{Cs}\uFFFD]/gu, "")  // control / format / invisible / unrenderable
         .replace(/[\/\\:*?"<>|]/g, " ");                            // path / reserved chars -> space
     }
 
@@ -3580,8 +3579,9 @@
         applyTextDir(text, pretty);
         const fileLine = document.createElement("span");
         fileLine.className = "song-file-text";
-        fileLine.textContent = song.file || "";
-        applyTextDir(fileLine, song.file);
+        const cleanFile = sanitizeName(song.file).replace(/\s+/g, " ").trim();
+        fileLine.textContent = cleanFile;
+        applyTextDir(fileLine, cleanFile);
         lines.append(text, fileLine);
         name.append(icon, lines);
 

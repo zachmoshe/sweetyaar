@@ -865,8 +865,9 @@ const tests = [
   ["prettifyName strips reserved and invisible characters", String.raw`
     const zwsp = String.fromCharCode(0x200B), zwnj = String.fromCharCode(0x200C);
     assert.strictEqual(prettifyName("a" + zwsp + "b" + zwnj + "c.wav"), "Abc");
+    const rlm = String.fromCharCode(0x200F), repl = String.fromCharCode(0xFFFD), pua = String.fromCharCode(0xE000);
+    assert.strictEqual(prettifyName("שיר" + rlm + " " + repl + "ערש" + pua + ".wav"), "שיר ערש");
     assert.strictEqual(prettifyName("rock|roll.wav"), "Rock Roll");
-    assert.strictEqual(prettifyName("a​b‌c.wav"), "Abc");
     assert.strictEqual(prettifyName("cleansong.wav"), "Cleansong");
   `],
   ["returning to ready restores green checkmark", String.raw`
