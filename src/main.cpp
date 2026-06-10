@@ -113,6 +113,10 @@ void handleBleCommand(uint8_t command);
 void publishBleValues();
 void sendNotice(const String& severity, const String& message);
 void notifyPlaybackFailure(bool animal);
+void playSong();
+void playNextSong();
+void playAnimal();
+void playNextAnimal();
 void setupBedtimeClock(esp_sleep_wakeup_cause_t wakeCause);
 void syncBedtimeClock(time_t epochSec, int16_t tzOffsetMin);
 void pollBedtimeMode();
@@ -301,7 +305,7 @@ void loop() {
         } else if (buttons.wasBtn1Pressed()) {
             markActivity("button 1");
             if (cur == State::PLAYING_SONG) {
-                wavPlayer.nextSong();  // advance track; stay in PLAYING_SONG
+                playNextSong();  // advance track; stay in PLAYING_SONG
                 publishBleValues();
             } else {
                 sm.postEvent(Event::BUTTON1_PRESS);
@@ -309,7 +313,7 @@ void loop() {
         } else if (buttons.wasBtn2Pressed()) {
             markActivity("button 2");
             if (cur == State::PLAYING_ANIMAL) {
-                wavPlayer.nextAnimal();  // advance animal; stay in PLAYING_ANIMAL
+                playNextAnimal();  // advance animal; stay in PLAYING_ANIMAL
                 publishBleValues();
             } else {
                 sm.postEvent(Event::BUTTON2_PRESS);
@@ -607,7 +611,7 @@ void pollBedtimeMode() {
         String nextTheme = bedtimeEffectiveSongTheme();
         if (nextTheme != currentPlaybackTheme) {
             currentPlaybackTheme = nextTheme;
-            wavPlayer.startSong(currentPlaybackTheme);
+            playSong();
         }
     }
     publishBleValues();
@@ -1076,7 +1080,7 @@ bool handleBleControls() {
             if (changedTheme && sm.currentState() == State::PLAYING_SONG) {
                 currentPlaybackTheme = bedtimeEffectiveSongTheme();
                 applyEffectiveVolume("theme change");
-                wavPlayer.startSong(currentPlaybackTheme);
+                playSong();
             }
         }
     }
@@ -1289,7 +1293,7 @@ void handleBleConfigCommand(const String& commandJson) {
             String nextTheme = bedtimeEffectiveSongTheme();
             if (nextTheme != currentPlaybackTheme) {
                 currentPlaybackTheme = nextTheme;
-                wavPlayer.startSong(currentPlaybackTheme);
+                playSong();
             }
         }
         publishBleValues();
@@ -1314,7 +1318,7 @@ void handleBleConfigCommand(const String& commandJson) {
             String nextTheme = bedtimeEffectiveSongTheme();
             if (nextTheme != currentPlaybackTheme) {
                 currentPlaybackTheme = nextTheme;
-                wavPlayer.startSong(currentPlaybackTheme);
+                playSong();
             }
         }
         publishBleValues();
@@ -1333,7 +1337,7 @@ void handleBleCommand(uint8_t command) {
     switch (command) {
         case 1:  // Song button
             if (state == State::PLAYING_SONG) {
-                wavPlayer.nextSong();
+                playNextSong();
                 publishBleValues();
             } else {
                 sm.postEvent(Event::BUTTON1_PRESS);
@@ -1342,7 +1346,7 @@ void handleBleCommand(uint8_t command) {
 
         case 2:  // Animal button
             if (state == State::PLAYING_ANIMAL) {
-                wavPlayer.nextAnimal();
+                playNextAnimal();
                 publishBleValues();
             } else {
                 sm.postEvent(Event::BUTTON2_PRESS);
@@ -1416,6 +1420,32 @@ void notifyPlaybackFailure(bool animal) {
     } else {
         sendNotice("warn", "No songs in this theme.");
     }
+}
+
+// ---------------------------------------------------------------------------
+// Play helpers — every way to start/advance playback funnels through these so
+// a failed attempt surfaces a notice no matter which path triggered it (fresh
+// start, "next", or theme switch). A successful start leaves the player active
+// (isIdle()==false), so no notice fires.
+// ---------------------------------------------------------------------------
+void playSong() {
+    wavPlayer.startSong(currentPlaybackTheme);
+    if (wavPlayer.isIdle()) notifyPlaybackFailure(false);
+}
+
+void playNextSong() {
+    wavPlayer.nextSong();
+    if (wavPlayer.isIdle()) notifyPlaybackFailure(false);
+}
+
+void playAnimal() {
+    wavPlayer.startRandomAnimal();
+    if (wavPlayer.isIdle()) notifyPlaybackFailure(true);
+}
+
+void playNextAnimal() {
+    wavPlayer.nextAnimal();
+    if (wavPlayer.isIdle()) notifyPlaybackFailure(true);
 }
 
 // ---------------------------------------------------------------------------
@@ -1703,16 +1733,14 @@ void handleStateEntry(State prev, State next) {
             currentPlaybackTheme = bedtimeEffectiveSongTheme();
             applyEffectiveVolume("song start");
             digitalWrite(PIN_AMP_MUTE, HIGH);  // unmute amp
-            wavPlayer.startSong(currentPlaybackTheme);
-            if (wavPlayer.isIdle()) notifyPlaybackFailure(false);  // nothing started
+            playSong();
             break;
         }
 
         case State::PLAYING_ANIMAL:
             applyEffectiveVolume("animal start");
             digitalWrite(PIN_AMP_MUTE, HIGH);  // unmute amp
-            wavPlayer.startRandomAnimal();
-            if (wavPlayer.isIdle()) notifyPlaybackFailure(true);  // nothing started
+            playAnimal();
             break;
 
         case State::BT_STREAMING:
