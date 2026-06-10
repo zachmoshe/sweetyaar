@@ -262,6 +262,14 @@ void WavPlayer::stop() {
 }
 
 // ---------------------------------------------------------------------------
+bool WavPlayer::sdAvailable() {
+    File root = SD.open("/");
+    bool ok = root && root.isDirectory();
+    if (root) root.close();
+    return ok;
+}
+
+// ---------------------------------------------------------------------------
 // loop() — feed up to CHUNK_BYTES of WAV data per call; detect end-of-file
 // ---------------------------------------------------------------------------
 void WavPlayer::loop() {

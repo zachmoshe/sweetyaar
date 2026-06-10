@@ -50,6 +50,11 @@ public:
     // Stop immediately and free resources
     void stop();
 
+    // Best-effort runtime probe: true if the SD card is currently readable.
+    // Used to distinguish "card removed" from "folder empty" after a failed
+    // play. (Boot-time mount success does not stay valid if the card is pulled.)
+    bool sdAvailable();
+
     bool isIdle()          const { return _idle; }
     bool isPlayingSong()   const { return !_idle && !_animalMode; }
     bool isPlayingAnimal() const { return !_idle &&  _animalMode; }

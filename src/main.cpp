@@ -1381,6 +1381,7 @@ void publishBleValues() {
 //   severity: "error" (persistent until dismissed) or "warn" (auto-dismiss)
 // ---------------------------------------------------------------------------
 void sendNotice(const String& severity, const String& message) {
+    Serial.printf("[Notice] %s: %s\n", severity.c_str(), message.c_str());
     if (!ENABLE_BLE_PARENT_SERVICE) {
         return;
     }
@@ -1401,6 +1402,13 @@ void sendNotice(const String& severity, const String& message) {
 // the settings song list, so there is no per-file runtime notice.
 // ---------------------------------------------------------------------------
 void notifyPlaybackFailure(bool animal) {
+    // sdReady is only the boot-time mount result; re-probe so a card pulled at
+    // runtime is reported as the persistent error rather than an empty-folder
+    // warning.
+    if (sdReady && !wavPlayer.sdAvailable()) {
+        sdReady = false;
+        Serial.println("[WARN] SD card no longer readable at play time");
+    }
     if (!sdReady) {
         sendNotice("error", "SD card not found. Insert the card and restart the toy.");
     } else if (animal) {
