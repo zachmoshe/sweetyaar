@@ -3581,6 +3581,7 @@
         const fileLine = document.createElement("span");
         fileLine.className = "song-file-text";
         fileLine.textContent = song.file || "";
+        applyTextDir(fileLine, song.file);
         lines.append(text, fileLine);
         name.append(icon, lines);
 
