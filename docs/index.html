@@ -1745,52 +1745,72 @@
       outline-offset: 3px;
     }
 
-    .notice-banner {
-      position: sticky;
-      top: 0;
-      z-index: 20;
+    .notice-card {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 36px;
-      gap: 10px;
+      grid-template-columns: 30px minmax(0, 1fr) 30px;
+      gap: 12px;
       align-items: center;
-      padding: 12px max(14px, env(safe-area-inset-left)) 12px 16px;
-      color: #ffffff;
-      box-shadow: 0 6px 16px rgba(73, 55, 34, 0.22);
+      padding: 12px 14px;
     }
 
-    .notice-banner.error {
+    .notice-card.error {
+      border-color: rgba(217, 62, 111, 0.42);
+      background: linear-gradient(180deg, #fff1f1, #ffe7ea);
+    }
+
+    .notice-card.warn {
+      border-color: rgba(224, 131, 17, 0.42);
+      background: linear-gradient(180deg, #fff6e8, #ffedd2);
+    }
+
+    .notice-icon {
+      display: grid;
+      width: 30px;
+      height: 30px;
+      place-items: center;
+      border-radius: 50%;
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .notice-card.error .notice-icon {
       background: linear-gradient(180deg, #ef5a6b, #d9384f);
     }
 
-    .notice-banner.warn {
+    .notice-card.warn .notice-icon {
       background: linear-gradient(180deg, #f0a23a, #dd8311);
     }
 
     .notice-message {
       min-width: 0;
-      font-size: clamp(14px, 3.8vw, 16px);
-      font-weight: 760;
-      line-height: 1.25;
+      color: var(--ink);
+      font-size: clamp(14px, 3.8vw, 15px);
+      font-weight: 740;
+      line-height: 1.3;
       overflow-wrap: anywhere;
     }
 
     .notice-dismiss {
       display: grid;
-      width: 36px;
-      height: 36px;
+      width: 30px;
+      height: 30px;
       place-items: center;
       border: 0;
       border-radius: 50%;
-      background: rgba(255, 255, 255, 0.22);
-      color: #ffffff;
+      background: rgba(73, 55, 34, 0.08);
+      color: var(--muted);
       cursor: pointer;
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 700;
       line-height: 1;
     }
 
     .notice-dismiss:hover {
-      background: rgba(255, 255, 255, 0.34);
+      background: rgba(73, 55, 34, 0.16);
+      color: var(--ink);
     }
 
     .sr-only {
@@ -1837,10 +1857,6 @@
 </head>
 <body>
   <main class="app" aria-live="polite">
-    <aside class="notice-banner" id="noticeBanner" role="alert" hidden>
-      <span class="notice-message" id="noticeMessage"></span>
-      <button class="notice-dismiss" id="noticeDismiss" type="button" aria-label="Dismiss">&times;</button>
-    </aside>
     <header class="hero">
       <img class="hero-decoration" src="assets/header-decoration-teddy.png" srcset="assets/header-decoration-teddy.png 1x, assets/header-decoration-teddy@2x.png 2x" alt="">
       <div class="brand">
@@ -1903,6 +1919,12 @@
 
     <section class="screen ready" id="readyView" aria-label="SweetYaar controls" hidden>
       <div class="stack">
+        <article class="card notice-card" id="noticeBanner" role="alert" hidden>
+          <span class="notice-icon" aria-hidden="true">!</span>
+          <span class="notice-message" id="noticeMessage"></span>
+          <button class="notice-dismiss" id="noticeDismiss" type="button" aria-label="Dismiss">&times;</button>
+        </article>
+
         <div class="ready-top-row">
           <article class="card status-card">
             <div class="status-icon green" id="readyStatusIcon" aria-hidden="true">
