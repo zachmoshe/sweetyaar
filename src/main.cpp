@@ -112,7 +112,7 @@ void handleBleConfigCommand(const String& commandJson);
 void handleBleCommand(uint8_t command);
 void publishBleValues();
 void sendNotice(const String& severity, const String& message);
-void notifyPlaybackFailure();
+void notifyPlaybackFailure(bool animal);
 void setupBedtimeClock(esp_sleep_wakeup_cause_t wakeCause);
 void syncBedtimeClock(time_t epochSec, int16_t tzOffsetMin);
 void pollBedtimeMode();
@@ -1394,12 +1394,19 @@ void sendNotice(const String& severity, const String& message) {
 
 // ---------------------------------------------------------------------------
 // notifyPlaybackFailure() — called when a play attempt produced no audio.
-// Today the actionable case is a missing SD card; other causes (empty theme,
-// undecodable file) currently fall back silently and can grow warnings here.
+//   - No SD card               -> persistent error.
+//   - SD present but no playable songs/animals (folder empty, or every file
+//     was filtered out as invalid/unsupported) -> transient warning.
+// Malformed individual files are already filtered at scan time and surfaced in
+// the settings song list, so there is no per-file runtime notice.
 // ---------------------------------------------------------------------------
-void notifyPlaybackFailure() {
+void notifyPlaybackFailure(bool animal) {
     if (!sdReady) {
         sendNotice("error", "SD card not found. Insert the card and restart the toy.");
+    } else if (animal) {
+        sendNotice("warn", "No animal sounds on the card.");
+    } else {
+        sendNotice("warn", "No songs in this theme.");
     }
 }
 
@@ -1689,7 +1696,7 @@ void handleStateEntry(State prev, State next) {
             applyEffectiveVolume("song start");
             digitalWrite(PIN_AMP_MUTE, HIGH);  // unmute amp
             wavPlayer.startSong(currentPlaybackTheme);
-            if (wavPlayer.isIdle()) notifyPlaybackFailure();  // nothing started
+            if (wavPlayer.isIdle()) notifyPlaybackFailure(false);  // nothing started
             break;
         }
 
@@ -1697,7 +1704,7 @@ void handleStateEntry(State prev, State next) {
             applyEffectiveVolume("animal start");
             digitalWrite(PIN_AMP_MUTE, HIGH);  // unmute amp
             wavPlayer.startRandomAnimal();
-            if (wavPlayer.isIdle()) notifyPlaybackFailure();  // nothing started
+            if (wavPlayer.isIdle()) notifyPlaybackFailure(true);  // nothing started
             break;
 
         case State::BT_STREAMING:
