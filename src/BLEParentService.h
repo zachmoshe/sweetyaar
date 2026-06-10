@@ -51,6 +51,11 @@ public:
     void updateConfigResponse(const String& responseJson);
     void updateDeviceName(const String& deviceName);
 
+    // Push a one-shot notice for the app to display. |noticeJson| is the full
+    // payload, e.g. {"severity":"error","message":"..."}. The app shows it on
+    // notify; the device decides the wording and severity.
+    void updateNotice(const String& noticeJson);
+
     // Non-destructive peek: returns true if a new volume value has arrived
     bool hasVolumeChange() const { return _newVolume; }
 
@@ -85,6 +90,7 @@ private:
     BLECharacteristic* _commandChar = nullptr;
     BLECharacteristic* _configCommandChar = nullptr;
     BLECharacteristic* _configResponseChar = nullptr;
+    BLECharacteristic* _noticeChar = nullptr;
 
     // Pending events set by BLE callbacks, consumed by poll methods
     volatile bool    _newVolume     = false;

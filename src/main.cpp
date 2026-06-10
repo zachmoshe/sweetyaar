@@ -110,6 +110,8 @@ void handleBleConfigCommands();
 void handleBleConfigCommand(const String& commandJson);
 void handleBleCommand(uint8_t command);
 void publishBleValues();
+void sendNotice(const String& severity, const String& message);
+void notifyPlaybackFailure();
 void setupBedtimeClock(esp_sleep_wakeup_cause_t wakeCause);
 void syncBedtimeClock(time_t epochSec, int16_t tzOffsetMin);
 void pollBedtimeMode();
@@ -1367,6 +1369,34 @@ void publishBleValues() {
 }
 
 // ---------------------------------------------------------------------------
+// sendNotice() — push a user-facing notice to the app over BLE. The device
+// owns the wording and severity; the app just displays it.
+//   severity: "error" (persistent until dismissed) or "warn" (auto-dismiss)
+// ---------------------------------------------------------------------------
+void sendNotice(const String& severity, const String& message) {
+    if (!ENABLE_BLE_PARENT_SERVICE) {
+        return;
+    }
+    String json = "{\"severity\":\"";
+    json += severity;
+    json += "\",\"message\":\"";
+    json += ContentCatalog::jsonEscape(message);
+    json += "\"}";
+    bleService.updateNotice(json);
+}
+
+// ---------------------------------------------------------------------------
+// notifyPlaybackFailure() — called when a play attempt produced no audio.
+// Today the actionable case is a missing SD card; other causes (empty theme,
+// undecodable file) currently fall back silently and can grow warnings here.
+// ---------------------------------------------------------------------------
+void notifyPlaybackFailure() {
+    if (!sdReady) {
+        sendNotice("error", "SD card not found. Insert the card and restart the toy.");
+    }
+}
+
+// ---------------------------------------------------------------------------
 // bleStatusForState()
 // ---------------------------------------------------------------------------
 String bleStatusForState(State state) {
@@ -1652,6 +1682,7 @@ void handleStateEntry(State prev, State next) {
             applyEffectiveVolume("song start");
             digitalWrite(PIN_AMP_MUTE, HIGH);  // unmute amp
             wavPlayer.startSong(currentPlaybackTheme);
+            if (wavPlayer.isIdle()) notifyPlaybackFailure();  // nothing started
             break;
         }
 
@@ -1659,6 +1690,7 @@ void handleStateEntry(State prev, State next) {
             applyEffectiveVolume("animal start");
             digitalWrite(PIN_AMP_MUTE, HIGH);  // unmute amp
             wavPlayer.startRandomAnimal();
+            if (wavPlayer.isIdle()) notifyPlaybackFailure();  // nothing started
             break;
 
         case State::BT_STREAMING:

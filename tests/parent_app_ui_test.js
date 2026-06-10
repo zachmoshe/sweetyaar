@@ -476,7 +476,8 @@ function makeBleHarness(options = {}) {
     themes: new FakeCharacteristic("themes", JSON.stringify(themes.filter((theme) => theme.enabled).map((theme) => ({ id: theme.id, name: theme.name }))), readHooks),
     command: new FakeCharacteristic("command", "", readHooks),
     configCommand: new FakeCharacteristic("configCommand", "{}", readHooks),
-    configResponse: new FakeCharacteristic("configResponse", JSON.stringify(response), readHooks)
+    configResponse: new FakeCharacteristic("configResponse", JSON.stringify(response), readHooks),
+    notice: new FakeCharacteristic("notice", "{}", readHooks)
   };
 
   function isJsonConfigWrite(value) {
@@ -759,7 +760,7 @@ const tests = [
     assert.strictEqual(els.volumeValue.textContent, "31%");
     assert.strictEqual(els.themeCurrent.textContent, "Nature");
     assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime", "scanThemes"]);
-    assert.deepStrictEqual(ble.notifications, ["status", "volume", "killswitch", "theme"]);
+    assert.deepStrictEqual(ble.notifications, ["status", "volume", "killswitch", "theme", "notice"]);
   `],
   ["remote playback buttons write command values", String.raw`
     const ble = await connectWithFakeBle();
@@ -879,6 +880,31 @@ const tests = [
     assert.strictEqual(els.readyStatusGlyph.hidden, false);
     assert.strictEqual(els.readyStatusGlyph.textContent, "✓");
     assert.strictEqual(els.readyStatusIllus.hidden, true);
+  `],
+  ["device error notice shows a persistent banner until dismissed", String.raw`
+    const ble = await connectWithFakeBle();
+    ble.chars.notice.emit(JSON.stringify({ severity: "error", message: "SD card not found." }));
+    assert.strictEqual(els.noticeBanner.hidden, false);
+    assert.strictEqual(els.noticeMessage.textContent, "SD card not found.");
+    assert.strictEqual(els.noticeBanner.classList.contains("error"), true);
+    assert.strictEqual(state.noticeTimer, null);
+    await els.noticeDismiss.click();
+    assert.strictEqual(els.noticeBanner.hidden, true);
+    assert.strictEqual(state.notice, null);
+  `],
+  ["device warning notice shows a banner and schedules auto-dismiss", String.raw`
+    const ble = await connectWithFakeBle();
+    ble.chars.notice.emit(JSON.stringify({ severity: "warn", message: "No songs in this theme." }));
+    assert.strictEqual(els.noticeBanner.hidden, false);
+    assert.strictEqual(els.noticeBanner.classList.contains("warn"), true);
+    assert.notStrictEqual(state.noticeTimer, null);
+  `],
+  ["malformed notice payload is ignored", String.raw`
+    const ble = await connectWithFakeBle();
+    ble.chars.notice.emit("not json");
+    assert.strictEqual(els.noticeBanner.hidden, true);
+    ble.chars.notice.emit(JSON.stringify({ severity: "error" }));
+    assert.strictEqual(els.noticeBanner.hidden, true);
   `],
   ["settings screen loads config and content scans", String.raw`
     const ble = await connectWithFakeBle();

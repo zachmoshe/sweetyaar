@@ -75,6 +75,16 @@ void BLEParentService::begin(const String& deviceName) {
     _configResponseChar->addDescriptor(new BLE2902());
     _configResponseChar->setValue("{\"id\":0,\"ok\":true}");
 
+    // --- Notice channel ---------------------------------------------------
+    // Device-to-app notices (errors / warnings). The app reacts to
+    // notifications only; it does not read-and-replay on connect.
+    _noticeChar = svc->createCharacteristic(
+        BLE_NOTICE_UUID,
+        BLECharacteristic::PROPERTY_READ |
+        BLECharacteristic::PROPERTY_NOTIFY);
+    _noticeChar->addDescriptor(new BLE2902());
+    _noticeChar->setValue("{}");
+
     svc->start();
 
     BLEAdvertising* adv = BLEDevice::getAdvertising();
@@ -135,6 +145,12 @@ void BLEParentService::updateConfigResponse(const String& responseJson) {
     if (_themesChar) {
         _themesChar->setValue(responseJson.c_str());
     }
+}
+
+void BLEParentService::updateNotice(const String& noticeJson) {
+    if (!_noticeChar) return;
+    _noticeChar->setValue(noticeJson.c_str());
+    if (_connected) _noticeChar->notify();
 }
 
 void BLEParentService::updateDeviceName(const String& deviceName) {

@@ -1745,6 +1745,54 @@
       outline-offset: 3px;
     }
 
+    .notice-banner {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 36px;
+      gap: 10px;
+      align-items: center;
+      padding: 12px max(14px, env(safe-area-inset-left)) 12px 16px;
+      color: #ffffff;
+      box-shadow: 0 6px 16px rgba(73, 55, 34, 0.22);
+    }
+
+    .notice-banner.error {
+      background: linear-gradient(180deg, #ef5a6b, #d9384f);
+    }
+
+    .notice-banner.warn {
+      background: linear-gradient(180deg, #f0a23a, #dd8311);
+    }
+
+    .notice-message {
+      min-width: 0;
+      font-size: clamp(14px, 3.8vw, 16px);
+      font-weight: 760;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+
+    .notice-dismiss {
+      display: grid;
+      width: 36px;
+      height: 36px;
+      place-items: center;
+      border: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.22);
+      color: #ffffff;
+      cursor: pointer;
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .notice-dismiss:hover {
+      background: rgba(255, 255, 255, 0.34);
+    }
+
     .sr-only {
       position: absolute;
       width: 1px;
@@ -1789,6 +1837,10 @@
 </head>
 <body>
   <main class="app" aria-live="polite">
+    <aside class="notice-banner" id="noticeBanner" role="alert" hidden>
+      <span class="notice-message" id="noticeMessage"></span>
+      <button class="notice-dismiss" id="noticeDismiss" type="button" aria-label="Dismiss">&times;</button>
+    </aside>
     <header class="hero">
       <img class="hero-decoration" src="assets/header-decoration-teddy.png" srcset="assets/header-decoration-teddy.png 1x, assets/header-decoration-teddy@2x.png 2x" alt="">
       <div class="brand">
@@ -2295,7 +2347,8 @@
       themes: "a1b2c3d4-e5f6-7890-abcd-ef1234567895",
       command: "a1b2c3d4-e5f6-7890-abcd-ef1234567896",
       configCommand: "a1b2c3d4-e5f6-7890-abcd-ef1234567897",
-      configResponse: "a1b2c3d4-e5f6-7890-abcd-ef1234567898"
+      configResponse: "a1b2c3d4-e5f6-7890-abcd-ef1234567898",
+      notice: "a1b2c3d4-e5f6-7890-abcd-ef1234567899"
     };
 
     const els = {
@@ -2310,6 +2363,9 @@
       installBanner: document.querySelector("#installBanner"),
       installButton: document.querySelector("#installButton"),
       installDismissButton: document.querySelector("#installDismissButton"),
+      noticeBanner: document.querySelector("#noticeBanner"),
+      noticeMessage: document.querySelector("#noticeMessage"),
+      noticeDismiss: document.querySelector("#noticeDismiss"),
       readyStatusCard: document.querySelector("#readyView .status-card"),
       readyStatusIcon: document.querySelector("#readyStatusIcon"),
       readyStatusGlyph: document.querySelector("#readyStatusGlyph"),
@@ -2392,6 +2448,8 @@
       theme: "",
       themes: [],
       killswitch: false,
+      notice: null,
+      noticeTimer: null,
       bedtime: {
         enabled: true,
         startTime: "18:30",
@@ -2814,6 +2872,16 @@
       els.installBanner.hidden = !visible;
       els.installButton.disabled = !visible;
       els.installDismissButton.disabled = !visible;
+    }
+
+    function renderNoticeBanner() {
+      const notice = state.notice;
+      els.noticeBanner.hidden = !notice;
+      if (!notice) return;
+      els.noticeMessage.textContent = notice.message;
+      applyTextDir(els.noticeMessage, notice.message);
+      els.noticeBanner.classList.toggle("error", notice.severity === "error");
+      els.noticeBanner.classList.toggle("warn", notice.severity !== "error");
     }
 
     async function promptInstall() {
@@ -3806,9 +3874,21 @@
       }
       els.openSettingsButton.disabled = state.busy || !state.connected;
       renderInstallBanner();
+      renderNoticeBanner();
 
       if (settings) {
         renderSettings();
+      }
+    }
+
+    // Fetch a characteristic that older firmware may not have. Returns null
+    // instead of throwing so connect() proceeds against pre-notice firmware.
+    async function getOptionalCharacteristic(service, name) {
+      try {
+        return await service.getCharacteristic(UUIDS[name]);
+      } catch (error) {
+        console.info(`[SweetYaar BLE] Optional characteristic "${name}" unavailable.`);
+        return null;
       }
     }
 
@@ -3906,6 +3986,56 @@
       });
     }
 
+    const NOTICE_AUTO_DISMISS_MS = 6000;
+
+    // The device owns the message and severity; the app only displays it.
+    // "error" stays until dismissed; anything else auto-dismisses.
+    function showNotice(severity, message) {
+      const text = `${message || ""}`.trim();
+      if (!text) return;
+      if (state.noticeTimer) {
+        clearTimeout(state.noticeTimer);
+        state.noticeTimer = null;
+      }
+      state.notice = { severity: severity === "error" ? "error" : "warn", message: text };
+      render();
+      if (state.notice.severity !== "error") {
+        state.noticeTimer = setTimeout(() => {
+          state.noticeTimer = null;
+          state.notice = null;
+          render();
+        }, NOTICE_AUTO_DISMISS_MS);
+      }
+    }
+
+    function dismissNotice() {
+      if (state.noticeTimer) {
+        clearTimeout(state.noticeTimer);
+        state.noticeTimer = null;
+      }
+      state.notice = null;
+      render();
+    }
+
+    function handleNotice(rawText) {
+      let parsed = null;
+      try {
+        parsed = JSON.parse(rawText || "{}");
+      } catch (error) {
+        return;
+      }
+      if (parsed && typeof parsed.message === "string") {
+        showNotice(parsed.severity, parsed.message);
+      }
+    }
+
+    async function subscribeToNoticeNotifications() {
+      if (!state.chars.notice) return;
+      await subscribe("notice", (event) => {
+        handleNotice(readText(event.target.value));
+      });
+    }
+
     async function subscribeToNotifications(options = {}) {
       const subscribeStatus = options.subscribeStatus !== false;
       await subscribe("volume", (event) => {
@@ -3923,6 +4053,7 @@
       if (subscribeStatus) {
         await subscribeToStatusNotifications();
       }
+      await subscribeToNoticeNotifications();
     }
 
     async function finishStatusOnlyConnection() {
@@ -3953,6 +4084,7 @@
             error.technicalMessage || error
           );
         }
+        state.chars.notice = await getOptionalCharacteristic(service, "notice");
         await completeRemoteInitialization({ subscribeStatus: false });
         state.message = "";
       } catch (error) {
@@ -4087,6 +4219,7 @@
             error.technicalMessage || error
           );
         }
+        state.chars.notice = await getOptionalCharacteristic(service, "notice");
 
         await completeRemoteInitialization();
 
@@ -4128,6 +4261,11 @@
       state.statusOnlyConnection = false;
       state.status = "Disconnected";
       state.killswitch = false;
+      if (state.noticeTimer) {
+        clearTimeout(state.noticeTimer);
+        state.noticeTimer = null;
+      }
+      state.notice = null;
       state.settings.loading = false;
       state.message = "Remote disconnected.";
       render();
@@ -4156,6 +4294,7 @@
       state.installPromptEvent = null;
       render();
     });
+    els.noticeDismiss.addEventListener("click", dismissNotice);
     els.openSettingsButton.addEventListener("click", openSettings);
     els.bedtimeToggleButton.addEventListener("click", toggleBedtimeMode);
     els.settingsBackButton.addEventListener("click", returnToRemote);
