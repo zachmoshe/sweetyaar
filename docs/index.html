@@ -2501,17 +2501,27 @@
       el.classList.toggle("rtl-text", rtl);
     }
 
+    // Remove characters that render as garbage (invisible control / zero-width /
+    // bidi-format characters look like a "barcode") or that are path separators
+    // and reserved filename characters that should never reach the display.
+    function sanitizeName(text) {
+      return `${text || ""}`
+        .replace(/[\u0000-\u001F\u007F]/g, "")               // control characters
+        .replace(/[\u200B-\u200F\u202A-\u202E\u2060\uFEFF]/g, "")  // zero-width / bidi format
+        .replace(/[\/\\:*?"<>|]/g, " ");                            // path / reserved chars -> space
+    }
+
     // Turn a raw SD filename into a friendly display name. Unicode/RTL preserved;
     // casing is only applied to cased scripts (Hebrew/Arabic/CJK are untouched).
     function prettifyName(file) {
-      const raw = `${file || ""}`.trim();
+      const raw = sanitizeName(file).trim();
       let name = raw
         .replace(/\.wav$/i, "")          // drop the extension
         .replace(/^0\d*[\s._\-)]+/, "")  // drop a zero-padded track prefix (01_, 02 -, ...)
         .replace(/_+/g, " ")             // underscores -> spaces
         .replace(/\s+/g, " ")            // collapse whitespace
         .trim();
-      if (!name) return raw;             // fall back to the raw filename
+      if (!name) return raw;             // fall back to the sanitized filename
       return name.replace(/(^|\s)(\p{L})/gu, (match, sep, ch) => sep + ch.toLocaleUpperCase());
     }
 

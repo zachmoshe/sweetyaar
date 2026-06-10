@@ -862,6 +862,13 @@ const tests = [
     assert.strictEqual(isRtlText("שיר"), true);
     assert.strictEqual(isRtlText("Twinkle"), false);
   `],
+  ["prettifyName strips reserved and invisible characters", String.raw`
+    const zwsp = String.fromCharCode(0x200B), zwnj = String.fromCharCode(0x200C);
+    assert.strictEqual(prettifyName("a" + zwsp + "b" + zwnj + "c.wav"), "Abc");
+    assert.strictEqual(prettifyName("rock|roll.wav"), "Rock Roll");
+    assert.strictEqual(prettifyName("a​b‌c.wav"), "Abc");
+    assert.strictEqual(prettifyName("cleansong.wav"), "Cleansong");
+  `],
   ["returning to ready restores green checkmark", String.raw`
     const ble = await connectWithFakeBle();
     ble.chars.status.emit("Playing song - Lullabies / twinkle.wav");
