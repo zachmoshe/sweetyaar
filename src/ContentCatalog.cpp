@@ -1,4 +1,6 @@
 #include "ContentCatalog.h"
+#include <esp_heap_caps.h>
+#include <utility>
 
 namespace ContentCatalog {
 namespace {
@@ -29,18 +31,6 @@ String pathForThemeId(const String& themeId) {
         return String(ANIMALS_PATH);
     }
     return String(SONGS_ROOT) + "/" + themeId;
-}
-
-void sortStrings(String* values, int count) {
-    for (int i = 1; i < count; i++) {
-        String value = values[i];
-        int j = i - 1;
-        while (j >= 0 && values[j].compareTo(value) > 0) {
-            values[j + 1] = values[j];
-            j--;
-        }
-        values[j + 1] = value;
-    }
 }
 
 bool loadJsonList(JsonVariantConst value, String* out, int maxItems, int& count) {
@@ -384,70 +374,168 @@ String formatWavDetails(const WavInfo& info) {
     return out;
 }
 
-int listThemeIds(String* outIds, int maxThemes) {
-    if (maxThemes <= 0) return 0;
-    File root = SD.open(SONGS_ROOT);
-    if (!root || !root.isDirectory()) return 0;
+// ---------------------------------------------------------------------------
+// In-RAM catalog (built once at boot by buildCatalog())
+// ---------------------------------------------------------------------------
+namespace {
 
-    int count = 0;
-    while (count < maxThemes) {
-        File entry = root.openNextFile();
+std::vector<CachedTheme> g_themes;  // song themes sorted by id, Animals last
+bool g_catalogReady = false;
+
+void sortSongsByName(std::vector<CachedSong>& songs) {
+    for (size_t i = 1; i < songs.size(); i++) {
+        CachedSong key = std::move(songs[i]);
+        size_t j = i;
+        while (j > 0 && songs[j - 1].file.compareTo(key.file) > 0) {
+            songs[j] = std::move(songs[j - 1]);
+            j--;
+        }
+        songs[j] = std::move(key);
+    }
+}
+
+// Walk one theme directory exactly once: read its metadata, inspect every WAV
+// header, and fill the cached song list. Used for /songs themes and /animals.
+void loadThemeContents(CachedTheme& theme, const String& themePath) {
+    JsonDocument meta = readThemeMetadata(themePath);
+    const char* displayName = meta["name"] | "";
+    theme.name = (displayName && displayName[0] != '\0')
+        ? String(displayName)
+        : (theme.special ? String(ANIMALS_DISPLAY_NAME) : theme.id);
+    theme.shuffle = meta["shuffle"] | theme.special;  // animals default to shuffle
+
+    File dir = SD.open(themePath.c_str());
+    if (!dir || !dir.isDirectory()) {
+        return;
+    }
+    while (true) {
+        File entry = dir.openNextFile();
         if (!entry) break;
-        String id = baseNameOf(String(entry.name()));
-        if (!isIgnoredFilesystemEntry(id) && entry.isDirectory()) {
-            outIds[count++] = id;
+        String fileName = baseNameOf(String(entry.name()));
+        if (!entry.isDirectory() && !isIgnoredFilesystemEntry(fileName) && isWavName(fileName)) {
+            CachedSong song;
+            song.file = fileName;
+            WavInfo wav = inspectWav(entry);
+            song.sizeBytes = wav.sizeBytes;
+            song.durationMs = wav.durationMs;
+            song.supported = wav.supported;
+            if (!wav.supported) {
+                song.error = wav.error;
+            }
+            song.disabled = isSongDisabled(meta, fileName);
+            theme.songs.push_back(std::move(song));
         }
         entry.close();
     }
-    root.close();
-    sortStrings(outIds, count);
-    return count;
+    dir.close();
+    sortSongsByName(theme.songs);
 }
 
-ThemeStats scanThemeStats(const String& themeId, bool validateWavs) {
+CachedTheme* mutableFindTheme(const String& themeId) {
+    for (CachedTheme& t : g_themes) {
+        if (t.id == themeId) return &t;
+    }
+    return nullptr;
+}
+
+}  // namespace
+
+void buildCatalog() {
+    uint32_t startMs = millis();
+    g_themes.clear();
+    g_catalogReady = false;
+
+    JsonDocument config = readJsonFile(SD_CONFIG_FILE);
+
+    File root = SD.open(SONGS_ROOT);
+    if (root && root.isDirectory()) {
+        while (true) {
+            File entry = root.openNextFile();
+            if (!entry) break;
+            String id = baseNameOf(String(entry.name()));
+            bool isDir = entry.isDirectory();
+            entry.close();
+            if (!isDir || isIgnoredFilesystemEntry(id)) {
+                continue;
+            }
+            CachedTheme theme;
+            theme.id = id;
+            theme.special = false;
+            theme.disabledByUser = nameInJsonArray(config["disabledThemes"], id);
+            loadThemeContents(theme, String(SONGS_ROOT) + "/" + id);
+            g_themes.push_back(std::move(theme));
+        }
+        root.close();
+    }
+
+    // Sort song themes by id (Animals is appended after, so it stays last).
+    for (size_t i = 1; i < g_themes.size(); i++) {
+        CachedTheme key = std::move(g_themes[i]);
+        size_t j = i;
+        while (j > 0 && g_themes[j - 1].id.compareTo(key.id) > 0) {
+            g_themes[j] = std::move(g_themes[j - 1]);
+            j--;
+        }
+        g_themes[j] = std::move(key);
+    }
+
+    // Animals: reserved, non-disableable theme that always appears last.
+    CachedTheme animals;
+    animals.id = ANIMALS_THEME_ID;
+    animals.special = true;
+    animals.disabledByUser = false;
+    loadThemeContents(animals, String(ANIMALS_PATH));
+    g_themes.push_back(std::move(animals));
+
+    g_catalogReady = true;
+
+    int totalSongs = 0;
+    for (const CachedTheme& t : g_themes) {
+        totalSongs += static_cast<int>(t.songs.size());
+    }
+    Serial.printf("[Catalog] Built in %lums: %u themes, %d files (free=%u largest=%u)\n",
+                  static_cast<unsigned long>(millis() - startMs),
+                  static_cast<unsigned>(g_themes.size()), totalSongs,
+                  heap_caps_get_free_size(MALLOC_CAP_8BIT),
+                  heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+}
+
+bool catalogReady() { return g_catalogReady; }
+
+int themeCount() { return static_cast<int>(g_themes.size()); }
+
+const CachedTheme& themeAt(int index) { return g_themes[index]; }
+
+const CachedTheme* findTheme(const String& themeId) {
+    return mutableFindTheme(themeId);
+}
+
+ThemeStats scanThemeStats(const String& themeId, bool /*validateWavs*/) {
+    // Served entirely from the in-RAM catalog — no SD access.
     ThemeStats stats;
     stats.id = themeId;
     stats.special = isAnimalsTheme(themeId);
     stats.canDisable = !stats.special;
     stats.canSetDefault = !stats.special;
 
-    String themePath = pathForThemeId(themeId);
-    JsonDocument meta = readThemeMetadata(themePath);
-    const char* displayName = meta["name"] | "";
-    stats.name = stats.special
-        ? String(ANIMALS_DISPLAY_NAME)
-        : ((displayName && displayName[0] != '\0') ? String(displayName) : themeId);
-    stats.shuffle = meta["shuffle"] | stats.special;
-    stats.disabledByUser = isThemeDisabled(themeId);
-
-    File dir = SD.open(themePath.c_str());
-    if (!dir || !dir.isDirectory()) {
+    const CachedTheme* theme = findTheme(themeId);
+    if (theme == nullptr) {
+        stats.name = stats.special ? String(ANIMALS_DISPLAY_NAME) : themeId;
         stats.enabled = false;
         return stats;
     }
 
-    while (true) {
-        File entry = dir.openNextFile();
-        if (!entry) break;
-        String fileName = baseNameOf(String(entry.name()));
-        if (!entry.isDirectory() && !isIgnoredFilesystemEntry(fileName) && isWavName(fileName)) {
-            stats.totalSongs++;
-            bool songEnabled = !isSongDisabled(meta, fileName);
-            if (validateWavs) {
-                WavInfo wav = inspectWav(entry);
-                if (wav.supported && songEnabled) {
-                    stats.enabledValidSongs++;
-                }
-                if (!wav.supported) {
-                    stats.errorSongs++;
-                }
-            } else if (songEnabled) {
-                stats.enabledValidSongs++;
-            }
+    stats.name = theme->name;
+    stats.shuffle = theme->shuffle;
+    stats.disabledByUser = theme->disabledByUser;
+    for (const CachedSong& s : theme->songs) {
+        stats.totalSongs++;
+        if (!s.supported) {
+            stats.errorSongs++;
+        } else if (!s.disabled) {
+            stats.enabledValidSongs++;
         }
-        entry.close();
     }
-    dir.close();
 
     stats.enabled = !stats.disabledByUser && stats.enabledValidSongs > 0;
     return stats;
@@ -457,9 +545,7 @@ String buildThemesPageJson(uint32_t requestId, int page, int pageSize) {
     if (page < 0) page = 0;
     if (pageSize <= 0) pageSize = BLE_CONFIG_THEME_PAGE_SIZE;
 
-    String ids[CONFIG_SCAN_MAX_THEMES];
-    int songThemeCount = listThemeIds(ids, CONFIG_SCAN_MAX_THEMES);
-    int count = songThemeCount + 1;  // Animals is a reserved, non-disableable theme row.
+    int count = themeCount();  // song themes + the reserved Animals row
     int start = page * pageSize;
     int end = start + pageSize;
 
@@ -472,7 +558,7 @@ String buildThemesPageJson(uint32_t requestId, int page, int pageSize) {
     json += ",\"themes\":[";
 
     for (int i = start; i < count && i < end; i++) {
-        ThemeStats stats = scanThemeStats(i < songThemeCount ? ids[i] : String(ANIMALS_THEME_ID), false);
+        ThemeStats stats = scanThemeStats(themeAt(i).id, false);
         appendThemeRow(json, stats);
     }
 
@@ -485,28 +571,11 @@ String buildSongsPageJson(uint32_t requestId, const String& themeId,
     if (page < 0) page = 0;
     if (pageSize <= 0) pageSize = BLE_CONFIG_SONG_PAGE_SIZE;
 
-    String themePath = pathForThemeId(themeId);
-    JsonDocument meta = readThemeMetadata(themePath);
     ThemeStats stats = scanThemeStats(themeId, false);
+    const CachedTheme* theme = findTheme(themeId);
+    int fileCount = theme ? static_cast<int>(theme->songs.size()) : 0;
     int start = page * pageSize;
     int end = start + pageSize;
-    String files[CONFIG_SCAN_MAX_SONGS];
-    int fileCount = 0;
-
-    File dir = SD.open(themePath.c_str());
-    if (dir && dir.isDirectory()) {
-        while (fileCount < CONFIG_SCAN_MAX_SONGS) {
-            File entry = dir.openNextFile();
-            if (!entry) break;
-            String fileName = baseNameOf(String(entry.name()));
-            if (!entry.isDirectory() && !isIgnoredFilesystemEntry(fileName) && isWavName(fileName)) {
-                files[fileCount++] = fileName;
-            }
-            entry.close();
-        }
-        dir.close();
-    }
-    sortStrings(files, fileCount);
 
     String json = "{\"id\":";
     json += requestId;
@@ -528,17 +597,13 @@ String buildSongsPageJson(uint32_t requestId, const String& themeId,
 
     int limit = end < fileCount ? end : fileCount;
     for (int i = start; i < limit; i++) {
-        String path = themePath + "/" + files[i];
-        File entry = SD.open(path.c_str());
-        if (entry) {
-            WavInfo wav = inspectWav(entry);
-            appendSongRow(json, files[i], wav, !isSongDisabled(meta, files[i]));
-            entry.close();
-        } else {
-            WavInfo wav;
-            wav.error = "Cannot open file";
-            appendSongRow(json, files[i], wav, !isSongDisabled(meta, files[i]));
-        }
+        const CachedSong& s = theme->songs[i];
+        WavInfo wav;
+        wav.supported = s.supported;
+        wav.sizeBytes = s.sizeBytes;
+        wav.durationMs = s.durationMs;
+        wav.error = s.error;
+        appendSongRow(json, s.file, wav, !s.disabled);
     }
 
     json += "],\"hasMore\":";
@@ -593,7 +658,13 @@ bool setThemeDisabled(const String& themeId, bool disabled) {
         doc["defaultTheme"] = DEFAULT_THEME;
     }
     setListMember(doc, "disabledThemes", themeId, disabled, CONFIG_MAX_DISABLED_THEMES);
-    return writeJsonFile(SD_CONFIG_FILE, doc);
+    bool ok = writeJsonFile(SD_CONFIG_FILE, doc);
+    if (ok) {
+        if (CachedTheme* t = mutableFindTheme(themeId)) {
+            t->disabledByUser = disabled;
+        }
+    }
+    return ok;
 }
 
 bool setThemeShuffle(const String& themeId, bool shuffle) {
@@ -609,7 +680,13 @@ bool setThemeShuffle(const String& themeId, bool shuffle) {
     if (!doc["disabledSongs"].is<JsonArray>()) {
         doc["disabledSongs"].to<JsonArray>();
     }
-    return writeJsonFile(path, doc);
+    bool ok = writeJsonFile(path, doc);
+    if (ok) {
+        if (CachedTheme* t = mutableFindTheme(themeId)) {
+            t->shuffle = shuffle;
+        }
+    }
+    return ok;
 }
 
 bool setSongDisabled(const String& themeId, const String& fileName, bool disabled) {
@@ -625,7 +702,18 @@ bool setSongDisabled(const String& themeId, const String& fileName, bool disable
         doc["shuffle"] = isAnimalsTheme(themeId);
     }
     setListMember(doc, "disabledSongs", fileName, disabled, CONFIG_MAX_DISABLED_SONGS);
-    return writeJsonFile(path, doc);
+    bool ok = writeJsonFile(path, doc);
+    if (ok) {
+        if (CachedTheme* t = mutableFindTheme(themeId)) {
+            for (CachedSong& s : t->songs) {
+                if (s.file == fileName) {
+                    s.disabled = disabled;
+                    break;
+                }
+            }
+        }
+    }
+    return ok;
 }
 
 }  // namespace ContentCatalog

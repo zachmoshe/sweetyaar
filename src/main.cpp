@@ -249,6 +249,10 @@ void setup() {
         Serial.println("[WARN] SD init failed; WAV playback unavailable");
     } else {
         parentConfig.load();
+        // Single SD pass: read the whole content catalog into RAM. Every later
+        // theme/song lookup (playback, BLE theme list, settings scans) is served
+        // from memory; the card is re-read only on reboot.
+        ContentCatalog::buildCatalog();
         refreshThemeList();
     }
     activeTheme = parentConfig.defaultTheme();
