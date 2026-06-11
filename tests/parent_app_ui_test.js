@@ -929,6 +929,21 @@ const tests = [
       { op: "scanSongs", theme: "lullabies", page: 0 }
     ]);
   `],
+  ["settings are cached for the session and not re-scanned on reopen", String.raw`
+    const ble = await connectWithFakeBle();
+    await els.openSettingsButton.click();
+    await waitForSettingsLoaded();
+    const scansAfterFirstOpen = payloadsWithoutIds(ble.writes.config)
+      .filter((p) => p.op === "scanThemes" || p.op === "scanSongs" || p.op === "getConfig").length;
+    await els.settingsBackButton.click();
+    await els.openSettingsButton.click();
+    assert.strictEqual(state.settings.loading, false);
+    assertVisible(els.settingsView, [els.openingView, els.readyView, els.streamingView]);
+    const scansAfterReopen = payloadsWithoutIds(ble.writes.config)
+      .filter((p) => p.op === "scanThemes" || p.op === "scanSongs" || p.op === "getConfig").length;
+    assert.strictEqual(scansAfterReopen, scansAfterFirstOpen, "reopening settings must not re-scan");
+    assert(els.settingsSongList.children.length >= 1, "cached songs should still render");
+  `],
   ["returning to remote refreshes the device clock", String.raw`
     const ble = await connectWithFakeBle();
     assert.strictEqual(els.deviceWatch.textContent, "Toy clock 21:05");

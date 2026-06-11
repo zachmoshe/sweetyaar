@@ -1387,6 +1387,35 @@
       line-height: 1.32;
     }
 
+    .settings-loading-banner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 16px;
+      color: var(--teal-dark);
+      font-size: clamp(14px, 3.8vw, 16px);
+      font-weight: 800;
+    }
+
+    .spinner {
+      flex: 0 0 auto;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 3px solid rgba(52, 184, 169, 0.25);
+      border-top-color: var(--teal);
+      animation: spin 0.7s linear infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .spinner { animation-duration: 1.6s; }
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
     .settings-volume-line {
       display: grid;
       grid-template-columns: 1fr auto;
@@ -2028,6 +2057,11 @@
           </button>
         </div>
 
+        <div class="card settings-loading-banner" id="settingsLoadingBanner" role="status" hidden>
+          <span class="spinner" aria-hidden="true"></span>
+          <span>Reading from the SD card…</span>
+        </div>
+
         <section class="card settings-section" aria-label="General settings">
           <h2>General</h2>
           <div class="settings-fields">
@@ -2444,6 +2478,7 @@
       settingsWakeIdleSec: document.querySelector("#settingsWakeIdleSec"),
       settingsBleIdleSec: document.querySelector("#settingsBleIdleSec"),
       settingsNote: document.querySelector("#settingsNote"),
+      settingsLoadingBanner: document.querySelector("#settingsLoadingBanner"),
       settingsThemeList: document.querySelector("#settingsThemeList"),
       settingsSongsPanel: document.querySelector("#settingsSongsPanel"),
       settingsSongsTitle: document.querySelector("#settingsSongsTitle"),
@@ -2534,7 +2569,11 @@
         songFilter: "all",
         pendingThemeChanges: {},
         pendingSongChanges: {},
-        message: ""
+        message: "",
+        // SD content is read once at boot and only the app changes config, so a
+        // scan is valid for the whole session; cache it and skip re-reads.
+        sessionScanned: false,
+        songsByTheme: {}
       }
     };
 
@@ -3245,6 +3284,10 @@
         resetPendingSettingsChanges();
         state.settings.dirty = false;
         state.settings.message = "";
+        if (state.settings.selectedThemeId) {
+          state.settings.songsByTheme[state.settings.selectedThemeId] = state.settings.songs;
+        }
+        state.settings.sessionScanned = true;
         console.info(`[SweetYaar] Settings loaded in ${Date.now() - loadStartedAt} ms`);
       } catch (error) {
         state.settings.message = describeError(error);
@@ -3257,12 +3300,23 @@
     async function selectSettingsTheme(themeId) {
       if (!themeId || themeId === state.settings.selectedThemeId || settingsBusy()) return;
       state.settings.selectedThemeId = themeId;
+
+      // Use the cached song list if this theme was already scanned this session.
+      const cached = state.settings.songsByTheme[themeId];
+      if (cached) {
+        state.settings.songs = cached;
+        recomputeSelectedThemeFromSongs();
+        render();
+        return;
+      }
+
       state.settings.songs = [];
       state.settings.loading = true;
       state.settings.message = "Scanning songs...";
       render();
       try {
         state.settings.songs = await fetchSongScan(themeId);
+        state.settings.songsByTheme[themeId] = state.settings.songs;
         recomputeSelectedThemeFromSongs();
         state.settings.message = "";
       } catch (error) {
@@ -3385,6 +3439,9 @@
         }
 
         await reloadSettingsTables();
+        if (state.settings.selectedThemeId) {
+          state.settings.songsByTheme[state.settings.selectedThemeId] = state.settings.songs;
+        }
         resetPendingSettingsChanges();
         state.settings.dirty = false;
         state.settings.message = "Settings saved.";
@@ -3453,8 +3510,14 @@
       state.themeOpen = false;
       state.settings.defaultThemeOpen = false;
       state.settings.bedtimeThemeOpen = false;
+      state.settings.message = "";
       render();
-      loadSettingsData();
+      // Already scanned this session — render from cache instantly. The SD
+      // content can't change without a restart, and our own edits are tracked
+      // locally, so there's nothing to re-read.
+      if (!state.settings.sessionScanned) {
+        loadSettingsData();
+      }
     }
 
     async function returnToRemote() {
@@ -3560,11 +3623,7 @@
       els.settingsThemeList.replaceChildren();
 
       if (state.settings.loading && state.settings.themes.length === 0) {
-        const row = document.createElement("p");
-        row.className = "settings-note";
-        row.textContent = "Scanning themes...";
-        els.settingsThemeList.append(row);
-        return;
+        return;  // the loading banner at the top shows progress
       }
 
       if (state.settings.themes.length === 0) {
@@ -3658,11 +3717,7 @@
       }
 
       if (state.settings.loading && state.settings.songs.length === 0) {
-        const row = document.createElement("p");
-        row.className = "settings-note";
-        row.textContent = "Scanning songs...";
-        els.settingsSongList.append(row);
-        return;
+        return;  // the loading banner at the top shows progress
       }
 
       if (filteredSongs.length === 0) {
@@ -3833,6 +3888,7 @@
       els.settingsBleIdleSec.disabled = busy || !settings.sleepEnabled;
       els.settingsSaveButton.disabled = busy || !settings.dirty;
       els.settingsSaveButton.querySelector(".settings-save-label").textContent = state.busy ? "Saving..." : "Save";
+      els.settingsLoadingBanner.hidden = !settings.loading;
       const note = settings.message ||
         (settingsNameChanged() ? "Rename will take effect after reconnecting." : "");
       els.settingsNote.hidden = note === "";
@@ -4301,6 +4357,10 @@
       state.configResponseSubscribed = false;
       state.configNotifyResolve = null;
       state.settings.loading = false;
+      // A reconnect may be a different boot with different SD content; force a
+      // fresh scan next time Settings opens.
+      state.settings.sessionScanned = false;
+      state.settings.songsByTheme = {};
       state.message = "Remote disconnected.";
       render();
     }
