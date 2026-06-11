@@ -3,119 +3,6 @@
 
 namespace {
 
-String baseNameOf(const String& path) {
-    int slash = path.lastIndexOf('/');
-    if (slash < 0) return path;
-    return path.substring(slash + 1);
-}
-
-bool isIgnoredFilesystemEntry(const String& name) {
-    String base = baseNameOf(name);
-    String lower = base;
-    lower.toLowerCase();
-
-    if (lower.length() == 0) {
-        return true;
-    }
-
-    // macOS AppleDouble/resource-fork files and Unix hidden editor/temp files.
-    if (lower.startsWith(".") || lower.startsWith("._")) {
-        return true;
-    }
-    if (lower.endsWith("~")) {
-        return true;
-    }
-
-    static const char* const ignoredExact[] = {
-        // macOS
-        ".ds_store",
-        ".spotlight-v100",
-        ".trashes",
-        ".fseventsd",
-        ".temporaryitems",
-        ".appledouble",
-        ".apdisk",
-        ".documentrevisions-v100",
-        ".volumeicon.icns",
-        ".metadata_never_index",
-        ".com.apple.timemachine.donotpresent",
-        "icon\r",
-
-        // Windows
-        "thumbs.db",
-        "ehthumbs.db",
-        "desktop.ini",
-        "$recycle.bin",
-        "recycler",
-        "recycled",
-        "system volume information",
-
-        // Linux / desktop environments / FAT repair folders
-        ".trash",
-        ".directory",
-        "lost+found",
-        "found.000",
-        "found.001",
-    };
-
-    for (size_t i = 0; i < sizeof(ignoredExact) / sizeof(ignoredExact[0]); i++) {
-        if (lower == ignoredExact[i]) {
-            return true;
-        }
-    }
-
-    return lower.startsWith(".trash-") || lower.startsWith(".nfs");
-}
-
-uint16_t le16(const uint8_t* p) {
-    return static_cast<uint16_t>(p[0]) | (static_cast<uint16_t>(p[1]) << 8);
-}
-
-uint32_t le32(const uint8_t* p) {
-    return static_cast<uint32_t>(p[0]) |
-           (static_cast<uint32_t>(p[1]) << 8) |
-           (static_cast<uint32_t>(p[2]) << 16) |
-           (static_cast<uint32_t>(p[3]) << 24);
-}
-
-struct WavInfo {
-    bool valid = false;
-    bool supported = false;
-    uint16_t audioFormat = 0;
-    uint16_t channels = 0;
-    uint32_t sampleRate = 0;
-    uint16_t bitsPerSample = 0;
-};
-
-WavInfo readWavInfo(File& entry) {
-    WavInfo info;
-    if (entry.size() < 44) {
-        return info;
-    }
-
-    uint8_t h[44];
-    size_t n = entry.read(h, sizeof(h));
-    entry.seek(0);
-
-    info.valid = n == sizeof(h) &&
-                 h[0] == 'R' && h[1] == 'I' && h[2] == 'F' && h[3] == 'F' &&
-                 h[8] == 'W' && h[9] == 'A' && h[10] == 'V' && h[11] == 'E' &&
-                 h[12] == 'f' && h[13] == 'm' && h[14] == 't' && h[15] == ' ';
-    if (!info.valid) {
-        return info;
-    }
-
-    info.audioFormat = le16(h + 20);
-    info.channels = le16(h + 22);
-    info.sampleRate = le32(h + 24);
-    info.bitsPerSample = le16(h + 34);
-    info.supported = info.audioFormat == 1 &&
-                     info.channels == CHANNELS &&
-                     info.sampleRate == SAMPLE_RATE &&
-                     info.bitsPerSample == BITS_PER_SAMPLE;
-    return info;
-}
-
 String jsonEscape(const String& input) {
     String out;
     out.reserve(input.length() + 8);
@@ -144,21 +31,6 @@ String jsonEscape(const String& input) {
     }
 
     return out;
-}
-
-void sortThemes(String* ids, String* names, int count) {
-    for (int i = 1; i < count; i++) {
-        String id = ids[i];
-        String name = names[i];
-        int j = i - 1;
-        while (j >= 0 && ids[j].compareTo(id) > 0) {
-            ids[j + 1] = ids[j];
-            names[j + 1] = names[j];
-            j--;
-        }
-        ids[j + 1] = id;
-        names[j + 1] = name;
-    }
 }
 
 }  // namespace
@@ -197,14 +69,13 @@ bool WavPlayer::ensureDecoder() {
 // ---------------------------------------------------------------------------
 void WavPlayer::startSong(const String& theme) {
     stop();
-    String dir = String(SONGS_ROOT) + "/" + theme;
 
-    JsonDocument meta = readMetadata(dir);
-    bool shuffle = meta["shuffle"] | false;
+    const ContentCatalog::CachedTheme* t = ContentCatalog::findTheme(theme);
+    bool shuffle = t ? t->shuffle : false;
 
-    buildSongList(dir, shuffle);
+    buildSongList(theme, shuffle);
     if (_songCount == 0) {
-        Serial.printf("[WavPlayer] No WAV in %s\n", dir.c_str());
+        Serial.printf("[WavPlayer] No playable songs in theme %s\n", theme.c_str());
         return;
     }
 
@@ -388,11 +259,20 @@ void WavPlayer::teardown() {
 }
 
 // ---------------------------------------------------------------------------
-void WavPlayer::buildSongList(const String& themePath, bool shuffle) {
-    _songCount = listWavFiles(themePath.c_str(), _songFiles, MAX_SONGS);
+void WavPlayer::buildSongList(const String& theme, bool shuffle) {
+    _songCount = 0;
+    const ContentCatalog::CachedTheme* t = ContentCatalog::findTheme(theme);
+    if (t != nullptr) {
+        String base = String(SONGS_ROOT) + "/" + theme + "/";
+        for (const ContentCatalog::CachedSong& s : t->songs) {
+            if (_songCount >= MAX_SONGS) break;
+            if (s.supported && !s.disabled) {
+                _songFiles[_songCount++] = base + s.file;
+            }
+        }
+    }
 
     for (int i = 0; i < _songCount; i++) _songOrder[i] = i;
-
     if (shuffle) {
         shuffleOrder(_songOrder, _songCount);
     }
@@ -400,10 +280,19 @@ void WavPlayer::buildSongList(const String& themePath, bool shuffle) {
 
 // ---------------------------------------------------------------------------
 void WavPlayer::buildAnimalList() {
-    JsonDocument meta = readMetadata(ANIMALS_PATH);
-    bool shuffle = meta["shuffle"] | true;
+    _animalCount = 0;
+    const ContentCatalog::CachedTheme* t = ContentCatalog::findTheme(ANIMALS_THEME_ID);
+    bool shuffle = t ? t->shuffle : true;
+    if (t != nullptr) {
+        String base = String(ANIMALS_PATH) + "/";
+        for (const ContentCatalog::CachedSong& s : t->songs) {
+            if (_animalCount >= MAX_ANIMALS) break;
+            if (s.supported && !s.disabled) {
+                _animalFiles[_animalCount++] = base + s.file;
+            }
+        }
+    }
 
-    _animalCount = listWavFiles(ANIMALS_PATH, _animalFiles, MAX_ANIMALS);
     for (int i = 0; i < _animalCount; i++) _animalOrder[i] = i;
     if (shuffle) {
         shuffleOrder(_animalOrder, _animalCount);
@@ -421,110 +310,28 @@ void WavPlayer::shuffleOrder(int* order, int count) {
 }
 
 // ---------------------------------------------------------------------------
-// static
-int WavPlayer::listWavFiles(const char* dirPath, String* outFiles, int maxFiles) {
-    File dir = SD.open(dirPath);
-    if (!dir || !dir.isDirectory()) return 0;
-
-    JsonDocument meta = ContentCatalog::readThemeMetadata(String(dirPath));
-    int count = 0;
-    while (count < maxFiles) {
-        File entry = dir.openNextFile();
-        if (!entry) break;
-        String originalName = ContentCatalog::baseNameOf(String(entry.name()));
-        if (ContentCatalog::isIgnoredFilesystemEntry(originalName)) {
-            entry.close();
-            continue;
-        }
-        if (!entry.isDirectory()) {
-            String lowerName(originalName);
-            lowerName.toLowerCase();
-            if (lowerName.endsWith(".wav")) {
-                if (ContentCatalog::isSongDisabled(meta, originalName)) {
-                    entry.close();
-                    continue;
-                }
-                ContentCatalog::WavInfo wavInfo = ContentCatalog::inspectWav(entry);
-                if (!wavInfo.valid) {
-                    Serial.printf("[WavPlayer] Skipping invalid WAV: %s (%u bytes)\n",
-                                  originalName.c_str(), static_cast<unsigned>(entry.size()));
-                    entry.close();
-                    continue;
-                }
-                if (!wavInfo.supported) {
-                    Serial.printf("[WavPlayer] Skipping unsupported WAV: %s (format=%u rate=%lu channels=%u bits=%u)\n",
-                                  originalName.c_str(), wavInfo.audioFormat,
-                                  static_cast<unsigned long>(wavInfo.sampleRate),
-                                  wavInfo.channels, wavInfo.bitsPerSample);
-                    entry.close();
-                    continue;
-                }
-                String full = String(dirPath);
-                if (!full.endsWith("/")) full += "/";
-                full += originalName;
-                outFiles[count++] = full;
-            }
-        }
-        entry.close();
-    }
-    dir.close();
-    return count;
-}
-
-// ---------------------------------------------------------------------------
-// static
+// static — playable song themes for the BLE play controls, served from the
+// in-RAM catalog (themes are already sorted by id). Excludes the special
+// Animals theme, parent-disabled themes, and themes with nothing to play.
 int WavPlayer::listThemes(String* outIds, String* outNames, int maxThemes) {
     if (maxThemes <= 0) return 0;
 
-    File root = SD.open(SONGS_ROOT);
-    if (!root || !root.isDirectory()) {
-        return 0;
-    }
-
     int count = 0;
-    bool capacityLogged = false;
-    while (true) {
-        File entry = root.openNextFile();
-        if (!entry) break;
-
-        String id = ContentCatalog::baseNameOf(String(entry.name()));
-        if (ContentCatalog::isIgnoredFilesystemEntry(id) || !entry.isDirectory()) {
-            entry.close();
+    int total = ContentCatalog::themeCount();
+    for (int i = 0; i < total; i++) {
+        const ContentCatalog::CachedTheme& t = ContentCatalog::themeAt(i);
+        if (t.special || t.disabledByUser || t.playableCount() == 0) {
             continue;
         }
-        if (ContentCatalog::isThemeDisabled(id)) {
-            entry.close();
-            continue;
-        }
-
-        String themePath = String(SONGS_ROOT) + "/" + id;
-        String probe[1];
-        int playable = listWavFiles(themePath.c_str(), probe, 1);
-        if (playable <= 0) {
-            entry.close();
-            continue;
-        }
-
         if (count >= maxThemes) {
-            if (!capacityLogged) {
-                Serial.printf("[WavPlayer] Theme list reached firmware cap (%d); extra themes ignored\n",
-                              maxThemes);
-                capacityLogged = true;
-            }
-            entry.close();
-            continue;
+            Serial.printf("[WavPlayer] Theme list reached firmware cap (%d); extra themes ignored\n",
+                          maxThemes);
+            break;
         }
-
-        JsonDocument meta = readMetadata(themePath);
-        const char* displayName = meta["name"] | "";
-        outIds[count] = id;
-        outNames[count] = (displayName && displayName[0] != '\0') ? String(displayName) : id;
+        outIds[count] = t.id;
+        outNames[count] = t.name;
         count++;
-        entry.close();
     }
-    root.close();
-
-    sortThemes(outIds, outNames, count);
     return count;
 }
 
@@ -554,10 +361,4 @@ String WavPlayer::buildThemesJson(const String* ids, const String* names,
                       static_cast<unsigned>(json.length()));
     }
     return json;
-}
-
-// ---------------------------------------------------------------------------
-// static
-JsonDocument WavPlayer::readMetadata(const String& themePath) {
-    return ContentCatalog::readThemeMetadata(themePath);
 }

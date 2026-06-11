@@ -66,13 +66,7 @@ public:
     // Update volume (0.0–1.0) on the shared VolumeStream
     void setVolume(float v) { _output.setVolume(v); }
 
-    // Parse metadata.json from a theme folder; returns empty doc on failure
-    static JsonDocument readMetadata(const String& themePath);
-
-    // List .wav files in dirPath; returns count; fills outFiles[] with full paths
-    static int listWavFiles(const char* dirPath, String* outFiles, int maxFiles);
-
-    // List playable song themes under /songs; fills sorted id/name arrays
+    // List playable song themes from the in-RAM catalog; fills sorted id/name arrays
     static int listThemes(String* outIds, String* outNames, int maxThemes);
 
     // Build the BLE theme-list JSON value, capped to a complete-entry byte limit
@@ -107,7 +101,7 @@ private:
     int    _animalCount  = 0;
     int    _animalCursor = 0;     // index into _animalOrder
 
-    void buildSongList(const String& themePath, bool shuffle);
+    void buildSongList(const String& theme, bool shuffle);
     void buildAnimalList();
     void shuffleOrder(int* order, int count);
     bool openCurrentSong();
