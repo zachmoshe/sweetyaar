@@ -3953,7 +3953,6 @@
 
     async function getCharacteristic(service, name) {
       try {
-        console.info("[SweetYaar BLE] Reading characteristic", name, UUIDS[name]);
         return await service.getCharacteristic(UUIDS[name]);
       } catch (error) {
         if (error?.name === "NotFoundError") {
@@ -3964,24 +3963,6 @@
           throw wrapped;
         }
         throw error;
-      }
-    }
-
-    async function logDiscoveredCharacteristics(service) {
-      try {
-        const characteristics = await service.getCharacteristics();
-        console.info("[SweetYaar BLE] Discovered characteristics", characteristics.map((characteristic) => ({
-          uuid: characteristic.uuid,
-          properties: {
-            read: characteristic.properties.read,
-            write: characteristic.properties.write,
-            writeWithoutResponse: characteristic.properties.writeWithoutResponse,
-            notify: characteristic.properties.notify,
-            indicate: characteristic.properties.indicate
-          }
-        })));
-      } catch (error) {
-        console.warn("[SweetYaar BLE] Could not list characteristics", error);
       }
     }
 
@@ -4122,7 +4103,6 @@
       render();
       try {
         const service = await state.server.getPrimaryService(UUIDS.service);
-        await logDiscoveredCharacteristics(service);
         state.chars = {
           volume: await getCharacteristic(service, "volume"),
           killswitch: await getCharacteristic(service, "killswitch"),
@@ -4209,28 +4189,22 @@
       setMessage("Connecting...");
 
       try {
-        console.info("[SweetYaar BLE] Requesting service", UUIDS.service);
         const device = await navigator.bluetooth.requestDevice({
           filters: [{ services: [UUIDS.service] }],
           optionalServices: [UUIDS.service]
         });
         setDeviceNameFromBluetooth(device);
         state.device = device;
-        console.info("[SweetYaar BLE] Selected device", {
-          name: device.name || "",
-          id: device.id || ""
-        });
         device.addEventListener("gattserverdisconnected", onDisconnected);
 
         const server = await device.gatt.connect();
-        console.info("[SweetYaar BLE] GATT connected");
         let service;
         try {
           service = await server.getPrimaryService(UUIDS.service);
         } catch (error) {
           try {
             const services = await server.getPrimaryServices();
-            console.info("[SweetYaar BLE] Available primary services", services.map((service) => service.uuid));
+            console.warn("[SweetYaar BLE] Service not found; available:", services.map((service) => service.uuid));
           } catch (listError) {
             console.warn("[SweetYaar BLE] Could not list primary services", listError);
           }
@@ -4240,7 +4214,6 @@
             `Missing BLE service ${UUIDS.service}. The browser may be seeing old firmware or stale GATT cache.`;
           throw wrapped;
         }
-        console.info("[SweetYaar BLE] Service found", UUIDS.service);
 
         state.server = server;
         const statusChar = await getCharacteristic(service, "status");
@@ -4257,7 +4230,6 @@
           return;
         }
 
-        await logDiscoveredCharacteristics(service);
         state.chars = {
           volume: await getCharacteristic(service, "volume"),
           killswitch: await getCharacteristic(service, "killswitch"),
