@@ -195,16 +195,24 @@ KILLSWITCH (10-minute timer):
 
 ### Firmware Modules
 
+0. **ContentCatalog** (namespace, `src/ContentCatalog.h/.cpp`)
+   - `buildCatalog()`: called once at boot after `SD.begin()`. Single pass over the SD card — reads `config.json`, every theme `metadata.json`, and every WAV header into an in-RAM structure: `CachedTheme` + `CachedSong` vectors.
+   - All subsequent consumers (WAV playback file lists, BLE theme list, settings scans) are served from RAM with zero SD access.
+   - Edits (`setThemeDisabled`, `setThemeShuffle`, `setSongDisabled`) write to the SD and flip the cached flag in place; no rescan is needed until reboot.
+   - Also owns JSON I/O helpers, WAV header inspection, and paged JSON response builders for the BLE settings API.
+
 1. **A2DP Sink** (`pschatzmann/ESP32-A2DP`)
    - Device name: configurable, stored in the NVS-backed device-config JSON blob (default: "SweetYaar")
    - Audio: SBC codec → 44.1 kHz 16-bit PCM → I2S → MAX98357A
    - Connect/disconnect callbacks drive state machine
 
 2. **WAV Player** (`pschatzmann/arduino-audio-tools`)
-   - Reads WAV files from SD card
    - Plays through same I2S bus (exclusive with A2DP)
-   - Songs: sequential within theme folder (`/songs/lullabies/`, `/songs/nature/`, etc.)
-   - Animals: random pick from `/animals/` folder
+   - Song and animal file lists are served from the in-RAM ContentCatalog; no SD access during playback
+   - WAVDecoder + EncodedAudioOutput pipeline is allocated once at boot (`ensureDecoder()`), not per-file, to avoid heap fragmentation
+   - Songs: sequential (filename order) or shuffle within the effective theme; non-shuffle order follows filename sort, not FAT directory order
+   - Animals: random pick from `/animals/`
+   - `refreshSongList(theme)`: rebuilds the live rotation from the catalog cache without interrupting the current song (called when a song is disabled mid-session)
 
 3. **BLE Parent Service** (ESP32 BLEDevice)
    - Enabled in play mode alongside Classic BT A2DP.
@@ -213,9 +221,10 @@ KILLSWITCH (10-minute timer):
      - `killswitch` (uint8, 0/1, read/write/notify) — stops local playback and disables buttons for 10 min
      - `theme` (string, read/write/notify) — sets active song folder for the current session
      - `status` (string, read/notify) — `Idle`, `Playing song - <theme> / <file>`, `Playing animal - <file>`, `BT connected`, or `Killswitch active (<mm:ss> left)`
-     - `themes` (JSON string, read) — available song themes scanned from `/songs/<theme>/metadata.json`
+     - `themes` (JSON string, read) — available song themes (served from in-RAM ContentCatalog)
+     - `notice` (JSON string, read/notify) — device-to-app one-shot notice: `{"severity":"error"|"warn","message":"..."}`. Error notices are persistent; warnings auto-dismiss after a few seconds. App subscribes optionally; older firmware without it still connects.
    - `command` (uint8 or JSON string, write) — app equivalents for song, animal, stop, and config/content commands
-   - `configResponse` / `themes` JSON response path — config/content responses for cached and current GATT schemas
+   - `configResponse` (JSON string, read/notify) — paginated config/content responses; app subscribes to notifies for near-instant response instead of polling
    - BLE writes are live controls for local SD/WAV operation and persistent settings/content curation. While A2DP is connected, playback controls are read-only/ignored as needed, and current values are re-notified.
 
 4. **BLE Settings + Content Curation**
@@ -353,6 +362,7 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
   - Bedtime/Daytime mode card for Bedtime mode runtime toggle and time-unknown state
   - Killswitch activate/restart and cancel controls
   - Device status indicator
+  - Notice card (above the status card on the ready screen): error notices are red/persistent with a dismiss button; warnings are amber/auto-dismiss
   - Settings screen for device name, default volume, default theme, enabled themes, and enabled songs
   - Bedtime mode settings for the master toggle, bedtime theme, start/end
     times, and volume cap
