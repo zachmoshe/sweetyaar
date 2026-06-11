@@ -141,6 +141,27 @@ bool WavPlayer::sdAvailable() {
 }
 
 // ---------------------------------------------------------------------------
+void WavPlayer::refreshSongList(const String& theme) {
+    if (_idle || _animalMode) return;  // only relevant while a song is playing
+
+    const String current = _currentPath;
+    const ContentCatalog::CachedTheme* t = ContentCatalog::findTheme(theme);
+    bool shuffle = t ? t->shuffle : false;
+    buildSongList(theme, shuffle);     // rebuilt from cache; excludes disabled songs
+
+    // Anchor the cursor on the song still playing so "next" advances from here.
+    // If it was the one just disabled it won't be found; the cursor stays at 0
+    // and the current file simply finishes before a valid one is chosen.
+    _songCursor = 0;
+    for (int i = 0; i < _songCount; i++) {
+        if (_songFiles[_songOrder[i]] == current) {
+            _songCursor = i;
+            break;
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // loop() — feed up to CHUNK_BYTES of WAV data per call; detect end-of-file
 // ---------------------------------------------------------------------------
 void WavPlayer::loop() {

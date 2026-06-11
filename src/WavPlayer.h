@@ -55,6 +55,11 @@ public:
     // play. (Boot-time mount success does not stay valid if the card is pulled.)
     bool sdAvailable();
 
+    // Rebuild the live song rotation from the (updated) catalog cache without
+    // interrupting the song currently playing, so a just-disabled song drops
+    // out of "next" rotation immediately. No-op unless a song is playing.
+    void refreshSongList(const String& theme);
+
     bool isIdle()          const { return _idle; }
     bool isPlayingSong()   const { return !_idle && !_animalMode; }
     bool isPlayingAnimal() const { return !_idle &&  _animalMode; }

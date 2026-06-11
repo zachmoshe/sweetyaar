@@ -1323,6 +1323,10 @@ void handleBleConfigCommand(const String& commandJson) {
             if (nextTheme != currentPlaybackTheme) {
                 currentPlaybackTheme = nextTheme;
                 playSong();
+            } else if (String(themeValue) == currentPlaybackTheme) {
+                // A song was toggled in the theme that's playing: rebuild the
+                // live rotation so the change takes effect on the next track.
+                wavPlayer.refreshSongList(currentPlaybackTheme);
             }
         }
         publishBleValues();

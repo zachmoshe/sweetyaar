@@ -491,6 +491,7 @@ function makeBleHarness(options = {}) {
       response = configResponse(payload);
       chars.configResponse.value = JSON.stringify(response);
       chars.themes.value = JSON.stringify(response);
+      setTimeout(() => chars.configResponse.emit(chars.configResponse.value), 0);
     } else {
       writes.command.push(value[0]);
       chars.command.value = value;
@@ -501,6 +502,7 @@ function makeBleHarness(options = {}) {
     writes.config.push(payload);
     response = configResponse(payload);
     chars.configResponse.value = JSON.stringify(response);
+    setTimeout(() => chars.configResponse.emit(chars.configResponse.value), 0);
   };
   chars.volume.write = (value) => {
     writes.volume.push(value[0]);
@@ -760,7 +762,7 @@ const tests = [
     assert.strictEqual(els.volumeValue.textContent, "31%");
     assert.strictEqual(els.themeCurrent.textContent, "Nature");
     assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime", "scanThemes"]);
-    assert.deepStrictEqual(ble.notifications, ["status", "volume", "killswitch", "theme", "notice"]);
+    assert.deepStrictEqual(ble.notifications, ["status", "volume", "killswitch", "theme", "notice", "configResponse"]);
   `],
   ["remote playback buttons write command values", String.raw`
     const ble = await connectWithFakeBle();

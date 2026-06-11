@@ -2472,6 +2472,8 @@
       killswitch: false,
       notice: null,
       noticeTimer: null,
+      configResponseSubscribed: false,
+      configNotifyResolve: null,
       bedtime: {
         enabled: true,
         startTime: "18:30",
@@ -2959,12 +2961,17 @@
 
       const id = state.requestId + 1;
       state.requestId = id;
+      // When the response characteristic is subscribed we wake on its notify
+      // (near-instant) instead of polling on a fixed timer; the poll interval
+      // below is only a fallback if a notification is missed.
+      const notifyDriven = useDirectConfig && state.configResponseSubscribed;
+      const responseName = useDirectConfig ? "configResponse" : "themes";
       await writeText(useDirectConfig ? "configCommand" : "command", JSON.stringify({ id, ...payload }));
 
       const deadline = Date.now() + 15000;
       while (Date.now() < deadline) {
-        await delay(80);
-        const value = await state.chars[useDirectConfig ? "configResponse" : "themes"].readValue();
+        await waitForConfigResponse(notifyDriven ? 1000 : 80);
+        const value = await state.chars[responseName].readValue();
         const text = readText(value);
         let parsed = null;
         try {
@@ -2982,6 +2989,34 @@
       }
 
       throw new Error("The toy did not answer the settings command.");
+    }
+
+    // Resolve as soon as the config response characteristic notifies (response
+    // ready), or after |fallbackMs| as a safety net if the notify is missed.
+    function waitForConfigResponse(fallbackMs) {
+      return new Promise((resolve) => {
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          if (state.configNotifyResolve === finish) state.configNotifyResolve = null;
+          resolve();
+        };
+        state.configNotifyResolve = finish;
+        setTimeout(finish, fallbackMs);
+      });
+    }
+
+    function handleConfigResponseNotify() {
+      const resolve = state.configNotifyResolve;
+      state.configNotifyResolve = null;
+      if (resolve) resolve();
+    }
+
+    async function subscribeToConfigResponse() {
+      if (!state.chars.configResponse) return;
+      await subscribe("configResponse", () => handleConfigResponseNotify());
+      state.configResponseSubscribed = true;
     }
 
     async function syncLocalTime() {
@@ -3189,6 +3224,7 @@
       state.settings.message = "Scanning SD card...";
       render();
 
+      const loadStartedAt = Date.now();
       try {
         const config = await configRequest({ op: "getConfig" });
         applyConfigResponse(config);
@@ -3209,6 +3245,7 @@
         resetPendingSettingsChanges();
         state.settings.dirty = false;
         state.settings.message = "";
+        console.info(`[SweetYaar] Settings loaded in ${Date.now() - loadStartedAt} ms`);
       } catch (error) {
         state.settings.message = describeError(error);
       } finally {
@@ -4076,6 +4113,7 @@
         await subscribeToStatusNotifications();
       }
       await subscribeToNoticeNotifications();
+      await subscribeToConfigResponse();
     }
 
     async function finishStatusOnlyConnection() {
@@ -4288,6 +4326,8 @@
         state.noticeTimer = null;
       }
       state.notice = null;
+      state.configResponseSubscribed = false;
+      state.configNotifyResolve = null;
       state.settings.loading = false;
       state.message = "Remote disconnected.";
       render();
