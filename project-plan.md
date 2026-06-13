@@ -46,7 +46,7 @@ This project is a v2 redesign of a custom ESP32-based baby toy controller origin
 | USB-C | USB-C 16-pin charging port | Charging only, no data |
 | Charging | Modern 1-cell LiPo charger module/IC, exact part TBD | MCP73831-class if simple/off-while-charging; BQ2407x/BQ2518x/MCP73871-class only if power-path charging is desired |
 | Battery protection | Protected LiPo pack + board-level protection | Prefer pack PCM for overcharge, overdischarge, overcurrent, and short-circuit; add fuse/polyfuse and battery temperature protection |
-| LDO | Modern 3.3V LDO, exact part TBD | AP2112K/MIC5504/MCP1700-class part; avoid AMS1117 for final battery design |
+| LDO | **AP2112K-3.3** | 600 mA, 55 µA Iq, 250 mV dropout; handles ESP32 BT radio peaks; good LiPo range coverage |
 | Battery connector | JST-PH 2-pin | LiPo connection |
 | Speaker connector | JST-PH 2-pin | Connects to doll's speaker |
 | Button connectors | 2× JST-PH 2-pin | One per button; buttons wired to GND |
@@ -56,6 +56,30 @@ This project is a v2 redesign of a custom ESP32-based baby toy controller origin
 ### Sleep-Mode Hardware Notes
 
 - The ESP32 remains powered by the 3.3V rail during deep sleep. The SD card and audio amp are behind the switched peripheral rail so their leakage and undefined pin states do not dominate sleep current.
+
+**Expected sleep current (deep sleep, load switch off):**
+
+| Source | Current |
+|---|---|
+| AP2112K quiescent | ~55 µA |
+| ESP32 deep sleep + EXT0 wakeup | ~10–15 µA |
+| Leakage / misc | ~2–5 µA |
+| **Total** | **~70 µA** |
+
+At 70 µA, a 2000 mAh LiPo lasts ~3 years in pure sleep. In practice LiPo self-discharge (~2.5%/month ≈ 50 mAh/month) is a comparable contributor, giving a realistic standby life of ~20 months. Battery life is dominated by active use, not sleep.
+
+**Expected active current (typical playback):**
+
+| Source | Current |
+|---|---|
+| ESP32 (BT A2DP streaming) | ~200–350 mA |
+| ESP32 (WAV playback, no BT) | ~80–120 mA |
+| MAX98357A amp (moderate volume) | ~100–300 mA |
+| SD card (read) | ~50–100 mA |
+| AP2112K + misc | ~5–10 mA |
+| **Total (WAV playback)** | **~250–550 mA** |
+
+The LDO must handle brief peaks up to ~500 mA; the AP2112K's 600 mA rating covers this with margin. Validate thermals on the final PCB under sustained BT streaming.
 - `GPIO27` is the wake input. The passive vibration switch connects `GPIO27` to GND when it moves; firmware enables the pull-up and uses ESP32 EXT0 deep-sleep wake on LOW.
 - `GPIO13` drives the peripheral load-switch enable. The current firmware assumes active HIGH: HIGH powers SD + amp, LOW turns them off.
 - One load-switch IC is acceptable if SD and amp are intentionally fed from the same switched rail in the final design. If the final PCB uses different rails for native 3.3V SD and higher-voltage amp power, keep one firmware enable signal but review whether it should drive one load switch, two load switches, or an enabled regulator plus a load switch.
@@ -71,7 +95,7 @@ This is a child toy, so the power design prioritises safety, low heat, and predi
 - **Add battery temperature protection**. Prefer a battery pack with an NTC temperature lead routed to a charger temperature-sense input. If the selected charger/module does not support NTC sensing, use a conservative module with thermal protection and consider a physical thermal fuse placed against the cell/pack.
 - **Charge slowly by default**. Target roughly 250-500 mA unless the selected cell datasheet, enclosure thermals, and bench testing justify more. The project does not need 1A fast charging.
 - **Use a modern charger/module**. The charger should provide at least thermal regulation, charge termination, charge-status indication, and sane input/battery protection. Power-path support is optional; it is acceptable for the toy to be switched off or electrically disconnected from the load while charging.
-- **Use a modern 3.3V LDO**. The ESP32/SD/logic rail should be powered from a low-dropout regulator rather than AMS1117. A buck-boost regulator is not required initially; revisit only if testing shows low-battery resets or unacceptable runtime.
+- **Use a modern 3.3V LDO**. Chosen part: **AP2112K-3.3** (600 mA, 55 µA Iq, 250 mV dropout). A buck-boost regulator is not required initially; revisit only if testing shows low-battery resets or unacceptable runtime.
 - **Physically protect the battery**. The enclosure must prevent crushing, puncture, sharp edges, or wire strain on the LiPo. First prototypes should be charged only while supervised, and the charging/power section should get an electronics review before PCB manufacture.
 
 ### Key GPIO Assignments (ESP32-WROOM-32)
@@ -470,7 +494,7 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 - LiPo capacity (1000 vs 1500 vs 2000 mAh) — depends on doll body space
 - Exact charger module/IC and whether it has NTC temperature-sense input
 - Exact fuse/polyfuse and optional thermal-fuse ratings/placement
-- Exact 3.3V LDO part and thermal/current validation under ESP32 radio peaks
+- AP2112K-3.3 thermal/current validation under sustained ESP32 BT radio peaks on final PCB
 - Exact vibration switch part/footprint and mechanical placement in the toy body
 - Exact load-switch part, enabled polarity, current rating, and off-state leakage
 - Final switched-rail topology for SD card and MAX98357A power
