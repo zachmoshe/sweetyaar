@@ -24,8 +24,13 @@ StreamCopy copier(i2s, sound, 2048);
 size_t formatIndex = 0;
 uint32_t formatStartedMs = 0;
 
+static void setAmpMuted(bool muted) {
+    bool driveHigh = muted ? AMP_MUTE_ACTIVE_HIGH : !AMP_MUTE_ACTIVE_HIGH;
+    digitalWrite(PIN_AMP_MUTE, driveHigh ? HIGH : LOW);
+}
+
 void startFormat(size_t index) {
-    digitalWrite(PIN_AMP_MUTE, LOW);
+    setAmpMuted(true);
     delay(30);
 
     i2s.end();
@@ -43,7 +48,7 @@ void startFormat(size_t index) {
     sine.begin(info, 440);
     sound.begin(info);
 
-    digitalWrite(PIN_AMP_MUTE, HIGH);
+    setAmpMuted(false);
     formatStartedMs = millis();
 
     Serial.printf("\n[AUDIO] Now playing 440 Hz sine: %s\n", FORMATS[index].name);
@@ -55,11 +60,11 @@ void setup() {
     delay(800);
 
     Serial.println("\n=== SweetYaar Audio Diagnostic ===");
-    Serial.printf("Pins: BCLK=%d LRC/WS=%d DIN=%d SD_MODE=%d\n",
+    Serial.printf("Pins: BCLK=%d LRC/WS=%d DIN=%d MUTE_CTL=%d\n",
                   HW_I2S_BCLK, HW_I2S_WS, HW_I2S_DOUT, PIN_AMP_MUTE);
 
     pinMode(PIN_AMP_MUTE, OUTPUT);
-    digitalWrite(PIN_AMP_MUTE, LOW);
+    setAmpMuted(true);
 
     startFormat(formatIndex);
 }

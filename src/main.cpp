@@ -92,6 +92,7 @@ static constexpr uint32_t RTC_BEDTIME_CLOCK_MAGIC = 0xBED71AAB;
 // ---------------------------------------------------------------------------
 void setupWakeState();
 void setupPeripheralPower();
+void setAmpMuted(bool muted);
 void setupI2S();
 void resetI2SOutput(const char* owner);
 void setupBT(const String& deviceName);
@@ -213,6 +214,10 @@ static void btSampleRateChanged(uint16_t rate) {
 // ---------------------------------------------------------------------------
 void setup() {
     Serial.begin(115200);
+    // Assert Rev A's mute transistor as early as possible during boot.
+    pinMode(PIN_AMP_MUTE, OUTPUT);
+    setAmpMuted(true);
+
     delay(500);
     Serial.println("\n=== SweetYaar Boot ===");
     setupBtDebugLogging();
@@ -222,10 +227,6 @@ void setup() {
     // Status LED
     pinMode(PIN_LED, OUTPUT);
     digitalWrite(PIN_LED, HIGH);  // solid on during init
-
-    // Amplifier mute (active HIGH to unmute; start muted)
-    pinMode(PIN_AMP_MUTE, OUTPUT);
-    digitalWrite(PIN_AMP_MUTE, LOW);
 
     // Device-local NVS config
     nvs.begin();
@@ -391,6 +392,14 @@ void setupPeripheralPower() {
     digitalWrite(PIN_PERIPH_EN, HIGH);
     delay(50);
     Serial.printf("[Power] Peripherals enabled on GPIO%d\n", PIN_PERIPH_EN);
+}
+
+// ---------------------------------------------------------------------------
+// setAmpMuted()
+// ---------------------------------------------------------------------------
+void setAmpMuted(bool muted) {
+    bool driveHigh = muted ? AMP_MUTE_ACTIVE_HIGH : !AMP_MUTE_ACTIVE_HIGH;
+    digitalWrite(PIN_AMP_MUTE, driveHigh ? HIGH : LOW);
 }
 
 // ---------------------------------------------------------------------------
@@ -765,7 +774,7 @@ void pollIdleSleep() {
 // preparePinsForPeripheralPowerOff()
 // ---------------------------------------------------------------------------
 void preparePinsForPeripheralPowerOff() {
-    digitalWrite(PIN_AMP_MUTE, LOW);
+    setAmpMuted(true);
     if (i2sOut.isActive()) {
         i2sOut.end();
     }
@@ -775,7 +784,7 @@ void preparePinsForPeripheralPowerOff() {
     pinMode(HW_I2S_BCLK, INPUT);
     pinMode(HW_I2S_WS, INPUT);
     pinMode(HW_I2S_DOUT, INPUT);
-    pinMode(PIN_AMP_MUTE, INPUT);
+    // Keep Rev A's mute transistor asserted; floating GPIO21 releases SD/MODE.
     pinMode(PIN_SD_SCK, INPUT);
     pinMode(PIN_SD_MISO, INPUT);
     pinMode(PIN_SD_MOSI, INPUT);
@@ -1732,7 +1741,7 @@ void handleStateEntry(State prev, State next) {
             if (prev == State::BT_STREAMING) {
                 scheduleBluetoothReopen("BT disconnected");
             }
-            digitalWrite(PIN_AMP_MUTE, LOW);  // mute amp
+            setAmpMuted(true);
             break;
 
         case State::PLAYING_SONG: {
@@ -1740,26 +1749,26 @@ void handleStateEntry(State prev, State next) {
             // directly in loop() via wavPlayer.nextSong() when btn1 is pressed.
             currentPlaybackTheme = bedtimeEffectiveSongTheme();
             applyEffectiveVolume("song start");
-            digitalWrite(PIN_AMP_MUTE, HIGH);  // unmute amp
+            setAmpMuted(false);
             playSong();
             break;
         }
 
         case State::PLAYING_ANIMAL:
             applyEffectiveVolume("animal start");
-            digitalWrite(PIN_AMP_MUTE, HIGH);  // unmute amp
+            setAmpMuted(false);
             playAnimal();
             break;
 
         case State::BT_STREAMING:
-            // WAV already stopped above; unmute amp so A2DP audio flows through
+            // WAV already stopped above; release mute so A2DP audio flows through
             wavPlayer.stop();  // ensure WAV is stopped
-            digitalWrite(PIN_AMP_MUTE, HIGH);
+            setAmpMuted(false);
             break;
 
         case State::KILLSWITCH:
             wavPlayer.stop();
-            digitalWrite(PIN_AMP_MUTE, LOW);  // mute amp
+            setAmpMuted(true);
             Serial.printf("[SM] Killswitch active for %lu ms\n", KILLSWITCH_MS);
             break;
     }

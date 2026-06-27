@@ -15,6 +15,11 @@ static const uint32_t BT_REOPEN_DELAY_MS = 1500;
 static const char* sampleRateName(uint8_t oct0);
 static const char* channelModeName(uint8_t oct1);
 
+static void setAmpMuted(bool muted) {
+    bool driveHigh = muted ? AMP_MUTE_ACTIVE_HIGH : !AMP_MUTE_ACTIVE_HIGH;
+    digitalWrite(PIN_AMP_MUTE, driveHigh ? HIGH : LOW);
+}
+
 class DiagnosticA2DPSinkQueued : public LowLatencyA2DPSinkQueued {
 public:
     using LowLatencyA2DPSinkQueued::LowLatencyA2DPSinkQueued;
@@ -82,12 +87,12 @@ static void connectionStateChanged(esp_a2d_connection_state_t state, void*) {
     if (state == ESP_A2D_CONNECTION_STATE_CONNECTED) {
         btConnected = true;
         Serial.println("[BTTEST] Connected");
-        digitalWrite(PIN_AMP_MUTE, HIGH);
+        setAmpMuted(false);
     } else if (state == ESP_A2D_CONNECTION_STATE_DISCONNECTED) {
         btConnected = false;
         reopenPairing = true;
         Serial.println("[BTTEST] Disconnected");
-        digitalWrite(PIN_AMP_MUTE, LOW);
+        setAmpMuted(true);
     }
 }
 
@@ -114,11 +119,11 @@ void setup() {
     Serial.println("\n=== SweetYaar BT Diagnostic ===");
     Serial.println("[BTTEST] Minimal A2DP -> I2SStream path, no SD/BLE/app logic");
     Serial.println("[BTTEST] Using low-latency queued sink with no fixed I2S drain delay");
-    Serial.printf("[BTTEST] Pins: BCLK=%d LRC/WS=%d DIN=%d SD_MODE=%d\n",
+    Serial.printf("[BTTEST] Pins: BCLK=%d LRC/WS=%d DIN=%d MUTE_CTL=%d\n",
                   HW_I2S_BCLK, HW_I2S_WS, HW_I2S_DOUT, PIN_AMP_MUTE);
 
     pinMode(PIN_AMP_MUTE, OUTPUT);
-    digitalWrite(PIN_AMP_MUTE, LOW);
+    setAmpMuted(true);
 
     auto cfg = i2s.defaultConfig(TX_MODE);
     cfg.sample_rate = SAMPLE_RATE;

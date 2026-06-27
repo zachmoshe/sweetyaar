@@ -9,7 +9,8 @@
 static constexpr int HW_I2S_BCLK    = 26;  // Bit clock
 static constexpr int HW_I2S_WS      = 25;  // Word select / LRCK
 static constexpr int HW_I2S_DOUT    = 22;  // Data out to MAX98357A DIN
-static constexpr int PIN_AMP_MUTE   = 21;  // MAX98357A SD_MODE: LOW=mute, HIGH=active
+static constexpr int PIN_AMP_MUTE   = 21;  // Rev A AMP_MUTE_CTL transistor input
+static constexpr bool AMP_MUTE_ACTIVE_HIGH = true;  // HIGH pulls MAX98357A SD/MODE low
 
 // --- SD card (SPI) ----------------------------------------------------------
 static constexpr int PIN_SD_SCK     = 18;
