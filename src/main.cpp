@@ -23,6 +23,7 @@
 #include "ParentConfig.h"
 #include "ContentCatalog.h"
 #include "BedtimeMode.h"
+#include "PeripheralPower.h"
 #include "ButtonHandler.h"
 #include "WavPlayer.h"
 #include "BLEParentService.h"
@@ -388,9 +389,7 @@ void setupWakeState() {
 // setupPeripheralPower()
 // ---------------------------------------------------------------------------
 void setupPeripheralPower() {
-    pinMode(PIN_PERIPH_EN, OUTPUT);
-    digitalWrite(PIN_PERIPH_EN, HIGH);
-    delay(50);
+    enablePeripheralPower();
     Serial.printf("[Power] Peripherals enabled on GPIO%d\n", PIN_PERIPH_EN);
 }
 
@@ -802,7 +801,7 @@ void enterIdleDeepSleep() {
     digitalWrite(PIN_LED, LOW);
     wavPlayer.stop();
     preparePinsForPeripheralPowerOff();
-    digitalWrite(PIN_PERIPH_EN, LOW);
+    holdPeripheralPowerOffForDeepSleep();
 
     rtc_gpio_deinit(static_cast<gpio_num_t>(PIN_VIB_WAKE));
     rtc_gpio_init(static_cast<gpio_num_t>(PIN_VIB_WAKE));

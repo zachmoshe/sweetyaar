@@ -2,6 +2,7 @@
 
 #include "AudioTools.h"
 #include "Config.h"
+#include "PeripheralPower.h"
 
 struct FormatCase {
     I2SFormat format;
@@ -62,6 +63,9 @@ void setup() {
     Serial.println("\n=== SweetYaar Audio Diagnostic ===");
     Serial.printf("Pins: BCLK=%d LRC/WS=%d DIN=%d MUTE_CTL=%d\n",
                   HW_I2S_BCLK, HW_I2S_WS, HW_I2S_DOUT, PIN_AMP_MUTE);
+
+    enablePeripheralPower();
+    Serial.printf("[Power] Peripherals enabled on GPIO%d for audio diagnostic\n", PIN_PERIPH_EN);
 
     pinMode(PIN_AMP_MUTE, OUTPUT);
     setAmpMuted(true);

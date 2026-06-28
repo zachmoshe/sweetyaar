@@ -13,9 +13,9 @@
 | 7 | Jumper wires | Male-to-male assortment |
 | 8 | USB-C cable + 5V power bank or PC USB | Powers the DevKit |
 | 9 | Passive vibration switch | Optional for sleep-mode wake testing |
-| 10 | High-side load-switch module | Optional for testing SD + amp power gating |
+| 10 | High-side load switch | AP2281-3WG-7 or another active-HIGH high-side switch for SD + amp power gating |
 
-> **Note:** No battery/charging/LDO circuit needed for breadboard testing. The DevKit's on-board 3.3V regulator feeds everything from USB.
+> **Note:** No battery/charging/LDO circuit needed for breadboard testing. Use the DevKit USB/5V input or a stable external 5V supply, keep the ESP32 directly powered, and power the SD module plus MAX98357A only from the load-switch output. Keep every ground common.
 
 ---
 
@@ -23,8 +23,13 @@
 
 | From | To |
 |---|---|
-| DevKit **3.3V** pin | Breadboard **+** rail |
+| DevKit USB/5V input or stable external **5V** | ESP32 DevKit power input |
+| Same **5V** source | Load-switch `IN` |
+| Load-switch `OUT` | Switched peripheral rail for SD module `VCC` and MAX98357A `VIN` |
 | DevKit **GND** pin | Breadboard **−** rail |
+
+The intended SweetYaar wiring keeps only the ESP32 powered directly. Every
+powered peripheral on this prototype rail goes behind the load switch.
 
 ---
 
@@ -32,7 +37,7 @@
 
 | MAX98357A Pin | Connects To | Notes |
 |---|---|---|
-| **VIN** | 3.3V rail | |
+| **VIN** | Switched peripheral rail from load-switch `OUT` | MAX98357A accepts 2.5-5.5V |
 | **GND** | GND rail | |
 | **BCLK** | ESP32 **GPIO26** | Bit clock |
 | **LRC** (LRCLK / WS) | ESP32 **GPIO25** | Word select |
@@ -48,7 +53,7 @@
 
 | SD Module Pin | Connects To |
 |---|---|
-| **VCC** | 3.3V rail |
+| **VCC** | Switched peripheral rail from load-switch `OUT` |
 | **GND** | GND rail |
 | **SCK** | ESP32 **GPIO18** |
 | **MISO** | ESP32 **GPIO19** |
@@ -84,28 +89,51 @@ pull-up and wakes from deep sleep when GPIO27 is pulled LOW.
 
 ---
 
-## Optional Load-Switch Test Module
+## Load-Switch Wiring
 
-The real sleep design powers the SD card and audio amp through a GPIO-controlled
-load switch. For a breadboard prototype, the firmware still boots and sleeps if
-the SD card and amp stay wired directly to power, but the current measurement will
-not represent the final low-power design.
-
-To test the load-switch behavior, move the SD module `VCC` and MAX98357A `VIN`
-from the 3.3V rail to the load-switch output:
+Issue #2 validates the real sleep design: the SD card module and audio amp are
+powered together through a GPIO-controlled high-side load switch. ESP32 power
+stays direct; SD module `VCC` and MAX98357A `VIN` are connected only to the
+load-switch output.
 
 | Load Switch Pin | Connects To |
 |---|---|
-| **VIN / IN** | 3.3V rail used by the SD module and amp in this guide |
+| **VIN / IN** | 5V source rail |
 | **VOUT / OUT** | SD module `VCC` and MAX98357A `VIN` |
 | **EN / ON** | ESP32 **GPIO13** |
 | **GND** | GND rail |
 
 The firmware assumes the load-switch enable is active HIGH: GPIO13 HIGH powers
-the SD card and amp, GPIO13 LOW turns them off before deep sleep.
+the SD card and amp, and GPIO13 LOW turns them off. Before deep sleep, firmware
+switches GPIO13 to RTC output-low mode and holds it there so `EN` stays low
+while the ESP32 is asleep.
 
-If your load-switch module is active LOW, invert it in hardware for this branch or
-do not use that module for the sleep current test.
+For the AP2281-3WG-7 SOT26/SOT23-6 part:
+
+| AP2281 Pin | Connects To |
+|---|---|
+| `1 OUT` | Switched SD module `VCC` and MAX98357A `VIN` rail |
+| `2 GND`, `5 GND` | Common ground |
+| `3 EN` | ESP32 GPIO13, plus a recommended 100kΩ pulldown to GND |
+| `4 IN`, `6 IN` | 5V source rail |
+
+Place a 1µF capacitor from `IN` to GND and a 0.1µF capacitor from `OUT` to GND
+close to the switch. The `AP2281-3` variant includes output discharge when
+disabled, so the switched rail should fall near 0V after GPIO13 goes LOW and is
+RTC-held during sleep.
+
+The firmware hold covers normal deep sleep. Keep the physical `EN` pulldown as
+a hardware fail-safe for reset, bootloader, flashing, and crash windows before
+firmware has configured GPIO13.
+
+If your load-switch module is active LOW, invert it in hardware or do not use
+that module for the sleep-current test.
+
+Backfeed check for Issue #2: after the firmware prints that it is entering deep
+sleep, measure GPIO13/`EN` and the switched rail. GPIO13/`EN` should be near 0V,
+and the switched rail should also be near 0V. If the rail remains partly powered,
+check for backfeeding through SD SPI, I2S, amp mute/control wiring, module LEDs,
+or pull-ups on the switched side.
 
 ---
 
@@ -133,7 +161,7 @@ GPIO2 is the **on-board LED** on most DevKit boards — no external LED needed. 
                    └─────────────────┘
 
 MAX98357A:                    SD Module:
-  VIN  → 3.3V rail              VCC  → 3.3V rail
+  VIN  → switched rail          VCC  → switched rail
   GND  → GND rail               GND  → GND rail
   BCLK → GPIO26                 SCK  → GPIO18
   LRC  → GPIO25                 MISO → GPIO19
@@ -146,9 +174,11 @@ Buttons:
   BTN1: GPIO32 ─── [button] ─── GND
   BTN2: GPIO33 ─── [button] ─── GND
 
-Sleep test:
+Sleep / load-switch test:
   VIB:  GPIO27 ─── [passive vibration switch] ─── GND
-  LOAD: GPIO13 ─── EN on active-HIGH load-switch module
+  LOAD: GPIO13 ─── EN on active-HIGH load switch
+        recommended 100kΩ from EN to GND
+        5V source → load switch IN; load switch OUT → SD VCC + MAX98357A VIN
 ```
 
 ---
@@ -158,9 +188,9 @@ Sleep test:
 1. **SD card inserted** with at least one WAV file in `/songs/lullabies/` and one in `/animals/`
 2. **Speaker connected** to MAX98357A OUT+ / OUT−
 3. **GPIO21 starts LOW** — firmware mutes amp on boot; amp activates on first play
-4. **3.3V → MAX98357A VIN** — chip accepts 2.5–5.5V; 3.3V from DevKit is fine
+4. **Load-switch `OUT` → MAX98357A VIN and SD VCC**
 5. **GPIO27 vibration switch to GND** if testing sleep wake
-6. **GPIO13 load-switch EN** if measuring final-style peripheral sleep current
+6. **GPIO13 load-switch EN**, with a recommended 100kΩ pulldown to GND, if measuring final-style peripheral sleep current
 7. No external pull-up/pull-down resistors required on buttons or vibration wake
 
 ---
@@ -170,6 +200,7 @@ Sleep test:
 ```
 === SweetYaar Boot ===
 [Device] btName=SweetYaar
+[Power] Peripherals enabled on GPIO13
 [I2S] Initialized
 [Config] defaultVolume=75 defaultTheme=lullabies disabledThemes=0 sleep=1 normal=600s vibWake=120s ble=120s
 [BT] A2DP sink started as "SweetYaar"
@@ -177,10 +208,10 @@ Sleep test:
 ```
 
 - LED goes **solid ON** during init, then **OFF** when ready
-- GPIO13 goes HIGH during boot to power the SD card and amp through the optional load switch
+- GPIO13 goes HIGH during boot to power the SD card and amp through the load switch
 - "SweetYaar" appears in your phone's Bluetooth device list
 - **BTN1** → plays first WAV from `/songs/lullabies/`
 - **BTN2** → plays random WAV from `/animals/`
 - Connect phone to "SweetYaar" via BT → enters BT_STREAMING; buttons disabled until disconnect
-- After the configured idle timeout, serial prints `[Sleep] Entering deep sleep...`; GPIO13 goes LOW
+- After the configured idle timeout, serial prints `[Sleep] Entering deep sleep...`; GPIO13 is RTC-held LOW
 - Moving the vibration switch wakes the ESP32 and causes a normal reboot

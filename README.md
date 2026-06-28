@@ -50,6 +50,9 @@ The main PlatformIO environments are:
 
 - `esp32dev`: current application firmware.
 - `btdebug`: application firmware with extra Classic BT/A2DP logging.
+- `sdtest`: standalone SD-card SPI diagnostic.
+- `audiotest`: standalone MAX98357A/I2S diagnostic.
+- `bttest`: standalone Classic BT/A2DP diagnostic.
 - `vibsleep`: standalone vibration wake and deep-sleep test firmware.
 
 Useful commands:
@@ -57,6 +60,9 @@ Useful commands:
 ```bash
 /Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e esp32dev
 /Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e btdebug
+/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e sdtest
+/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e audiotest
+/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e bttest
 /Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e vibsleep
 ```
 
@@ -99,3 +105,11 @@ See `docs/regression-tests.md` for coverage details and hardware options.
 
 The firmware targets the original ESP32-WROOM-32. This matters because the toy
 uses Bluetooth Classic A2DP, which is not available on ESP32-S3/C3/C6 variants.
+
+The current hardware plan uses GPIO13 as an active-HIGH load-switch enable for
+the SD card module and MAX98357A amp rail. The real app enables that rail during
+boot, then drives and RTC-holds GPIO13 LOW before deep sleep; the standalone SD,
+audio, BT, and vibration diagnostics also drive GPIO13 HIGH while awake so they
+work with the load switch installed. See `breadboard-wiring.md` for
+AP2281-3WG-7 wiring, including the required common ground and recommended EN
+pulldown.

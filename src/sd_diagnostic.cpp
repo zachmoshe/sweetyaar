@@ -3,6 +3,7 @@
 #include <SD.h>
 
 #include "Config.h"
+#include "PeripheralPower.h"
 
 static constexpr uint32_t SD_INIT_TEST_FREQ_HZ = 400000;
 static constexpr uint32_t SD_STREAM_TEST_FREQ_HZ = 4000000;
@@ -188,6 +189,9 @@ void setup() {
     Serial.printf("Pins: CS=%d SCK=%d MISO=%d MOSI=%d\n",
                   PIN_SD_CS, PIN_SD_SCK, PIN_SD_MISO, PIN_SD_MOSI);
     Serial.println("Expected wiring: CS->GPIO5, SCK->GPIO18, MISO->GPIO19, MOSI->GPIO23");
+
+    enablePeripheralPower();
+    Serial.printf("[Power] Peripherals enabled on GPIO%d for SD diagnostic\n", PIN_PERIPH_EN);
 
     pinMode(PIN_SD_CS, OUTPUT);
     digitalWrite(PIN_SD_CS, HIGH);

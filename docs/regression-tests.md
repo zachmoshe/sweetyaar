@@ -77,8 +77,12 @@ The underlying commands remain available for focused manual runs:
 
 After a `vibsleep` manual run, re-upload `esp32dev` before running BLE or Classic
 BT smoke tests. For vibration sleep, confirm in serial logs that the device
-enters deep sleep, wakes from `EXT0`, and keeps the peripheral load switch off
-while asleep.
+enters deep sleep, wakes from `EXT0`, and keeps the peripheral load switch
+RTC-held off while asleep.
+
+The standalone diagnostic firmware images drive GPIO13 HIGH while awake, so
+`sdtest`, `audiotest`, `bttest`, and `vibsleep` can be used without bypassing
+the active-HIGH load switch on the SD + amp rail.
 
 The legacy wrapper also delegates to pytest:
 

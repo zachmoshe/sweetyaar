@@ -2,6 +2,8 @@
 #include <driver/rtc_io.h>
 #include <esp_sleep.h>
 
+#include "PeripheralPower.h"
+
 #ifndef VIB_WAKE_PIN
 #define VIB_WAKE_PIN GPIO_NUM_27
 #endif
@@ -75,6 +77,7 @@ void printBootInfo() {
                   static_cast<unsigned long>(VIB_SLEEP_AFTER_MS));
     Serial.printf("[VIB] Wiring: GPIO%d -> passive vibration switch -> GND\n",
                   static_cast<int>(VIB_WAKE_PIN));
+    Serial.printf("[VIB] Load switch EN: GPIO%d active HIGH while awake\n", PIN_PERIPH_EN);
 
     if (wakeReason == ESP_SLEEP_WAKEUP_EXT0) {
         Serial.println("DETECTED wake");
@@ -99,7 +102,8 @@ void enterDeepSleep() {
         delay(50);
     }
 
-    Serial.println("[VIB] Entering deep sleep. Shake/tilt the switch to wake.");
+    Serial.println("[VIB] Holding peripheral rail off and entering deep sleep. Shake/tilt the switch to wake.");
+    holdPeripheralPowerOffForDeepSleep();
     Serial.flush();
 
     rtc_gpio_init(VIB_WAKE_PIN);
@@ -114,7 +118,9 @@ void setup() {
     Serial.begin(115200);
     delay(500);
 
+    enablePeripheralPower();
     printBootInfo();
+    Serial.printf("[Power] Peripherals enabled on GPIO%d for vibration sleep test\n", PIN_PERIPH_EN);
     configureWakePinForAwakeMode();
 
     lastActivityMs = millis();

@@ -4,6 +4,7 @@
 #include "AudioTools.h"
 #include "Config.h"
 #include "LowLatencyA2DPSinkQueued.h"
+#include "PeripheralPower.h"
 
 I2SStream i2s;
 static bool btConnected = false;
@@ -121,6 +122,9 @@ void setup() {
     Serial.println("[BTTEST] Using low-latency queued sink with no fixed I2S drain delay");
     Serial.printf("[BTTEST] Pins: BCLK=%d LRC/WS=%d DIN=%d MUTE_CTL=%d\n",
                   HW_I2S_BCLK, HW_I2S_WS, HW_I2S_DOUT, PIN_AMP_MUTE);
+
+    enablePeripheralPower();
+    Serial.printf("[Power] Peripherals enabled on GPIO%d for BT diagnostic\n", PIN_PERIPH_EN);
 
     pinMode(PIN_AMP_MUTE, OUTPUT);
     setAmpMuted(true);

@@ -56,7 +56,8 @@ Bluetooth, SD-card, or hardware-test workflows.
 - Sleep-mode hardware:
   - Passive vibration switch: `GPIO27 -> switch -> GND`; firmware uses the ESP32 pull-up and EXT0 wake on LOW.
   - Peripheral load-switch enable: `GPIO13`, active HIGH in firmware.
-  - The switched peripheral rail powers the SD card and MAX98357A amp together. GPIO13 HIGH wakes both; GPIO13 LOW turns both off before deep sleep.
+  - The switched peripheral rail powers the SD card and MAX98357A amp together. GPIO13 HIGH wakes both; GPIO13 LOW turns both off, and firmware RTC-holds GPIO13 LOW during deep sleep.
+  - Keep a physical pulldown on load-switch EN as a reset/bootloader/failure-state default even though firmware holds GPIO13 LOW in normal deep sleep.
   - If testing without a load switch, direct SD/amp power is acceptable for functional firmware testing, but sleep-current measurements will not represent the final design.
 
 ## Hardware Findings
@@ -188,8 +189,9 @@ Recent successful real-app smoke logs:
   - Deep sleep is a full reboot on wake. BT/BLE connections, current song, and
     playback position are intentionally not preserved.
   - Before sleep, firmware stops WAV playback, mutes the amp, ends SD/SPI/I2S,
-    sets SD/I2S pins to input/high-Z, disables the GPIO13 load switch, waits for
-    the wake switch to release if needed, and enables EXT0 wake on GPIO27 LOW.
+    sets SD/I2S pins to input/high-Z, disables and RTC-holds the GPIO13 load
+    switch control LOW, waits for the wake switch to release if needed, and
+    enables EXT0 wake on GPIO27 LOW.
 - Killswitch:
   - Writing/triggering `1` activates it outside BT mode.
   - Repeated `1` restarts the timer.

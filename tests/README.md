@@ -65,6 +65,16 @@ native scanner test with a fake filesystem/SD layer around the firmware scanner.
 Do not rely on the inserted SD card for CI-like tests, and do not reimplement
 the scanner in Python just to inspect the template.
 
+## Load-Switch Hardware Note
+
+The real app and the standalone `sdtest`, `audiotest`, `bttest`, and `vibsleep`
+firmware environments all drive GPIO13 HIGH while awake. This supports the
+active-HIGH AP2281-style load switch used for the SD card module and MAX98357A
+amp rail. The real app and `vibsleep` hold GPIO13 LOW with RTC GPIO hold during
+deep sleep. When the load switch is installed, wire GPIO13 to `EN`, keep all
+grounds common, and add the recommended EN pulldown described in
+`breadboard-wiring.md`.
+
 ## Useful Filters
 
 ```bash
