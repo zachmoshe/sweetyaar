@@ -41,11 +41,12 @@ WavPlayer::WavPlayer(VolumeStream& output) : _output(output) {}
 // ---------------------------------------------------------------------------
 bool WavPlayer::begin() {
     SPI.begin(PIN_SD_SCK, PIN_SD_MISO, PIN_SD_MOSI, PIN_SD_CS);
-    if (!SD.begin(PIN_SD_CS, SPI, 4000000)) {
+    if (!SD.begin(PIN_SD_CS, SPI, SD_SPI_FREQUENCY_HZ)) {
         Serial.println("[WavPlayer] SD init failed");
         return false;
     }
-    Serial.println("[WavPlayer] SD OK");
+    Serial.printf("[WavPlayer] SD OK (SPI %lu MHz)\n",
+                  static_cast<unsigned long>(SD_SPI_FREQUENCY_HZ / 1000000UL));
     // Claim the decode pipeline up-front, before SD/WAV traffic fragments the
     // heap (same rationale as reserving the BT audio queue early).
     ensureDecoder();

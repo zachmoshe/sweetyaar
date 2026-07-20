@@ -17,6 +17,7 @@ static constexpr int PIN_SD_SCK     = 18;
 static constexpr int PIN_SD_MISO    = 19;
 static constexpr int PIN_SD_MOSI    = 23;
 static constexpr int PIN_SD_CS      = 5;
+static constexpr uint32_t SD_SPI_FREQUENCY_HZ = 20000000;
 
 // --- Buttons (active LOW, internal pull-up) ---------------------------------
 static constexpr int PIN_BTN1       = 32;  // Button 1: Songs
