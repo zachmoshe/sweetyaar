@@ -619,13 +619,10 @@ void pollBedtimeMode() {
                   bedtimeTimeKnown() ? 1 : 0);
     applyEffectiveVolume("bedtime state");
 
-    if (sm.currentState() == State::PLAYING_SONG) {
-        String nextTheme = bedtimeEffectiveSongTheme();
-        if (nextTheme != currentPlaybackTheme) {
-            currentPlaybackTheme = nextTheme;
-            playSong();
-        }
-    }
+    // A runtime mode change takes effect immediately for mode reporting,
+    // volume, and the theme selected for future songs. Keep the current WAV
+    // untouched; a song-button press or the next fresh playback start applies
+    // the newly effective theme.
     publishBleValues();
 }
 
@@ -1080,7 +1077,6 @@ bool handleBleControls() {
         } else if (!isKnownTheme(newTheme)) {
             Serial.printf("[BLE] Ignoring unknown theme: %s\n", newTheme.c_str());
         } else {
-            bool changedTheme = newTheme != activeTheme;
             activeTheme = newTheme;
             if (bedtimeRuntimeActive()) {
                 bedtimeThemeOverride = newTheme;
@@ -1089,11 +1085,6 @@ bool handleBleControls() {
                               bedtimeThemeOverride.c_str());
             }
             sm.postStringEvent(Event::THEME_CHANGED, newTheme);
-            if (changedTheme && sm.currentState() == State::PLAYING_SONG) {
-                currentPlaybackTheme = bedtimeEffectiveSongTheme();
-                applyEffectiveVolume("theme change");
-                playSong();
-            }
         }
     }
 
@@ -1301,12 +1292,11 @@ void handleBleConfigCommand(const String& commandJson) {
         refreshThemeList();
         applyActiveThemeFallback();
         lastInvalidBedtimeThemeLog = "";
-        if (sm.currentState() == State::PLAYING_SONG) {
-            String nextTheme = bedtimeEffectiveSongTheme();
-            if (nextTheme != currentPlaybackTheme) {
-                currentPlaybackTheme = nextTheme;
-                playSong();
-            }
+        if (sm.currentState() == State::PLAYING_SONG &&
+            theme == currentPlaybackTheme) {
+            // Apply shuffle/availability changes to the next-track rotation
+            // without interrupting the file that is already playing.
+            wavPlayer.refreshSongList(currentPlaybackTheme);
         }
         publishBleValues();
         bleService.updateConfigResponse(buildConfigOkResponse(requestId, op));
@@ -1327,11 +1317,7 @@ void handleBleConfigCommand(const String& commandJson) {
         applyActiveThemeFallback();
         lastInvalidBedtimeThemeLog = "";
         if (sm.currentState() == State::PLAYING_SONG) {
-            String nextTheme = bedtimeEffectiveSongTheme();
-            if (nextTheme != currentPlaybackTheme) {
-                currentPlaybackTheme = nextTheme;
-                playSong();
-            } else if (String(themeValue) == currentPlaybackTheme) {
+            if (String(themeValue) == currentPlaybackTheme) {
                 // A song was toggled in the theme that's playing: rebuild the
                 // live rotation so the change takes effect on the next track.
                 wavPlayer.refreshSongList(currentPlaybackTheme);
@@ -1450,7 +1436,16 @@ void playSong() {
 }
 
 void playNextSong() {
-    wavPlayer.nextSong();
+    String selectedTheme = bedtimeEffectiveSongTheme();
+    if (selectedTheme != currentPlaybackTheme) {
+        // Mode/theme changes are intentionally deferred while a song plays.
+        // A deliberate song-button press is the point where the new selection
+        // replaces the current audio.
+        currentPlaybackTheme = selectedTheme;
+        wavPlayer.startSong(currentPlaybackTheme);
+    } else {
+        wavPlayer.nextSong();
+    }
     if (wavPlayer.isIdle()) notifyPlaybackFailure(false);
 }
 
