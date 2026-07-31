@@ -1,6 +1,6 @@
 # SweetYaar Parent Remote PWA
 
-The parent remote is a static Progressive Web App served from `docs/`. It can
+The parent remote is a static Progressive Web App served from `public/`. It can
 be installed by browsers that support PWAs and can reload from cache after one
 successful online visit.
 
@@ -8,7 +8,8 @@ successful online visit.
 
 Serve the app from a secure origin:
 
-- Production: GitHub Pages from the repository `docs/` folder.
+- Production: GitHub Pages deploys the repository `public/` folder through
+  `.github/workflows/pages.yml`.
 - Local development: `http://localhost:<port>/` or another loopback URL.
 
 Do not test PWA or Web Bluetooth behavior from `file://` or from a plain
@@ -19,14 +20,19 @@ possibly reinstall the app.
 
 The manifest and service worker use relative paths so the same files work from a
 GitHub Pages project path, a custom HTTPS domain, or a local server rooted at
-`docs/`.
+`public/`.
+
+GitHub Pages must use **GitHub Actions** as its publishing source. The deploy
+workflow runs after relevant pushes to `main`, uploads only `public/`, and
+publishes that artifact to the `github-pages` environment. The custom domain is
+kept in `public/CNAME`.
 
 ## Local Testing
 
 From the repository root:
 
 ```bash
-/Users/zmoshe/proj/sweetyaar/.venv/bin/python -m http.server --directory docs 8000
+/Users/zmoshe/proj/sweetyaar/.venv/bin/python -m http.server --directory public 8000
 ```
 
 Then open:
@@ -64,7 +70,7 @@ make unsupported browsers support BLE.
 - `index.html`
 - `manifest.webmanifest`
 - favicon, Apple touch icon, and PWA icons
-- UI images in `docs/assets/`
+- UI images in `public/assets/`
 
 Navigation requests use a network-first strategy with cached fallback. This
 keeps online parents moving to the newest app instead of staying pinned to an

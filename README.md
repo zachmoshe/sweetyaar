@@ -92,12 +92,14 @@ See `docs/regression-tests.md` for coverage details and hardware options.
 
 - `src/`: firmware source and diagnostic/test entry points.
 - `tests/`: pytest regression suite, including host tests and real-device smoke tests.
-- `docs/`: Web Bluetooth parent remote.
+- `public/`: deployable Web Bluetooth parent remote PWA.
+- `docs/`: product, PWA, and regression-test documentation.
 - `sd_card_template/`: expected SD-card folder structure, metadata, and config.
 - `tools/`: local Bluetooth/BLE smoke and probe helpers.
 - `esp32_prototype_board/`: PCB design files, manufacturing outputs, and notes.
 - `project-plan.md`: detailed architecture and hardware planning notes.
 - `docs/bedtime-mode.md`: product and UX spec for Bedtime mode.
+- `docs/pin-map.md`: GPIO wiring assumptions used by the production firmware.
 - `docs/pwa.md`: parent remote PWA, offline, and deployment notes.
 - `breadboard-wiring.md`: breadboard wiring reference.
 

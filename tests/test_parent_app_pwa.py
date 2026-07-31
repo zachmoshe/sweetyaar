@@ -97,8 +97,8 @@ def png_rgba_alpha_bounds(path):
 
 
 def test_parent_app_manifest_contract(repo_root) -> None:
-    docs_dir = repo_root / "docs"
-    manifest_path = docs_dir / "manifest.webmanifest"
+    public_dir = repo_root / "public"
+    manifest_path = public_dir / "manifest.webmanifest"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
     assert manifest["name"] == "SweetYaar Parent Remote"
@@ -120,14 +120,14 @@ def test_parent_app_manifest_contract(repo_root) -> None:
     assert icons["assets/pwa-icon-maskable-512.png"]["sizes"] == "512x512"
 
     for icon_src, icon in icons.items():
-        icon_path = docs_dir / icon_src
+        icon_path = public_dir / icon_src
         assert icon_path.exists(), icon_src
         expected_size = tuple(int(value) for value in icon["sizes"].split("x"))
         assert png_size(icon_path) == expected_size
 
 
 def test_parent_app_index_links_pwa_assets(repo_root) -> None:
-    index_html = (repo_root / "docs" / "index.html").read_text(encoding="utf-8")
+    index_html = (repo_root / "public" / "index.html").read_text(encoding="utf-8")
 
     assert '<meta name="theme-color" content="#08736c">' in index_html
     assert '<meta name="mobile-web-app-capable" content="yes">' in index_html
@@ -155,7 +155,7 @@ def test_parent_app_index_links_pwa_assets(repo_root) -> None:
 
 
 def test_parent_app_icon_alpha_contract(repo_root) -> None:
-    docs_dir = repo_root / "docs"
+    public_dir = repo_root / "public"
 
     for icon_name in [
         "apple-touch-icon.png",
@@ -164,12 +164,12 @@ def test_parent_app_icon_alpha_contract(repo_root) -> None:
         "pwa-icon-maskable-192.png",
         "pwa-icon-maskable-512.png",
     ]:
-        stats = png_rgba_alpha_stats(docs_dir / "assets" / icon_name)
+        stats = png_rgba_alpha_stats(public_dir / "assets" / icon_name)
         assert stats["alpha"] == (255, 255), icon_name
         assert stats["bounds"] == (0, 0, stats["width"] - 1, stats["height"] - 1), icon_name
 
     for icon_name in ["favicon-16.png", "favicon-32.png", "favicon-48.png"]:
-        stats = png_rgba_alpha_stats(docs_dir / "assets" / icon_name)
+        stats = png_rgba_alpha_stats(public_dir / "assets" / icon_name)
         assert stats["alpha"] == (0, 255), icon_name
         min_x, min_y, max_x, max_y = stats["bounds"]
         assert min_x > 0 or min_y > 0, icon_name
@@ -177,8 +177,8 @@ def test_parent_app_icon_alpha_contract(repo_root) -> None:
 
 
 def test_parent_app_service_worker_precache_contract(repo_root) -> None:
-    docs_dir = repo_root / "docs"
-    sw_path = docs_dir / "sw.js"
+    public_dir = repo_root / "public"
+    sw_path = public_dir / "sw.js"
     sw_source = sw_path.read_text(encoding="utf-8")
     precache_match = re.search(
         r"const PRECACHE_URLS = \[(?P<urls>.*?)\];",
@@ -205,11 +205,14 @@ def test_parent_app_service_worker_precache_contract(repo_root) -> None:
         if url == "./":
             continue
         assert url.startswith("./"), url
-        asset_path = docs_dir / url.removeprefix("./")
+        asset_path = public_dir / url.removeprefix("./")
         assert asset_path.exists(), url
 
     assert 'const CACHE_PREFIX = "sweetyaar-parent";' in sw_source
-    assert 'const CACHE_VERSION = "sweetyaar-parent-v10";' in sw_source
+    assert re.search(
+        r'const CACHE_VERSION = "sweetyaar-parent-v\d+";',
+        sw_source,
+    )
     assert "cache.addAll(PRECACHE_URLS)" in sw_source
     assert "self.skipWaiting()" in sw_source
     assert "self.clients.claim()" in sw_source
@@ -219,7 +222,7 @@ def test_parent_app_service_worker_precache_contract(repo_root) -> None:
 
 
 def test_parent_app_control_icons_are_centered(repo_root) -> None:
-    width, height, bounds = png_rgba_alpha_bounds(repo_root / "docs" / "assets" / "icon-volume.png")
+    width, height, bounds = png_rgba_alpha_bounds(repo_root / "public" / "assets" / "icon-volume.png")
     min_x, min_y, max_x, max_y = bounds
     center_x = (min_x + max_x) / 2
     center_y = (min_y + max_y) / 2

@@ -7,9 +7,9 @@ const vm = require("vm");
 const { TextDecoder, TextEncoder } = require("util");
 
 const root = path.resolve(__dirname, "..");
-const html = fs.readFileSync(path.join(root, "docs", "index.html"), "utf8");
+const html = fs.readFileSync(path.join(root, "public", "index.html"), "utf8");
 const match = html.match(/<script>\s*([\s\S]*?)\s*<\/script>/);
-assert(match, "docs/index.html must contain the parent app script");
+assert(match, "public/index.html must contain the parent app script");
 const appScript = match[1];
 
 class FakeClassList {
@@ -233,7 +233,7 @@ function createContext() {
 async function runInApp(testSource) {
   const context = createContext();
   const source = `${appScript}\n${appTestHelpers}\n(async () => {\n${testSource}\n})()`;
-  return vm.runInNewContext(source, context, { filename: "docs/index.html" });
+  return vm.runInNewContext(source, context, { filename: "public/index.html" });
 }
 
 const appTestHelpers = String.raw`

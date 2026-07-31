@@ -22,7 +22,7 @@ Then run this from the repo root or from a Git worktree:
 If the venv is active, plain `pytest` is equivalent. The command runs:
 
 - Python config-contract tests for the checked-in `SD:/config.json` template.
-- A pytest-backed mocked Web Bluetooth parent-app UI test against `docs/index.html`.
+- A pytest-backed mocked Web Bluetooth parent-app UI test against `public/index.html`.
 - PWA manifest, icon, service-worker, and offline shell contract checks.
 - A pytest-backed native C++ unit test that compiles the real `src/StateMachine.cpp` with Arduino/FreeRTOS stubs.
 - A pytest firmware-build test that runs `pio run -e esp32dev`.

@@ -21,7 +21,7 @@ are unavailable.
 - `state_machine_native_test.cpp`: host-side C++ behavior tests for the real `src/StateMachine.cpp`.
 - `native_stubs/`: tiny Arduino/FreeRTOS headers used only by native host tests.
 - `test_parent_app.py`: pytest wrapper for the parent-app UI regression runner.
-- `parent_app_ui_test.js`: fake DOM plus fake Web Bluetooth/GATT tests for `docs/index.html`.
+- `parent_app_ui_test.js`: fake DOM plus fake Web Bluetooth/GATT tests for `public/index.html`.
 - `test_real_device_smoke.py`: real ESP32 BLE and Classic Bluetooth smoke tests.
 
 Pytest only discovers `test_*.py` files directly. The `.js`, `.cpp`, and
@@ -37,7 +37,7 @@ Pytest only discovers `test_*.py` files directly. The `.js`, `.cpp`, and
 - `state_machine_native_test.cpp::testKillswitchTimerAndBtInterruption`: verifies killswitch state, timeout behavior, and BT interruption rules.
 - `state_machine_native_test.cpp::testKillswitchCancel`: verifies that a second killswitch event cancels the active pause mode.
 - `state_machine_native_test.cpp::testBlePayloadEventsDoNotForceTransitions`: verifies BLE volume/theme payloads are stored as pending values without forcing playback transitions.
-- `test_parent_app.py::test_parent_app_save_flow`: runs the Node UI regression runner against the real script embedded in `docs/index.html`.
+- `test_parent_app.py::test_parent_app_save_flow`: runs the Node UI regression runner against the real script embedded in `public/index.html`.
 - `parent_app_ui_test.js::initial opening screen is usable`: checks the first screen, connect button state, and visible copy.
 - `parent_app_ui_test.js::connect success shows ready remote`: simulates a successful Web Bluetooth connection and checks the ready remote state.
 - `parent_app_ui_test.js::connect cancel stays on opening screen`: simulates user cancellation from the browser device chooser.

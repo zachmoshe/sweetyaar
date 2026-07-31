@@ -379,8 +379,8 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 
 ## Web BLE Parent App (Phase 2)
 
-- Single `docs/index.html` (vanilla JS + CSS, no framework)
-- Hosted on GitHub Pages from `/docs`
+- Single `public/index.html` (vanilla JS + CSS, no framework)
+- Hosted on GitHub Pages by deploying `/public` with GitHub Actions
 - Uses Web Bluetooth API (Android Chrome + desktop Chrome)
 - Normal local play-mode live controls and BLE settings/content curation; not used for WAV upload or BT audio control
 - Controls:
@@ -432,9 +432,9 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 
 ### Phase 2 — Web BLE Parent App
 1. Enable and validate firmware BLE GATT service (volume, killswitch, theme, status, themes)
-2. Design + build `docs/index.html` (Web Bluetooth)
+2. Design + build `public/index.html` (Web Bluetooth)
 3. BLE characteristic integration with BT-mode read-only behavior
-4. Deploy `/docs` to GitHub Pages
+4. Deploy `/public` to GitHub Pages with GitHub Actions
 
 ### Phase 3 — PCB Design (EasyEDA)
 1. Schematic: all components, power tree, GPIO mapping
