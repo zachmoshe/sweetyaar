@@ -55,10 +55,11 @@ Bluetooth, SD-card, or hardware-test workflows.
   - Wire each button between GPIO and GND; firmware uses pull-ups.
 - Sleep-mode hardware:
   - Normally-closed passive vibration switch: externally biased `GPIO27 -> switch -> GND`; the final PCB uses a 470 kΩ pull-up to 3.3V and firmware uses EXT0 wake on HIGH with internal pulls disabled.
-  - Peripheral load-switch enable: `GPIO13`, active HIGH in firmware.
-  - The switched peripheral rail powers the SD card and MAX98357A amp together. GPIO13 HIGH wakes both; GPIO13 LOW turns both off, and firmware RTC-holds GPIO13 LOW during deep sleep.
-  - Keep a physical pulldown on load-switch EN as a reset/bootloader/failure-state default even though firmware holds GPIO13 LOW in normal deep sleep.
-  - If testing without a load switch, direct SD/amp power is acceptable for functional firmware testing, but sleep-current measurements will not represent the final design.
+  - Provisional final-PCB intent: use two AP2281-3WG-7 load switches with their EN pins tied to `GPIO13`, active HIGH in firmware. One switches 3.3V to the bare SD card and all SD pull-ups; the other switches 5V to the MAX98357A amp. Do not join the two outputs. Confirm this topology during final schematic design.
+  - GPIO13 HIGH enables both peripheral rails; GPIO13 LOW turns both off, and firmware RTC-holds GPIO13 LOW during deep sleep.
+  - Keep a physical pulldown on the shared load-switch EN net as a reset/bootloader/failure-state default even though firmware holds GPIO13 LOW in normal deep sleep.
+  - On the current `esp32_prototype_devboard`, GPIO13 only drives an indication LED rather than real load switches, so the SD and amp remain powered during sleep-current tests.
+  - If testing without the load switches, direct SD/amp power is acceptable for functional firmware testing, but sleep-current measurements will not represent the final design.
 
 ## Hardware Findings
 
