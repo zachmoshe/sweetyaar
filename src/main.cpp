@@ -378,7 +378,7 @@ void setupWakeState() {
     realActivitySeenSinceWake = !wokeFromVibration;
 
     rtc_gpio_deinit(static_cast<gpio_num_t>(PIN_VIB_WAKE));
-    pinMode(PIN_VIB_WAKE, INPUT_PULLUP);
+    pinMode(PIN_VIB_WAKE, INPUT);
 
     Serial.printf("[Sleep] Wake cause=%d vibration=%d\n",
                   static_cast<int>(cause), wokeFromVibration ? 1 : 0);
@@ -791,7 +791,7 @@ void preparePinsForPeripheralPowerOff() {
 // enterIdleDeepSleep()
 // ---------------------------------------------------------------------------
 void enterIdleDeepSleep() {
-    Serial.printf("[Sleep] Entering deep sleep after %lus idle (wake GPIO%d LOW)\n",
+    Serial.printf("[Sleep] Entering deep sleep after %lus idle (wake GPIO%d HIGH)\n",
                   static_cast<unsigned long>((millis() - lastActivityMs) / 1000UL),
                   PIN_VIB_WAKE);
 
@@ -803,13 +803,13 @@ void enterIdleDeepSleep() {
     rtc_gpio_deinit(static_cast<gpio_num_t>(PIN_VIB_WAKE));
     rtc_gpio_init(static_cast<gpio_num_t>(PIN_VIB_WAKE));
     rtc_gpio_set_direction(static_cast<gpio_num_t>(PIN_VIB_WAKE), RTC_GPIO_MODE_INPUT_ONLY);
-    rtc_gpio_pullup_en(static_cast<gpio_num_t>(PIN_VIB_WAKE));
+    rtc_gpio_pullup_dis(static_cast<gpio_num_t>(PIN_VIB_WAKE));
     rtc_gpio_pulldown_dis(static_cast<gpio_num_t>(PIN_VIB_WAKE));
-    esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(PIN_VIB_WAKE), 0);
+    esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(PIN_VIB_WAKE), 1);
 
-    if (rtc_gpio_get_level(static_cast<gpio_num_t>(PIN_VIB_WAKE)) == 0) {
-        Serial.println("[Sleep] Wake switch is still closed; waiting for release");
-        while (rtc_gpio_get_level(static_cast<gpio_num_t>(PIN_VIB_WAKE)) == 0) {
+    if (rtc_gpio_get_level(static_cast<gpio_num_t>(PIN_VIB_WAKE)) == 1) {
+        Serial.println("[Sleep] Wake switch is open; waiting for closure");
+        while (rtc_gpio_get_level(static_cast<gpio_num_t>(PIN_VIB_WAKE)) == 1) {
             delay(20);
         }
         delay(50);

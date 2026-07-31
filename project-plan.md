@@ -41,7 +41,7 @@ This project is a v2 redesign of a custom ESP32-based baby toy controller origin
 | MCU module | ESP32-WROOM-32 | 4 MB flash, Wi-Fi + BT dual-mode |
 | DAC + Amp | MAX98357A | SOP-8, I2S input, mono 3W out |
 | SD card | Micro SD push-push slot | SPI, 3.3V logic level; slot on PCB edge (accessible externally) |
-| Vibration wake sensor | Passive vibration/tilt switch | Wakes ESP32 from deep sleep; wired between GPIO27 and GND with ESP32 pull-up |
+| Vibration wake sensor | Normally-closed passive vibration/tilt switch | Wakes ESP32 from deep sleep; wired between GPIO27 and GND with an external 470 kΩ pull-up to 3.3 V on the final PCB |
 | Peripheral load switch | AP2281-3WG-7 high-side load switch, EN from GPIO13 | Active-HIGH switched rail for SD card and MAX98357A amp |
 | USB-C | USB-C 16-pin charging port | Charging only, no data |
 | Charging | Modern 1-cell LiPo charger module/IC, exact part TBD | MCP73831-class if simple/off-while-charging; BQ2407x/BQ2518x/MCP73871-class only if power-path charging is desired |
@@ -80,13 +80,13 @@ At 70 µA, a 2000 mAh LiPo lasts ~3 years in pure sleep. In practice LiPo self-d
 | **Total (WAV playback)** | **~250–550 mA** |
 
 The LDO must handle brief peaks up to ~500 mA; the AP2112K's 600 mA rating covers this with margin. Validate thermals on the final PCB under sustained BT streaming.
-- `GPIO27` is the wake input. The passive vibration switch connects `GPIO27` to GND when it moves; firmware enables the pull-up and uses ESP32 EXT0 deep-sleep wake on LOW.
+- `GPIO27` is the wake input. The normally-closed passive vibration switch holds `GPIO27` at GND while resting and opens when it moves; an external pull-up raises the pin and firmware uses ESP32 EXT0 deep-sleep wake on HIGH.
 - `GPIO13` drives the peripheral load-switch enable. The current firmware assumes active HIGH: HIGH powers SD + amp, LOW turns them off. Before deep sleep, firmware reconfigures GPIO13 as an RTC output LOW and enables RTC hold so the load switch remains disabled while the ESP32 sleeps.
 - The prototype load-switch part is Diodes Inc. `AP2281-3WG-7` in SOT26/SOT23-6. Tie pins `4` and `6` to the 5V source rail, pins `2` and `5` to GND, pin `3` to `GPIO13`, and pin `1` to the switched SD + amp rail.
 - Add a 100kΩ pulldown from `EN`/GPIO13 to GND as a hardware fail-safe so the rail stays off during reset, bootloader, flashing, and crash windows before firmware configures the pin. No EN pull-up is required.
 - Place a 1µF input capacitor from `IN` to GND and a 0.1µF output capacitor from `OUT` to GND near the load switch. The `AP2281-3` output-discharge option should pull the switched rail near 0V when disabled.
 - The product wiring uses one switched peripheral rail: the ESP32 remains directly powered, while the SD card interface and MAX98357A amp are powered only from the load-switch output.
-- Before entering sleep, firmware stops WAV playback, mutes the amp, ends I2S/SPI/SD, sets SD/I2S pins to input/high-Z, turns off the load switch, waits for the vibration switch to release if it is still closed, and then enters deep sleep.
+- Before entering sleep, firmware stops WAV playback, mutes the amp, ends I2S/SPI/SD, sets SD/I2S pins to input/high-Z, turns off the load switch, waits for the normally-closed vibration switch to return to its closed resting state, and then enters deep sleep.
 - Wake from vibration is a normal reboot. BT/BLE clients disconnect, the current song is not remembered, and state returns to normal boot defaults.
 
 ### Power and Charging Safety Baseline

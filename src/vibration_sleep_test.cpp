@@ -70,12 +70,12 @@ void printBootInfo() {
 
     Serial.println();
     Serial.println("=== SweetYaar vibration sleep test ===");
-    Serial.printf("[VIB] Wake pin: GPIO%d, active LOW\n", static_cast<int>(VIB_WAKE_PIN));
+    Serial.printf("[VIB] Wake pin: GPIO%d, active HIGH\n", static_cast<int>(VIB_WAKE_PIN));
     Serial.printf("[VIB] Wake reason: %s (%d)\n",
                   wakeReasonName(wakeReason), static_cast<int>(wakeReason));
     Serial.printf("[VIB] Sleep after quiet: %lu ms\n",
                   static_cast<unsigned long>(VIB_SLEEP_AFTER_MS));
-    Serial.printf("[VIB] Wiring: GPIO%d -> passive vibration switch -> GND\n",
+    Serial.printf("[VIB] Wiring: externally biased GPIO%d -> normally-closed vibration switch -> GND\n",
                   static_cast<int>(VIB_WAKE_PIN));
     Serial.printf("[VIB] Load switch EN: GPIO%d active HIGH while awake\n", PIN_PERIPH_EN);
 
@@ -86,17 +86,17 @@ void printBootInfo() {
 
 void configureWakePinForAwakeMode() {
     rtc_gpio_deinit(VIB_WAKE_PIN);
-    pinMode(static_cast<uint8_t>(VIB_WAKE_PIN), INPUT_PULLUP);
+    pinMode(static_cast<uint8_t>(VIB_WAKE_PIN), INPUT);
     attachInterrupt(digitalPinToInterrupt(static_cast<uint8_t>(VIB_WAKE_PIN)),
-                    onVibrationEdge, FALLING);
+                    onVibrationEdge, RISING);
 }
 
 void enterDeepSleep() {
     detachInterrupt(digitalPinToInterrupt(static_cast<uint8_t>(VIB_WAKE_PIN)));
 
-    if (digitalRead(static_cast<uint8_t>(VIB_WAKE_PIN)) == LOW) {
-        Serial.println("[VIB] Wake switch is still closed; waiting for release before sleep");
-        while (digitalRead(static_cast<uint8_t>(VIB_WAKE_PIN)) == LOW) {
+    if (digitalRead(static_cast<uint8_t>(VIB_WAKE_PIN)) == HIGH) {
+        Serial.println("[VIB] Wake switch is open; waiting for closure before sleep");
+        while (digitalRead(static_cast<uint8_t>(VIB_WAKE_PIN)) == HIGH) {
             delay(10);
         }
         delay(50);
@@ -108,9 +108,9 @@ void enterDeepSleep() {
 
     rtc_gpio_init(VIB_WAKE_PIN);
     rtc_gpio_set_direction(VIB_WAKE_PIN, RTC_GPIO_MODE_INPUT_ONLY);
-    rtc_gpio_pullup_en(VIB_WAKE_PIN);
+    rtc_gpio_pullup_dis(VIB_WAKE_PIN);
     rtc_gpio_pulldown_dis(VIB_WAKE_PIN);
-    esp_sleep_enable_ext0_wakeup(VIB_WAKE_PIN, 0);
+    esp_sleep_enable_ext0_wakeup(VIB_WAKE_PIN, 1);
     esp_deep_sleep_start();
 }
 

@@ -24,7 +24,7 @@ static constexpr int PIN_BTN1       = 32;  // Button 1: Songs
 static constexpr int PIN_BTN2       = 33;  // Button 2: Animals
 
 // --- Sleep / power gating ---------------------------------------------------
-static constexpr int PIN_VIB_WAKE   = 27;  // Vibration wake switch to GND
+static constexpr int PIN_VIB_WAKE   = 27;  // Externally biased NC vibration switch to GND; wake HIGH
 static constexpr int PIN_PERIPH_EN  = 13;  // Load-switch enable for SD + amp
 
 // --- Status LED -------------------------------------------------------------
