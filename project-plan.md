@@ -15,7 +15,7 @@ This project is a v2 redesign of a custom ESP32-based baby toy controller origin
 | MCU | **ESP32-WROOM-32 (original ESP32 only)** | Only original ESP32 supports BT Classic; S3/C3/C6 do not |
 | BT A2DP library | `pschatzmann/ESP32-A2DP` v1.8.x | Most mature maintained library; works on Arduino ESP32 core v3 |
 | Audio pipeline | `pschatzmann/arduino-audio-tools` | Same author; integrates A2DP + WAV playback on same I2S bus |
-| Audio DAC + amp | MAX98357A | I2S DAC + 3W mono amp in one chip; 2.5–5.5V (runs direct from LiPo) |
+| Audio DAC + amp | MAX98357A | I2S DAC + 3W mono amp in one chip; powered from the GPIO-enabled 5V boost rail |
 | SD card interface | SPI | WAV files for songs and animal sounds |
 | BLE parent control | ESP32 built-in BLEDevice | Dual-mode: Classic BT (A2DP) + BLE simultaneously on same chip |
 | Parent live-control app | Web BLE (single HTML page) | No install; controls normal play mode from Android Chrome + desktop Chrome |
@@ -23,10 +23,10 @@ This project is a v2 redesign of a custom ESP32-based baby toy controller origin
 | Asset management | Manual SD-card preparation | Parents/developer curate WAV files and metadata on the SD card; the app does not upload assets |
 | OTA firmware | Not in product plan | Firmware is flashed through PlatformIO/serial during development |
 | Idle sleep / wake | ESP32 deep sleep with passive vibration wake | Saves battery after inactivity; wake is a full reboot, which is acceptable for the toy |
-| Peripheral power gating | Two GPIO-controlled load switches for SD + audio amp (provisional) | Separate 3.3V SD and 5V amp rails are enabled together only while the ESP32 is awake; final topology remains to be confirmed |
+| Peripheral power gating | One 3.3V SD load switch plus the 5V boost converter's EN | GPIO13 enables both branches while awake; the boost must provide true load disconnect so a second amp load-switch IC is unnecessary |
 | Battery | Single-cell LiPo, 3.7V, ~1500–2000 mAh | Compact, rechargeable |
 | Charging / battery safety | Modern single-cell LiPo charger module/IC with battery protection | Safety over fast charging; exact part TBD; use low charge current, fuse protection, and battery temperature protection |
-| Power regulation | Modern 3.3V LDO, not AMS1117 | Simple, lower-dropout 3.3V rail for ESP32 + SD + logic; buck-boost deferred unless testing shows brownouts or poor runtime |
+| Power regulation | Low-Iq 3.3V buck-boost | Keeps the ESP32 rail regulated across charger/SYS voltage changes and low-battery sag; exact part remains TBD |
 | PCB tool | EasyEDA / LCEDA | Integrated with JLCPCB for small-batch manufacturing |
 | Enclosure | 3D-printed (design TBD) | Holds PCB + LiPo + speaker; fits inside/attaches to doll body |
 
@@ -42,11 +42,12 @@ This project is a v2 redesign of a custom ESP32-based baby toy controller origin
 | DAC + Amp | MAX98357A | SOP-8, I2S input, mono 3W out |
 | SD card | Micro SD push-push slot | SPI, 3.3V logic level; slot on PCB edge (accessible externally) |
 | Vibration wake sensor | Normally-closed passive vibration/tilt switch | Wakes ESP32 from deep sleep; wired between GPIO27 and GND with an external 470 kΩ pull-up to 3.3 V on the final PCB |
-| Peripheral load switches | 2× AP2281-3WG-7 high-side load switches, both EN from GPIO13 (provisional) | One switches 3.3V to the bare SD card and its pull-ups; the other switches 5V to the MAX98357A amp |
+| Peripheral load switch | 1× AP2281-3WG-7 high-side load switch, EN from GPIO13 | Switches 3.3V to the bare SD card and all SD pull-ups |
+| 5V boost converter | Exact part TBD; EN and true load disconnect required | GPIO13 disables the converter and electrically isolates the MAX98357A in sleep; size for at least 1A at 5V with a low battery |
 | USB-C | USB-C 16-pin charging port | Charging only, no data |
 | Charging | Modern 1-cell LiPo charger module/IC, exact part TBD | MCP73831-class if simple/off-while-charging; BQ2407x/BQ2518x/MCP73871-class only if power-path charging is desired |
 | Battery protection | Protected LiPo pack + board-level protection | Prefer pack PCM for overcharge, overdischarge, overcurrent, and short-circuit; add fuse/polyfuse and battery temperature protection |
-| LDO | **AP2112K-3.3** | 600 mA, 55 µA Iq, 250 mV dropout; handles ESP32 BT radio peaks; good LiPo range coverage |
+| 3.3V regulator | Exact low-Iq buck-boost part TBD; TPS631000-class candidate | Must supply at least 500mA to the ESP32 rail across the chosen operating battery range |
 | Battery connector | JST-PH 2-pin | LiPo connection |
 | Speaker connector | JST-PH 2-pin | Connects to doll's speaker |
 | Button connectors | 2× JST-PH 2-pin | One per button; buttons wired to GND |
@@ -55,38 +56,37 @@ This project is a v2 redesign of a custom ESP32-based baby toy controller origin
 
 ### Sleep-Mode Hardware Notes
 
-- The ESP32 remains powered by the always-on 3.3V rail during deep sleep. The current final-PCB intent is to use two separately supplied switched branches: 3.3V for the SD card and 5V for the audio amp. Both switches share the same GPIO13 enable so their leakage and undefined pin states do not dominate sleep current. This topology is provisional and will be confirmed during schematic design.
+- The ESP32 remains powered by the always-on 3.3V rail during deep sleep. GPIO13 controls one AP2281 on the 3.3V SD branch and the 5V boost converter's EN for the amp branch. The boost converter must guarantee true load disconnect when disabled; otherwise an additional amp load switch is required.
 
-**Expected sleep current (deep sleep, load switches off):**
+**Expected sleep current (deep sleep, SD switch and 5V boost disabled):**
 
 | Source | Current |
 |---|---|
-| AP2112K quiescent | ~55 µA |
+| Always-on 3.3V buck-boost quiescent | Target ~8–25 µA, part-dependent |
 | ESP32 deep sleep + EXT0 wakeup | ~10–15 µA |
+| 470kΩ vibration-wake pull-up while the normally-closed switch is closed | ~7 µA |
 | Leakage / misc | ~2–5 µA |
-| **Total** | **~70 µA** |
+| **Total** | **~27–52 µA, depending mainly on the regulator** |
 
-At 70 µA, a 2000 mAh LiPo lasts ~3 years in pure sleep. In practice LiPo self-discharge (~2.5%/month ≈ 50 mAh/month) is a comparable contributor, giving a realistic standby life of ~20 months. Battery life is dominated by active use, not sleep.
+Even the high end of this electronic-load estimate is small relative to LiPo self-discharge over long storage. Battery life is dominated by active use and the selected cell's real self-discharge, not the ideal capacity/current quotient.
 
-**Expected active current (typical playback):**
+**Measured and estimated active input current:**
 
-| Source | Current |
+| Condition | Current |
 |---|---|
-| ESP32 (BT A2DP streaming) | ~200–350 mA |
-| ESP32 (WAV playback, no BT) | ~80–120 mA |
-| MAX98357A amp (moderate volume) | ~100–300 mA |
-| SD card (read) | ~50–100 mA |
-| AP2112K + misc | ~5–10 mA |
-| **Total (WAV playback)** | **~250–550 mA** |
+| Current prototype powered from 5V during normal playback | ~200–250mA observed |
+| Equivalent low-battery input at 3.0V and ~90% conversion efficiency | ~370–465mA, based on the measured 5V input power |
+| Preliminary low-battery design upper bound | 500mA until maximum-volume testing says otherwise |
 
-The LDO must handle brief peaks up to ~500 mA; the AP2112K's 600 mA rating covers this with margin. Validate thermals on the final PCB under sustained BT streaming.
+The 3.3V regulator must still handle ESP32 radio peaks even though average system current is lower. Validate the complete power tree with BT streaming, a 4Ω speaker at 100% volume, the final converters, and a low battery; a bench PSU display or multimeter may average out short peaks.
 - `GPIO27` is the wake input. The normally-closed passive vibration switch holds `GPIO27` at GND while resting and opens when it moves; an external pull-up raises the pin and firmware uses ESP32 EXT0 deep-sleep wake on HIGH.
-- `GPIO13` drives both peripheral load-switch enables. The current firmware assumes active HIGH: HIGH powers SD + amp, LOW turns both off. Before deep sleep, firmware reconfigures GPIO13 as an RTC output LOW and enables RTC hold so both switches remain disabled while the ESP32 sleeps.
-- The provisional switch part is Diodes Inc. `AP2281-3WG-7` in SOT26/SOT23-6. For each switch, tie pins `4` and `6` to its source rail, pins `2` and `5` to GND, pin `3` to `GPIO13`, and pin `1` to its switched output. The SD switch uses 3.3V input and creates `3V3_SD`; the amp switch uses 5V input and creates `5V_AMP`.
-- Add a 100kΩ pulldown from the shared `EN`/GPIO13 net to GND as a hardware fail-safe so both rails stay off during reset, bootloader, flashing, and crash windows before firmware configures the pin. No EN pull-up is required.
-- Place the recommended 1µF input capacitor and 0.1µF output capacitor close to each load switch. The `AP2281-3` output-discharge option should pull each switched rail near 0V when disabled.
-- The product wiring keeps the ESP32 on the always-on 3.3V rail. The bare SD card and every SD pull-up use `3V3_SD`; the MAX98357A uses `5V_AMP`. Never join the two switched outputs.
-- Before entering sleep, firmware stops WAV playback, mutes the amp, ends I2S/SPI/SD, sets SD/I2S pins to input/high-Z, turns off both load switches, waits for the normally-closed vibration switch to return to its closed resting state, and then enters deep sleep.
+- `GPIO13` drives the SD load-switch EN and 5V boost-converter EN. The current firmware assumes active HIGH: HIGH powers SD + amp, LOW turns both off. Before deep sleep, firmware reconfigures GPIO13 as an RTC output LOW and enables RTC hold so both branches remain disabled while the ESP32 sleeps.
+- The SD switch is Diodes Inc. `AP2281-3WG-7` in SOT26/SOT23-6. Tie pins `4` and `6` to the always-on 3.3V rail, pins `2` and `5` to GND, pin `3` to `GPIO13`, and pin `1` to `3V3_SD`. Place the recommended 1µF input and 0.1µF output capacitors close to it.
+- Add a 100kΩ pulldown from the shared `EN`/GPIO13 net to GND as a hardware fail-safe so both peripheral branches stay off during reset, bootloader, flashing, and crash windows before firmware configures the pin. No EN pull-up is required.
+- The 5V boost converter replaces the amp's dedicated load switch only if its datasheet guarantees true load disconnect in shutdown. EN LOW must not pass the battery/SYS voltage to `5V_AMP` through a diode or internal FET. Output discharge is optional; if fast discharge is needed, evaluate a high-value bleeder resistor against the powered-on loss.
+- `GPIO21` is no longer required for sleep-current isolation because disabling the boost removes amp power, but retain it by default because the connection costs essentially nothing and provides runtime mute and click/pop sequencing. If another function later needs the GPIO, remove this connection and configure `SD_MODE` passively from the switched `5V_AMP` rail.
+- The product wiring keeps the ESP32 on the always-on 3.3V rail. The bare SD card and every SD pull-up use `3V3_SD`; the MAX98357A uses the boost output `5V_AMP`.
+- Before entering sleep, firmware stops WAV playback, mutes the amp if GPIO21 is retained, ends I2S/SPI/SD, sets SD/I2S/control pins to input/high-Z, disables the SD switch and 5V boost, waits for the normally-closed vibration switch to return to its closed resting state, and then enters deep sleep.
 - Wake from vibration is a normal reboot. BT/BLE clients disconnect, the current song is not remembered, and state returns to normal boot defaults.
 
 ### Power and Charging Safety Baseline
@@ -97,8 +97,9 @@ This is a child toy, so the power design prioritises safety, low heat, and predi
 - **Add simple board-level protection**. Include an appropriately rated fuse or resettable polyfuse in the battery/USB power path. Add strain relief and keyed connectors so battery and speaker leads cannot be pulled loose or reversed easily.
 - **Add battery temperature protection**. Prefer a battery pack with an NTC temperature lead routed to a charger temperature-sense input. If the selected charger/module does not support NTC sensing, use a conservative module with thermal protection and consider a physical thermal fuse placed against the cell/pack.
 - **Charge slowly by default**. Target roughly 250-500 mA unless the selected cell datasheet, enclosure thermals, and bench testing justify more. The project does not need 1A fast charging.
-- **Use a modern charger/module**. The charger should provide at least thermal regulation, charge termination, charge-status indication, and sane input/battery protection. Power-path support is optional; it is acceptable for the toy to be switched off or electrically disconnected from the load while charging.
-- **Use a modern 3.3V LDO**. Chosen part: **AP2112K-3.3** (600 mA, 55 µA Iq, 250 mV dropout). A buck-boost regulator is not required initially; revisit only if testing shows low-battery resets or unacceptable runtime.
+- **Budget the low-battery system current separately from charge current**. The prototype currently draws roughly 200–250mA from 5V during playback. The equivalent input is roughly 370–465mA at a 3.0V battery with 90% conversion efficiency, so use 500mA as the preliminary high bound for expected low-battery operation until BT streaming with a 4Ω speaker at 100% volume is measured. Give the cell, PCM, fuse, connector, traces, power path, and converters reasonable transient margin beyond the expected current. The target battery charge current remains 250–500mA.
+- **Use a modern charger/module**. The charger should provide at least thermal regulation, charge termination, charge-status indication, and sane input/battery protection. Prefer a power-path charger if the toy may operate while plugged in; it must prioritize the system load, reduce charge current when input or thermal limits are reached, and allow the battery to supplement peaks.
+- **Use a low-Iq 3.3V buck-boost regulator**. The modest cost/efficiency penalty is accepted in exchange for a regulated ESP32 rail through charger/SYS changes and low-battery sag. Validate efficiency, quiescent current, EMI, thermal behavior, and peak-current capability before selecting the exact part.
 - **Physically protect the battery**. The enclosure must prevent crushing, puncture, sharp edges, or wire strain on the LiPo. First prototypes should be charged only while supervised, and the charging/power section should get an electronics review before PCB manufacture.
 
 ### Key GPIO Assignments (ESP32-WROOM-32)
@@ -116,7 +117,7 @@ This is a child toy, so the power design prioritises safety, low heat, and predi
 | Button 1 (Songs) | GPIO32 |
 | Button 2 (Animals) | GPIO33 |
 | Vibration wake switch | GPIO27 |
-| SD + amp dual load-switch enable | GPIO13 |
+| SD load-switch + 5V boost enable | GPIO13 |
 | Status LED | GPIO2 |
 
 ### Target PCB Specs
@@ -286,10 +287,10 @@ KILLSWITCH (10-minute timer):
 7. **Idle Sleep Manager**
    - Reads `sleep.enabled`, `normalIdleSec`, `vibrationWakeIdleSec`, and `bleIdleSec` from `SD:/config.json`
    - Uses ESP32 EXT0 wake on `GPIO27` HIGH
-   - Drives both provisional SD + amp load-switch enables on `GPIO13`
+   - Drives the SD load-switch EN and 5V boost EN on `GPIO13`
    - Holds GPIO13 LOW with RTC GPIO hold during deep sleep
    - Powers peripherals back on during boot before SD, I2S, BT, and BLE init
-   - The standalone SD, audio, BT, and vibration diagnostics also drive GPIO13 HIGH while awake so they work with the load switches installed
+   - The standalone SD, audio, BT, and vibration diagnostics also drive GPIO13 HIGH while awake so they work with the final power-gating hardware installed
    - Exposes sleep settings in BLE `getConfig`; persists edits through BLE `setConfig`
 
 8. **Bedtime Mode Manager** (planned)
@@ -438,7 +439,7 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 
 ### Phase 3 — PCB Design (EasyEDA)
 1. Schematic: all components, power tree, GPIO mapping
-2. Select final charger/protection/LDO parts and fuse/temperature-protection ratings
+2. Select final charger/protection/3.3V-regulator/5V-boost parts and fuse/temperature-protection ratings
 3. Electronics review of LiPo charging, battery protection, power switch, and regulator design
 4. PCB layout: 60×40 mm, 2-layer
 5. BOM with LCSC part numbers
@@ -448,7 +449,7 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 1. Assemble first unit (manual or JLCPCB SMT)
 2. Flash firmware via USB (boot/enable pins accessible on PCB)
 3. End-to-end test: BT speaker, buttons, BLE app, battery
-4. Sleep test: normal 10-minute idle, vibration-only 2-minute idle, BLE idle timeout, vibration wake reboot, SD/amp load-switch power-off
+4. Sleep test: normal 10-minute idle, vibration-only 2-minute idle, BLE idle timeout, vibration wake reboot, SD-switch and amp-boost power-off
 
 ### Phase 5 — BLE Settings + Content Curation
 1. Add BLE config command/response contract
@@ -476,9 +477,9 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 
 ### Phase 7 — Final Toy PCB Power/Sleep Integration
 1. Select orderable vibration switch footprint and placement strategy inside the doll
-2. Validate AP2281-3WG-7 thermal behavior and leakage on the separate switched 3.3V SD and 5V amp rails
-3. Confirm or revise the provisional two-switch topology before final schematic capture
-4. Validate deep-sleep current with LiPo, charger/protection, ESP32, vibration switch, and both load switches installed
+2. Validate AP2281-3WG-7 thermal behavior and leakage on the switched 3.3V SD rail
+3. Select and validate a 5V boost converter with EN, true load disconnect, and at least 1A output capability at the low-battery limit
+4. Validate deep-sleep current with LiPo, charger/protection, ESP32, vibration switch, SD load switch, and 5V boost installed
 5. Verify no backfeeding into the powered-off SD card or amp through SPI/I2S/control pins
 
 ---
@@ -499,10 +500,11 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 - LiPo capacity (1000 vs 1500 vs 2000 mAh) — depends on doll body space
 - Exact charger module/IC and whether it has NTC temperature-sense input
 - Exact fuse/polyfuse and optional thermal-fuse ratings/placement
-- AP2112K-3.3 thermal/current validation under sustained ESP32 BT radio peaks on final PCB
+- Exact low-Iq 3.3V buck-boost part and validation of efficiency, EMI, quiescent current, thermal behavior, and ESP32 peak-current response
 - Exact vibration switch part/footprint and mechanical placement in the toy body
 - AP2281-3WG-7 off-state leakage, output discharge, and thermal/current validation on the final PCB
-- Confirm the provisional two-AP2281 topology: one 3.3V SD switch and one 5V amp switch, with both enables driven by GPIO13
+- Exact 5V boost converter; it must support GPIO EN, true load disconnect, and the low-battery audio current target
+- Measure maximum active current with BT streaming, a 4Ω speaker at 100% volume, and later with the final converters at the low-battery limit
 - CAD tool for enclosure (FreeCAD vs Fusion 360)
 - BT name per-unit strategy (same name "SweetYaar" for all, or personalised per gift?)
 - User's existing MicroPython code — review for any missing features

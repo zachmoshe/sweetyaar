@@ -55,11 +55,14 @@ Bluetooth, SD-card, or hardware-test workflows.
   - Wire each button between GPIO and GND; firmware uses pull-ups.
 - Sleep-mode hardware:
   - Normally-closed passive vibration switch: externally biased `GPIO27 -> switch -> GND`; the final PCB uses a 470 kΩ pull-up to 3.3V and firmware uses EXT0 wake on HIGH with internal pulls disabled.
-  - Provisional final-PCB intent: use two AP2281-3WG-7 load switches with their EN pins tied to `GPIO13`, active HIGH in firmware. One switches 3.3V to the bare SD card and all SD pull-ups; the other switches 5V to the MAX98357A amp. Do not join the two outputs. Confirm this topology during final schematic design.
-  - GPIO13 HIGH enables both peripheral rails; GPIO13 LOW turns both off, and firmware RTC-holds GPIO13 LOW during deep sleep.
-  - Keep a physical pulldown on the shared load-switch EN net as a reset/bootloader/failure-state default even though firmware holds GPIO13 LOW in normal deep sleep.
-  - On the current `esp32_prototype_devboard`, GPIO13 only drives an indication LED rather than real load switches, so the SD and amp remain powered during sleep-current tests.
-  - If testing without the load switches, direct SD/amp power is acceptable for functional firmware testing, but sleep-current measurements will not represent the final design.
+  - Final-PCB power-gating intent: use one AP2281-3WG-7 to switch 3.3V to the bare SD card and every SD pull-up, and use the 5V boost converter's EN to power-gate the MAX98357A. The boost must guarantee true load disconnect when disabled; otherwise it does not replace a dedicated amp load switch.
+  - GPIO13 HIGH enables the SD switch and 5V boost; GPIO13 LOW turns both off, and firmware RTC-holds GPIO13 LOW during deep sleep.
+  - Keep a physical pulldown on the shared GPIO13/EN net as a reset/bootloader/failure-state default even though firmware holds GPIO13 LOW in normal deep sleep.
+  - GPIO21 is not required for amp sleep-current isolation once the 5V boost is truly disconnected, but retain it by default because it cheaply provides runtime mute and click/pop sequencing. It can be reclaimed later if another function needs the GPIO; in that case configure MAX98357A `SD_MODE` passively from `5V_AMP`.
+  - The prototype currently draws roughly 200–250mA from a 5V PSU during playback. Use 500mA as the preliminary high bound for expected low-battery current until BT streaming with a 4Ω speaker at 100% volume is measured; select the battery and power path with additional transient margin. This is separate from the intended 250–500mA battery charge current.
+  - The final 3.3V rail uses a low-quiescent-current buck-boost regulator so the ESP32 sees regulated 3.3V across charger/SYS changes and low-battery sag. Exact part selection remains open.
+  - On the current `esp32_prototype_devboard`, GPIO13 only drives an indication LED rather than a real SD switch or boost EN, so the SD and amp remain powered during sleep-current tests.
+  - If testing without the final power gating, direct SD/amp power is acceptable for functional firmware testing, but sleep-current measurements will not represent the final design.
 
 ## Hardware Findings
 
@@ -189,9 +192,9 @@ Recent successful real-app smoke logs:
     idle connected BLE defaults to 2 minutes.
   - Deep sleep is a full reboot on wake. BT/BLE connections, current song, and
     playback position are intentionally not preserved.
-  - Before sleep, firmware stops WAV playback, mutes the amp, ends SD/SPI/I2S,
-    sets SD/I2S pins to input/high-Z, disables and RTC-holds the GPIO13 load
-    switch control LOW, waits for the normally-closed wake switch to return to
+  - Before sleep, firmware stops WAV playback, mutes the amp if GPIO21 is retained,
+    ends SD/SPI/I2S, sets SD/I2S pins to input/high-Z, disables and RTC-holds the
+    GPIO13 peripheral-enable control LOW, waits for the normally-closed wake switch to return to
     its closed resting state if needed, and enables EXT0 wake on GPIO27 HIGH.
 - Killswitch:
   - Writing/triggering `1` activates it outside BT mode.
