@@ -261,11 +261,21 @@ void StateMachine::updateLed() {
     uint32_t interval = 0;
 
     switch (_state) {
-        case State::IDLE:           interval = 2000; break;  // slow blink: alive
-        case State::PLAYING_SONG:   interval = 500;  break;  // medium: playing
-        case State::PLAYING_ANIMAL: interval = 300;  break;  // faster: animal
-        case State::BT_STREAMING:   interval = 100;  break;  // fast: streaming
-        case State::KILLSWITCH:     interval = 1000; break;  // 1s blink: locked
+        case State::IDLE:
+            interval = 1000;  // 1s on / 1s off: ready
+            break;
+        case State::PLAYING_SONG:
+        case State::PLAYING_ANIMAL:
+            interval = 500;   // 0.5s on / 0.5s off: local playback
+            break;
+        case State::BT_STREAMING:
+            interval = 100;   // 0.1s on / 0.1s off: Classic BT connected
+            break;
+        case State::KILLSWITCH:
+            // Hold the current phase for its requested duration before
+            // toggling: 1s lit, followed by a short 0.25s dark pulse.
+            interval = _ledState ? 1000 : 250;
+            break;
     }
 
     if ((now - _ledLastToggleMs) >= interval) {
