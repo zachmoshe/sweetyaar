@@ -6,7 +6,7 @@
 #include "Config.h"
 
 inline gpio_num_t peripheralPowerGpio() {
-    return static_cast<gpio_num_t>(PIN_PERIPH_EN);
+    return static_cast<gpio_num_t>(PIN_PERIPH_PWR_EN);
 }
 
 inline void releasePeripheralPowerSleepHold() {
@@ -19,8 +19,8 @@ inline void releasePeripheralPowerSleepHold() {
 
 inline void setPeripheralPowerEnabled(bool enabled) {
     releasePeripheralPowerSleepHold();
-    pinMode(PIN_PERIPH_EN, OUTPUT);
-    digitalWrite(PIN_PERIPH_EN, enabled ? HIGH : LOW);
+    pinMode(PIN_PERIPH_PWR_EN, OUTPUT);
+    digitalWrite(PIN_PERIPH_PWR_EN, enabled ? HIGH : LOW);
 }
 
 inline void enablePeripheralPower(uint32_t settleMs = 50) {
@@ -28,10 +28,6 @@ inline void enablePeripheralPower(uint32_t settleMs = 50) {
     if (settleMs > 0) {
         delay(settleMs);
     }
-}
-
-inline void disablePeripheralPower() {
-    setPeripheralPowerEnabled(false);
 }
 
 inline void holdPeripheralPowerOffForDeepSleep() {

@@ -264,8 +264,7 @@ def check_heap_in_log(log_path):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Build/upload BT debug firmware, capture serial logs, and optionally connect/play from macOS.")
-    parser.add_argument("--env", default="btdebug", help="PlatformIO environment to build/upload.")
+        description="Build/upload SweetYaar firmware, capture serial logs, and optionally connect/play from macOS.")
     parser.add_argument("--skip-upload", action="store_true")
     parser.add_argument("--serial-port")
     parser.add_argument("--baud", type=int, default=115200)
@@ -288,7 +287,7 @@ def main():
     log_path = LOG_DIR / f"bt-smoke-{dt.datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
 
     if not args.skip_upload:
-        run([PIO, "run", "-e", args.env, "-t", "upload"])
+        run([PIO, "run", "-t", "upload"])
         time.sleep(2.0)
 
     port = find_serial_port(args.serial_port)

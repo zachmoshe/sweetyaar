@@ -24,8 +24,8 @@ This project is a v2 redesign of a custom ESP32-based baby toy controller origin
 | OTA firmware | Not in product plan | Firmware is flashed through PlatformIO/serial during development |
 | Idle sleep / wake | ESP32 deep sleep with passive vibration wake | Saves battery after inactivity; wake is a full reboot, which is acceptable for the toy |
 | Peripheral power gating | One 3.3V SD load switch plus the 5V boost converter's EN | GPIO13 enables both branches while awake; the boost must provide true load disconnect so a second amp load-switch IC is unnecessary |
-| Battery | Single-cell LiPo, 3.7V, ~1500–2000 mAh | Compact, rechargeable |
-| Charging / battery safety | Modern single-cell LiPo charger module/IC with battery protection | Safety over fast charging; exact part TBD; use low charge current, fuse protection, and battery temperature protection |
+| Battery | Single-cell LiPo, 3.7V; 3400 mAh test pack, with ~2000 mAh likely sufficient | Final capacity depends on measured runtime and physical fit |
+| Charging / battery safety | Modern single-cell LiPo charger module/IC with battery protection | Current test module defaults to 1 A and performs well with the 3400 mAh pack; final pairing still requires cell-rate and thermal validation |
 | Power regulation | Low-Iq 3.3V buck-boost | Keeps the ESP32 rail regulated across charger/SYS voltage changes and low-battery sag; exact part remains TBD |
 | PCB tool | EasyEDA / LCEDA | Integrated with JLCPCB for small-batch manufacturing |
 | Enclosure | 3D-printed (design TBD) | Holds PCB + LiPo + speaker; fits inside/attaches to doll body |
@@ -80,12 +80,12 @@ Even the high end of this electronic-load estimate is small relative to LiPo sel
 
 The 3.3V regulator must still handle ESP32 radio peaks even though average system current is lower. Validate the complete power tree with BT streaming, a 4Ω speaker at 100% volume, the final converters, and a low battery; a bench PSU display or multimeter may average out short peaks.
 - `GPIO27` is the wake input. The normally-closed passive vibration switch holds `GPIO27` at GND while resting and opens when it moves; an external pull-up raises the pin and firmware uses ESP32 EXT0 deep-sleep wake on HIGH.
-- `GPIO13` drives the SD load-switch EN and 5V boost-converter EN. The current firmware assumes active HIGH: HIGH powers SD + amp, LOW turns both off. Before deep sleep, firmware reconfigures GPIO13 as an RTC output LOW and enables RTC hold so both branches remain disabled while the ESP32 sleeps.
-- The SD switch is Diodes Inc. `AP2281-3WG-7` in SOT26/SOT23-6. Tie pins `4` and `6` to the always-on 3.3V rail, pins `2` and `5` to GND, pin `3` to `GPIO13`, and pin `1` to `3V3_SD`. Place the recommended 1µF input and 0.1µF output capacitors close to it.
-- Add a 100kΩ pulldown from the shared `EN`/GPIO13 net to GND as a hardware fail-safe so both peripheral branches stay off during reset, bootloader, flashing, and crash windows before firmware configures the pin. No EN pull-up is required.
-- The 5V boost converter replaces the amp's dedicated load switch only if its datasheet guarantees true load disconnect in shutdown. EN LOW must not pass the battery/SYS voltage to `5V_AMP` through a diode or internal FET. Output discharge is optional; if fast discharge is needed, evaluate a high-value bleeder resistor against the powered-on loss.
-- `GPIO21` is no longer required for sleep-current isolation because disabling the boost removes amp power, but retain it by default because the connection costs essentially nothing and provides runtime mute and click/pop sequencing. If another function later needs the GPIO, remove this connection and configure `SD_MODE` passively from the switched `5V_AMP` rail.
-- The product wiring keeps the ESP32 on the always-on 3.3V rail. The bare SD card and every SD pull-up use `3V3_SD`; the MAX98357A uses the boost output `5V_AMP`.
+- `PERIPH_PWR_EN` on GPIO13 drives the SD load-switch EN and 5V boost-converter EN. The current firmware assumes active HIGH: HIGH powers SD + amp, LOW turns both off. Before deep sleep, firmware reconfigures GPIO13 as an RTC output LOW and enables RTC hold so both branches remain disabled while the ESP32 sleeps.
+- The SD switch is Diodes Inc. `AP2281-3WG-7` in SOT26/SOT23-6. Tie pins `4` and `6` to `3V3_AON`, pins `2` and `5` to GND, pin `3` to `PERIPH_PWR_EN`/GPIO13, and pin `1` to `3V3_PERIPH_SW`. Place the recommended 1µF input and 0.1µF output capacitors close to it.
+- Add a 100kΩ pulldown from the shared `PERIPH_PWR_EN`/GPIO13 net to GND as a hardware fail-safe so both peripheral branches stay off during reset, bootloader, flashing, and crash windows before firmware configures the pin. No EN pull-up is required.
+- The 5V boost converter replaces the amp's dedicated load switch only if its datasheet guarantees true load disconnect in shutdown. EN LOW must not pass the battery/SYS voltage to `5V_PERIPH_SW` through a diode or internal FET. Output discharge is optional; if fast discharge is needed, evaluate a high-value bleeder resistor against the powered-on loss.
+- `GPIO21` is no longer required for sleep-current isolation because disabling the boost removes amp power, but retain it by default because the connection costs essentially nothing and provides runtime mute and click/pop sequencing. If another function later needs the GPIO, remove this connection and configure `SD_MODE` passively from the switched `5V_PERIPH_SW` rail.
+- The product wiring keeps the ESP32 on `3V3_AON`. The bare SD card and every SD pull-up use `3V3_PERIPH_SW`; the MAX98357A uses the boost output `5V_PERIPH_SW`.
 - Before entering sleep, firmware stops WAV playback, mutes the amp if GPIO21 is retained, ends I2S/SPI/SD, sets SD/I2S/control pins to input/high-Z, disables the SD switch and 5V boost, waits for the normally-closed vibration switch to return to its closed resting state, and then enters deep sleep.
 - Wake from vibration is a normal reboot. BT/BLE clients disconnect, the current song is not remembered, and state returns to normal boot defaults.
 
@@ -96,8 +96,8 @@ This is a child toy, so the power design prioritises safety, low heat, and predi
 - **Use a reputable protected single-cell LiPo pack**. Prefer a pack with a built-in protection circuit module (PCM) covering overcharge, overdischarge, overcurrent, and short-circuit protection.
 - **Add simple board-level protection**. Include an appropriately rated fuse or resettable polyfuse in the battery/USB power path. Add strain relief and keyed connectors so battery and speaker leads cannot be pulled loose or reversed easily.
 - **Add battery temperature protection**. Prefer a battery pack with an NTC temperature lead routed to a charger temperature-sense input. If the selected charger/module does not support NTC sensing, use a conservative module with thermal protection and consider a physical thermal fuse placed against the cell/pack.
-- **Charge slowly by default**. Target roughly 250-500 mA unless the selected cell datasheet, enclosure thermals, and bench testing justify more. The project does not need 1A fast charging.
-- **Budget the low-battery system current separately from charge current**. The prototype currently draws roughly 200–250mA from 5V during playback. The equivalent input is roughly 370–465mA at a 3.0V battery with 90% conversion efficiency, so use 500mA as the preliminary high bound for expected low-battery operation until BT streaming with a 4Ω speaker at 100% volume is measured. Give the cell, PCM, fuse, connector, traces, power path, and converters reasonable transient margin beyond the expected current. The target battery charge current remains 250–500mA.
+- **Use a validated charge rate**. The module currently under test defaults to 1A and has performed well with the 3400mAh test pack. Retain that setting only if the final cell datasheet, wiring, charger thermals, and closed-enclosure testing support it. A smaller 2000mAh pack must be checked independently rather than assumed to accept the same rate.
+- **Budget the low-battery system current separately from charge current**. The prototype currently draws roughly 200–250mA from 5V during playback. The equivalent input is roughly 370–465mA at a 3.0V battery with 90% conversion efficiency, so use 500mA as the preliminary high bound for expected low-battery operation until BT streaming with a 4Ω speaker at 100% volume is measured. Give the cell, PCM, fuse, connector, traces, power path, and converters reasonable transient margin beyond the expected current. This operating-current estimate is separate from the charger's tested 1A setting.
 - **Use a modern charger/module**. The charger should provide at least thermal regulation, charge termination, charge-status indication, and sane input/battery protection. Prefer a power-path charger if the toy may operate while plugged in; it must prioritize the system load, reduce charge current when input or thermal limits are reached, and allow the battery to supplement peaks.
 - **Use a low-Iq 3.3V buck-boost regulator**. The modest cost/efficiency penalty is accepted in exchange for a regulated ESP32 rail through charger/SYS changes and low-battery sag. Validate efficiency, quiescent current, EMI, thermal behavior, and peak-current capability before selecting the exact part.
 - **Physically protect the battery**. The enclosure must prevent crushing, puncture, sharp edges, or wire strain on the LiPo. First prototypes should be charged only while supervised, and the charging/power section should get an electronics review before PCB manufacture.
@@ -150,8 +150,8 @@ The toy automatically enters real ESP32 deep sleep after inactivity, controlled 
 
 ### Bedtime Mode
 
-Bedtime mode is a planned parent-controlled local playback mode. See
-`docs/bedtime-mode.md` for the full product and UX spec.
+Bedtime mode is a parent-controlled local playback mode. See
+`docs/mobile-app.md` for the parent-facing behavior and UX reference.
 
 - The feature has one master setting, one daily bedtime window, one bedtime
   theme, and one volume cap. It is not a general scheduler.
@@ -290,7 +290,6 @@ KILLSWITCH (10-minute timer):
    - Drives the SD load-switch EN and 5V boost EN on `GPIO13`
    - Holds GPIO13 LOW with RTC GPIO hold during deep sleep
    - Powers peripherals back on during boot before SD, I2S, BT, and BLE init
-   - The standalone SD, audio, BT, and vibration diagnostics also drive GPIO13 HIGH while awake so they work with the final power-gating hardware installed
    - Exposes sleep settings in BLE `getConfig`; persists edits through BLE `setConfig`
 
 8. **Bedtime Mode Manager** (planned)
@@ -497,7 +496,7 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 
 ## Open Items / To Discuss Later
 - Speaker impedance (4Ω or 8Ω) — affects MAX98357A output power
-- LiPo capacity (1000 vs 1500 vs 2000 mAh) — depends on doll body space
+- Final LiPo capacity: the 3400 mAh test pack works, while roughly 2000 mAh will probably be sufficient if runtime and doll-body fit are acceptable
 - Exact charger module/IC and whether it has NTC temperature-sense input
 - Exact fuse/polyfuse and optional thermal-fuse ratings/placement
 - Exact low-Iq 3.3V buck-boost part and validation of efficiency, EMI, quiescent current, thermal behavior, and ESP32 peak-current response

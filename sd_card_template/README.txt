@@ -50,8 +50,8 @@ bedtime.enabled controls the Bedtime mode master setting. startTime and endTime
 are local HH:MM clock times. The default bedtime window is 18:30 to 06:30 and
 crosses midnight. The bedtime theme is a single normal song theme folder id.
 volumeCapPct caps effective local WAV volume while Bedtime mode is active.
-See docs/bedtime-mode.md for full behavior, time-sync, fallback, and parent-app
-UX details.
+See docs/mobile-app.md for full behavior, time-sync, fallback, and parent-app UX
+details.
 
 sleep.enabled controls automatic deep sleep. normalIdleSec is used after real
 toy activity. vibrationWakeIdleSec is used when the device woke only because the
