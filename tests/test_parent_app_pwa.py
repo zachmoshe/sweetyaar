@@ -127,12 +127,19 @@ def test_parent_app_manifest_contract(repo_root) -> None:
 
 
 def test_parent_app_index_links_pwa_assets(repo_root) -> None:
-    index_html = (repo_root / "public" / "index.html").read_text(encoding="utf-8")
+    public_dir = repo_root / "public"
+    index_html = (public_dir / "index.html").read_text(encoding="utf-8")
+    tokens_css = (public_dir / "tokens.css").read_text(encoding="utf-8")
 
     assert '<meta name="theme-color" content="#08736c">' in index_html
     assert '<meta name="mobile-web-app-capable" content="yes">' in index_html
     assert "apple-mobile-web-app-capable" not in index_html
     assert '<link rel="manifest" href="manifest.webmanifest">' in index_html
+    assert '<link rel="stylesheet" href="tokens.css">' in index_html
+    assert ":root {" not in index_html
+    assert ":root {" in tokens_css
+    assert "--teal: #34b8a9;" in tokens_css
+    assert 'Arial Rounded MT Bold' in tokens_css
     assert 'href="favicon.ico"' in index_html
     assert 'href="assets/favicon-16.png"' in index_html
     assert 'href="assets/favicon-32.png"' in index_html
@@ -192,6 +199,7 @@ def test_parent_app_service_worker_precache_contract(repo_root) -> None:
     assert "./favicon.ico" in urls
     assert "./index.html" in urls
     assert "./manifest.webmanifest" in urls
+    assert "./tokens.css" in urls
     assert "./assets/favicon-16.png" in urls
     assert "./assets/favicon-32.png" in urls
     assert "./assets/favicon-48.png" in urls

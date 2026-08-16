@@ -466,7 +466,9 @@ wheels = [
 name = "sweetyaar"
 version = "0.1.0"
 source = { virtual = "." }
-dependencies = [
+
+[package.dev-dependencies]
+dev = [
     { name = "bleak" },
     { name = "platformio" },
     { name = "pyserial" },
@@ -474,7 +476,9 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [
+
+[package.metadata.requires-dev]
+dev = [
     { name = "bleak", specifier = ">=3,<4" },
     { name = "platformio", specifier = "==6.1.19" },
     { name = "pyserial", specifier = ">=3.5,<4" },

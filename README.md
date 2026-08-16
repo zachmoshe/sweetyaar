@@ -6,15 +6,15 @@ is a PlatformIO/Arduino C++ firmware project with:
 - Bluetooth Classic A2DP speaker support.
 - BLE parent controls and settings over a single-page Web Bluetooth app.
 - SD-card WAV playback for songs and animal sounds.
-- Configurable content metadata, sleep-mode behavior, and planned Bedtime mode.
-- Hardware notes and KiCad design files for the prototype PCB.
+- Configurable content metadata, sleep-mode behavior, and Bedtime mode.
+- Hardware planning notes for the prototype and final PCB.
 
 ## Repository History
 
 This repository has three useful history points:
 
 - `main`: the current ESP32/PlatformIO firmware, Web Bluetooth parent remote,
-  SD-card content template, sleep-mode work, and PCB prototype files.
+  SD-card content template, sleep-mode work, and hardware planning artifacts.
 - `v1.0`: the previous MicroPython-era implementation that used to be the
   remote `main` branch.
 - `v0.0`: an older educational snapshot that used to be named `v1.0`.
@@ -43,75 +43,64 @@ git switch main
 Use the project virtual environment for PlatformIO:
 
 ```bash
-/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e esp32dev
+/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e sweetyaar
 ```
 
-The main PlatformIO environments are:
-
-- `esp32dev`: current application firmware.
-- `btdebug`: application firmware with extra Classic BT/A2DP logging.
-- `sdtest`: standalone SD-card SPI diagnostic.
-- `audiotest`: standalone MAX98357A/I2S diagnostic.
-- `bttest`: standalone Classic BT/A2DP diagnostic.
-- `vibsleep`: standalone vibration wake and deep-sleep test firmware.
-
-Useful commands:
+The only PlatformIO environment is `sweetyaar`, which builds the complete
+application firmware:
 
 ```bash
-/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e esp32dev
-/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e btdebug
-/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e sdtest
-/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e audiotest
-/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e bttest
-/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e vibsleep
+/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e sweetyaar
 ```
 
 ## Regression Tests
 
-Install the test runner once:
+Create or update the project environment:
 
 ```bash
-/Users/zmoshe/proj/sweetyaar/.venv/bin/python -m pip install -r requirements-dev.txt
+uv sync
 ```
 
 Run the standard regression suite:
 
 ```bash
-/Users/zmoshe/proj/sweetyaar/.venv/bin/python -m pytest
+uv run python -m pytest
 ```
 
-If the venv is activated, plain `pytest` is equivalent. Real-device smoke tests
-are collected by pytest; if the ESP32 USB serial device is missing, those
+The `dev` dependency group is installed by default and locked in `uv.lock`. If
+the venv is activated, plain `python -m pytest` is equivalent. Real-device smoke
+tests are collected by pytest; if the ESP32 USB serial device is missing, those
 specific tests skip with a USB prerequisite message. If USB is present, pytest
 resets the ESP32 before BLE smoke checks so a sleeping toy can wake and
 advertise before the test decides whether to skip.
 
-See `docs/regression-tests.md` for coverage details and hardware options.
+See [`docs/firmware.md`](docs/firmware.md) for firmware behavior, architecture,
+build instructions, and test coverage.
 
 ## Project Layout
 
-- `src/`: firmware source and diagnostic/test entry points.
+- `src/`: production firmware source.
 - `tests/`: pytest regression suite, including host tests and real-device smoke tests.
 - `public/`: deployable Web Bluetooth parent remote PWA.
-- `docs/`: product, PWA, and regression-test documentation.
+- `docs/`: one guide each for firmware, the mobile app, and hardware.
 - `sd_card_template/`: expected SD-card folder structure, metadata, and config.
 - `tools/`: local Bluetooth/BLE smoke and probe helpers.
-- `esp32_prototype_board/`: PCB design files, manufacturing outputs, and notes.
 - `project-plan.md`: detailed architecture and hardware planning notes.
-- `docs/bedtime-mode.md`: product and UX spec for Bedtime mode.
-- `docs/pin-map.md`: GPIO wiring assumptions used by the production firmware.
-- `docs/pwa.md`: parent remote PWA, offline, and deployment notes.
-- `breadboard-wiring.md`: breadboard wiring reference.
+- [`docs/firmware.md`](docs/firmware.md): device behavior, firmware components,
+  build instructions, regression tests, and device smoke tests.
+- [`docs/mobile-app.md`](docs/mobile-app.md): parent remote behavior, design
+  assets, Bedtime mode, offline support, deployment, and app tests.
+- [`docs/hardware.md`](docs/hardware.md): system architecture, DevKit wiring,
+  production power design, safety requirements, and bring-up checks.
 
 ## Hardware Target
 
 The firmware targets the original ESP32-WROOM-32. This matters because the toy
 uses Bluetooth Classic A2DP, which is not available on ESP32-S3/C3/C6 variants.
 
-The current hardware plan uses GPIO13 as an active-HIGH load-switch enable for
-the SD card module and MAX98357A amp rail. The real app enables that rail during
-boot, then drives and RTC-holds GPIO13 LOW before deep sleep; the standalone SD,
-audio, BT, and vibration diagnostics also drive GPIO13 HIGH while awake so they
-work with the load switch installed. See `breadboard-wiring.md` for
-AP2281-3WG-7 wiring, including the required common ground and recommended EN
-pulldown.
+The current hardware plan uses GPIO13/`PERIPH_PWR_EN` as the shared active-HIGH
+enable for the 3.3 V peripheral load switch and the 5 V peripheral boost. The
+real app enables both branches during boot, then drives and RTC-holds GPIO13 LOW
+before deep sleep; see
+[`docs/hardware.md`](docs/hardware.md) for the AP2281-3WG-7 SD switch, 5 V amp
+boost, required common ground, and shared-enable pulldown.

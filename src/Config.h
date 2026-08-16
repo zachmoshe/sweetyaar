@@ -25,7 +25,7 @@ static constexpr int PIN_BTN2       = 33;  // Button 2: Animals
 
 // --- Sleep / power gating ---------------------------------------------------
 static constexpr int PIN_VIB_WAKE   = 27;  // Externally biased NC vibration switch to GND; wake HIGH
-static constexpr int PIN_PERIPH_EN  = 13;  // Load-switch enable for SD + amp
+static constexpr int PIN_PERIPH_PWR_EN = 13;  // Shared enable for switched 3.3 V and 5 V rails
 
 // --- Status LED -------------------------------------------------------------
 static constexpr int PIN_LED        = 2;   // On-board LED
@@ -57,10 +57,6 @@ static constexpr int     BT_A2DP_I2S_TASK_STACK_BYTES = 2048;
 
 // BLE parent controls are live session controls for local SD/WAV playback.
 static constexpr bool ENABLE_BLE_PARENT_SERVICE = true;
-
-#ifndef SWEETYAAR_BT_DEBUG
-#define SWEETYAAR_BT_DEBUG 0
-#endif
 
 // ---------------------------------------------------------------------------
 // SD file paths

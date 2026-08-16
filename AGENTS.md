@@ -16,17 +16,11 @@ Bluetooth, SD-card, or hardware-test workflows.
 - Use the project venv for PlatformIO and Python tools:
   - `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio`
   - `/Users/zmoshe/proj/sweetyaar/.venv/bin/python`
-- Main PlatformIO environments:
-  - `esp32dev`: real application firmware.
-  - `btdebug`: debug firmware with extra Classic BT/A2DP event logging.
-  - `vibsleep`: standalone vibration wake/deep-sleep test firmware.
+- PlatformIO environment:
+  - `sweetyaar`: complete application firmware.
 - Common commands:
-  - Build real app: `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e esp32dev`
-  - Upload real app: `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e esp32dev -t upload`
-  - Build BT debug app: `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e btdebug`
-  - Upload BT debug app: `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e btdebug -t upload`
-  - Build vibration sleep test: `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e vibsleep`
-  - Upload vibration sleep test: `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e vibsleep -t upload`
+  - Build real app: `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e sweetyaar`
+  - Upload real app: `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e sweetyaar -t upload`
 - The shell may not see this directory as a Git repository. Do not rely on
   `git diff` being available unless you verify it first.
 
@@ -56,10 +50,10 @@ Bluetooth, SD-card, or hardware-test workflows.
 - Sleep-mode hardware:
   - Normally-closed passive vibration switch: externally biased `GPIO27 -> switch -> GND`; the final PCB uses a 470 kΩ pull-up to 3.3V and firmware uses EXT0 wake on HIGH with internal pulls disabled.
   - Final-PCB power-gating intent: use one AP2281-3WG-7 to switch 3.3V to the bare SD card and every SD pull-up, and use the 5V boost converter's EN to power-gate the MAX98357A. The boost must guarantee true load disconnect when disabled; otherwise it does not replace a dedicated amp load switch.
-  - GPIO13 HIGH enables the SD switch and 5V boost; GPIO13 LOW turns both off, and firmware RTC-holds GPIO13 LOW during deep sleep.
-  - Keep a physical pulldown on the shared GPIO13/EN net as a reset/bootloader/failure-state default even though firmware holds GPIO13 LOW in normal deep sleep.
-  - GPIO21 is not required for amp sleep-current isolation once the 5V boost is truly disconnected, but retain it by default because it cheaply provides runtime mute and click/pop sequencing. It can be reclaimed later if another function needs the GPIO; in that case configure MAX98357A `SD_MODE` passively from `5V_AMP`.
-  - The prototype currently draws roughly 200–250mA from a 5V PSU during playback. Use 500mA as the preliminary high bound for expected low-battery current until BT streaming with a 4Ω speaker at 100% volume is measured; select the battery and power path with additional transient margin. This is separate from the intended 250–500mA battery charge current.
+  - `PERIPH_PWR_EN` on GPIO13 enables the SD switch and 5V boost when HIGH and turns both off when LOW; firmware RTC-holds it LOW during deep sleep.
+  - Keep a physical pulldown on the shared GPIO13/`PERIPH_PWR_EN` net as a reset/bootloader/failure-state default even though firmware holds GPIO13 LOW in normal deep sleep.
+  - GPIO21 is not required for amp sleep-current isolation once the 5V boost is truly disconnected, but retain it by default because it cheaply provides runtime mute and click/pop sequencing. It can be reclaimed later if another function needs the GPIO; in that case configure MAX98357A `SD_MODE` passively from `5V_PERIPH_SW`.
+  - The prototype currently draws roughly 200–250mA from a 5V PSU during playback. Use 500mA as the preliminary high bound for expected low-battery current until BT streaming with a 4Ω speaker at 100% volume is measured; select the battery and power path with additional transient margin. This is separate from the charger module's tested 1A default setting. The current battery is 3400mAh; roughly 2000mAh will probably be sufficient if runtime and packaging tests confirm it.
   - The final 3.3V rail uses a low-quiescent-current buck-boost regulator so the ESP32 sees regulated 3.3V across charger/SYS changes and low-battery sag. Exact part selection remains open.
   - On the current `esp32_prototype_devboard`, GPIO13 only drives an indication LED rather than a real SD switch or boost EN, so the SD and amp remain powered during sleep-current tests.
   - If testing without the final power gating, direct SD/amp power is acceptable for functional firmware testing, but sleep-current measurements will not represent the final design.
@@ -97,8 +91,8 @@ Bluetooth, SD-card, or hardware-test workflows.
 - The real app currently starts A2DP and BLE together. Memory is tight but
   working with a 16KB A2DP queue:
   - `[BT] A2DP queue ready: 16384B (...)`
-- Do not increase the A2DP ringbuffer or BLE payloads without rerunning both
-  real-app and BT-debug smoke tests.
+- Do not increase the A2DP ringbuffer or BLE payloads without rerunning the
+  real-app smoke tests.
 - `SweetYaar Remote` may appear as the macOS audio output even after the firmware
   advertises `SweetYaar`; this is likely a cached macOS device name. The smoke
   script fuzzy-matches output devices containing `SweetYaar`.
@@ -127,7 +121,7 @@ macOS Bluetooth privacy is the main trap.
 Use the script, not ad hoc commands:
 
 ```bash
-/Users/zmoshe/proj/sweetyaar/.venv/bin/python /Users/zmoshe/proj/sweetyaar/tools/mac_bt_smoke_test.py --env esp32dev --bt-address 40-22-D8-3D-8A-22 --device-name SweetYaar
+/Users/zmoshe/proj/sweetyaar/.venv/bin/python /Users/zmoshe/proj/sweetyaar/tools/mac_bt_smoke_test.py --bt-address 40-22-D8-3D-8A-22 --device-name SweetYaar
 ```
 
 For a no-flash rerun against the current firmware:
@@ -136,23 +130,17 @@ For a no-flash rerun against the current firmware:
 /Users/zmoshe/proj/sweetyaar/.venv/bin/python /Users/zmoshe/proj/sweetyaar/tools/mac_bt_smoke_test.py --skip-upload --bt-address 40-22-D8-3D-8A-22 --device-name SweetYaar
 ```
 
-For debug firmware:
-
-```bash
-/Users/zmoshe/proj/sweetyaar/.venv/bin/python /Users/zmoshe/proj/sweetyaar/tools/mac_bt_smoke_test.py --env btdebug --bt-address 40-22-D8-3D-8A-22 --device-name SweetYaar
-```
-
 When launching from Codex, prefer Terminal via AppleScript so Terminal owns the
 Bluetooth permission:
 
 ```bash
 osascript -e 'tell application "Terminal" to activate' \
-  -e 'tell application "Terminal" to do script "/Users/zmoshe/proj/sweetyaar/.venv/bin/python /Users/zmoshe/proj/sweetyaar/tools/mac_bt_smoke_test.py --env esp32dev --bt-address 40-22-D8-3D-8A-22 --device-name SweetYaar 2>&1 | tee /Users/zmoshe/proj/sweetyaar/tools/bt_smoke_logs/terminal-realapp-smoke-latest.log; echo; echo Real app smoke finished; read -n 1 -s -r -p \"Press any key to close...\"; exit"'
+  -e 'tell application "Terminal" to do script "/Users/zmoshe/proj/sweetyaar/.venv/bin/python /Users/zmoshe/proj/sweetyaar/tools/mac_bt_smoke_test.py --bt-address 40-22-D8-3D-8A-22 --device-name SweetYaar 2>&1 | tee /Users/zmoshe/proj/sweetyaar/tools/bt_smoke_logs/terminal-realapp-smoke-latest.log; echo; echo Real app smoke finished; read -n 1 -s -r -p \"Press any key to close...\"; exit"'
 ```
 
 Expected successful real-app smoke markers:
 
-- PlatformIO upload succeeds for `esp32dev`.
+- PlatformIO upload succeeds for `sweetyaar`.
 - Boot prints `=== SweetYaar Boot ===`.
 - SD mounts: `[WavPlayer] SD OK`.
 - A2DP starts: `[BT] A2DP sink started as "SweetYaar"`.
@@ -210,9 +198,8 @@ Recent successful real-app smoke logs:
 - Use `apply_patch` for manual edits.
 - Keep edits scoped; this project has a lot of hardware-state coupling.
 - After firmware changes, run at least:
-  - `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e esp32dev`
+  - `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e sweetyaar`
 - After BT, BLE, I2S, memory, or state-machine changes, run:
-  - Real-app smoke (`esp32dev`)
-  - Debug smoke (`btdebug`) when event-level detail is needed.
+  - Real-app smoke (`sweetyaar`)
 - Do not trust a successful compile alone for BT/A2DP work. The important proof
   is connection, audio routing, `Audio state: STARTED`, and no crash/reboot.

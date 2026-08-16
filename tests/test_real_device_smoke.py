@@ -74,8 +74,6 @@ def test_real_device_dual_mode_concurrent(pytestconfig: pytest.Config, repo_root
     result = run_command([
         sys.executable,
         repo_root / "tools" / "mac_bt_smoke_test.py",
-        "--env",
-        "esp32dev",
         "--bt-address",
         bt_address,
         "--device-name",
@@ -109,8 +107,6 @@ def test_real_device_classic_bt_audio_smoke(pytestconfig: pytest.Config, repo_ro
     result = run_command([
         sys.executable,
         repo_root / "tools" / "mac_bt_smoke_test.py",
-        "--env",
-        "esp32dev",
         "--bt-address",
         bt_address,
         "--device-name",

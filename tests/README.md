@@ -4,7 +4,7 @@ All automated regression tests are collected by pytest from this directory.
 Run the full suite from the repo root or any worktree with:
 
 ```bash
-/Users/zmoshe/proj/sweetyaar/.venv/bin/python -m pytest
+uv run python -m pytest
 ```
 
 If the venv is active, `pytest` is equivalent. Hardware tests should report as
@@ -30,7 +30,7 @@ Pytest only discovers `test_*.py` files directly. The `.js`, `.cpp`, and
 ## Current Tests
 
 - `test_firmware_config.py::test_sd_template_has_versioned_sleep_config`: checks that `sd_card_template/config.json` has schema version 2, the expected defaults, and all sleep config fields.
-- `test_firmware_build.py::test_esp32dev_firmware_build`: runs `pio run -e esp32dev` and expects a successful real-app firmware build.
+- `test_firmware_build.py::test_sweetyaar_firmware_build`: runs PlatformIO's default `sweetyaar` environment and expects a successful real-app firmware build.
 - `test_state_machine.py::test_state_machine_native_transitions`: compiles the real state machine on the host and runs the C++ scenarios in `state_machine_native_test.cpp`.
 - `state_machine_native_test.cpp::testLocalPlaybackTransitions`: verifies idle/local playback transitions for song, animal, and stop events.
 - `state_machine_native_test.cpp::testBtStreamingIgnoresLocalControls`: verifies that local play/stop controls do not change state while Classic BT streaming is active.
@@ -49,7 +49,7 @@ Pytest only discovers `test_*.py` files directly. The `.js`, `.cpp`, and
 - `parent_app_ui_test.js::settings screen loads config and content scans`: checks settings load, config fields, theme scan, and song scan handling.
 - `parent_app_ui_test.js::settings save writes config, theme, and song payloads`: writes every config field plus theme/song edits and verifies the fake GATT payloads.
 - `test_real_device_smoke.py::test_real_device_ble_config_round_trip`: resets the ESP32, runs the BLE probe, writes all config fields through firmware, verifies them, and restores the original config.
-- `test_real_device_smoke.py::test_real_device_classic_bt_audio_smoke`: checks BLE advertisement preflight, uploads/runs `esp32dev`, connects Classic BT, routes audio, and verifies A2DP smoke markers.
+- `test_real_device_smoke.py::test_real_device_classic_bt_audio_smoke`: checks BLE advertisement preflight, uploads/runs `sweetyaar`, connects Classic BT, routes audio, and verifies A2DP smoke markers.
 
 ## Where To Add Tests
 
@@ -65,27 +65,17 @@ native scanner test with a fake filesystem/SD layer around the firmware scanner.
 Do not rely on the inserted SD card for CI-like tests, and do not reimplement
 the scanner in Python just to inspect the template.
 
-## Load-Switch Hardware Note
-
-The real app and the standalone `sdtest`, `audiotest`, `bttest`, and `vibsleep`
-firmware environments all drive GPIO13 HIGH while awake. This supports the
-active-HIGH AP2281-style load switch used for the SD card module and MAX98357A
-amp rail. The real app and `vibsleep` hold GPIO13 LOW with RTC GPIO hold during
-deep sleep. When the load switch is installed, wire GPIO13 to `EN`, keep all
-grounds common, and add the recommended EN pulldown described in
-`breadboard-wiring.md`.
-
 ## Useful Filters
 
 ```bash
 # Fast local loop, no PlatformIO build and no hardware.
-/Users/zmoshe/proj/sweetyaar/.venv/bin/python -m pytest -m "not firmware and not hardware"
+uv run python -m pytest -m "not firmware and not hardware"
 
 # Include firmware build but skip real ESP32 hardware.
-/Users/zmoshe/proj/sweetyaar/.venv/bin/python -m pytest -m "not hardware"
+uv run python -m pytest -m "not hardware"
 
 # Real-device tests use these defaults unless overridden.
-/Users/zmoshe/proj/sweetyaar/.venv/bin/python -m pytest -m hardware --device-name SweetYaar --bt-address 40-22-D8-3D-8A-22
+uv run python -m pytest -m hardware --device-name SweetYaar --bt-address 40-22-D8-3D-8A-22
 ```
 
 The same hardware options can also be supplied with `SWEETYAAR_DEVICE_NAME` and

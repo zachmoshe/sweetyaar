@@ -1,13 +1,14 @@
 "use strict";
 
 const CACHE_PREFIX = "sweetyaar-parent";
-const CACHE_VERSION = "sweetyaar-parent-v20";
+const CACHE_VERSION = "sweetyaar-parent-v21";
 
 const PRECACHE_URLS = [
   "./",
   "./favicon.ico",
   "./index.html",
   "./manifest.webmanifest",
+  "./tokens.css",
   "./assets/apple-touch-icon.png",
   "./assets/favicon-16.png",
   "./assets/favicon-32.png",

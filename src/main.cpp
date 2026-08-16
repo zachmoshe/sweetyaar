@@ -2,7 +2,6 @@
 #include <SPI.h>
 #include <SD.h>
 #include <esp_heap_caps.h>
-#include <esp_log.h>
 #include <esp_random.h>
 #include <esp_bt_device.h>
 #include <esp_gap_bt_api.h>
@@ -18,7 +17,6 @@
 // --- Project modules ---
 #include "Config.h"
 #include "LowLatencyA2DPSinkQueued.h"
-#include "DebugA2DPSinkQueued.h"
 #include "NVSConfig.h"
 #include "ParentConfig.h"
 #include "ContentCatalog.h"
@@ -98,12 +96,10 @@ void setAmpMuted(bool muted);
 void setupI2S();
 void resetI2SOutput(const char* owner);
 void setupBT(const String& deviceName);
-void setupBtDebugLogging();
 void printBluetoothAddress(const char* label);
 void scheduleBluetoothReopen(const char* reason);
 void reopenBluetoothForPairing(const char* reason);
 void pollBluetoothReopen();
-void pollBtDebug();
 void applyVolume(uint8_t pct);
 void applyEffectiveVolume(const char* reason);
 uint8_t effectiveVolumePct();
@@ -222,7 +218,6 @@ void setup() {
 
     delay(500);
     Serial.println("\n=== SweetYaar Boot ===");
-    setupBtDebugLogging();
     setupWakeState();
     setupPeripheralPower();
 
@@ -378,7 +373,6 @@ void loop() {
     pollBluetoothReopen();
     applyPendingBtNameIfPossible();
     if (ENABLE_BLE_PARENT_SERVICE) bleService.pollAdvertising();
-    pollBtDebug();
     pollIdleSleep();
 
     delay(wavPlayer.isIdle() ? 5 : 1);  // keep WAV streaming fed while still yielding
@@ -405,7 +399,7 @@ void setupWakeState() {
 // ---------------------------------------------------------------------------
 void setupPeripheralPower() {
     enablePeripheralPower();
-    Serial.printf("[Power] Peripherals enabled on GPIO%d\n", PIN_PERIPH_EN);
+    Serial.printf("[Power] Peripherals enabled on GPIO%d\n", PIN_PERIPH_PWR_EN);
 }
 
 // ---------------------------------------------------------------------------
@@ -422,11 +416,7 @@ void setAmpMuted(bool muted) {
 void markActivity(const char* reason) {
     lastActivityMs = millis();
     realActivitySeenSinceWake = true;
-#if SWEETYAAR_BT_DEBUG
-    Serial.printf("[Sleep] Activity: %s\n", reason);
-#else
     (void)reason;
-#endif
 }
 
 // ---------------------------------------------------------------------------
@@ -844,21 +834,6 @@ void setupI2S() {
 }
 
 // ---------------------------------------------------------------------------
-// setupBtDebugLogging()
-// ---------------------------------------------------------------------------
-void setupBtDebugLogging() {
-#if SWEETYAAR_BT_DEBUG
-    Serial.println("[BTDBG] Firmware BT debug mode enabled");
-    esp_log_level_set("*", ESP_LOG_VERBOSE);
-    esp_log_level_set("BT_API", ESP_LOG_VERBOSE);
-    esp_log_level_set("BT_AV", ESP_LOG_VERBOSE);
-    esp_log_level_set("RCCT", ESP_LOG_VERBOSE);
-    esp_log_level_set("BTDM_INIT", ESP_LOG_VERBOSE);
-    esp_log_level_set("BT_HCI", ESP_LOG_VERBOSE);
-#endif
-}
-
-// ---------------------------------------------------------------------------
 // printBluetoothAddress()
 // ---------------------------------------------------------------------------
 void printBluetoothAddress(const char* label) {
@@ -900,11 +875,7 @@ void resetI2SOutput(const char* owner) {
 // setupBT()
 // ---------------------------------------------------------------------------
 void setupBT(const String& deviceName) {
-#if SWEETYAAR_BT_DEBUG
-    auto* sink = new DebugA2DPSinkQueued(i2sOut);
-#else
     auto* sink = new LowLatencyA2DPSinkQueued(i2sOut);
-#endif
     sink->set_default_bt_mode(ENABLE_BLE_PARENT_SERVICE ? ESP_BT_MODE_BTDM
                                                         : ESP_BT_MODE_CLASSIC_BT);
     sink->set_i2s_ringbuffer_size(BT_A2DP_RINGBUFFER_BYTES);
@@ -922,15 +893,6 @@ void setupBT(const String& deviceName) {
     sink->reserveAudioTask();
     btSink = sink;
     Serial.printf("[BT] A2DP sink started as \"%s\"\n", deviceName.c_str());
-#if SWEETYAAR_BT_DEBUG
-    Serial.printf("[BTDBG] A2DP started mode=%s BLE=%d queue=%d stack=%d free=%u largest=%u\n",
-                  ENABLE_BLE_PARENT_SERVICE ? "BTDM" : "CLASSIC",
-                  ENABLE_BLE_PARENT_SERVICE ? 1 : 0,
-                  BT_A2DP_RINGBUFFER_BYTES,
-                  BT_A2DP_I2S_TASK_STACK_BYTES,
-                  heap_caps_get_free_size(MALLOC_CAP_8BIT),
-                  heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
-#endif
 }
 
 // ---------------------------------------------------------------------------
@@ -1001,35 +963,6 @@ void pollBluetoothReopen() {
     }
 
     reopenBluetoothForPairing("BT cooldown elapsed");
-}
-
-// ---------------------------------------------------------------------------
-// pollBtDebug()
-// ---------------------------------------------------------------------------
-void pollBtDebug() {
-#if SWEETYAAR_BT_DEBUG
-    static uint32_t lastBtDebugMs = 0;
-    if (millis() - lastBtDebugMs < 5000) {
-        return;
-    }
-    lastBtDebugMs = millis();
-
-    int conn = -1;
-    int audio = -1;
-    if (btSink != nullptr) {
-        conn = static_cast<int>(btSink->get_connection_state());
-        audio = static_cast<int>(btSink->get_audio_state());
-    }
-    Serial.printf("[BTDBG] heartbeat sm=%s btLink=%d conn=%d audio=%d reopenPending=%d bleClient=%d free=%u largest=%u\n",
-                  stateToString(sm.currentState()),
-                  btLinkConnected ? 1 : 0,
-                  conn,
-                  audio,
-                  btReopenPending ? 1 : 0,
-                  bleService.isConnected() ? 1 : 0,
-                  heap_caps_get_free_size(MALLOC_CAP_8BIT),
-                  heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
-#endif
 }
 
 // ---------------------------------------------------------------------------
