@@ -27,6 +27,8 @@ const char* eventToString(Event e) {
         case Event::KILLSWITCH_OFF:     return "KILLSWITCH_OFF";
         case Event::THEME_CHANGED:      return "THEME_CHANGED";
         case Event::VOLUME_CHANGED:     return "VOLUME_CHANGED";
+        case Event::LOOP_ON:            return "LOOP_ON";
+        case Event::LOOP_OFF:           return "LOOP_OFF";
         case Event::KILLSWITCH_EXPIRED: return "KILLSWITCH_EXPIRED";
         default:                        return "?";
     }
@@ -129,8 +131,25 @@ void StateMachine::handleEvent(const QueueItem& item) {
         return;
     }
 
+    // --- Loop mode is a live song-session control ---
+    if (e == Event::LOOP_OFF) {
+        _loopMode = false;
+        return;
+    }
+    if (e == Event::LOOP_ON) {
+        // Animal playback is intentionally single-shot, and local controls
+        // are read-only while BT or quiet time owns the toy.
+        if (_state != State::PLAYING_ANIMAL &&
+            _state != State::BT_STREAMING &&
+            _state != State::KILLSWITCH) {
+            _loopMode = true;
+        }
+        return;
+    }
+
     // --- BT_CONNECTED always wins (except KILLSWITCH keeps state) ---
     if (e == Event::BT_CONNECTED) {
+        _loopMode = false;
         if (_state == State::KILLSWITCH) {
             // BT streaming still allowed during killswitch; but we stay in
             // KILLSWITCH conceptually. Simplification: move to BT_STREAMING;
@@ -150,12 +169,16 @@ void StateMachine::handleEvent(const QueueItem& item) {
                     transition(State::PLAYING_SONG);
                     break;
                 case Event::BUTTON2_PRESS:
+                    _loopMode = false;
                     transition(State::PLAYING_ANIMAL);
                     break;
                 case Event::BOTH_BUTTONS_PRESS:
-                    // Already idle — no-op
+                    // Already idle, but this still acts as an explicit stop
+                    // for an armed loop session.
+                    _loopMode = false;
                     break;
                 case Event::KILLSWITCH_ON:
+                    _loopMode = false;
                     _killswitchStartMs = millis();
                     transition(State::KILLSWITCH);
                     break;
@@ -171,15 +194,20 @@ void StateMachine::handleEvent(const QueueItem& item) {
                     // — wavPlayer.nextSong() is called there, no state transition needed.
                     break;
                 case Event::BUTTON2_PRESS:
+                    _loopMode = false;
                     transition(State::PLAYING_ANIMAL);
                     break;
                 case Event::BOTH_BUTTONS_PRESS:
+                    _loopMode = false;
                     transition(State::IDLE);
                     break;
                 case Event::WAV_FINISHED:
-                    transition(State::IDLE);
+                    if (!_loopMode) {
+                        transition(State::IDLE);
+                    }
                     break;
                 case Event::KILLSWITCH_ON:
+                    _loopMode = false;
                     _killswitchStartMs = millis();
                     transition(State::KILLSWITCH);
                     break;
@@ -198,12 +226,14 @@ void StateMachine::handleEvent(const QueueItem& item) {
                     // — wavPlayer.nextAnimal() is called there, no state transition needed.
                     break;
                 case Event::BOTH_BUTTONS_PRESS:
+                    _loopMode = false;
                     transition(State::IDLE);
                     break;
                 case Event::WAV_FINISHED:
                     transition(State::IDLE);
                     break;
                 case Event::KILLSWITCH_ON:
+                    _loopMode = false;
                     _killswitchStartMs = millis();
                     transition(State::KILLSWITCH);
                     break;

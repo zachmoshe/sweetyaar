@@ -38,6 +38,8 @@ enum class Event {
     KILLSWITCH_OFF,      // BLE killswitch cancelled
     THEME_CHANGED,       // BLE theme write received
     VOLUME_CHANGED,      // BLE volume write received
+    LOOP_ON,             // BLE song-loop mode enabled
+    LOOP_OFF,            // BLE song-loop mode disabled
     KILLSWITCH_EXPIRED,  // 10-min timer elapsed
 };
 
@@ -52,6 +54,7 @@ public:
     void begin();
 
     State currentState() const { return _state; }
+    bool loopMode() const { return _loopMode; }
 
     // Post an event; safe to call from any context (uses FreeRTOS queue)
     void postEvent(Event e);
@@ -80,6 +83,10 @@ private:
 
     // Used when BT temporarily interrupts an already-active killswitch.
     bool _pendingKillswitchAfterBT = false;
+
+    // Live session state. It deliberately starts false on every boot and is
+    // cleared by stop/animal/BT/killswitch interruptions.
+    bool _loopMode = false;
 
     uint32_t _killswitchStartMs = 0;
 

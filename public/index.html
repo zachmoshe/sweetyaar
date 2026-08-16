@@ -261,7 +261,7 @@
     .screen.ready .stack {
       position: relative;
       z-index: 1;
-      gap: 14px;
+      gap: 11px;
       padding-bottom: 96px;
     }
 
@@ -727,6 +727,7 @@
     }
 
     .action-button.song {
+      position: relative;
       background: linear-gradient(180deg, #c9f0eb, #b7e6df);
     }
 
@@ -736,6 +737,137 @@
 
     .action-button.stop {
       background: linear-gradient(180deg, #ffd5df, #f8bdcc);
+    }
+
+    .loop-badge {
+      position: absolute;
+      top: 7px;
+      right: 7px;
+      display: grid;
+      width: 26px;
+      height: 25px;
+      place-items: center;
+      border: 2px solid rgba(255, 255, 255, 0.86);
+      border-radius: 999px;
+      background: linear-gradient(180deg, #34b8a9, #08736c);
+      color: #ffffff;
+      box-shadow: 0 3px 7px rgba(8, 115, 108, 0.28);
+      font-family: var(--font-brand);
+      font-size: 17px;
+      font-weight: 900;
+      line-height: 22px;
+    }
+
+    .loop-card {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      min-height: 58px;
+      padding: 8px 14px;
+      border-color: rgba(52, 184, 169, 0.28);
+      transition: background 160ms ease, border-color 160ms ease, opacity 160ms ease;
+    }
+
+    .loop-card.active {
+      border-color: rgba(8, 115, 108, 0.46);
+      background: linear-gradient(180deg, rgba(242, 253, 250, 0.99), rgba(231, 248, 244, 0.99));
+    }
+
+    .loop-card.disabled {
+      opacity: 0.62;
+    }
+
+    .loop-icon {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border-radius: 13px;
+      background: #ddf4ef;
+      color: var(--teal-dark);
+      font-family: var(--font-brand);
+      font-size: 29px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .loop-card.active .loop-icon {
+      background: linear-gradient(180deg, #34b8a9, #08736c);
+      color: #ffffff;
+      box-shadow: 0 5px 12px rgba(8, 115, 108, 0.24);
+    }
+
+    .loop-copy {
+      display: grid;
+      min-width: 0;
+      gap: 3px;
+    }
+
+    .loop-title {
+      color: var(--ink);
+      font-size: clamp(15px, 4vw, 17px);
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .loop-sub {
+      overflow: hidden;
+      color: var(--muted);
+      font-size: clamp(11px, 2.8vw, 12px);
+      font-weight: 680;
+      line-height: 1.1;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .loop-card.active .loop-sub {
+      color: var(--teal-dark);
+    }
+
+    .loop-toggle {
+      position: relative;
+      width: 50px;
+      height: 30px;
+      padding: 0;
+      border: 0;
+      border-radius: 999px;
+      background: #d7d2cb;
+      box-shadow: inset 0 1px 2px rgba(59, 50, 39, 0.12);
+      cursor: pointer;
+      transition: background 160ms ease;
+    }
+
+    .loop-card.active .loop-toggle {
+      background: linear-gradient(180deg, #34b8a9, #08736c);
+    }
+
+    .loop-knob {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 2px 5px rgba(59, 50, 39, 0.24);
+      transition: transform 160ms ease;
+    }
+
+    .loop-card.active .loop-knob {
+      transform: translateX(20px);
+    }
+
+    @media (min-width: 560px) {
+      .loop-card {
+        gap: 10px;
+        padding-right: 12px;
+        padding-left: 12px;
+      }
+
+      .loop-sub {
+        font-size: 11px;
+      }
     }
 
     .control-card {
@@ -996,7 +1128,7 @@
 
     .bedtime-card {
       position: relative;
-      min-height: 116px;
+      min-height: 108px;
       padding: 0;
       overflow: hidden;
       border-color: rgba(174, 151, 226, 0.58);
@@ -1051,7 +1183,7 @@
       position: relative;
       z-index: 1;
       width: 100%;
-      min-height: 116px;
+      min-height: 108px;
       display: grid;
       grid-template-columns: minmax(0, 1fr);
       gap: 0;
@@ -1978,6 +2110,7 @@
           <button class="action-button song" id="playSongButton" type="button">
             <img src="assets/icon-song.png" alt="">
             <span>Play song</span>
+            <span class="loop-badge" id="loopBadge" aria-label="Loop on" hidden>↻</span>
           </button>
           <button class="action-button animal" id="playAnimalButton" type="button">
             <img src="assets/icon-animal.png" alt="">
@@ -1986,6 +2119,17 @@
           <button class="action-button stop" id="stopButton" type="button">
             <img src="assets/icon-stop.png" alt="">
             <span>Stop</span>
+          </button>
+        </section>
+
+        <section class="card loop-card" id="loopCard" aria-label="Loop songs">
+          <span class="loop-icon" aria-hidden="true">↻</span>
+          <span class="loop-copy">
+            <span class="loop-title">Loop songs</span>
+            <span class="loop-sub" id="loopSub">Off · play one song at a time</span>
+          </span>
+          <button class="loop-toggle" id="loopToggle" type="button" role="switch" aria-checked="false" aria-label="Loop songs">
+            <span class="loop-knob" aria-hidden="true"></span>
           </button>
         </section>
 
@@ -2438,6 +2582,10 @@
       playSongButton: document.querySelector("#playSongButton"),
       playAnimalButton: document.querySelector("#playAnimalButton"),
       stopButton: document.querySelector("#stopButton"),
+      loopCard: document.querySelector("#loopCard"),
+      loopToggle: document.querySelector("#loopToggle"),
+      loopSub: document.querySelector("#loopSub"),
+      loopBadge: document.querySelector("#loopBadge"),
       volumeRange: document.querySelector("#volumeRange"),
       volumeValue: document.querySelector("#volumeValue"),
       volumeSliderWrap: document.querySelector("#volumeSliderWrap"),
@@ -2505,6 +2653,7 @@
       volume: 75,
       theme: "",
       themes: [],
+      loop: false,
       killswitch: false,
       notice: null,
       noticeTimer: null,
@@ -2656,6 +2805,10 @@
 
     function playbackDisabled() {
       return controlsDisabled() || isKillswitchActive();
+    }
+
+    function loopControlDisabled() {
+      return playbackDisabled() || state.status.startsWith("Playing animal");
     }
 
     function readyStatus() {
@@ -3171,6 +3324,9 @@
       state.settings.bedtimeEndTime = bedtime.endTime;
       state.settings.bedtimeTheme = bedtime.theme;
       state.settings.bedtimeVolumeCapPct = bedtime.volumeCapPct;
+      if (Object.prototype.hasOwnProperty.call(config, "loop")) {
+        state.loop = !!config.loop;
+      }
       if (config.activeTheme) {
         state.theme = `${config.activeTheme}`;
       }
@@ -3977,6 +4133,15 @@
       els.stopButton.disabled = playbackDisabled();
       els.playSongButton.classList.toggle("playing", state.status.startsWith("Playing song"));
       els.playAnimalButton.classList.toggle("playing", state.status.startsWith("Playing animal"));
+      const loopDisabled = loopControlDisabled();
+      els.loopToggle.disabled = loopDisabled;
+      els.loopToggle.setAttribute("aria-checked", state.loop ? "true" : "false");
+      els.loopCard.classList.toggle("active", state.loop);
+      els.loopCard.classList.toggle("disabled", loopDisabled);
+      els.loopSub.textContent = state.loop
+        ? "On · plays the next song automatically"
+        : "Off · play one song at a time";
+      els.loopBadge.hidden = !state.loop;
       const quietActive = isKillswitchActive();
       els.killswitchToggle.disabled = disabled;
       els.killswitchToggle.setAttribute("aria-checked", quietActive ? "true" : "false");
@@ -4063,7 +4228,14 @@
 
     function handleStatusUpdate(status) {
       const wasBtConnected = isBtConnected();
+      const previousStatus = state.status;
       state.status = status || "Idle";
+      if (state.status.startsWith("Playing animal") ||
+          state.status.startsWith("Killswitch active") ||
+          isBtConnected() ||
+          (previousStatus.startsWith("Playing song") && state.status === "Idle")) {
+        state.loop = false;
+      }
       if (wasBtConnected && !isBtConnected()) {
         state.message = "";
         if (state.statusOnlyConnection) {
@@ -4119,6 +4291,11 @@
       try {
         parsed = JSON.parse(rawText || "{}");
       } catch (error) {
+        return;
+      }
+      if (parsed?.type === "loop" && typeof parsed.active === "boolean") {
+        state.loop = parsed.active;
+        render();
         return;
       }
       if (parsed && typeof parsed.message === "string") {
@@ -4350,6 +4527,7 @@
       state.statusOnlyConnection = false;
       state.status = "Disconnected";
       state.killswitch = false;
+      state.loop = false;
       if (state.noticeTimer) {
         clearTimeout(state.noticeTimer);
         state.noticeTimer = null;
@@ -4538,11 +4716,42 @@
     });
 
     els.playAnimalButton.addEventListener("click", () => {
-      safeWrite(() => writeUint8("command", 2), "", playbackDisabled());
+      if (playbackDisabled()) return;
+      const previousLoop = state.loop;
+      state.loop = false;
+      render();
+      safeWrite(
+        () => writeUint8("command", 2),
+        "",
+        playbackDisabled(),
+        () => { state.loop = previousLoop; }
+      );
     });
 
     els.stopButton.addEventListener("click", () => {
-      safeWrite(() => writeUint8("command", 3), "", playbackDisabled());
+      if (playbackDisabled()) return;
+      const previousLoop = state.loop;
+      state.loop = false;
+      render();
+      safeWrite(
+        () => writeUint8("command", 3),
+        "",
+        playbackDisabled(),
+        () => { state.loop = previousLoop; }
+      );
+    });
+
+    els.loopToggle.addEventListener("click", () => {
+      if (loopControlDisabled()) return;
+      const previousLoop = state.loop;
+      state.loop = !state.loop;
+      render();
+      safeWrite(
+        () => writeUint8("command", state.loop ? 4 : 5),
+        "",
+        loopControlDisabled(),
+        () => { state.loop = previousLoop; }
+      );
     });
 
     els.killswitchToggle.addEventListener("click", () => {
@@ -4550,8 +4759,10 @@
       const turnOn = !isKillswitchActive();
       const previousKillswitch = state.killswitch;
       const previousStatus = state.status;
+      const previousLoop = state.loop;
       state.killswitch = turnOn;
       state.status = turnOn ? "Killswitch active" : "Idle";
+      if (turnOn) state.loop = false;
       render();
       safeWrite(
         () => writeUint8("killswitch", turnOn ? 1 : 0),
@@ -4560,6 +4771,7 @@
         () => {
           state.killswitch = previousKillswitch;
           state.status = previousStatus;
+          state.loop = previousLoop;
         }
       );
     });

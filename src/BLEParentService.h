@@ -17,7 +17,8 @@
 //   theme      (string, read/write/notify)  — active song theme folder id
 //   status     (string, read/notify)        — user-facing state description
 //   themes     (JSON string, read)          — available song themes
-//   command    (uint8, write)               — 1=song, 2=animal, 3=stop
+//   command    (uint8, write)               — 1=song, 2=animal, 3=stop,
+//                                              4=loop on, 5=loop off
 //   configCmd  (JSON string, write)         — settings/scan command
 //   configResp (JSON string, read/notify)   — settings/scan response
 //
@@ -68,7 +69,7 @@ public:
     // Poll for theme change; fills |out| with new theme name
     bool pollThemeChange(String& out);
 
-    // Poll for app command; out: 1=song, 2=animal, 3=stop
+    // Poll for app command; out: 1=song, 2=animal, 3=stop, 4=loop on, 5=loop off
     bool pollCommand(uint8_t& out);
 
     // Poll for JSON config command from the app

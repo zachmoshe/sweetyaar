@@ -339,6 +339,7 @@ function makeBleHarness(options = {}) {
     defaultVolumePct: 75,
     defaultTheme: "lullabies",
     activeTheme: "lullabies",
+    loop: options.loop ?? false,
     sleep: {
       enabled: true,
       normalIdleSec: 600,
@@ -493,7 +494,10 @@ function makeBleHarness(options = {}) {
       chars.themes.value = JSON.stringify(response);
       setTimeout(() => chars.configResponse.emit(chars.configResponse.value), 0);
     } else {
-      writes.command.push(value[0]);
+      const command = value[0];
+      writes.command.push(command);
+      if (command === 4) config.loop = true;
+      if (command === 2 || command === 3 || command === 5) config.loop = false;
       chars.command.value = value;
     }
   };
@@ -638,6 +642,9 @@ const tests = [
     assert.strictEqual(els.readyStatusText.textContent, "Ready to play");
     assert.strictEqual(els.volumeValue.textContent, "42%");
     assert.strictEqual(els.themeCurrent.textContent, "Nature");
+    assert.strictEqual(state.loop, false);
+    assert.strictEqual(els.loopToggle.getAttribute("aria-checked"), "false");
+    assert.strictEqual(els.loopBadge.hidden, true);
     assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime", "scanThemes"]);
     assert.strictEqual(els.bedtimeTitle.textContent, "Daytime");
     assert.strictEqual(els.bedtimeMessage.textContent, "(ends at 18:30)");
@@ -770,6 +777,44 @@ const tests = [
     await els.playAnimalButton.click();
     await els.stopButton.click();
     assertJsonEqual(ble.writes.command, [1, 2, 3]);
+  `],
+  ["song loop toggle defaults off and writes compact commands", String.raw`
+    const ble = await connectWithFakeBle();
+    assert.strictEqual(state.loop, false);
+    assert.strictEqual(els.loopCard.classList.contains("active"), false);
+    assert.strictEqual(els.loopSub.textContent, "Off · play one song at a time");
+
+    await els.loopToggle.click();
+    assertJsonEqual(ble.writes.command, [4]);
+    assert.strictEqual(state.loop, true);
+    assert.strictEqual(els.loopToggle.getAttribute("aria-checked"), "true");
+    assert.strictEqual(els.loopCard.classList.contains("active"), true);
+    assert.strictEqual(els.loopBadge.hidden, false);
+    assert.strictEqual(els.loopSub.textContent, "On · plays the next song automatically");
+
+    await els.loopToggle.click();
+    assertJsonEqual(ble.writes.command, [4, 5]);
+    assert.strictEqual(state.loop, false);
+    assert.strictEqual(els.loopBadge.hidden, true);
+  `],
+  ["song loop hydrates from firmware and clears for animal playback", String.raw`
+    const ble = await connectWithFakeBle({ loop: true });
+    assert.strictEqual(state.loop, true);
+    assert.strictEqual(els.loopBadge.hidden, false);
+
+    await els.playAnimalButton.click();
+    assertJsonEqual(ble.writes.command, [2]);
+    assert.strictEqual(state.loop, false);
+    assert.strictEqual(els.loopBadge.hidden, true);
+  `],
+  ["firmware loop events keep the indicator synchronized", String.raw`
+    const ble = await connectWithFakeBle();
+    ble.chars.notice.emit(JSON.stringify({ type: "loop", active: true }));
+    assert.strictEqual(state.loop, true);
+    assert.strictEqual(els.loopCard.classList.contains("active"), true);
+    ble.chars.status.emit("Playing animal - cat.wav");
+    assert.strictEqual(state.loop, false);
+    assert.strictEqual(els.loopToggle.disabled, true);
   `],
   ["remote theme picker writes selected theme", String.raw`
     const ble = await connectWithFakeBle();

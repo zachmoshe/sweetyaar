@@ -91,6 +91,40 @@ void testBlePayloadEventsDoNotForceTransitions() {
     assert(sm.pendingTheme() == String("nature"));
 }
 
+void testSongLoopModeRules() {
+    StateMachine sm;
+    sm.begin();
+
+    assert(!sm.loopMode());
+    postAndProcess(sm, Event::LOOP_ON, State::IDLE);
+    assert(sm.loopMode());
+
+    postAndProcess(sm, Event::BUTTON1_PRESS, State::PLAYING_SONG);
+    postAndProcess(sm, Event::WAV_FINISHED, State::PLAYING_SONG);
+    assert(sm.loopMode());
+
+    postAndProcess(sm, Event::LOOP_OFF, State::PLAYING_SONG);
+    assert(!sm.loopMode());
+    postAndProcess(sm, Event::WAV_FINISHED, State::IDLE);
+
+    postAndProcess(sm, Event::LOOP_ON, State::IDLE);
+    postAndProcess(sm, Event::BUTTON2_PRESS, State::PLAYING_ANIMAL);
+    assert(!sm.loopMode());
+    postAndProcess(sm, Event::LOOP_ON, State::PLAYING_ANIMAL);
+    assert(!sm.loopMode());
+
+    postAndProcess(sm, Event::WAV_FINISHED, State::IDLE);
+    postAndProcess(sm, Event::LOOP_ON, State::IDLE);
+    postAndProcess(sm, Event::BOTH_BUTTONS_PRESS, State::IDLE);
+    assert(!sm.loopMode());
+
+    postAndProcess(sm, Event::LOOP_ON, State::IDLE);
+    postAndProcess(sm, Event::BT_CONNECTED, State::BT_STREAMING);
+    assert(!sm.loopMode());
+    postAndProcess(sm, Event::LOOP_ON, State::BT_STREAMING);
+    assert(!sm.loopMode());
+}
+
 }  // namespace
 
 int main() {
@@ -99,6 +133,7 @@ int main() {
     testKillswitchTimerAndBtInterruption();
     testKillswitchCancel();
     testBlePayloadEventsDoNotForceTransitions();
+    testSongLoopModeRules();
     std::cout << "state-machine native test passed\n";
     return 0;
 }

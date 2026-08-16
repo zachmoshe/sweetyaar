@@ -48,6 +48,7 @@ BluetoothA2DPSink* btSink = nullptr;
 
 // Track previous state to detect transitions in the main loop
 State prevState = State::IDLE;
+bool prevLoopMode = false;
 bool sdReady = false;
 String activeTheme = DEFAULT_THEME;
 String currentPlaybackTheme = DEFAULT_THEME;
@@ -334,11 +335,25 @@ void loop() {
     pollBedtimeMode();
     pollBleConnectionState();
 
-    // 4. WAV player: signal SM when track ends
-    if (cur == State::PLAYING_SONG || cur == State::PLAYING_ANIMAL) {
-        if (wavPlayer.isIdle()) {
+    // 4. WAV player: signal SM when a track ends. Looping deliberately uses
+    //    the same next-song path as another song-button press, preserving the
+    //    current sequential/shuffled rotation and wrapping at its end.
+    if (cur == State::PLAYING_SONG && wavPlayer.isIdle()) {
+        if (sm.loopMode()) {
+            playNextSong();
+            if (wavPlayer.isIdle()) {
+                // The live catalog may have become empty or the SD card may
+                // have disappeared. Do not spin forever retrying a bad list.
+                sm.postEvent(Event::LOOP_OFF);
+                sm.postEvent(Event::WAV_FINISHED);
+            } else {
+                publishBleValues();
+            }
+        } else {
             sm.postEvent(Event::WAV_FINISHED);
         }
+    } else if (cur == State::PLAYING_ANIMAL && wavPlayer.isIdle()) {
+        sm.postEvent(Event::WAV_FINISHED);
     }
 
     // 5. Process state machine
@@ -1023,13 +1038,26 @@ void pollBtDebug() {
 bool processStateMachineTransitions() {
     bool changed = sm.process();
     State newState = sm.currentState();
-    if (changed || newState != prevState) {
-        handleStateEntry(prevState, newState);
+    bool stateChanged = changed || newState != prevState;
+    bool loopChanged = sm.loopMode() != prevLoopMode;
+    if (stateChanged || loopChanged) {
+        if (stateChanged) {
+            handleStateEntry(prevState, newState);
+        }
         prevState = newState;
+        prevLoopMode = sm.loopMode();
         if (millis() - btConnectedAtMs >= BT_SETTLE_MS) {
             publishBleValues();
         } else {
             btSettleBlePublishPending = true;
+        }
+        if (loopChanged && ENABLE_BLE_PARENT_SERVICE) {
+            String eventJson = "{\"type\":\"loop\",\"active\":";
+            eventJson += sm.loopMode() ? "true" : "false";
+            eventJson += "}";
+            // Reuse the optional device-to-app event channel instead of
+            // changing the GATT schema and triggering stale-cache failures.
+            bleService.updateNotice(eventJson);
         }
         return true;
     }
@@ -1359,6 +1387,18 @@ void handleBleCommand(uint8_t command) {
             sm.postEvent(Event::BOTH_BUTTONS_PRESS);
             break;
 
+        case 4:  // Enable continuous song loop
+            sm.postEvent(Event::LOOP_ON);
+            // Apply before end-of-file handling later in this loop iteration,
+            // so a toggle at the track boundary cannot miss the boundary.
+            processStateMachineTransitions();
+            break;
+
+        case 5:  // Disable continuous song loop
+            sm.postEvent(Event::LOOP_OFF);
+            processStateMachineTransitions();
+            break;
+
         default:
             Serial.printf("[BLE] Ignoring unknown command: %u\n", command);
             break;
@@ -1574,7 +1614,9 @@ String buildConfigResponse(uint32_t requestId) {
     json += ContentCatalog::jsonEscape(parentConfig.defaultTheme());
     json += "\",\"activeTheme\":\"";
     json += ContentCatalog::jsonEscape(activeTheme);
-    json += "\",\"sdReady\":";
+    json += "\",\"loop\":";
+    json += sm.loopMode() ? "true" : "false";
+    json += ",\"sdReady\":";
     json += sdReady ? "true" : "false";
     json += ",\"sleep\":{\"enabled\":";
     json += parentConfig.sleepEnabled() ? "true" : "false";
