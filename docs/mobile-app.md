@@ -170,12 +170,6 @@ be installed or the browser may instead expose installation through its address
 bar or menu. Installation alone cannot add Web Bluetooth support to a browser
 that does not provide it.
 
-> [!WARNING]
-> **TBD — Complete offline artwork:** `bedtime-day-art.png` and
-> `bedtime-night-art.png` are used by the Ready screen but are not currently in
-> `sw.js`'s precache list. Add them before treating both Bedtime illustrations
-> as guaranteed offline assets.
-
 The app does not force a page reload while BLE is active. A newly deployed
 version is used on a later reload or launch. Whenever the application shell or
 precache list changes, increment `CACHE_VERSION` in `public/sw.js`; activation
