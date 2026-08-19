@@ -214,20 +214,20 @@ light load.
 | Component | Deep-sleep state | Reference current | Sleep budget |
 |---|---|---:|---:|
 | BQ25185 charger/power path | Battery-only; system asleep | 4 µA typical, 5 µA maximum at 3.6 V and 0–85°C | **4–5 µA** |
-| Battery-pack protection | Always on | TBD | **1–2 µA** |
+| Battery-pack protection | Always on | Exact pack/protection IC not selected | **1–2 µA provisional** |
 | TPS63802 3.3 V buck-boost | Always on | 11 µA typical | **11–14 µA** |
 | ESP32-WROOM-32 + EXT0 | Deep sleep | 10–15 µA | **10–15 µA** |
 | 3.3 V feedback divider | 510 kΩ from `3V3_AON` to `FB`, 91 kΩ from `FB` to GND | 3.302 V / 601 kΩ = 5.49 µA at `3V3_AON` | **5–7 µA battery-side** |
 | 470 kΩ vibration pull-up | Always on | 7 µA | **7 µA** |
 | GPIO13 100 kΩ pulldown | GPIO13 and both peripheral enables held LOW | 0 V across the resistor; EN leakage is included in the AP2281 and 5 V TPS63802 rows | **≈0 µA** |
 | Buttons and status LED | Buttons released; GPIO2 driven LOW | No intended DC path | **≈0 µA** |
-| Always-powered ceramic capacitors | BQ25185 `BAT` 1 µF and `SYS` ≥10 µF; two TPS63802 10 µF input capacitors; 3.3 V TPS63802 22 µF output capacitor; AP2281 `IN` 1 µF; ESP32 local decoupling | Dielectric insulation leakage; exact capacitor part numbers remain TBD | **≤2 µA combined, provisional** |
+| Always-powered ceramic capacitors | BQ25185 `BAT` 1 µF and `SYS` ≥10 µF; two TPS63802 10 µF input capacitors; 3.3 V TPS63802 22 µF output capacitor; AP2281 `IN` 1 µF; ESP32 local decoupling | Dielectric insulation leakage; exact capacitor part numbers not selected | **≤2 µA combined, provisional** |
 | AP2281 SD load switch | Disabled; input powered | 0.01 µA typical | **≤1 µA** |
 | microSD + SD pull-ups | **Off on peripheral rail** | 0.1–1 mA card standby; 70–330 µA per 10–47 kΩ pull-up held LOW | **≈0 µA** |
 | TPS63802 5 V buck-boost | `EN` LOW; input powered | 0.045 µA typical, 0.6 µA maximum | **≤1 µA** |
 | Separate amplifier load switch | Not required with the disconnecting 5 V TPS63802 | 0 µA | **0 µA** |
 | MAX98357A | `SD_MODE` LOW, then **off on peripheral rail** | 0.6 µA typical / 2 µA maximum in `SD_MODE` shutdown | **≈0 µA** |
-| Mute transistor and `SD_MODE` bias | `5V_PERIPH_SW` and its bias network off; use a MOSFET-style insulated control input with no pull-up to `3V3_AON` | Gate and off-state leakage only | **≤0.1 µA** |
+| Mute transistor and `SD_MODE` bias | `5V_PERIPH_SW` and its bias network off; use a MOSFET-style insulated control input with no pull-up to `3V3_AON` | Exact NMOS not selected; gate and off-state leakage only | **≤0.1 µA provisional** |
 | PCB surface leakage and unintended backfeed | Clean, dry PCB; SD/I2S pins high-impedance; no always-on pull-ups into a disabled rail | Not predictable from the schematic alone | **≤1 µA provisional** |
 | **Planning total** | — | — | **approximately 38–56 µA** |
 
@@ -248,13 +248,20 @@ the BQ25185's specified battery-only quiescent current; the final `TS/MR`
 thermistor implementation must be checked for any additional battery-only
 current.
 
-With the currently specified 510 kΩ/91 kΩ 3.3 V feedback divider, the
-worst-case planning total no longer fits below 50 µA. Closing this budget requires
-the exact protected pack and capacitor/transistor parts, checking the final
-schematic for every `SYS` and `3V3_AON` path, and measuring total battery current
-across battery voltage and temperature. If the measured margin is insufficient,
-the feedback-divider current is the first explicit resistor load to reduce,
-subject to the TPS63802's feedback-network requirements and noise validation.
+> [!WARNING]
+> **TBD — Close the deep-sleep design budget:** Select the exact protected
+> battery pack or protection IC, every always-powered ceramic capacitor, and the
+> insulated-gate mute NMOS. Using their worst-case datasheet leakage, recalculate
+> battery-side current across the intended battery-voltage and temperature range
+> and audit every final-schematic connection to `SYS` and `3V3_AON`. The resulting
+> worst-case design budget must fit below 50 µA with documented margin. If it does
+> not, reduce fixed current—starting with the 3.3 V feedback divider—subject to
+> the TPS63802's feedback-network requirements and noise validation.
+
+Production-PCB current measurement remains a separate validation item under
+**Production power measurements**. It validates the completed schematic and
+BOM; it does not replace the design-budget calculation required to close this
+TBD.
 
 The SD rail is switched because card standby current alone exceeds the complete
 sleep budget. SD bias uses pull-ups, not pull-downs.
@@ -343,7 +350,7 @@ from 3.3 V GPIO logic, and must not add material always-on or deep-sleep current
 Power the mixed-mono bias network from `5V_PERIPH_SW` so it cannot back-power the
 amplifier while the rail is off. The sleep budget assumes an insulated-gate
 NMOS; a BJT implementation would have to account for any base-resistor current.
-The exact transistor part is not constrained.
+The exact NMOS part remains to be selected for the production BOM.
 
 The speaker connects only between `OUTP` and `OUTN`; neither Class-D output may
 be tied to ground.
