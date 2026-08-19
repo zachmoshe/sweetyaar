@@ -174,8 +174,8 @@ disabled during deep sleep.
 
 | Rail | Source | Loads | State during deep sleep |
 |---|---|---|---|
-| `SYS` | Battery/charger power path | Both TPS63802 regulator inputs | Available while the main power switch is on. |
-| `3V3_AON` | TPS63802 set to 3.3 V | ESP32, wake pull-up, and control logic | On. |
+| `SYS` | Battery/charger power path | BQ25185 `SYS` bypass capacitor plus both TPS63802 regulator inputs and their 10 µF input capacitors | Available while the main power switch is on. |
+| `3V3_AON` | TPS63802 set to 3.3 V | TPS63802 22 µF output capacitor, ESP32 and its decoupling, 470 kΩ GPIO27 wake pull-up, 510 kΩ/91 kΩ regulator-feedback divider, and the disabled AP2281 input with its 1 µF capacitor | On. |
 | `3V3_PERIPH_SW` | AP2281-3WG-7 load switch | Bare microSD card and every SD pull-up | Off. |
 | `5V_PERIPH_SW` | TPS63802 set to 5 V, with true shutdown | MAX98357A amplifier | Off. |
 
@@ -203,20 +203,58 @@ prevents an immediate wake loop.
 Target: **less than 50 µA at the battery**, with the main switch on and USB
 disconnected. These are selection targets until the production PCB is measured.
 
+The budget assumes that both buttons are released, the status LED is off,
+`PERIPH_PWR_EN` is RTC-held LOW, and no indicator, test-point pull-up, or other
+unlisted circuit is connected to `SYS` or `3V3_AON`. The BQ25185 `STAT` pins and
+both TPS63802 `PGOOD` pins are left unconnected. The budget treats currents
+specified at `3V3_AON` as approximately battery-side currents; the exact battery
+current depends on battery voltage and the 3.3 V converter's efficiency at very
+light load.
+
 | Component | Deep-sleep state | Reference current | Sleep budget |
 |---|---|---:|---:|
-| BQ25185 charger/power path | Battery-only; system asleep | 4 µA typical, 5 µA maximum | **4–5 µA** |
+| BQ25185 charger/power path | Battery-only; system asleep | 4 µA typical, 5 µA maximum at 3.6 V and 0–85°C | **4–5 µA** |
 | Battery-pack protection | Always on | TBD | **1–2 µA** |
 | TPS63802 3.3 V buck-boost | Always on | 11 µA typical | **11–14 µA** |
 | ESP32-WROOM-32 + EXT0 | Deep sleep | 10–15 µA | **10–15 µA** |
+| 3.3 V feedback divider | 510 kΩ from `3V3_AON` to `FB`, 91 kΩ from `FB` to GND | 3.302 V / 601 kΩ = 5.49 µA at `3V3_AON` | **5–7 µA battery-side** |
 | 470 kΩ vibration pull-up | Always on | 7 µA | **7 µA** |
+| GPIO13 100 kΩ pulldown | GPIO13 and both peripheral enables held LOW | 0 V across the resistor; EN leakage is included in the AP2281 and 5 V TPS63802 rows | **≈0 µA** |
+| Buttons and status LED | Buttons released; GPIO2 driven LOW | No intended DC path | **≈0 µA** |
+| Always-powered ceramic capacitors | BQ25185 `BAT` 1 µF and `SYS` ≥10 µF; two TPS63802 10 µF input capacitors; 3.3 V TPS63802 22 µF output capacitor; AP2281 `IN` 1 µF; ESP32 local decoupling | Dielectric insulation leakage; exact capacitor part numbers remain TBD | **≤2 µA combined, provisional** |
 | AP2281 SD load switch | Disabled; input powered | 0.01 µA typical | **≤1 µA** |
 | microSD + SD pull-ups | **Off on peripheral rail** | 0.1–1 mA card standby; 70–330 µA per 10–47 kΩ pull-up held LOW | **≈0 µA** |
 | TPS63802 5 V buck-boost | `EN` LOW; input powered | 0.045 µA typical, 0.6 µA maximum | **≤1 µA** |
 | Separate amplifier load switch | Not required with the disconnecting 5 V TPS63802 | 0 µA | **0 µA** |
 | MAX98357A | `SD_MODE` LOW, then **off on peripheral rail** | 0.6 µA typical / 2 µA maximum in `SD_MODE` shutdown | **≈0 µA** |
-| Leakages | Mute transistor, GPIO, PCB, capacitors, and backfeed | TBD | **2–3 µA** |
-| **Expected total** | — | — | **35–48 µA** |
+| Mute transistor and `SD_MODE` bias | `5V_PERIPH_SW` and its bias network off; use a MOSFET-style insulated control input with no pull-up to `3V3_AON` | Gate and off-state leakage only | **≤0.1 µA** |
+| PCB surface leakage and unintended backfeed | Clean, dry PCB; SD/I2S pins high-impedance; no always-on pull-ups into a disabled rail | Not predictable from the schematic alone | **≤1 µA provisional** |
+| **Planning total** | — | — | **approximately 38–56 µA** |
+
+The capacitor allocation covers only capacitors that retain DC voltage in
+battery-only sleep. The BQ25185 `IN` capacitor and capacitors on
+`3V3_PERIPH_SW` and `5V_PERIPH_SW` are unpowered and have approximately zero DC
+leakage in this state. The final BOM must sum the maximum specified insulation
+leakage of every always-powered capacitor; the **≤2 µA** value is an allocation,
+not a measured or guaranteed result.
+
+The resistor paths intentionally excluded from the total have zero voltage
+across them in the defined sleep state: the GPIO13 100 kΩ pulldown, the 5 V
+feedback divider on its discharged output, and the amplifier's mixed-mono bias
+network on `5V_PERIPH_SW`. The open button pull-ups also have no intended DC
+path, but a button held to GND during sleep can add pull-up current and is not
+covered by this budget. Charger-programming resistors are treated as part of
+the BQ25185's specified battery-only quiescent current; the final `TS/MR`
+thermistor implementation must be checked for any additional battery-only
+current.
+
+With the currently specified 510 kΩ/91 kΩ 3.3 V feedback divider, the
+worst-case planning total no longer fits below 50 µA. Closing this budget requires
+the exact protected pack and capacitor/transistor parts, checking the final
+schematic for every `SYS` and `3V3_AON` path, and measuring total battery current
+across battery voltage and temperature. If the measured margin is insufficient,
+the feedback-divider current is the first explicit resistor load to reduce,
+subject to the TPS63802's feedback-network requirements and noise validation.
 
 The SD rail is switched because card standby current alone exceeds the complete
 sleep budget. SD bias uses pull-ups, not pull-downs.
@@ -303,7 +341,9 @@ The transistor must behave as an open-drain pull-down: it must never drive
 `SD_MODE` HIGH, must tolerate 5 V on its switched side, must turn on reliably
 from 3.3 V GPIO logic, and must not add material always-on or deep-sleep current.
 Power the mixed-mono bias network from `5V_PERIPH_SW` so it cannot back-power the
-amplifier while the rail is off. The exact transistor part is not constrained.
+amplifier while the rail is off. The sleep budget assumes an insulated-gate
+NMOS; a BJT implementation would have to account for any base-resistor current.
+The exact transistor part is not constrained.
 
 The speaker connects only between `OUTP` and `OUTN`; neither Class-D output may
 be tied to ground.
