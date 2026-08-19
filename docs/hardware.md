@@ -32,11 +32,11 @@ The production power system adds three rails:
 ```text
 single-cell LiPo / charger SYS
               |
-              +---- low-Iq 3.3 V buck-boost ---- 3V3_AON ---- ESP32
+              +---- TPS63802 set to 3.3 V ------- 3V3_AON ---- ESP32
               |                                      |
               |                                      +---- load switch ---- 3V3_PERIPH_SW
               |
-              +---- 5 V boost with load disconnect ------------ 5V_PERIPH_SW
+              +---- TPS63802 set to 5 V, switched ------------ 5V_PERIPH_SW
 ```
 
 The ESP32 remains powered from `3V3_AON` during deep sleep. The SD card and
@@ -65,7 +65,7 @@ PCB.
 | 32 | `PIN_BTN1` | Input with internal pull-up | Song button to GND | Active LOW. |
 | 33 | `PIN_BTN2` | Input with internal pull-up | Animal button to GND | Active LOW. |
 | 27 | `PIN_VIB_WAKE` | Externally biased RTC input | Normally-closed vibration switch to GND | Resting LOW; movement opens the switch and wakes EXT0 on HIGH. |
-| 13 | `PIN_PERIPH_PWR_EN` | Output | `PERIPH_PWR_EN`: SD load-switch `EN` and 5 V boost `EN` | HIGH while awake; RTC-held LOW during deep sleep. |
+| 13 | `PIN_PERIPH_PWR_EN` | Output | `PERIPH_PWR_EN`: SD load-switch `EN` and 5 V converter `EN` | HIGH while awake; RTC-held LOW during deep sleep. |
 | 2 | `PIN_LED` | Output | DevKit LED or production status LED and resistor | Firmware assumes active HIGH. |
 
 No GPIO is currently assigned to I2C, battery-voltage measurement, charger
@@ -174,13 +174,13 @@ disabled during deep sleep.
 
 | Rail | Source | Loads | State during deep sleep |
 |---|---|---|---|
-| `SYS` | Battery/charger power path | 3.3 V regulator and 5 V boost input | Available while the main power switch is on. |
-| `3V3_AON` | Low-quiescent-current buck-boost | ESP32, wake pull-up, and control logic | On. |
+| `SYS` | Battery/charger power path | Both TPS63802 regulator inputs | Available while the main power switch is on. |
+| `3V3_AON` | TPS63802 set to 3.3 V | ESP32, wake pull-up, and control logic | On. |
 | `3V3_PERIPH_SW` | AP2281-3WG-7 load switch | Bare microSD card and every SD pull-up | Off. |
-| `5V_PERIPH_SW` | Boost converter with true load disconnect | MAX98357A amplifier | Off. |
+| `5V_PERIPH_SW` | TPS63802 set to 5 V, with true shutdown | MAX98357A amplifier | Off. |
 
 GPIO13, named `PERIPH_PWR_EN`, is the shared active-HIGH enable for the AP2281
-and the 5 V boost. The firmware drives it HIGH during boot. Before sleeping,
+and the 5 V TPS63802. The firmware drives it HIGH during boot. Before sleeping,
 firmware stops playback, mutes the amplifier, closes SD/SPI/I2S, changes
 peripheral signal pins to high-impedance inputs, drives `PERIPH_PWR_EN` LOW, and
 enables RTC hold so the pin stays LOW while the main CPU sleeps.
@@ -205,28 +205,30 @@ disconnected. These are selection targets until the production PCB is measured.
 
 | Component | Deep-sleep state | Reference current | Sleep budget |
 |---|---|---:|---:|
-| Charger or power-path IC | Always on | TBD | **1–3 µA** |
+| BQ25185 charger/power path | Battery-only; system asleep | 4 µA typical, 5 µA maximum | **4–5 µA** |
 | Battery-pack protection | Always on | TBD | **1–2 µA** |
-| `3V3_AON` buck-boost | Always on | 8 µA typical | **8–12 µA** |
+| TPS63802 3.3 V buck-boost | Always on | 11 µA typical | **11–14 µA** |
 | ESP32-WROOM-32 + EXT0 | Deep sleep | 10–15 µA | **10–15 µA** |
 | 470 kΩ vibration pull-up | Always on | 7 µA | **7 µA** |
 | AP2281 SD load switch | Disabled; input powered | 0.01 µA typical | **≤1 µA** |
 | microSD + SD pull-ups | **Off on peripheral rail** | 0.1–1 mA card standby; 70–330 µA per 10–47 kΩ pull-up held LOW | **≈0 µA** |
-| 5 V boost | `EN` LOW; input powered | TBD | **≤1 µA** |
-| Optional amplifier load switch | Disabled, if required | TBD | Included in 5 V budget |
+| TPS63802 5 V buck-boost | `EN` LOW; input powered | 0.045 µA typical, 0.6 µA maximum | **≤1 µA** |
+| Separate amplifier load switch | Not required with the disconnecting 5 V TPS63802 | 0 µA | **0 µA** |
 | MAX98357A | `SD_MODE` LOW, then **off on peripheral rail** | 0.6 µA typical / 2 µA maximum in `SD_MODE` shutdown | **≈0 µA** |
 | Leakages | Mute transistor, GPIO, PCB, capacitors, and backfeed | TBD | **2–3 µA** |
-| **Expected total** | — | — | **29–44 µA** |
+| **Expected total** | — | — | **35–48 µA** |
 
 The SD rail is switched because card standby current alone exceeds the complete
 sleep budget. SD bias uses pull-ups, not pull-downs.
 
 Firmware asserts the MAX98357A's `SD_MODE` shutdown before disabling the 5 V
-boost. The boost is still disabled because its enabled no-load current would be
-additional. A separate amplifier load switch is needed only if the boost lacks
-true load disconnect.
+converter. The converter is still disabled because its enabled no-load current
+would be additional. Its true shutdown means no separate amplifier load switch
+is required.
 
 References:
+[BQ25185 datasheet](https://www.ti.com/lit/ds/symlink/bq25185.pdf),
+[TPS63802 datasheet](https://www.ti.com/lit/ds/symlink/tps63802.pdf),
 [TPS631000 datasheet](https://www.ti.com/lit/ds/symlink/tps631000.pdf),
 [AP2281 product data](https://www.diodes.com/part/view/AP2281),
 [MAX98357A datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/MAX98357A-MAX98357B.pdf),
@@ -276,12 +278,16 @@ They allow firmware to mute before clocks or power disappear and to unmute only
 after the rail and I2S interface are stable.
 
 The custom PCB cannot assume the pinout or passive components of a breakout.
-The bare MAX98357A is offered in TQFN and WLP packages, not SOP-8. Its
-channel mode is **mixed mono** (`left/2 + right/2`), so both channels of a stereo
-source reach the single speaker. `GAIN_SLOT` is left unconnected for the
-MAX98357A's default **9 dB gain**. The layout must use the manufacturer footprint,
-place 0.1 µF and 10 µF VDD bypass capacitors close to the IC, and follow the
-required ground and thermal layout described in the
+The production PCB will use `MAX98357AETE+T` in the 16-pin, 3 × 3 mm TQFN
+package with 0.5 mm pitch and an exposed pad, matching the generic prototype
+board `prod/v1.0`. Do not use the WLP or an SOP-8 footprint. Connect the exposed
+pad to a solid ground plane for thermal dissipation.
+
+The channel mode is **mixed mono** (`left/2 + right/2`), so both channels of a
+stereo source reach the single speaker. The chosen amplifier gain is **9 dB**;
+leave `GAIN_SLOT` unconnected to select that MAX98357A default. Place 0.1 µF and
+10 µF VDD bypass capacitors close to the IC and follow the required ground and
+thermal layout described in the
 [MAX98357A datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/MAX98357A-MAX98357B.pdf).
 
 GPIO21 (`PIN_AMP_MUTE`, driving `AMP_MUTE_CTL`) is the active-HIGH `SD_MODE`
@@ -299,12 +305,10 @@ from 3.3 V GPIO logic, and must not add material always-on or deep-sleep current
 Power the mixed-mono bias network from `5V_PERIPH_SW` so it cannot back-power the
 amplifier while the rail is off. The exact transistor part is not constrained.
 
-> [!WARNING]
-> **TBD — Amplifier package:** Select the exact orderable MAX98357A TQFN or WLP
-> package before creating the production symbol, footprint, and layout.
-
 The speaker connects only between `OUTP` and `OUTN`; neither Class-D output may
 be tied to ground.
+
+#### Speaker impedance and enclosure
 
 | Speaker | Advantages | Tradeoffs |
 |---|---|---|
@@ -316,6 +320,20 @@ than impedance alone. Compare candidates using their sensitivity rating and
 test both at the fixed 9 dB amplifier gain. Final electrical validation must
 still include a 4 Ω speaker at maximum requested volume.
 
+The top three enclosure considerations are:
+
+1. **Acoustic volume and sealing:** Size the air chamber for the selected
+   speaker and keep the front and rear sound paths separated. Air leaks or an
+   unsuitable chamber volume can remove bass and reduce output more than the
+   4 Ω versus 8 Ω choice.
+2. **Sound opening and grille:** Give the cone a clear sound path with enough
+   open area. Test the real grille, doll fabric, padding, and decorative layers;
+   they must protect the cone without muffling it or touching its excursion.
+3. **Mounting and vibration:** Mount the speaker rigidly with a gasket or other
+   controlled seal, provide wire strain relief, and keep loose PCB, battery,
+   fastener, and enclosure parts away from it. Validate at maximum volume for
+   buzzes, rattles, and movement while preserving child-safe retention.
+
 > [!WARNING]
 > **TBD — Speaker and enclosure:** Select the production speaker impedance and
 > power rating together with the enclosure volume, then validate it at the
@@ -323,40 +341,70 @@ still include a 4 Ω speaker at maximum requested volume.
 
 ### Battery, charging, and regulation
 
-The current test setup uses a 3400 mAh single-cell LiPo and a charger module
-whose default charge current is 1 A. That combination has performed well in
-testing so far.
+The production design assumes a protected, single-cell LiPo. The current test
+battery is 3400 mAh; approximately 2000 mAh is probably sufficient if runtime
+and enclosure tests confirm it. A LiFePO4 cell is possible, but requires a
+different BQ25185 charge-voltage setting and revised battery-level thresholds;
+the voltage divider, regulator limits, and firmware state-of-charge mapping
+must all be revalidated.
 
-The production power system has the following requirements:
-
-| Function | Requirement |
+| Item | Decision or requirement |
 |---|---|
-| Battery | Protected single-cell LiPo from a reputable supplier. |
-| Charger | Single-cell charger with thermal regulation, charge termination, status, and appropriate input/battery protection. |
-| Charge current | The selected cell must explicitly support the configured current, and charging must remain thermally safe inside the enclosure. |
-| 3.3 V regulator | Low-Iq buck-boost, at least 500 mA output, with acceptable ESP32 radio transient response across the battery range. |
-| 5 V boost | Active-HIGH enable, true load disconnect, and at least 1 A output capability at the low-battery limit. |
-| Protection | Pack protection plus a correctly rated fuse or resettable polyfuse; use temperature sensing where possible. |
+| Battery chemistry | 1S LiPo baseline: 3.7 V nominal, 4.2 V charge termination. |
+| Capacity | 3400 mAh tested; approximately 2000 mAh likely usable, pending runtime and fit tests. |
+| Battery protection | Required: protected pack/cell with overcharge, over-discharge, over-current, and short-circuit protection. Add a correctly rated fuse or resettable polyfuse in the product power path. |
+| Charger | [BQ25185DLHR](https://www.ti.com/product/BQ25185), 1-cell charger with power path, input-current management, thermal regulation, and selectable LiPo/LiFePO4 charge voltage. |
+| Use while charging | Supported. Power the device from `SYS`; the BQ25185 reduces charge current when the input or thermal limit is reached and allows the battery to supplement load peaks. |
+| Charge current | 1 A in the current setup; final value is TBD and must follow the selected battery's charge-rate limit and enclosure thermal test. |
+| Battery thermistor | TBD. The BQ25185 `TS/MR` input supports battery-temperature monitoring; reserve the required thermistor/passive footprints and do not leave the input undefined. |
+
+The BQ25185's charger fault handling does not replace battery-pack protection.
+Its 1 A charge setting is also separate from operating current: system load gets
+priority, and only the remaining input current is available for charging.
+
+#### 3.3 V and 5 V buck-boost regulators
+
+The current selection is **two TPS63802DLARs**: one always-on 3.3 V regulator
+and one switched 5 V regulator. Both options below cover both output voltages
+and provide true-shutdown load disconnect. Price and stock are JLCPCB/LCSC
+snapshots from 2026-08-18.
+
+| Option | Electrical and thermal | JLCPCB/LCSC | Pros | Cons |
+|---|---|---|---|---|
+| **[TPS63802DLAR](https://www.ti.com/lit/ds/symlink/tps63802.pdf) — selected** | 2 A class, 4 A minimum boost-current limit; 11 µA enabled, 0.045 µA shutdown; 81°C/W | [C2845237](https://jlcpcb.com/partdetail/TexasInstruments-TPS63802DLAR/C2845237), Extended; 3.2k stock; $0.97 | Better 5 V current and thermal margin; lower shutdown current; `PGOOD` available. | About 3 µA more sleep current on the always-on rail; larger and about $0.44 more. |
+| [TPS631000DRLR](https://www.ti.com/lit/ds/symlink/tps631000.pdf) | 2 A at 3.3 V; 5 V/1 A requires validation; 2.6 A minimum peak limit; 8 µA enabled, 0.5 µA shutdown; 132.7°C/W | [C5219190](https://jlcpcb.com/partdetail/TexasInstruments-TPS631000DRLR/C5219190), Extended; 46.4k stock; $0.53 | Lower cost, lower always-on Iq, smaller package, and much higher stock. | Less 5 V current and thermal margin; no `PGOOD`. |
+
+The TPS63802's 3 × 2 mm VSON-HR package has no separate central thermal-pad
+pin. Follow TI's GND-pad and copper layout; its specified board-level thermal
+resistance is still substantially lower than the TPS631000's.
+
+Output voltage is set by `VOUT -> Rtop -> FB -> Rbottom -> GND`, using
+`VOUT = 0.5 V × (1 + Rtop/Rbottom)`. Use 1% resistors:
+
+| Rail | Rtop | Rbottom | Calculated nominal output |
+|---|---:|---:|---:|
+| `3V3_AON` | 510 kΩ | 91 kΩ | 3.302 V |
+| `5V_PERIPH_SW` | 820 kΩ | 91 kΩ | 5.005 V |
+
+The 3.3 V instance is always enabled. GPIO13 enables the 5 V instance and its
+100 kΩ pulldown keeps it disabled during reset and sleep. Start with `MODE` LOW
+(PFM) on both instances; use forced PWM on the 5 V instance only if audio tests
+show objectionable PFM noise. Leave both open-drain `PGOOD` pins unconnected.
+
+The expected amplifier load is a few hundred milliamps with approximately
+500 mA bursts; the design target remains 1 A at 5 V. At 90% efficiency, the
+converter dissipates about 0.17 W at 300 mA, 0.28 W at 500 mA, and 0.56 W at
+1 A. Validate output droop and temperature at minimum `SYS` voltage inside the
+enclosure.
 
 > [!WARNING]
-> **TBD — Battery and power components:** Evaluate whether an approximately
-> 2000 mAh pack provides sufficient runtime, then select the production battery,
-> charger or power-path IC, `3V3_AON` buck-boost, `5V_PERIPH_SW` boost, and
-> protection components. Confirm the exact battery voltage limits and permitted
-> charge current from the selected cell's datasheet.
+> **TBD — Battery capacity and charging:** Select the production protected LiPo,
+> confirm whether approximately 2000 mAh meets runtime, choose the final charge
+> current (currently 1 A), and decide whether to fit a battery thermistor.
 
-The tested 1 A charging current is separate from the toy's operating-current
-requirement. A power-path design must safely support the system load and the
-remaining battery-charge current at the same time. Moving to a 2000 mAh pack
-does not automatically make 1 A safe; the permitted charge rate comes from the
-specific cell datasheet and must be checked thermally in the enclosure.
-
-> [!WARNING]
-> **TBD — Operation while charging:** Confirm whether the toy may operate while
-> connected to USB power. If it may, the charger must provide a real power path
-> that prioritizes the system load, reduces charging under input or thermal
-> limits, and lets the battery supplement load peaks. A simpler charger is
-> acceptable only if the toy is intentionally off while charging.
+The regulator-IC selection is complete. PCB implementation still requires exact
+inductor, capacitor, and power-path fuse part numbers plus transient,
+efficiency, and thermal validation.
 
 This is a child product. The enclosure must prevent crushing or puncturing the
 cell, isolate sharp edges, and provide strain relief and keyed connectors for
