@@ -402,7 +402,7 @@ must all be revalidated.
 | Battery protection | Required: protected pack/cell with overcharge, over-discharge, over-current, and short-circuit protection. Add a correctly rated fuse or resettable polyfuse in the product power path. |
 | Charger | [BQ25185DLHR](https://www.ti.com/product/BQ25185), 1-cell charger with power path, input-current management, thermal regulation, and selectable LiPo/LiFePO4 charge voltage. |
 | Use while charging | Supported. Power the device from `SYS`; the BQ25185 reduces charge current when the input or thermal limit is reached and allows the battery to supplement load peaks. |
-| Charge current | 1 A in the current setup; final value is TBD and must follow the selected battery's charge-rate limit and enclosure thermal test. |
+| Charge current | **1 A production setting.** The selected battery must support this charge rate, and the completed enclosure must pass charging thermal validation. |
 | Battery thermistor | TBD. The BQ25185 `TS/MR` input supports battery-temperature monitoring; reserve the required thermistor/passive footprints and do not leave the input undefined. |
 
 The BQ25185's charger fault handling does not replace battery-pack protection.
@@ -446,8 +446,9 @@ enclosure.
 
 > [!WARNING]
 > **TBD — Battery capacity and charging:** Select the production protected LiPo,
-> confirm whether approximately 2000 mAh meets runtime, choose the final charge
-> current (currently 1 A), and decide whether to fit a battery thermistor.
+> confirm whether approximately 2000 mAh meets runtime and enclosure constraints,
+> and decide whether to fit a battery thermistor. The charge current is fixed at
+> 1 A and is not part of this remaining decision.
 
 The regulator-IC selection is complete. PCB implementation still requires exact
 inductor, capacitor, and power-path fuse part numbers plus transient,
@@ -468,9 +469,8 @@ measurement and does not represent maximum-volume playback or deep sleep.
 
 The normally-closed vibration circuit draws approximately 7 µA from
 `3V3_AON` while at rest, calculated from its 3.3 V supply and 470 kΩ pull-up.
-The charger module now under test is configured by default for 1 A charging;
-that is a charging value and must not be confused with the toy's operating
-current.
+The production charge current is 1 A; that is a charging value and must not be
+confused with the toy's operating current.
 
 > [!WARNING]
 > **TBD — Production power measurements:** On the production power tree,
