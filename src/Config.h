@@ -25,7 +25,16 @@ static constexpr int PIN_BTN2       = 33;  // Button 2: Animals
 
 // --- Sleep / power gating ---------------------------------------------------
 static constexpr int PIN_VIB_WAKE   = 27;  // Externally biased NC vibration switch to GND; wake HIGH
-static constexpr int PIN_PERIPH_PWR_EN = 13;  // Shared enable for switched 3.3 V and 5 V rails
+static constexpr int PIN_PERIPH_PWR_EN = 13;  // SD, battery-sense, and 5 V shared enable
+
+// --- Battery / charger status ----------------------------------------------
+// GPIO34/35 use external 10 kOhm pull-ups to 3V3_AON. GPIO36 reads the
+// switched 820 kOhm / 300 kOhm BAT divider on ADC1_CH0.
+static constexpr int PIN_CHARGER_STAT1 = 34;
+static constexpr int PIN_CHARGER_STAT2 = 35;
+static constexpr int PIN_BATTERY_ADC   = 36;
+static constexpr uint32_t BATTERY_DIVIDER_TOP_OHMS = 820000;
+static constexpr uint32_t BATTERY_DIVIDER_BOTTOM_OHMS = 300000;
 
 // --- Status LED -------------------------------------------------------------
 // Common-cathode RGB LED, driven active-HIGH by three LEDC PWM channels.
@@ -43,6 +52,14 @@ static constexpr bool     DEFAULT_SLEEP_ENABLED = true;
 static constexpr uint32_t SLEEP_NORMAL_IDLE_MS = 10UL * 60UL * 1000UL;
 static constexpr uint32_t SLEEP_VIB_WAKE_IDLE_MS = 2UL * 60UL * 1000UL;
 static constexpr uint32_t SLEEP_BLE_IDLE_MS = 2UL * 60UL * 1000UL;
+static constexpr uint32_t BATTERY_SAMPLE_INTERVAL_MS = 30UL * 1000UL;
+static constexpr uint32_t BATTERY_BOOT_SAMPLE_INTERVAL_MS = 100;
+static constexpr uint8_t  BATTERY_BOOT_SAMPLE_COUNT = 5;
+static constexpr uint8_t  BATTERY_ROLLING_SAMPLE_COUNT = 10;
+static constexpr uint16_t BATTERY_GOOD_TO_MEDIUM_MV = 3400;
+static constexpr uint16_t BATTERY_MEDIUM_TO_GOOD_MV = 3500;
+static constexpr uint16_t BATTERY_MEDIUM_TO_LOW_MV = 3100;
+static constexpr uint16_t BATTERY_LOW_TO_MEDIUM_MV = 3200;
 
 // ---------------------------------------------------------------------------
 // Audio
@@ -86,6 +103,7 @@ static constexpr char BLE_COMMAND_UUID[]    = "A1B2C3D4-E5F6-7890-ABCD-EF1234567
 static constexpr char BLE_CONFIG_COMMAND_UUID[]  = "A1B2C3D4-E5F6-7890-ABCD-EF1234567897";
 static constexpr char BLE_CONFIG_RESPONSE_UUID[] = "A1B2C3D4-E5F6-7890-ABCD-EF1234567898";
 static constexpr char BLE_NOTICE_UUID[]          = "A1B2C3D4-E5F6-7890-ABCD-EF1234567899";
+static constexpr char BLE_BATTERY_UUID[]         = "A1B2C3D4-E5F6-7890-ABCD-EF123456789A";
 static constexpr size_t BLE_THEMES_MAX_BYTES = 512;
 static constexpr int BLE_MAX_THEMES = 16;
 static constexpr int BLE_CONFIG_THEME_PAGE_SIZE = 1;

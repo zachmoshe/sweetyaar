@@ -97,6 +97,38 @@ The app is a control surface, not a content uploader. Songs and animal sounds
 are placed on the microSD card directly. Its complete behavior, connection
 flow, and offline support are described in [Mobile App](mobile-app.md).
 
+## Battery and charging state
+
+The production PCB measures the protected 18650 directly from `BAT` through the
+switched 820 kΩ / 300 kΩ divider on GPIO36/ADC1_CH0. The firmware uses calibrated
+ADC millivolt readings with 2.5 dB attenuation, but never exposes the measured
+voltage or a percentage. It publishes only one coarse state:
+
+| Encoded value | State | Meaning |
+|---:|---|---|
+| 0 | `UNKNOWN` | The divider is absent, invalid, or has not produced its initial sample yet. |
+| 1 | `GOOD` | Averaged battery voltage is above the charge-soon band. |
+| 2 | `MEDIUM` | Charge soon. |
+| 3 | `LOW` | Charge now; playback may soon stop as the protected battery or charger power path reaches cutoff. |
+| 4 | `CHARGING` | BQ25185 `STAT1=HIGH`, `STAT2=LOW`; this temporarily overrides the voltage band. |
+
+Battery initialization runs after the higher-current boot work. Five samples
+100 ms apart are averaged into one seed observation, so the initial state is
+available after about half a second rather than after a full rolling window.
+One new sample is then added every 30 seconds; the window grows to ten samples,
+or about five minutes, and stays at that size. The seed counts once rather than
+five times.
+
+The state uses 100 mV hysteresis: `GOOD` falls to `MEDIUM` at 3.40 V and returns
+at 3.50 V; `MEDIUM` falls to `LOW` at 3.10 V and returns at 3.20 V. Voltage
+sampling continues while charging so the most recent band is ready when charge
+status ends. Charger fault combinations are logged, while only normal charging
+uses the `CHARGING` battery state.
+
+The BLE battery characteristic is a one-byte read/notify value rather than
+JSON. This keeps the public contract deliberately small and prevents the app
+from presenting noisy voltage as precision that the circuit cannot provide.
+
 ## Bluetooth speaker mode
 
 SweetYaar advertises as a Classic Bluetooth A2DP speaker, so a phone, tablet,

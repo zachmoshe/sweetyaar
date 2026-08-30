@@ -21,6 +21,8 @@
 //                                              4=loop on, 5=loop off
 //   configCmd  (JSON string, write)         — settings/scan command
 //   configResp (JSON string, read/notify)   — settings/scan response
+//   battery    (uint8, read/notify)          — 0=unknown, 1=good, 2=medium,
+//                                              3=low, 4=charging
 //
 // Callbacks fire in a BLE stack task; they set thread-safe flags that the
 // main loop reads via the pollXxx() methods.
@@ -50,6 +52,7 @@ public:
     void updateStatus(const String& status);
     void updateThemes(const String& themesJson);
     void updateConfigResponse(const String& responseJson);
+    void updateBatteryState(uint8_t state);
     void updateDeviceName(const String& deviceName);
 
     // Push a one-shot notice for the app to display. |noticeJson| is the full
@@ -92,6 +95,7 @@ private:
     BLECharacteristic* _configCommandChar = nullptr;
     BLECharacteristic* _configResponseChar = nullptr;
     BLECharacteristic* _noticeChar = nullptr;
+    BLECharacteristic* _batteryChar = nullptr;
 
     // Pending events set by BLE callbacks, consumed by poll methods
     volatile bool    _newVolume     = false;

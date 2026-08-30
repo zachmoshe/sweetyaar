@@ -202,6 +202,8 @@ def test_parent_app_service_worker_precache_contract(repo_root) -> None:
     assert "./tokens.css" in urls
     assert "./assets/bedtime-day-art.png" in urls
     assert "./assets/bedtime-night-art.png" in urls
+    assert "./assets/battery-low-art.png" in urls
+    assert "./assets/battery-medium-art.png" in urls
     assert "./assets/favicon-16.png" in urls
     assert "./assets/favicon-32.png" in urls
     assert "./assets/favicon-48.png" in urls

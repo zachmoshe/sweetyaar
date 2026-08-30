@@ -193,13 +193,29 @@ The interface has four states: the opening connection screen, the Ready remote,
 the Bluetooth-streaming status screen, and Settings. `index.html` owns the
 transitions between them and communicates with the BLE service implemented by
 `src/BLEParentService.*`. It first reads the live characteristics used for
-volume, theme, Quiet time, status, and commands, then uses the configuration
-request/response characteristics for settings and paged content scans.
+volume, theme, Quiet time, status, battery state, and commands, then uses the
+configuration request/response characteristics for settings and paged content
+scans.
 
 The app subscribes to firmware notifications rather than assuming every write
 succeeded. Older firmware without the optional notice characteristic can still
-connect; firmware missing the required service or control characteristics is
-reported as needing an upgrade.
+connect. The battery characteristic is also optional for compatibility; without
+it the icon is gray and reports an unknown state. Firmware missing the required
+service or control characteristics is reported as needing an upgrade.
+
+### Battery presentation
+
+The Ready screen stacks a compact battery icon above the settings control. It
+shows green for `GOOD`, orange for `MEDIUM`, red for `LOW`, green with a bolt for
+`CHARGING`, and gray for `UNKNOWN`. It never displays voltage or percentage.
+
+`MEDIUM` adds a persistent orange panel with the tired, sweating teddy and a
+charge-soon message. `LOW` replaces it with a red panel showing the collapsed,
+sweating teddy and warns that playback may stop soon. These panels follow live
+BLE notifications and are not auto-dismissed; they disappear only when the
+battery state improves or charging begins. The parent app assigns the colors
+and artwork to the firmware's semantic state rather than receiving color names
+from the device.
 
 ## Visual design and assets
 
@@ -221,7 +237,7 @@ Editable assets are kept out of the deployed `public/` directory:
 | Path | Purpose |
 |---|---|
 | `design/sweetyaar-mobile/assets/source/` | High-resolution or editable source material for the app icon, favicon, header, and footer artwork. |
-| `design/sweetyaar-mobile/assets/final/` | Prepared reference exports for the opening, streaming, header, footer, and control artwork. |
+| `design/sweetyaar-mobile/assets/final/` | Prepared reference exports for the opening, streaming, battery warnings, header, footer, and control artwork. |
 | `public/assets/` | The exact browser-ready files used by the deployed app. |
 
 Some retained design exports are byte-identical to deployed files with newer
@@ -234,6 +250,8 @@ names:
 | `ready-bottom-overlay.png` | `ready-bottom-graphics.png` |
 | `ready-bottom-overlay@2x.png` | `ready-bottom-graphics@2x.png` |
 | `icon-theme.png` | `icon-theme.png` |
+| `battery-medium-art.png` | `battery-medium-art.png` |
+| `battery-low-art.png` | `battery-low-art.png` |
 
 Other deployed controls and header artwork are newer or differently sized
 variants. `public/index.html` and `public/assets/` are therefore production

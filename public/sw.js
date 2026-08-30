@@ -1,7 +1,7 @@
 "use strict";
 
 const CACHE_PREFIX = "sweetyaar-parent";
-const CACHE_VERSION = "sweetyaar-parent-v22";
+const CACHE_VERSION = "sweetyaar-parent-v23";
 
 const PRECACHE_URLS = [
   "./",
@@ -12,6 +12,8 @@ const PRECACHE_URLS = [
   "./assets/apple-touch-icon.png",
   "./assets/bedtime-day-art.png",
   "./assets/bedtime-night-art.png",
+  "./assets/battery-low-art.png",
+  "./assets/battery-medium-art.png",
   "./assets/favicon-16.png",
   "./assets/favicon-32.png",
   "./assets/favicon-48.png",

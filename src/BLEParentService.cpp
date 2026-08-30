@@ -10,7 +10,7 @@ void BLEParentService::begin(const String& deviceName) {
     _server = BLEDevice::createServer();
     _server->setCallbacks(new ServerCB(this));
 
-    // Eight characteristics plus descriptors need more than the Arduino BLE
+    // Ten characteristics plus descriptors need more than the Arduino BLE
     // Arduino BLE default of 15 handles. Under-allocating here can boot fine
     // and then crash Bluedroid when a central connects.
     BLEService* svc = _server->createService(BLEUUID(BLE_SERVICE_UUID), 48);
@@ -85,6 +85,16 @@ void BLEParentService::begin(const String& deviceName) {
     _noticeChar->addDescriptor(new BLE2902());
     _noticeChar->setValue("{}");
 
+    // --- Battery state channel --------------------------------------------
+    // The app receives only the coarse state, never the noisy cell voltage.
+    _batteryChar = svc->createCharacteristic(
+        BLE_BATTERY_UUID,
+        BLECharacteristic::PROPERTY_READ |
+        BLECharacteristic::PROPERTY_NOTIFY);
+    _batteryChar->addDescriptor(new BLE2902());
+    uint8_t initialBatteryState = 0;
+    _batteryChar->setValue(&initialBatteryState, 1);
+
     svc->start();
 
     BLEAdvertising* adv = BLEDevice::getAdvertising();
@@ -145,6 +155,13 @@ void BLEParentService::updateConfigResponse(const String& responseJson) {
     if (_themesChar) {
         _themesChar->setValue(responseJson.c_str());
     }
+}
+
+void BLEParentService::updateBatteryState(uint8_t state) {
+    if (!_batteryChar) return;
+    if (state > 4) state = 0;
+    _batteryChar->setValue(&state, 1);
+    if (_connected) _batteryChar->notify();
 }
 
 void BLEParentService::updateNotice(const String& noticeJson) {

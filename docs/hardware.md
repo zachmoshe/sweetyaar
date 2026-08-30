@@ -37,6 +37,8 @@ USB_VBUS ---- TPS2116 VIN1 (priority) --+
 AUX_5V_IN --- TPS2116 VIN2 (backup) ----+
 
 protected 18650 Li-ion ------------------------------ BQ25185 BAT
+           |
+           +---- AP2281 switched divider -------------------------- GPIO36 ADC1
 
 BQ25185 SYS ---- hard-off SPST switch ----+---- TPS63802 3.3 V ---- 3V3_AON ---- ESP32
                                           |                                  |
@@ -72,16 +74,16 @@ PCB.
 | 33 | `PIN_BTN2` | Input with internal pull-up | Animal button to GND | Active LOW. |
 | 27 | `PIN_VIB_WAKE` | Externally biased RTC input | Normally-closed vibration switch to GND | Resting LOW; movement opens the switch and wakes EXT0 on HIGH. |
 | 13 | `PIN_PERIPH_PWR_EN` | Output | `PERIPH_PWR_EN`: SD load-switch `EN` and 5 V converter `EN` | HIGH while awake; RTC-held LOW during deep sleep. |
+| 34 | `PIN_CHARGER_STAT1` | Input with external pull-up | BQ25185 `STAT1` | First charger-status bit; 10 kΩ pull-up to `3V3_AON`. |
+| 35 | `PIN_CHARGER_STAT2` | Input with external pull-up | BQ25185 `STAT2` | Second charger-status bit; 10 kΩ pull-up to `3V3_AON`. |
+| 36 | `PIN_BATTERY_ADC` | ADC1 input | Midpoint of the switched 820 kΩ / 300 kΩ `BAT` divider | Calibrated coarse battery-state measurement on ADC1_CH0. |
 | 2 | `PIN_LED_RED` | PWM output | DevKit LED directly; production RGB LED red anode through its resistor | Active HIGH; LEDC channel 0. |
 | 16 | `PIN_LED_GREEN` | PWM output | Production RGB LED green anode through its resistor | Active HIGH; LEDC channel 1. |
 | 17 | `PIN_LED_BLUE` | PWM output | Production RGB LED blue anode through its resistor | Active HIGH; LEDC channel 2. |
 
-No GPIO is currently assigned in firmware to I2C, battery-voltage measurement,
-charger status or control, an encoder, or additional sensors. The production PCB
-reserves input-only GPIO34 and GPIO35 for the BQ25185 `STAT1` and `STAT2`
-outputs; they require external pull-ups and corresponding firmware definitions.
-GPIO36/ADC1_CH0 is the preferred candidate for an optional battery-voltage
-warning input.
+No GPIO is currently assigned to I2C, charger control, an encoder, or additional
+sensors. Charger status and coarse battery level use the three input-only pins
+GPIO34, GPIO35, and GPIO36 as listed above.
 
 ## Hardware development and debugging
 
@@ -204,14 +206,14 @@ amplifier-only net. Future loads may use it if the regulator's steady-state and
 transient limits are revalidated and every new signal crossing from an
 always-powered domain obeys the unpowered-domain rules below.
 
-GPIO13, named `PERIPH_PWR_EN`, is the shared active-HIGH enable for the AP2281
-and the 5 V TPS63802. The firmware drives it HIGH during boot. Before sleeping,
-firmware stops playback, mutes the amplifier, closes SD/SPI/I2S, changes
+GPIO13, named `PERIPH_PWR_EN`, is the shared active-HIGH enable for both AP2281
+instances and the 5 V TPS63802. The firmware drives it HIGH during boot. Before
+sleeping, firmware stops playback, mutes the amplifier, closes SD/SPI/I2S, changes
 peripheral signal pins to high-impedance inputs, drives `PERIPH_PWR_EN` LOW, and
 enables RTC hold so the pin stays LOW while the main CPU sleeps.
 
 A 100 kΩ physical pulldown from GPIO13/`PERIPH_PWR_EN` to GND is required even
-though firmware controls and RTC-holds the pin. It keeps both switched branches
+though firmware controls and RTC-holds the pin. It keeps all switched branches
 off during reset, bootloader entry, flashing, and failures before firmware has
 configured the GPIO. Do not add an enable pull-up that would defeat this safe
 default.
@@ -246,17 +248,20 @@ efficiency at very light load.
 | ESP32-WROOM-32 + EXT0 | Deep sleep | 10–15 µA | **10–15 µA** |
 | 3.3 V feedback divider | 510 kΩ from `3V3_AON` to `FB`, 91 kΩ from `FB` to GND | 3.302 V / 601 kΩ = 5.49 µA at `3V3_AON` | **5–7 µA battery-side** |
 | 470 kΩ vibration pull-up | Always on | 7 µA | **7 µA** |
-| GPIO13 100 kΩ pulldown | GPIO13 and both peripheral enables held LOW | 0 V across the resistor; EN leakage is included in the AP2281 and 5 V TPS63802 rows | **≈0 µA** |
-| Buttons and indicator | Buttons released; GPIO2/GPIO16/GPIO17 LOW or high-impedance; common-cathode RGB channels off; USB and auxiliary 5 V input absent. Include `STAT` pull-up/output leakage. | No intended LED-current path | **≈0 µA, plus final input leakage** |
-| Always-powered ceramic capacitors | BQ25185 `BAT` 1 µF and `SYS` ≥10 µF; two TPS63802 10 µF input capacitors; 3.3 V TPS63802 22 µF output capacitor; AP2281 `IN` 1 µF; ESP32 local decoupling | Dielectric insulation leakage; exact capacitor part numbers not selected | **≤2 µA combined, provisional** |
+| GPIO13 100 kΩ pulldown | GPIO13 and all three controlled enable inputs held LOW | 0 V across the resistor; EN leakage is included in the two AP2281 rows and the 5 V TPS63802 row | **≈0 µA** |
+| Buttons and RGB indicator | Buttons released; GPIO2/GPIO16/GPIO17 LOW or high-impedance; common-cathode RGB channels off; USB and auxiliary 5 V input absent | No intended LED-current path | **≈0 µA** |
+| `STAT1` / `STAT2` inputs | Battery-only state is HIGH/HIGH through the two 10 kΩ pull-ups | BQ25185 high-level output leakage is 1 µA maximum per pin; include ESP32 input leakage | **≤2 µA, provisional** |
+| Always-powered ceramic capacitors | BQ25185 `BAT` 1 µF and `SYS` ≥10 µF; two TPS63802 10 µF input capacitors; 3.3 V TPS63802 22 µF output capacitor; SD-switch AP2281 `IN` 1 µF; battery-sense AP2281 `IN` 1 µF; ESP32 local decoupling | Dielectric insulation leakage; exact capacitor part numbers not selected | **≤2 µA combined, provisional** |
 | AP2281 SD load switch | Disabled; input powered | 0.01 µA typical | **≤1 µA** |
+| AP2281 battery-sense load switch | `PERIPH_PWR_EN` LOW; `BAT` input powered, divider output discharged | 0.01 µA typical, 1 µA maximum shutdown current | **≤1 µA** |
+| Battery-sense divider | Disconnected from `BAT` by its AP2281; 300 kΩ holds GPIO36 at GND | No voltage across the 820 kΩ / 300 kΩ path | **≈0 µA** |
 | microSD + SD pull-ups | **Off on peripheral rail** | 0.1–1 mA card standby; 70–330 µA per 10–47 kΩ pull-up held LOW | **≈0 µA** |
 | TPS63802 5 V buck-boost | `EN` LOW; input powered | 0.045 µA typical, 0.6 µA maximum | **≤1 µA** |
 | Separate amplifier load switch | Not required with the disconnecting 5 V TPS63802 | 0 µA | **0 µA** |
 | MAX98357A | `SD_MODE` LOW, then **off on peripheral rail** | 0.6 µA typical / 2 µA maximum in `SD_MODE` shutdown | **≈0 µA** |
 | Mute transistor and `SD_MODE` bias | `5V_PERIPH_SW` and its bias network off; use a MOSFET-style insulated control input with no pull-up to `3V3_AON` | Exact NMOS not selected; gate and off-state leakage only | **≤0.1 µA provisional** |
 | PCB surface leakage | Clean, dry PCB | Not predictable from the schematic alone | **≤1 µA provisional** |
-| **Planning total** | — | — | **approximately 38–56 µA** |
+| **Planning total** | — | — | **approximately 38–59 µA** |
 
 The capacitor allocation covers only capacitors that retain DC voltage in
 battery-only sleep. The BQ25185 `IN` capacitor and capacitors on
@@ -281,8 +286,8 @@ part of the sleep-current audit.
 > **TBD — Close the deep-sleep design budget:** Obtain or measure the
 > ARB-L18-3500 protection circuit's maximum standby current and require any
 > substitute cell not to exceed that allocation. Select the exact
-> always-powered ceramic capacitors, mute NMOS, charger-status input circuit,
-> and any battery-sense circuit,
+> always-powered ceramic capacitors, mute NMOS, charger-status input leakage,
+> and the second AP2281's maximum shutdown leakage,
 > then add their worst-case leakage rather than relying on the provisional
 > allocations above. Recalculate battery-side current across the intended
 > battery-voltage and temperature range and audit every final-schematic
@@ -341,6 +346,47 @@ when disabled. Supply every SD pull-up from `3V3_PERIPH_SW` so the card and its
 passive network switch off together. See the
 [AP2281 datasheet](https://www.diodes.com/datasheet/download/AP2281.pdf) before
 creating the symbol, footprint, or layout.
+
+### Switched battery-sense divider
+
+Use a second **AP2281-3WG-7** as a high-side switch between `BAT` and the
+battery divider. This repeats an existing IC rather than adding a new unique
+assembly part. Keep this switch primarily to prevent `BAT` from biasing GPIO36
+and the unpowered ESP32 when hard-off disconnects `SYS`; removing the divider's
+sleep current is a secondary benefit. Its approximately 80 mΩ typical
+on-resistance drops less than 1 µV at the divider's microampere current, so it
+does not materially affect the battery measurement. Sharing `PERIPH_PWR_EN`
+disconnects the divider during deep sleep as well as hard-off.
+
+```text
+BAT+ ---- AP2281 IN
+              OUT ---- 820 kΩ ----+---- GPIO36 / ADC1_CH0
+                                  |
+                                300 kΩ
+                                  |
+                                 GND
+
+GPIO36 / ADC1_CH0 ---- 100 nF ---- GND
+AP2281 EN ------------ PERIPH_PWR_EN
+AP2281 GND ----------- GND
+```
+
+GPIO36 is the divider midpoint, not a connection after both resistors. With the
+switch enabled, the nominal ADC voltage is
+`VBAT × 300 kΩ / (820 kΩ + 300 kΩ)`: 1.125 V at 4.2 V, 0.911 V at 3.4 V, and
+0.830 V at 3.1 V. The divider draws 3.75 µA at 4.2 V while awake. Use ordinary
+1% resistors; both values already occur elsewhere on the PCB. Averaging and
+hysteresis handle short-term ADC noise, while the deliberately coarse states do
+not require a precision 0.1% divider. Divider tolerance creates a fixed
+unit-to-unit threshold offset rather than zero-centered sample noise, so verify
+the thresholds on production boards.
+
+Connect the AP2281 as in the SD-switch pin table, except `IN` is `BAT`, `OUT` is
+the switched divider supply, and `EN` remains `PERIPH_PWR_EN`. Fit the
+datasheet-recommended 1 µF input and 0.1 µF output capacitors, plus the 100 nF
+ADC-node capacitor shown above. The `-3` variant actively discharges its output
+when disabled; the 300 kΩ resistor holds the ADC node at GND. Firmware enables
+2.5 dB ADC attenuation and uses calibrated millivolt readings.
 
 ### Amplifier rail and mute circuit
 
@@ -530,6 +576,7 @@ revision adds no SPI or I2S signal-isolation components.
 | `3V3_AON` ↔ `5V_PERIPH_SW` | Firmware mutes the amplifier, ends I2S, makes BCLK/LRCLK/DIN inputs, and then disables the 5 V rail; enabling occurs in the reverse order after the rail settles. Keep the mixed-mono/mute bias network on `5V_PERIPH_SW`. No I2S isolation buffer is planned. |
 | `5V_INPUT` ↔ `5V_PERIPH_SW` | These are different 5 V domains and must never be tied together. The switched peripheral boost output must provide true load disconnect and must not feed the external-input or charger path. |
 | Charge-status signals | Connect `STAT1` and `STAT2` only to ESP32 GPIO34 and GPIO35, using external pull-ups to `3V3_AON`. Include their leakage in the sleep audit. Do not add direct status LEDs to the BQ25185 outputs. |
+| `BAT` ↔ GPIO36 battery measurement | Feed the 820 kΩ / 300 kΩ divider through a second AP2281-3WG-7 whose `EN` is `PERIPH_PWR_EN`. This prevents `BAT` from driving the ADC while the ESP32 is unpowered and disconnects the divider in deep sleep. Do not measure `SYS` as a substitute. |
 | Programming fixture ↔ board supplies | Treat the exposed target-voltage pad as a sense/reference connection until a fixture-power scheme is explicitly selected. A future fixture must not back-power USB, `AUX_5V_IN`, `SYS`, or the battery. |
 
 The schematic review must trace every power pin, pull-up, protection diode,
@@ -551,26 +598,35 @@ available while the ESP32 is in deep sleep or unavailable. Firmware may remain
 awake while external charging power is present if continuous indication is
 required.
 
-#### Battery-level warning (circuit TBD)
+#### Battery-level measurement
 
-The BQ25185 status outputs report charger state and faults, not remaining battery
-capacity. A coarse **charge soon** warning can be implemented by reserving
-GPIO36/ADC1_CH0 to measure `BAT` through a resistor divider. Use an ADC1 pin so
-the design avoids ADC2's Wi-Fi arbitration restrictions if Wi-Fi is ever used.
-Size the divider so a fully charged cell and expected transients remain inside
-the configured ADC input range. The divider should be disconnected from `BAT`
-while unused—using a suitably low-leakage analog switch or MOSFET arrangement—
-so it does not consume several microamps continuously and erode the deep-sleep
-budget. Its switch may be controlled by the existing `PERIPH_PWR_EN` signal, so
-the measurement circuit is available while awake and needs no additional output
-GPIO.
+The BQ25185 status outputs report charger state and faults, not remaining
+battery capacity. Measure `BAT` directly with the switched divider documented
+above. Do **not** substitute a `SYS` measurement: the BQ25185 regulates `SYS` to
+4.5 V while valid input power is present, and only says that `SYS` automatically
+switches to battery power after the input is removed. Its datasheet does not
+define `SYS` as a battery-voltage monitor; in battery-only operation it also
+includes the BATFET/load-dependent drop. Direct `BAT` measurement therefore
+works consistently while charging, externally powered, or battery-only.
 
-This measurement is suitable for a warning, not a trustworthy percentage:
-Li-ion terminal voltage varies with load, temperature, cell model, and recent
-charging. Firmware should sample while the load is quiet, average calibrated
-ADC readings, apply hysteresis, and set the warning threshold against the
-ARB-L18-3500 reference cell. A dedicated fuel-gauge IC remains an
-alternative if a reliable percentage or runtime estimate is later required.
+This is deliberately a coarse warning, not a percentage or displayed voltage.
+Firmware publishes only `UNKNOWN`, `GOOD`, `MEDIUM`, `LOW`, or `CHARGING`.
+After boot initialization settles, it averages five readings spaced 100 ms
+apart into one seed sample. It then adds one reading every 30 seconds to a
+rolling ten-sample window. The voltage-state hysteresis is:
+
+| Transition | Averaged `BAT` threshold |
+|---|---:|
+| `GOOD` → `MEDIUM` | ≤3.40 V |
+| `MEDIUM` → `GOOD` | ≥3.50 V |
+| `MEDIUM` → `LOW` | ≤3.10 V |
+| `LOW` → `MEDIUM` | ≥3.20 V |
+
+`STAT1=HIGH` and `STAT2=LOW` overrides the voltage state as `CHARGING`
+immediately. The averaged voltage state continues updating underneath and is
+restored when charging ends. Li-ion terminal voltage still varies with load,
+temperature, cell model, and recent charging; a dedicated fuel gauge remains a
+future option only if a reliable percentage or runtime estimate becomes useful.
 
 #### RGB status LED
 
@@ -789,11 +845,10 @@ inputs.
 
 #### Remaining electrical decisions and verification
 
-The remaining product-level electrical decision is whether to add the proposed
-switched-divider battery-warning input.
+The battery-warning architecture is closed: direct `BAT` measurement through
+the AP2281-switched 820 kΩ / 300 kΩ divider on GPIO36.
 
-Exact connector models, regulator passives, mute NMOS, and the exact
-circuit/parts for the battery-warning input are schematic/BOM
+Exact connector models, regulator passives, and mute NMOS are schematic/BOM
 selections that must satisfy the fixed behavior above. The exact common-cathode
 RGB LED and its three resistor values are BOM
 checks, not an open indicator-architecture decision. The deep-sleep calculation
@@ -920,22 +975,27 @@ connecting an 18650 cell or speaker. A practical order is:
 6. Verify `3V3_AON` across the intended battery range and during ESP32 radio
    bursts.
 7. Toggle `PERIPH_PWR_EN` and confirm that `3V3_PERIPH_SW` and
-   `5V_PERIPH_SW` start and stop cleanly.
-8. With the switched rails off, confirm both peripheral rails turn fully off;
+   `5V_PERIPH_SW` start and stop cleanly, and that the battery-sense AP2281
+   follows the same enable.
+8. Apply known safe battery-simulator voltages at `BAT` and verify GPIO36 sees
+   the expected divider values and firmware state thresholds. With
+   `PERIPH_PWR_EN` LOW or the hard-off switch open, confirm the ADC node is held
+   near GND and `BAT` cannot back-power the ESP32.
+9. With the switched rails off, confirm both peripheral rails turn fully off;
    then turn them back on and verify reliable SD and amplifier initialization.
-9. Validate SD initialization and low-volume audio before increasing speaker
+10. Validate SD initialization and low-volume audio before increasing speaker
    load.
-10. During representative Bluetooth playback with the speaker selected for that
+11. During representative Bluetooth playback with the speaker selected for that
    doll, measure converter temperature and battery-side transient current. This
    is an electrical/thermal check, not an acoustic volume measurement.
-11. Enter deep sleep and measure total battery current, not only an individual
+12. Enter deep sleep and measure total battery current, not only an individual
    rail.
-12. Open the hard-off switch and verify that neither the battery, USB, nor AUX
+13. Open the hard-off switch and verify that neither the battery, USB, nor AUX
     can power the system regulators while off. With USB or AUX attached, verify
     that the battery can still charge through the BQ25185 while the regulator
     side of the switch remains unpowered.
-13. Move the vibration switch and confirm that the rails return only after the
-   ESP32 reboots.
+14. Move the vibration switch and confirm that the rails return only after the
+    ESP32 reboots.
 
 During deep sleep, `PERIPH_PWR_EN`, `3V3_PERIPH_SW`, and `5V_PERIPH_SW` should
 all measure LOW or off. If a peripheral rail remains active, check its enable

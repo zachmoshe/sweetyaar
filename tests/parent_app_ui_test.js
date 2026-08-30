@@ -478,7 +478,8 @@ function makeBleHarness(options = {}) {
     command: new FakeCharacteristic("command", "", readHooks),
     configCommand: new FakeCharacteristic("configCommand", "{}", readHooks),
     configResponse: new FakeCharacteristic("configResponse", JSON.stringify(response), readHooks),
-    notice: new FakeCharacteristic("notice", "{}", readHooks)
+    notice: new FakeCharacteristic("notice", "{}", readHooks),
+    battery: new FakeCharacteristic("battery", options.battery ?? 1, readHooks)
   };
 
   function isJsonConfigWrite(value) {
@@ -769,7 +770,7 @@ const tests = [
     assert.strictEqual(els.volumeValue.textContent, "31%");
     assert.strictEqual(els.themeCurrent.textContent, "Nature");
     assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime", "scanThemes"]);
-    assert.deepStrictEqual(ble.notifications, ["status", "volume", "killswitch", "theme", "notice", "configResponse"]);
+    assert.deepStrictEqual(ble.notifications, ["status", "volume", "killswitch", "theme", "notice", "battery", "configResponse"]);
   `],
   ["remote playback buttons write command values", String.raw`
     const ble = await connectWithFakeBle();
@@ -952,6 +953,35 @@ const tests = [
     assert.strictEqual(els.noticeBanner.hidden, true);
     ble.chars.notice.emit(JSON.stringify({ severity: "error" }));
     assert.strictEqual(els.noticeBanner.hidden, true);
+  `],
+  ["battery state renders the compact indicator and persistent warning", String.raw`
+    const ble = await connectWithFakeBle({ battery: 2 });
+    assert.strictEqual(state.battery, "medium");
+    assert.strictEqual(els.batteryIndicator.classList.contains("medium"), true);
+    assert.strictEqual(els.batteryIndicator.getAttribute("aria-label"), "Battery medium");
+    assert.strictEqual(els.batteryWarning.hidden, false);
+    assert.strictEqual(els.batteryWarning.classList.contains("medium"), true);
+    assert.strictEqual(els.batteryWarningTitle.textContent, "Charge SweetYaar soon");
+    assert.strictEqual(els.batteryWarningArt.src, "assets/battery-medium-art.png");
+
+    ble.chars.battery.emit(3);
+    assert.strictEqual(state.battery, "low");
+    assert.strictEqual(els.batteryIndicator.classList.contains("low"), true);
+    assert.strictEqual(els.batteryWarning.classList.contains("low"), true);
+    assert.strictEqual(els.batteryWarningTitle.textContent, "Charge SweetYaar now");
+    assert.strictEqual(els.batteryWarningArt.src, "assets/battery-low-art.png");
+
+    ble.chars.battery.emit(4);
+    assert.strictEqual(state.battery, "charging");
+    assert.strictEqual(els.batteryWarning.hidden, true);
+    assert.strictEqual(els.batteryIndicator.getAttribute("aria-label"), "Battery charging");
+  `],
+  ["older firmware without battery state remains usable", String.raw`
+    await connectWithFakeBle({ missingCharacteristics: ["battery"] });
+    assert.strictEqual(state.connected, true);
+    assert.strictEqual(state.battery, "unknown");
+    assert.strictEqual(els.batteryWarning.hidden, true);
+    assert.strictEqual(els.batteryIndicator.classList.contains("unknown"), true);
   `],
   ["settings screen loads config and content scans", String.raw`
     const ble = await connectWithFakeBle();

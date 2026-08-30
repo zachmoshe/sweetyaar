@@ -15,6 +15,8 @@
   <link rel="icon" type="image/png" sizes="48x48" href="assets/favicon-48.png">
   <link rel="icon" type="image/png" sizes="192x192" href="assets/pwa-icon-192.png">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+  <link rel="preload" as="image" href="assets/battery-medium-art.png">
+  <link rel="preload" as="image" href="assets/battery-low-art.png">
   <link rel="stylesheet" href="tokens.css">
   <style>
     * {
@@ -192,10 +194,10 @@
     .screen.ready {
       position: relative;
       margin-top: -48px;
-      height: calc(100dvh - var(--header-height) + 48px);
+      min-height: calc(100dvh - var(--header-height) + 48px);
       padding-top: 0;
       padding-bottom: 0;
-      overflow: hidden;
+      overflow: visible;
     }
 
     .screen.ready .stack {
@@ -1275,9 +1277,133 @@
       line-height: 1.15;
     }
 
-    .ready-settings-row {
+    .ready-side-controls {
       display: grid;
+      grid-template-rows: 28px 1fr;
       place-items: center;
+      min-height: 76px;
+    }
+
+    .battery-indicator {
+      position: relative;
+      width: 39px;
+      height: 22px;
+      color: #8d9698;
+    }
+
+    .battery-indicator::after {
+      content: "";
+      position: absolute;
+      top: 7px;
+      right: 0;
+      width: 4px;
+      height: 8px;
+      border-radius: 0 3px 3px 0;
+      background: currentColor;
+    }
+
+    .battery-body {
+      position: absolute;
+      inset: 1px 5px 1px 0;
+      overflow: hidden;
+      border: 2px solid currentColor;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.7);
+    }
+
+    .battery-fill {
+      position: absolute;
+      inset: 3px;
+      width: calc(80% - 6px);
+      border-radius: 2px;
+      background: currentColor;
+    }
+
+    .battery-indicator.good,
+    .battery-indicator.charging {
+      color: #15986a;
+    }
+
+    .battery-indicator.medium {
+      color: #e28b18;
+    }
+
+    .battery-indicator.low {
+      color: #dc3d52;
+    }
+
+    .battery-indicator.medium .battery-fill {
+      width: calc(55% - 6px);
+    }
+
+    .battery-indicator.low .battery-fill {
+      width: calc(28% - 6px);
+    }
+
+    .battery-indicator.unknown .battery-fill {
+      width: calc(45% - 6px);
+      opacity: 0.32;
+    }
+
+    .battery-bolt {
+      position: absolute;
+      inset: -3px 0 0 0;
+      display: none;
+      place-items: center;
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 900;
+      line-height: 1;
+      text-shadow: 0 1px 1px rgba(0, 82, 58, 0.3);
+    }
+
+    .battery-indicator.charging .battery-bolt {
+      display: grid;
+    }
+
+    .battery-warning {
+      display: grid;
+      grid-template-columns: 104px minmax(0, 1fr);
+      align-items: center;
+      gap: 4px;
+      min-height: 92px;
+      padding: 7px 16px 7px 6px;
+      border: 0;
+      box-shadow: 0 8px 18px rgba(106, 75, 38, 0.1);
+    }
+
+    .battery-warning.medium {
+      background: #fff0d8;
+    }
+
+    .battery-warning.low {
+      background: #f9dddd;
+    }
+
+    .battery-warning-art {
+      display: block;
+      width: 104px;
+      height: 78px;
+      object-fit: contain;
+    }
+
+    .battery-warning-copy h2,
+    .battery-warning-copy p {
+      margin: 0;
+      color: #4c696c;
+    }
+
+    .battery-warning-copy h2 {
+      margin-bottom: 5px;
+      font-size: clamp(15px, 4vw, 17px);
+      line-height: 1.15;
+      font-weight: 850;
+    }
+
+    .battery-warning-copy p {
+      font-size: clamp(13px, 3.5vw, 15px);
+      line-height: 1.28;
+      font-weight: 700;
     }
 
     .settings-button {
@@ -1285,7 +1411,7 @@
       display: grid;
       width: 62px;
       height: 100%;
-      min-height: 76px;
+      min-height: 48px;
       place-items: center;
       border: 0;
       background: transparent;
@@ -1295,8 +1421,8 @@
 
     .settings-button .settings-icon {
       display: block;
-      width: 48px;
-      height: 48px;
+      width: 38px;
+      height: 38px;
       filter: drop-shadow(0 2px 4px rgba(73, 55, 34, 0.16));
     }
 
@@ -2027,6 +2153,14 @@
           <button class="notice-dismiss" id="noticeDismiss" type="button" aria-label="Dismiss">&times;</button>
         </article>
 
+        <article class="card battery-warning" id="batteryWarning" role="status" hidden>
+          <img class="battery-warning-art" id="batteryWarningArt" src="assets/battery-medium-art.png" alt="">
+          <div class="battery-warning-copy">
+            <h2 id="batteryWarningTitle">Charge SweetYaar soon</h2>
+            <p id="batteryWarningMessage">Battery is getting tired.</p>
+          </div>
+        </article>
+
         <div class="ready-top-row">
           <article class="card status-card">
             <div class="status-icon green" id="readyStatusIcon" aria-hidden="true">
@@ -2039,7 +2173,13 @@
             </div>
             <span class="status-dot" aria-hidden="true"></span>
           </article>
-          <div class="ready-settings-row">
+          <div class="ready-side-controls">
+            <div class="battery-indicator unknown" id="batteryIndicator" role="img" aria-label="Battery status unknown">
+              <span class="battery-body" aria-hidden="true">
+                <span class="battery-fill"></span>
+                <span class="battery-bolt">ϟ</span>
+              </span>
+            </div>
             <button class="settings-button" id="openSettingsButton" type="button" aria-label="Settings">
               <img class="settings-icon" src="assets/icon-settings-sliders.svg" alt="">
             </button>
@@ -2489,7 +2629,8 @@
       command: "a1b2c3d4-e5f6-7890-abcd-ef1234567896",
       configCommand: "a1b2c3d4-e5f6-7890-abcd-ef1234567897",
       configResponse: "a1b2c3d4-e5f6-7890-abcd-ef1234567898",
-      notice: "a1b2c3d4-e5f6-7890-abcd-ef1234567899"
+      notice: "a1b2c3d4-e5f6-7890-abcd-ef1234567899",
+      battery: "a1b2c3d4-e5f6-7890-abcd-ef123456789a"
     };
 
     const els = {
@@ -2507,6 +2648,11 @@
       noticeBanner: document.querySelector("#noticeBanner"),
       noticeMessage: document.querySelector("#noticeMessage"),
       noticeDismiss: document.querySelector("#noticeDismiss"),
+      batteryWarning: document.querySelector("#batteryWarning"),
+      batteryWarningArt: document.querySelector("#batteryWarningArt"),
+      batteryWarningTitle: document.querySelector("#batteryWarningTitle"),
+      batteryWarningMessage: document.querySelector("#batteryWarningMessage"),
+      batteryIndicator: document.querySelector("#batteryIndicator"),
       readyStatusCard: document.querySelector("#readyView .status-card"),
       readyStatusIcon: document.querySelector("#readyStatusIcon"),
       readyStatusGlyph: document.querySelector("#readyStatusGlyph"),
@@ -2595,6 +2741,7 @@
       themes: [],
       loop: false,
       killswitch: false,
+      battery: "unknown",
       notice: null,
       noticeTimer: null,
       configResponseSubscribed: false,
@@ -3001,6 +3148,54 @@
 
     function readUint8(value) {
       return value.byteLength ? value.getUint8(0) : 0;
+    }
+
+    function decodeBatteryState(value) {
+      return ["unknown", "good", "medium", "low", "charging"][Number(value)] || "unknown";
+    }
+
+    function batteryPresentation() {
+      switch (state.battery) {
+        case "good":
+          return { label: "Battery good" };
+        case "medium":
+          return {
+            label: "Battery medium",
+            warning: true,
+            title: "Charge SweetYaar soon",
+            message: "Battery is getting tired. Plug it in when convenient.",
+            art: "assets/battery-medium-art.png"
+          };
+        case "low":
+          return {
+            label: "Battery low",
+            warning: true,
+            title: "Charge SweetYaar now",
+            message: "Playback may stop soon to protect the battery.",
+            art: "assets/battery-low-art.png"
+          };
+        case "charging":
+          return { label: "Battery charging" };
+        default:
+          return { label: "Battery status unknown" };
+      }
+    }
+
+    function renderBatteryStatus() {
+      const presentation = batteryPresentation();
+      els.batteryIndicator.classList.remove("unknown", "good", "medium", "low", "charging");
+      els.batteryIndicator.classList.add(state.battery);
+      els.batteryIndicator.setAttribute("aria-label", presentation.label);
+
+      els.batteryWarning.hidden = !presentation.warning;
+      if (!presentation.warning) return;
+      els.batteryWarning.classList.toggle("medium", state.battery === "medium");
+      els.batteryWarning.classList.toggle("low", state.battery === "low");
+      els.batteryWarningTitle.textContent = presentation.title;
+      els.batteryWarningMessage.textContent = presentation.message;
+      if (els.batteryWarningArt.getAttribute("src") !== presentation.art) {
+        els.batteryWarningArt.src = presentation.art;
+      }
     }
 
     function readText(value) {
@@ -4096,6 +4291,7 @@
       els.openSettingsButton.disabled = state.busy || !state.connected;
       renderInstallBanner();
       renderNoticeBanner();
+      renderBatteryStatus();
 
       if (settings) {
         renderSettings();
@@ -4138,12 +4334,16 @@
       const themeValue = await readInitialCharacteristic("theme");
       const statusValue = await readInitialCharacteristic("status");
       const themesValue = await readInitialCharacteristic("themes");
+      const batteryValue = state.chars.battery
+        ? await readInitialCharacteristic("battery")
+        : null;
 
       state.themes = parseThemes(readText(themesValue));
       state.volume = readUint8(volumeValue);
       state.killswitch = readUint8(killswitchValue) !== 0;
       state.theme = readText(themeValue);
       state.status = readText(statusValue) || "Idle";
+      state.battery = batteryValue ? decodeBatteryState(readUint8(batteryValue)) : "unknown";
     }
 
     async function completeRemoteInitialization(options = {}) {
@@ -4268,6 +4468,12 @@
         await subscribeToStatusNotifications();
       }
       await subscribeToNoticeNotifications();
+      if (state.chars.battery) {
+        await subscribe("battery", (event) => {
+          state.battery = decodeBatteryState(readUint8(event.target.value));
+          render();
+        });
+      }
       await subscribeToConfigResponse();
     }
 
@@ -4299,6 +4505,7 @@
           );
         }
         state.chars.notice = await getOptionalCharacteristic(service, "notice");
+        state.chars.battery = await getOptionalCharacteristic(service, "battery");
         await completeRemoteInitialization({ subscribeStatus: false });
         state.message = "";
       } catch (error) {
@@ -4426,6 +4633,7 @@
           );
         }
         state.chars.notice = await getOptionalCharacteristic(service, "notice");
+        state.chars.battery = await getOptionalCharacteristic(service, "battery");
 
         await completeRemoteInitialization();
 
@@ -4468,6 +4676,7 @@
       state.status = "Disconnected";
       state.killswitch = false;
       state.loop = false;
+      state.battery = "unknown";
       if (state.noticeTimer) {
         clearTimeout(state.noticeTimer);
         state.noticeTimer = null;

@@ -27,6 +27,7 @@
 #include "BLEParentService.h"
 #include "StateMachine.h"
 #include "StatusLed.h"
+#include "BatteryMonitor.h"
 
 // ---------------------------------------------------------------------------
 // Global objects
@@ -36,6 +37,7 @@ ParentConfig    parentConfig;
 ButtonHandler   buttons;
 BLEParentService bleService;
 StateMachine    sm;
+BatteryMonitor  batteryMonitor;
 
 // Audio pipeline:
 //   BT A2DP: A2DP sink -> I2SStream -> MAX98357A
@@ -265,6 +267,11 @@ void setup() {
     // Apply SD-configured volume, or the static firmware default.
     applyVolume(parentConfig.defaultVolumePct());
 
+    // Battery initialization deliberately happens after the high-current boot
+    // work. Five readings over roughly 500 ms seed an immediate coarse state;
+    // later readings extend the rolling window at 30-second intervals.
+    batteryMonitor.begin();
+
     // BLE parent service — shares the controller already started by A2DP.
     if (ENABLE_BLE_PARENT_SERVICE) {
         bleService.begin(currentDeviceName);
@@ -329,6 +336,16 @@ void loop() {
     handleBleConfigCommands();
     pollBedtimeMode();
     pollBleConnectionState();
+
+    // Battery state is a separate one-byte BLE value. Avoid injecting a BLE
+    // notification into the short Classic-BT connection settle interval.
+    if (batteryMonitor.poll() && ENABLE_BLE_PARENT_SERVICE) {
+        if (btLinkConnected && millis() - btConnectedAtMs < BT_SETTLE_MS) {
+            btSettleBlePublishPending = true;
+        } else {
+            bleService.updateBatteryState(batteryMonitor.encodedState());
+        }
+    }
 
     // 4. WAV player: signal SM when a track ends. Looping deliberately uses
     //    the same next-song path as another song-button press, preserving the
@@ -1351,6 +1368,7 @@ void publishBleValues() {
     bleService.updateKillswitch(state == State::KILLSWITCH);
     bleService.updateTheme(activeTheme);
     bleService.updateStatus(bleStatusForState(state));
+    bleService.updateBatteryState(batteryMonitor.encodedState());
     lastBleStatusPublishMs = millis();
 }
 
