@@ -28,7 +28,10 @@ static constexpr int PIN_VIB_WAKE   = 27;  // Externally biased NC vibration swi
 static constexpr int PIN_PERIPH_PWR_EN = 13;  // Shared enable for switched 3.3 V and 5 V rails
 
 // --- Status LED -------------------------------------------------------------
-static constexpr int PIN_LED        = 2;   // On-board LED
+// Common-cathode RGB LED, driven active-HIGH by three LEDC PWM channels.
+static constexpr int PIN_LED_RED    = 2;
+static constexpr int PIN_LED_GREEN  = 16;
+static constexpr int PIN_LED_BLUE   = 17;
 
 // ---------------------------------------------------------------------------
 // Timing constants

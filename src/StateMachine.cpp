@@ -1,4 +1,5 @@
 #include "StateMachine.h"
+#include "StatusLed.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 
@@ -311,6 +312,10 @@ void StateMachine::updateLed() {
     if ((now - _ledLastToggleMs) >= interval) {
         _ledLastToggleMs = now;
         _ledState = !_ledState;
-        digitalWrite(PIN_LED, _ledState ? HIGH : LOW);
+        if (_ledState) {
+            statusLed.setColor(LedColors::RED);
+        } else {
+            statusLed.off();
+        }
     }
 }

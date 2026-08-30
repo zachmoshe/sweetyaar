@@ -26,6 +26,7 @@
 #include "WavPlayer.h"
 #include "BLEParentService.h"
 #include "StateMachine.h"
+#include "StatusLed.h"
 
 // ---------------------------------------------------------------------------
 // Global objects
@@ -221,9 +222,8 @@ void setup() {
     setupWakeState();
     setupPeripheralPower();
 
-    // Status LED
-    pinMode(PIN_LED, OUTPUT);
-    digitalWrite(PIN_LED, HIGH);  // solid on during init
+    statusLed.begin();
+    statusLed.setColor(LedColors::BLUE);  // solid blue during init
 
     // Device-local NVS config
     nvs.begin();
@@ -276,7 +276,7 @@ void setup() {
         Serial.println("[BLE] Parent service disabled for A2DP audio test");
     }
 
-    digitalWrite(PIN_LED, LOW);  // init done
+    statusLed.off();  // init done
     lastActivityMs = millis();
     lastBleActivityMs = millis();
     lastBleConnected = ENABLE_BLE_PARENT_SERVICE && bleService.isConnected();
@@ -800,7 +800,7 @@ void enterIdleDeepSleep() {
                   static_cast<unsigned long>((millis() - lastActivityMs) / 1000UL),
                   PIN_VIB_WAKE);
 
-    digitalWrite(PIN_LED, LOW);
+    statusLed.off();
     wavPlayer.stop();
     preparePinsForPeripheralPowerOff();
     holdPeripheralPowerOffForDeepSleep();
