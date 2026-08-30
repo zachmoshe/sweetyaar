@@ -68,7 +68,7 @@ in-memory catalog used by playback and the parent app. Files added or removed
 manually are therefore picked up after a restart; changes made through the app
 also update the live catalog.
 
-The checked-in `[sd_card_template](../sd_card_template/README.txt)` contains a
+The checked-in [SD-card template](../../content/sd-card-template/README.txt) contains a
 complete example card with the supported layout and configuration schema. If
 the card or configuration is missing, Bluetooth speaker mode still starts and
 the firmware uses safe defaults where possible, but local audio cannot play
@@ -88,9 +88,9 @@ Most content settings are saved in `/config.json` or the relevant theme's
 stored in the ESP32's non-volatile storage so replacing the card does not rename
 the toy.
 
-The app's **Quiet time** switch gives a parent a temporary way to disable the doll's buttons. 
-Activating it stops local audio and ignores physical-button and app playback commands for 
-ten minutes, unless the parent cancels it early. Quiet time applies only to local playback; 
+The app's **Quiet time** switch gives a parent a temporary way to disable the doll's buttons.
+Activating it stops local audio and ignores physical-button and app playback commands for
+ten minutes, unless the parent cancels it early. Quiet time applies only to local playback;
 it does not prevent a Classic Bluetooth source from connecting and streaming.
 
 The app is a control surface, not a content uploader. Songs and animal sounds
@@ -203,17 +203,17 @@ The high-level components are:
 
 | Component                | Responsibility                                                                           |
 | ------------------------ | ---------------------------------------------------------------------------------------- |
-| `src/main.cpp`           | Boot sequence and coordination between every subsystem.                                  |
-| `src/StateMachine.*`     | Playback ownership, mode changes, looping, and the Quiet time timer.                     |
-| `src/ButtonHandler.*`    | Debouncing the two buttons and recognizing a simultaneous press.                         |
-| `src/WavPlayer.*`        | Streaming and decoding SD-card WAV files to the I2S audio output.                        |
-| `src/ContentCatalog.*`   | Scanning themes and tracks, validating content, and applying content-management changes. |
-| `src/BLEParentService.*` | BLE characteristics used by the parent app for controls, status, and configuration.      |
-| `src/ParentConfig.*`     | Parent-editable settings loaded from `/config.json`.                                     |
-| `src/NVSConfig.*`        | Device-local settings that should survive SD-card replacement.                           |
-| `src/BedtimeMode.*`      | Pure rules for daily windows and manual overrides.                                       |
-| `src/PeripheralPower.*`  | Power-gating behavior during boot and deep sleep.                                        |
-| `src/Config.h`           | Pin assignments, BLE identifiers, and firmware fallback values.                          |
+| `firmware/esp32/src/main.cpp`           | Boot sequence and coordination between every subsystem.                                  |
+| `firmware/esp32/src/StateMachine.*`     | Playback ownership, mode changes, looping, and the Quiet time timer.                     |
+| `firmware/esp32/src/ButtonHandler.*`    | Debouncing the two buttons and recognizing a simultaneous press.                         |
+| `firmware/esp32/src/WavPlayer.*`        | Streaming and decoding SD-card WAV files to the I2S audio output.                        |
+| `firmware/esp32/src/ContentCatalog.*`   | Scanning themes and tracks, validating content, and applying content-management changes. |
+| `firmware/esp32/src/BLEParentService.*` | BLE characteristics used by the parent app for controls, status, and configuration.      |
+| `firmware/esp32/src/ParentConfig.*`     | Parent-editable settings loaded from `/config.json`.                                     |
+| `firmware/esp32/src/NVSConfig.*`        | Device-local settings that should survive SD-card replacement.                           |
+| `firmware/esp32/src/BedtimeMode.*`      | Pure rules for daily windows and manual overrides.                                       |
+| `firmware/esp32/src/PeripheralPower.*`  | Power-gating behavior during boot and deep sleep.                                        |
+| `firmware/esp32/src/Config.h`           | Pin assignments, BLE identifiers, and firmware fallback values.                          |
 
 
 There is no Wi-Fi setup flow or over-the-air firmware updater. The only runtime
@@ -232,21 +232,19 @@ Set up the checked-in development environment from the repository root:
 uv sync
 ```
 
-Build the firmware with the project's virtual environment:
+Build or flash the firmware from the repository root:
 
 ```bash
-/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e sweetyaar
+make build
+make flash
 ```
-
-Add `-t upload` to flash a connected ESP32.
 
 ## Testing changes
 
 The regression suite is intentionally broader than a firmware compile. It
 checks the SD-card configuration contract, runs the state-machine and Bedtime
 rules as native C++ tests, builds the production firmware, checks the parent
-app and its offline shell, and runs real-device Bluetooth tests when their
-prerequisites are available.
+app, and validates its offline shell.
 
 Run the complete suite from the repository root:
 
@@ -254,37 +252,12 @@ Run the complete suite from the repository root:
 uv run python -m pytest
 ```
 
-For quicker or more focused work, use the pytest markers:
+For a quicker host-only loop that omits the PlatformIO build:
 
 ```bash
-# Host-side tests only: no PlatformIO build and no connected hardware.
-uv run python -m pytest -m "not firmware and not hardware"
-
-# Include the production firmware build but skip connected hardware.
-uv run python -m pytest -m "not hardware"
-
-# Run only tests that require a connected device.
-uv run python -m pytest -m hardware --device-name SweetYaar --bt-address 40-22-D8-3D-8A-22
+uv run python -m pytest -m "not firmware"
 ```
 
-Hardware tests skip cleanly when USB, BLE advertising, or the required local
-Bluetooth tools are unavailable. When USB is available, pytest resets the
-ESP32 before BLE checks so a sleeping device can boot and advertise.
-
-Changes to Bluetooth, BLE, I2S, SD configuration, playback state, or sleep
-behavior should also be checked on the real device:
-
-```bash
-/Users/zmoshe/proj/sweetyaar/.venv/bin/python tools/mac_bt_smoke_test.py --bt-address 40-22-D8-3D-8A-22 --device-name SweetYaar
-/Users/zmoshe/proj/sweetyaar/.venv/bin/python tools/ble_gatt_probe.py --name SweetYaar --control-smoke-test --config-api-test --config-round-trip-test
-```
-
-On macOS, run the Classic Bluetooth smoke test from Terminal when Bluetooth
-privacy blocks `blueutil`. A successful A2DP check requires an actual
-connection, correct audio routing, an `Audio state: STARTED` serial message,
-and no crash or reboot; a successful compile alone does not exercise the radio
-or audio path.
-
-The BLE round-trip check temporarily changes the device name, default volume,
-default theme, and sleep thresholds, verifies the values through the BLE API,
-and restores the originals.
+Bluetooth, BLE, I2S, sleep, and physical-device behavior still require manual
+testing on the intended hardware; a successful compile does not exercise the
+radio, audio path, or power circuitry.

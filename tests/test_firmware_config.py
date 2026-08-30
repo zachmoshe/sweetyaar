@@ -7,7 +7,7 @@ import pathlib
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-CONFIG_PATH = ROOT / "sd_card_template" / "config.json"
+CONFIG_PATH = ROOT / "content" / "sd-card-template" / "config.json"
 
 
 def test_sd_template_has_versioned_sleep_config() -> None:

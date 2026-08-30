@@ -2,7 +2,7 @@
 
 These notes capture the current working setup and the debugging lessons from the
 ESP32 bring-up. Future agents should read this before touching firmware,
-Bluetooth, SD-card, or hardware-test workflows.
+Bluetooth, SD-card, or hardware workflows.
 
 ## Implementation Isolation
 
@@ -18,9 +18,11 @@ Bluetooth, SD-card, or hardware-test workflows.
   - `/Users/zmoshe/proj/sweetyaar/.venv/bin/python`
 - PlatformIO environment:
   - `sweetyaar`: complete application firmware.
-- Common commands:
-  - Build real app: `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e sweetyaar`
-  - Upload real app: `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e sweetyaar -t upload`
+- Run common commands from the repository root:
+  - List commands: `make help`
+  - Build real app: `make build`
+  - Upload real app: `make flash`
+  - Open serial monitor: `make monitor`
 - The shell may not see this directory as a Git repository. Do not rely on
   `git diff` being available unless you verify it first.
 
@@ -85,79 +87,15 @@ Bluetooth, SD-card, or hardware-test workflows.
   - `[BT] Classic BT address: 40:22:D8:3D:8A:22`
 - Do not hard-code the address forever; use the boot log if the board changes.
 - Phone streaming sounded clean. Mac streaming previously had regular small gaps
-  and macOS Bluetooth logs showed high retransmits/flushes. Use phone playback
-  for subjective audio-quality sanity checks, and use the Mac smoke test mainly
-  for connection/routing/regression automation.
+  and macOS Bluetooth logs showed high retransmits/flushes. Prefer phone playback
+  for subjective audio-quality sanity checks.
 - The real app currently starts A2DP and BLE together. Memory is tight but
   working with a 16KB A2DP queue:
   - `[BT] A2DP queue ready: 16384B (...)`
-- Do not increase the A2DP ringbuffer or BLE payloads without rerunning the
-  real-app smoke tests.
+- Do not increase the A2DP ringbuffer or BLE payloads without repeating the
+  relevant device audio and connection checks.
 - `SweetYaar Remote` may appear as the macOS audio output even after the firmware
-  advertises `SweetYaar`; this is likely a cached macOS device name. The smoke
-  script fuzzy-matches output devices containing `SweetYaar`.
-
-## Mac Bluetooth Automation
-
-macOS Bluetooth privacy is the main trap.
-
-- Running `blueutil` directly from Codex's backend process can fail with:
-  - `absence of access to Bluetooth API`
-  - `check that current terminal application has access in System Settings > Privacy & Security > Bluetooth`
-- That process may not appear in System Settings, so the user cannot approve it
-  directly.
-- The working approach is to run the smoke test inside the real macOS Terminal
-  app. Once Terminal is added/allowed under:
-  - `System Settings -> Privacy & Security -> Bluetooth`
-  automation can connect Classic BT successfully.
-- Required macOS tools:
-  - `/opt/homebrew/bin/blueutil`
-  - `/opt/homebrew/bin/SwitchAudioSource`
-- The smoke script searches `/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin`,
-  and `/bin`.
-
-## Bluetooth Smoke Tests
-
-Use the script, not ad hoc commands:
-
-```bash
-/Users/zmoshe/proj/sweetyaar/.venv/bin/python /Users/zmoshe/proj/sweetyaar/tools/mac_bt_smoke_test.py --bt-address 40-22-D8-3D-8A-22 --device-name SweetYaar
-```
-
-For a no-flash rerun against the current firmware:
-
-```bash
-/Users/zmoshe/proj/sweetyaar/.venv/bin/python /Users/zmoshe/proj/sweetyaar/tools/mac_bt_smoke_test.py --skip-upload --bt-address 40-22-D8-3D-8A-22 --device-name SweetYaar
-```
-
-When launching from Codex, prefer Terminal via AppleScript so Terminal owns the
-Bluetooth permission:
-
-```bash
-osascript -e 'tell application "Terminal" to activate' \
-  -e 'tell application "Terminal" to do script "/Users/zmoshe/proj/sweetyaar/.venv/bin/python /Users/zmoshe/proj/sweetyaar/tools/mac_bt_smoke_test.py --bt-address 40-22-D8-3D-8A-22 --device-name SweetYaar 2>&1 | tee /Users/zmoshe/proj/sweetyaar/tools/bt_smoke_logs/terminal-realapp-smoke-latest.log; echo; echo Real app smoke finished; read -n 1 -s -r -p \"Press any key to close...\"; exit"'
-```
-
-Expected successful real-app smoke markers:
-
-- PlatformIO upload succeeds for `sweetyaar`.
-- Boot prints `=== SweetYaar Boot ===`.
-- SD mounts: `[WavPlayer] SD OK`.
-- A2DP starts: `[BT] A2DP sink started as "SweetYaar"`.
-- BT connects:
-  - `[BT] A2DP sample rate: 44100 Hz`
-  - `[BT] Connected`
-  - `[SM] idle -> bt_streaming`
-- macOS audio routes to an output containing `SweetYaar`.
-- Sine playback starts:
-  - `[BT] Audio state: STARTED`
-- Playback ends cleanly:
-  - `[BT] Audio state: REMOTE_SUSPEND`
-
-Recent successful real-app smoke logs:
-
-- `/Users/zmoshe/proj/sweetyaar/tools/bt_smoke_logs/bt-smoke-20260520-215100.log`
-- `/Users/zmoshe/proj/sweetyaar/tools/bt_smoke_logs/terminal-realapp-smoke-latest.log`
+  advertises `SweetYaar`; this is likely a cached macOS device name.
 
 ## Firmware Behavior Notes
 
@@ -198,8 +136,8 @@ Recent successful real-app smoke logs:
 - Use `apply_patch` for manual edits.
 - Keep edits scoped; this project has a lot of hardware-state coupling.
 - After firmware changes, run at least:
-  - `/Users/zmoshe/proj/sweetyaar/.venv/bin/pio run -e sweetyaar`
-- After BT, BLE, I2S, memory, or state-machine changes, run:
-  - Real-app smoke (`sweetyaar`)
+  - `make build`
+- After BT, BLE, I2S, memory, or state-machine changes, verify the relevant
+  connection and audio behavior manually on the real device.
 - Do not trust a successful compile alone for BT/A2DP work. The important proof
   is connection, audio routing, `Audio state: STARTED`, and no crash/reboot.

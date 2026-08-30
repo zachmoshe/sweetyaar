@@ -97,7 +97,7 @@ def png_rgba_alpha_bounds(path):
 
 
 def test_parent_app_manifest_contract(repo_root) -> None:
-    public_dir = repo_root / "public"
+    public_dir = repo_root / "app" / "public"
     manifest_path = public_dir / "manifest.webmanifest"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
@@ -127,7 +127,7 @@ def test_parent_app_manifest_contract(repo_root) -> None:
 
 
 def test_parent_app_index_links_pwa_assets(repo_root) -> None:
-    public_dir = repo_root / "public"
+    public_dir = repo_root / "app" / "public"
     index_html = (public_dir / "index.html").read_text(encoding="utf-8")
     tokens_css = (public_dir / "tokens.css").read_text(encoding="utf-8")
 
@@ -162,7 +162,7 @@ def test_parent_app_index_links_pwa_assets(repo_root) -> None:
 
 
 def test_parent_app_icon_alpha_contract(repo_root) -> None:
-    public_dir = repo_root / "public"
+    public_dir = repo_root / "app" / "public"
 
     for icon_name in [
         "apple-touch-icon.png",
@@ -184,7 +184,7 @@ def test_parent_app_icon_alpha_contract(repo_root) -> None:
 
 
 def test_parent_app_service_worker_precache_contract(repo_root) -> None:
-    public_dir = repo_root / "public"
+    public_dir = repo_root / "app" / "public"
     sw_path = public_dir / "sw.js"
     sw_source = sw_path.read_text(encoding="utf-8")
     precache_match = re.search(
@@ -234,7 +234,9 @@ def test_parent_app_service_worker_precache_contract(repo_root) -> None:
 
 
 def test_parent_app_control_icons_are_centered(repo_root) -> None:
-    width, height, bounds = png_rgba_alpha_bounds(repo_root / "public" / "assets" / "icon-volume.png")
+    width, height, bounds = png_rgba_alpha_bounds(
+        repo_root / "app" / "public" / "assets" / "icon-volume.png"
+    )
     min_x, min_y, max_x, max_y = bounds
     center_x = (min_x + max_x) / 2
     center_y = (min_y + max_y) / 2

@@ -172,7 +172,7 @@ that does not provide it.
 
 The app does not force a page reload while BLE is active. A newly deployed
 version is used on a later reload or launch. Whenever the application shell or
-precache list changes, increment `CACHE_VERSION` in `public/sw.js`; activation
+precache list changes, increment `CACHE_VERSION` in `app/public/sw.js`; activation
 then removes older SweetYaar caches.
 
 ## How the app is organized
@@ -182,17 +182,17 @@ or build step. Its production files are:
 
 | Path | Responsibility |
 |---|---|
-| `public/index.html` | The complete screen markup, component styles, application state, Web Bluetooth client, and UI behavior. This is the single source file for the app itself. |
-| `public/tokens.css` | Shared colors, typography, radii, shadows, and responsive spacing used by `index.html`. |
-| `public/manifest.webmanifest` | Installed-app name, scope, portrait presentation, colors, and icon declarations. |
-| `public/sw.js` | Offline cache contents, update version, and request strategies. |
-| `public/assets/` | Browser-ready artwork, control icons, favicons, and install icons. |
-| `public/CNAME` | The custom domain published with the Pages artifact. |
+| `app/public/index.html` | The complete screen markup, component styles, application state, Web Bluetooth client, and UI behavior. This is the single source file for the app itself. |
+| `app/public/tokens.css` | Shared colors, typography, radii, shadows, and responsive spacing used by `index.html`. |
+| `app/public/manifest.webmanifest` | Installed-app name, scope, portrait presentation, colors, and icon declarations. |
+| `app/public/sw.js` | Offline cache contents, update version, and request strategies. |
+| `app/public/assets/` | Browser-ready artwork, control icons, favicons, and install icons. |
+| `app/public/CNAME` | The custom domain published with the Pages artifact. |
 
 The interface has four states: the opening connection screen, the Ready remote,
 the Bluetooth-streaming status screen, and Settings. `index.html` owns the
 transitions between them and communicates with the BLE service implemented by
-`src/BLEParentService.*`. It first reads the live characteristics used for
+`firmware/esp32/src/BLEParentService.*`. It first reads the live characteristics used for
 volume, theme, Quiet time, status, battery state, and commands, then uses the
 configuration request/response characteristics for settings and paged content
 scans.
@@ -226,19 +226,19 @@ scrollable on short displays, keeps configurable text as live text, and uses
 touch targets of at least 44 px. Decorative images have empty alternative text,
 while actual controls retain native button, range, time, and switch semantics.
 
-`public/tokens.css` is the runtime source of truth for shared visual values.
+`app/public/tokens.css` is the runtime source of truth for shared visual values.
 Component-specific layout and screen styling remain beside their markup in
-`public/index.html`. The current palette uses soft off-white surfaces, teal
+`app/public/index.html`. The current palette uses soft off-white surfaces, teal
 primary actions, pastel playback cards, rounded system fonts, 16 px card radii,
 and restrained shadows.
 
-Editable assets are kept out of the deployed `public/` directory:
+Editable assets are kept out of the deployed `app/public/` directory:
 
 | Path | Purpose |
 |---|---|
-| `design/sweetyaar-mobile/assets/source/` | High-resolution or editable source material for the app icon, favicon, header, and footer artwork. |
-| `design/sweetyaar-mobile/assets/final/` | Prepared reference exports for the opening, streaming, battery warnings, header, footer, and control artwork. |
-| `public/assets/` | The exact browser-ready files used by the deployed app. |
+| `app/design/assets/source/` | High-resolution or editable source material for the app icon, favicon, header, and footer artwork. |
+| `app/design/assets/final/` | Prepared reference exports for the opening, streaming, battery warnings, header, footer, and control artwork. |
+| `app/public/assets/` | The exact browser-ready files used by the deployed app. |
 
 Some retained design exports are byte-identical to deployed files with newer
 names:
@@ -254,7 +254,7 @@ names:
 | `battery-low-art.png` | `battery-low-art.png` |
 
 Other deployed controls and header artwork are newer or differently sized
-variants. `public/index.html` and `public/assets/` are therefore production
+variants. `app/public/index.html` and `app/public/assets/` are therefore production
 truth; the design folders preserve material useful for a future revision, not
 a second runnable app.
 
@@ -262,21 +262,21 @@ There is intentionally no checked-in image generator. To change an image,
 start with the closest retained source, reference export, or deployed asset;
 keep a high-resolution reusable result under `assets/source/`; keep a useful
 approved reference under `assets/final/`; and export the browser-ready version
-to `public/assets/`. Update its references in `index.html`, the manifest, and
+to `app/public/assets/`. Update its references in `index.html`, the manifest, and
 the service-worker precache list as applicable. App-icon, maskable-icon, and
 favicon sizes are exported manually and must be checked visually after changes.
 
 ## Local development and deployment
 
-Serve the checked-in `public/` directory directly from the repository root:
+Serve the checked-in `app/public/` directory from the repository root:
 
 ```bash
-/Users/zmoshe/proj/sweetyaar/.venv/bin/python -m http.server --directory public 8000
+make app
 ```
 
 Then open `http://localhost:8000/`. `localhost` is treated as a secure context,
 so it can register the service worker and use Web Bluetooth without a local TLS
-certificate.
+certificate. Override the port with, for example, `make app APP_PORT=8080`.
 
 For a manual browser check, connect from Chrome or Edge, exercise the Ready and
 Settings screens, and inspect the Application panel to confirm that the
@@ -286,15 +286,15 @@ the toy from the installed or offline app; offline rendering does not by itself
 prove that Bluetooth permissions and GATT behavior work.
 
 Production is deployed by `.github/workflows/pages.yml`. Relevant pushes to
-`main` upload only `public/` to GitHub Pages, so files under `design/`, `docs/`,
+`main` upload only `app/public/` to GitHub Pages, so files under `app/design/`, `docs/`,
 and the firmware tree are never part of the web artifact. Pages must use GitHub
 Actions as its publishing source. Relative paths in the manifest and service
 worker allow the same files to run from the Pages project path, the custom HTTPS
-domain, or a local server rooted at `public/`.
+domain, or a local server rooted at `app/public/`.
 
 ## Testing changes
 
-The app tests execute the real JavaScript embedded in `public/index.html`
+The app tests execute the real JavaScript embedded in `app/public/index.html`
 against a mocked DOM and Web Bluetooth device. They cover connection outcomes,
 live controls, Bluetooth-streaming lockout, settings scans and saves, and the
 Bedtime flow. Separate PWA checks validate the manifest, icons, design tokens,
@@ -314,6 +314,4 @@ uv run python -m pytest
 
 Automated tests do not grant real browser permissions, install the app, or
 exercise a physical BLE radio. Changes to connection behavior still require a
-manual check on the intended HTTPS origin and, when firmware interaction has
-changed, the real-device BLE smoke tests described in
-[Firmware](firmware.md#testing-changes).
+manual check on the intended HTTPS origin and hardware.

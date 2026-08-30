@@ -7,7 +7,7 @@ sleep. The parent app and Bluetooth speaker connection use the ESP32's built-in
 radio and do not require additional wireless hardware.
 
 This document is the hardware source of truth. The pin definitions in
-`src/Config.h` remain authoritative when hardware and firmware disagree. See
+`firmware/esp32/src/Config.h` remain authoritative when hardware and firmware disagree. See
 [Firmware](firmware.md) for device behavior and [Mobile App](mobile-app.md) for
 parent controls. Unresolved production choices are called out in highlighted
 **TBD** blocks so they are not lost inside otherwise authoritative prose.

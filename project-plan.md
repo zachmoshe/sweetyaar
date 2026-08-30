@@ -151,7 +151,7 @@ The toy automatically enters real ESP32 deep sleep after inactivity, controlled 
 ### Bedtime Mode
 
 Bedtime mode is a parent-controlled local playback mode. See
-`docs/mobile-app.md` for the parent-facing behavior and UX reference.
+`docs/engineering/mobile-app.md` for the parent-facing behavior and UX reference.
 
 - The feature has one master setting, one daily bedtime window, one bedtime
   theme, and one volume cap. It is not a general scheduler.
@@ -223,7 +223,7 @@ KILLSWITCH (10-minute timer):
 
 ### Firmware Modules
 
-0. **ContentCatalog** (namespace, `src/ContentCatalog.h/.cpp`)
+0. **ContentCatalog** (namespace, `firmware/esp32/src/ContentCatalog.h/.cpp`)
    - `buildCatalog()`: called once at boot after `SD.begin()`. Single pass over the SD card — reads `config.json`, every theme `metadata.json`, and every WAV header into an in-RAM structure: `CachedTheme` + `CachedSong` vectors.
    - All subsequent consumers (WAV playback file lists, BLE theme list, settings scans) are served from RAM with zero SD access.
    - Edits (`setThemeDisabled`, `setThemeShuffle`, `setSongDisabled`) write to the SD and flip the cached flag in place; no rescan is needed until reboot.
@@ -379,7 +379,7 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 
 ## Web BLE Parent App (Phase 2)
 
-- Single `public/index.html` (vanilla JS + CSS, no framework)
+- Single `app/public/index.html` (vanilla JS + CSS, no framework)
 - Hosted on GitHub Pages by deploying `/public` with GitHub Actions
 - Uses Web Bluetooth API (Android Chrome + desktop Chrome)
 - Normal local play-mode live controls and BLE settings/content curation; not used for WAV upload or BT audio control
@@ -432,7 +432,7 @@ Only device-local settings that should survive SD-card replacement live in NVS. 
 
 ### Phase 2 — Web BLE Parent App
 1. Enable and validate firmware BLE GATT service (volume, killswitch, theme, status, themes)
-2. Design + build `public/index.html` (Web Bluetooth)
+2. Design + build `app/public/index.html` (Web Bluetooth)
 3. BLE characteristic integration with BT-mode read-only behavior
 4. Deploy `/public` to GitHub Pages with GitHub Actions
 

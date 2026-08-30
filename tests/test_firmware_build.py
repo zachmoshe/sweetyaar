@@ -11,6 +11,9 @@ def test_sweetyaar_firmware_build(repo_root) -> None:
     if not pio:
         pytest.skip("PlatformIO not found; expected .venv/bin/pio in this repo or a parent checkout.")
 
-    result = run_checked([pio, "run"], cwd=repo_root)
+    result = run_checked(
+        [pio, "run"],
+        cwd=repo_root / "firmware" / "esp32",
+    )
     assert "sweetyaar" in result.stdout
     assert "SUCCESS" in result.stdout
