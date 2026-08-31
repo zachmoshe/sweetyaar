@@ -1,39 +1,6 @@
 #include "WavPlayer.h"
 #include "ContentCatalog.h"
 
-namespace {
-
-String jsonEscape(const String& input) {
-    String out;
-    out.reserve(input.length() + 8);
-    static const char* hex = "0123456789ABCDEF";
-
-    for (size_t i = 0; i < input.length(); i++) {
-        unsigned char c = static_cast<unsigned char>(input[i]);
-        switch (c) {
-            case '"':  out += "\\\""; break;
-            case '\\': out += "\\\\"; break;
-            case '\b': out += "\\b";  break;
-            case '\f': out += "\\f";  break;
-            case '\n': out += "\\n";  break;
-            case '\r': out += "\\r";  break;
-            case '\t': out += "\\t";  break;
-            default:
-                if (c < 0x20) {
-                    out += "\\u00";
-                    out += hex[c >> 4];
-                    out += hex[c & 0x0F];
-                } else {
-                    out += static_cast<char>(c);
-                }
-                break;
-        }
-    }
-
-    return out;
-}
-
-}  // namespace
 
 // ---------------------------------------------------------------------------
 WavPlayer::WavPlayer(VolumeStream& output) : _output(output) {}
@@ -365,8 +332,8 @@ String WavPlayer::buildThemesJson(const String* ids, const String* names,
     bool truncated = false;
 
     for (int i = 0; i < count; i++) {
-        String entry = "{\"id\":\"" + jsonEscape(ids[i]) +
-                       "\",\"name\":\"" + jsonEscape(names[i]) + "\"}";
+        String entry = "{\"id\":\"" + ContentCatalog::jsonEscape(ids[i]) +
+                       "\",\"name\":\"" + ContentCatalog::jsonEscape(names[i]) + "\"}";
         size_t commaBytes = (json.length() > 1) ? 1 : 0;
         size_t projected = json.length() + commaBytes + entry.length() + 1;
         if (projected > maxBytes) {
