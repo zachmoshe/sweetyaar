@@ -34,6 +34,7 @@ Pytest only discovers `test_*.py` files directly. The `.js`, `.cpp`, and
 - `state_machine_native_test.cpp::testKillswitchTimerAndBtInterruption`: verifies killswitch state, timeout behavior, and BT interruption rules.
 - `state_machine_native_test.cpp::testKillswitchCancel`: verifies that a second killswitch event cancels the active pause mode.
 - `state_machine_native_test.cpp::testBlePayloadEventsDoNotForceTransitions`: verifies BLE volume/theme payloads are stored as pending values without forcing playback transitions.
+- `state_machine_native_test.cpp::testSongLoopModeRules`: verifies loop-mode enable/disable and that animal playback, stop, and BT connect each clear loop mode.
 - `test_parent_app.py::test_parent_app_save_flow`: runs the Node UI regression runner against the real script embedded in `app/public/index.html`.
 - `parent_app_ui_test.js::initial opening screen is usable`: checks the first screen, connect button state, and visible copy.
 - `parent_app_ui_test.js::connect success shows ready remote`: simulates a successful Web Bluetooth connection and checks the ready remote state.

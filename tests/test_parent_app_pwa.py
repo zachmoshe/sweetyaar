@@ -5,6 +5,8 @@ import re
 import struct
 import zlib
 
+import pytest
+
 
 def png_size(path):
     with path.open("rb") as image:
@@ -233,12 +235,20 @@ def test_parent_app_service_worker_precache_contract(repo_root) -> None:
     assert "request.method === \"GET\"" in sw_source
 
 
-def test_parent_app_control_icons_are_centered(repo_root) -> None:
+@pytest.mark.parametrize("icon_name", [
+    "icon-volume.png",
+    "icon-song.png",
+    "icon-animal.png",
+    "icon-stop.png",
+    "icon-pause.png",
+    "icon-theme.png",
+])
+def test_parent_app_control_icons_are_centered(repo_root, icon_name) -> None:
     width, height, bounds = png_rgba_alpha_bounds(
-        repo_root / "app" / "public" / "assets" / "icon-volume.png"
+        repo_root / "app" / "public" / "assets" / icon_name
     )
     min_x, min_y, max_x, max_y = bounds
     center_x = (min_x + max_x) / 2
     center_y = (min_y + max_y) / 2
-    assert abs(center_x - ((width - 1) / 2)) <= 1
-    assert abs(center_y - ((height - 1) / 2)) <= 1
+    assert abs(center_x - ((width - 1) / 2)) <= 1, f"{icon_name}: visual center X {center_x:.1f} not within 1px of canvas center {(width - 1) / 2:.1f}"
+    assert abs(center_y - ((height - 1) / 2)) <= 1, f"{icon_name}: visual center Y {center_y:.1f} not within 1px of canvas center {(height - 1) / 2:.1f}"

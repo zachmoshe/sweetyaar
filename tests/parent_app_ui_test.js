@@ -1070,6 +1070,34 @@ const tests = [
     assert.strictEqual(state.settings.message, "Settings saved.");
     assert.strictEqual(els.settingsSaveButton.disabled, true);
   `],
+  ["setTheme SD write failure surfaces error to app", String.raw`
+    const ble = await connectWithFakeBle();
+    await els.openSettingsButton.click();
+    await waitForSettingsLoaded();
+
+    // Stage a pending theme change so the save flow emits a setTheme command.
+    state.settings.pendingThemeChanges = { lullabies: { enabled: false } };
+    state.settings.dirty = true;
+    render();
+
+    // Override configCommand.write to reject setTheme with ok:false.
+    const originalConfigCommandWrite = ble.chars.configCommand.write.bind(ble.chars.configCommand);
+    ble.chars.configCommand.write = (value) => {
+      const payload = JSON.parse(textFromValue(value));
+      if (payload.op === "setTheme") {
+        const errorResponse = JSON.stringify({ id: payload.id, ok: false, error: "SD write failed" });
+        ble.chars.configResponse.value = errorResponse;
+        setTimeout(() => ble.chars.configResponse.emit(errorResponse), 0);
+        return;
+      }
+      originalConfigCommandWrite(value);
+    };
+
+    await els.settingsSaveButton.click();
+
+    assert.notStrictEqual(state.settings.message, "Settings saved.", "Expected error message after SD write failure");
+    assert.strictEqual(state.settings.dirty, true, "Expected settings to remain dirty after failed save");
+  `],
 ];
 
 (async () => {
