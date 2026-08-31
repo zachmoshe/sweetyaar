@@ -2874,7 +2874,7 @@
       const raw = sanitizeName(file).trim();
       let name = raw
         .replace(/\.wav$/i, "")          // drop the extension
-        .replace(/^0\d*[\s._\-)]+/, "")  // drop a zero-padded track prefix (01_, 02 -, ...)
+        .replace(/^\d+[\s._\-)]+/, "")   // drop a numeric track prefix (01_, 1_, 02 -, ...)
         .replace(/_+/g, " ")             // underscores -> spaces
         .replace(/\s+/g, " ")            // collapse whitespace
         .trim();
@@ -2999,6 +2999,9 @@
       return selected ? (selected.name || selected.id) : "";
     }
 
+    // Intentionally matches settingsDefaultThemeOptions: the bedtime theme must
+    // have at least one enabled, playable song, so there is no point offering
+    // themes that are currently disabled or empty.
     function settingsBedtimeThemeOptions() {
       return settingsDefaultThemeOptions();
     }
@@ -4571,8 +4574,7 @@
 
       try {
         const device = await navigator.bluetooth.requestDevice({
-          filters: [{ services: [UUIDS.service] }],
-          optionalServices: [UUIDS.service]
+          filters: [{ services: [UUIDS.service] }]
         });
         setDeviceNameFromBluetooth(device);
         state.device = device;
