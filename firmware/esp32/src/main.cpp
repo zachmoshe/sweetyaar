@@ -1393,11 +1393,11 @@ void sendNotice(const String& severity, const String& message) {
     if (!ENABLE_BLE_PARENT_SERVICE) {
         return;
     }
-    String json = "{\"severity\":\"";
-    json += severity;
-    json += "\",\"message\":\"";
-    json += ContentCatalog::jsonEscape(message);
-    json += "\"}";
+    JsonDocument doc;
+    doc["severity"] = severity;
+    doc["message"] = message;
+    String json;
+    serializeJson(doc, json);
     bleService.updateNotice(json);
 }
 
@@ -1566,78 +1566,63 @@ void applyPendingBtNameIfPossible() {
 // buildConfigResponse()
 // ---------------------------------------------------------------------------
 String buildConfigResponse(uint32_t requestId) {
-    String json = "{\"id\":";
-    json += requestId;
-    json += ",\"ok\":true,\"op\":\"getConfig\",\"deviceName\":\"";
-    json += ContentCatalog::jsonEscape(currentDeviceName);
-    json += "\",\"defaultVolumePct\":";
-    json += parentConfig.defaultVolumePct();
-    json += ",\"defaultTheme\":\"";
-    json += ContentCatalog::jsonEscape(parentConfig.defaultTheme());
-    json += "\",\"activeTheme\":\"";
-    json += ContentCatalog::jsonEscape(activeTheme);
-    json += "\",\"loop\":";
-    json += sm.loopMode() ? "true" : "false";
-    json += ",\"sdReady\":";
-    json += sdReady ? "true" : "false";
-    json += ",\"sleep\":{\"enabled\":";
-    json += parentConfig.sleepEnabled() ? "true" : "false";
-    json += ",\"normalIdleSec\":";
-    json += parentConfig.sleepNormalIdleMs() / 1000UL;
-    json += ",\"vibrationWakeIdleSec\":";
-    json += parentConfig.sleepVibrationWakeIdleMs() / 1000UL;
-    json += ",\"bleIdleSec\":";
-    json += parentConfig.sleepBleIdleMs() / 1000UL;
-    json += "}";
-    json += ",\"bedtime\":{\"enabled\":";
-    json += parentConfig.bedtimeEnabled() ? "true" : "false";
-    json += ",\"startTime\":\"";
-    json += bedtimeTimeString(parentConfig.bedtimeStartMinutes());
-    json += "\",\"endTime\":\"";
-    json += bedtimeTimeString(parentConfig.bedtimeEndMinutes());
-    json += "\",\"theme\":\"";
-    json += ContentCatalog::jsonEscape(parentConfig.bedtimeTheme());
-    json += "\",\"volumeCapPct\":";
-    json += parentConfig.bedtimeVolumeCapPct();
-    json += ",\"timeKnown\":";
-    json += bedtimeTimeKnown() ? "true" : "false";
-    json += ",\"currentTime\":\"";
-    json += bedtimeCurrentTimeString();
-    json += "\",\"currentSecondOfDay\":";
-    json += bedtimeTimeKnown()
+    JsonDocument doc;
+    doc["id"] = requestId;
+    doc["ok"] = true;
+    doc["op"] = "getConfig";
+    doc["deviceName"] = currentDeviceName;
+    doc["defaultVolumePct"] = parentConfig.defaultVolumePct();
+    doc["defaultTheme"] = parentConfig.defaultTheme();
+    doc["activeTheme"] = activeTheme;
+    doc["loop"] = sm.loopMode();
+    doc["sdReady"] = sdReady;
+
+    JsonObject sleep = doc["sleep"].to<JsonObject>();
+    sleep["enabled"] = parentConfig.sleepEnabled();
+    sleep["normalIdleSec"] = parentConfig.sleepNormalIdleMs() / 1000UL;
+    sleep["vibrationWakeIdleSec"] = parentConfig.sleepVibrationWakeIdleMs() / 1000UL;
+    sleep["bleIdleSec"] = parentConfig.sleepBleIdleMs() / 1000UL;
+
+    JsonObject bedtime = doc["bedtime"].to<JsonObject>();
+    bedtime["enabled"] = parentConfig.bedtimeEnabled();
+    bedtime["startTime"] = bedtimeTimeString(parentConfig.bedtimeStartMinutes());
+    bedtime["endTime"] = bedtimeTimeString(parentConfig.bedtimeEndMinutes());
+    bedtime["theme"] = parentConfig.bedtimeTheme();
+    bedtime["volumeCapPct"] = parentConfig.bedtimeVolumeCapPct();
+    bedtime["timeKnown"] = bedtimeTimeKnown();
+    bedtime["currentTime"] = bedtimeCurrentTimeString();
+    bedtime["currentSecondOfDay"] = bedtimeTimeKnown()
         ? static_cast<int32_t>(bedtimeLocalSecondOfDay())
         : -1;
-    json += ",\"active\":";
-    json += bedtimeRuntimeActive() ? "true" : "false";
-    json += ",\"autoActive\":";
-    json += bedtimeAutomaticActive() ? "true" : "false";
-    json += ",\"override\":\"";
-    json += bedtimeOverrideName();
-    json += "\",\"effectiveVolumePct\":";
-    json += effectiveVolumePct();
-    json += ",\"effectiveTheme\":\"";
-    json += ContentCatalog::jsonEscape(bedtimeEffectiveSongTheme());
-    json += "\"}";
-    json += "}";
-    return json;
+    bedtime["active"] = bedtimeRuntimeActive();
+    bedtime["autoActive"] = bedtimeAutomaticActive();
+    bedtime["override"] = bedtimeOverrideName();
+    bedtime["effectiveVolumePct"] = effectiveVolumePct();
+    bedtime["effectiveTheme"] = bedtimeEffectiveSongTheme();
+
+    String output;
+    serializeJson(doc, output);
+    return output;
 }
 
 String buildConfigOkResponse(uint32_t requestId, const String& op) {
-    String json = "{\"id\":";
-    json += requestId;
-    json += ",\"ok\":true,\"op\":\"";
-    json += ContentCatalog::jsonEscape(op);
-    json += "\"}";
-    return json;
+    JsonDocument doc;
+    doc["id"] = requestId;
+    doc["ok"] = true;
+    doc["op"] = op;
+    String output;
+    serializeJson(doc, output);
+    return output;
 }
 
 String buildConfigErrorResponse(uint32_t requestId, const String& message) {
-    String json = "{\"id\":";
-    json += requestId;
-    json += ",\"ok\":false,\"error\":\"";
-    json += ContentCatalog::jsonEscape(message);
-    json += "\"}";
-    return json;
+    JsonDocument doc;
+    doc["id"] = requestId;
+    doc["ok"] = false;
+    doc["error"] = message;
+    String output;
+    serializeJson(doc, output);
+    return output;
 }
 
 // ---------------------------------------------------------------------------
