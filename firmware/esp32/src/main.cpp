@@ -1227,13 +1227,16 @@ void handleBleConfigCommand(const String& commandJson) {
         nvs.setBtName(nextName);
         currentDeviceName = nextName;
         if (sdReady) {
-            ContentCatalog::updateSdConfig(
-                nextVolume, nextDefaultTheme, nextSleepEnabled,
-                nextSleepNormalIdleSec, nextSleepVibrationWakeIdleSec,
-                nextSleepBleIdleSec,
-                nextBedtimeEnabled, nextBedtimeStartMinutes,
-                nextBedtimeEndMinutes, nextBedtimeTheme,
-                nextBedtimeVolumeCapPct);
+            if (!ContentCatalog::updateSdConfig(
+                    nextVolume, nextDefaultTheme, nextSleepEnabled,
+                    nextSleepNormalIdleSec, nextSleepVibrationWakeIdleSec,
+                    nextSleepBleIdleSec,
+                    nextBedtimeEnabled, nextBedtimeStartMinutes,
+                    nextBedtimeEndMinutes, nextBedtimeTheme,
+                    nextBedtimeVolumeCapPct)) {
+                bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "SD write failed"));
+                return;
+            }
             parentConfig.load();
             refreshThemeList();
             activeTheme = parentConfig.defaultTheme();
@@ -1260,11 +1263,16 @@ void handleBleConfigCommand(const String& commandJson) {
             return;
         }
         String theme = themeValue;
+        bool sdOk = true;
         if (doc["enabled"].is<bool>()) {
-            ContentCatalog::setThemeDisabled(theme, !doc["enabled"].as<bool>());
+            if (!ContentCatalog::setThemeDisabled(theme, !doc["enabled"].as<bool>())) sdOk = false;
         }
         if (doc["shuffle"].is<bool>()) {
-            ContentCatalog::setThemeShuffle(theme, doc["shuffle"].as<bool>());
+            if (!ContentCatalog::setThemeShuffle(theme, doc["shuffle"].as<bool>())) sdOk = false;
+        }
+        if (!sdOk) {
+            bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "SD write failed"));
+            return;
         }
         parentConfig.load();
         refreshThemeList();
@@ -1290,7 +1298,10 @@ void handleBleConfigCommand(const String& commandJson) {
             bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Missing song update fields"));
             return;
         }
-        ContentCatalog::setSongDisabled(String(themeValue), String(fileValue), !doc["enabled"].as<bool>());
+        if (!ContentCatalog::setSongDisabled(String(themeValue), String(fileValue), !doc["enabled"].as<bool>())) {
+            bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "SD write failed"));
+            return;
+        }
         refreshThemeList();
         applyActiveThemeFallback();
         lastInvalidBedtimeThemeLog = "";
