@@ -90,6 +90,11 @@ RTC_DATA_ATTR uint32_t rtcBedtimeClockMagic = 0;
 RTC_DATA_ATTR int16_t rtcBedtimeTzOffsetMin = 0;
 static constexpr uint32_t RTC_BEDTIME_CLOCK_MAGIC = 0xBED71AAB;
 
+RTC_DATA_ATTR uint32_t rtcHeapRestartCount = 0;
+RTC_DATA_ATTR uint32_t rtcHeapRestartMagic = 0;
+static constexpr uint32_t RTC_HEAP_RESTART_MAGIC = 0xBEEFD00DUL;
+static constexpr uint32_t MAX_HEAP_RESTARTS = 3;
+
 // ---------------------------------------------------------------------------
 // Forward declarations
 // ---------------------------------------------------------------------------
@@ -973,12 +978,28 @@ void pollBluetoothReopen() {
     uint32_t freeNow = ESP.getFreeHeap();
     const uint32_t SAFE_HEAP_FLOOR = 20000;
     if (freeNow < SAFE_HEAP_FLOOR) {
-        Serial.printf("[BT] Heap critically low after BT session (free=%lu). Restarting cleanly.\n",
-                      static_cast<unsigned long>(freeNow));
+        if (rtcHeapRestartMagic != RTC_HEAP_RESTART_MAGIC) {
+            rtcHeapRestartCount = 0;
+            rtcHeapRestartMagic = RTC_HEAP_RESTART_MAGIC;
+        }
+        rtcHeapRestartCount++;
+        Serial.printf("[BT] Heap critically low after BT session (free=%lu, restart %lu/%lu).\n",
+                      static_cast<unsigned long>(freeNow),
+                      static_cast<unsigned long>(rtcHeapRestartCount),
+                      static_cast<unsigned long>(MAX_HEAP_RESTARTS));
+        if (rtcHeapRestartCount >= MAX_HEAP_RESTARTS) {
+            Serial.println("[BT] Repeated low-heap restarts; entering deep sleep to break loop.");
+            rtcHeapRestartCount = 0;
+            rtcHeapRestartMagic = 0;
+            delay(200);
+            enterIdleDeepSleep();
+            return;
+        }
         delay(200);
         esp_restart();
     }
-
+    rtcHeapRestartCount = 0;
+    rtcHeapRestartMagic = 0;
     reopenBluetoothForPairing("BT cooldown elapsed");
 }
 
