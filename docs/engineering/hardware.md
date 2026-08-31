@@ -386,7 +386,12 @@ the switched divider supply, and `EN` remains `PERIPH_PWR_EN`. Fit the
 datasheet-recommended 1 µF input and 0.1 µF output capacitors, plus the 100 nF
 ADC-node capacitor shown above. The `-3` variant actively discharges its output
 when disabled; the 300 kΩ resistor holds the ADC node at GND. Firmware enables
-2.5 dB ADC attenuation and uses calibrated millivolt readings.
+2.5 dB ADC attenuation (`ADC_2_5db`, full-scale ≈ 1100 mV) and uses
+calibrated millivolt readings. The critical battery-warning transitions (3.1–3.4 V) map
+to 830–910 mV through the divider — roughly 75–83% of the ADC full scale, where
+linearity is best. Saturation at 4.2 V (full charge) is intentional: charging state is
+detected from the BQ25185 STAT1/STAT2 pins, not the ADC voltage, so ADC accuracy near
+4.2 V is irrelevant.
 
 ### Amplifier rail and mute circuit
 
