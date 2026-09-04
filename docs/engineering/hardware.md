@@ -65,7 +65,7 @@ PCB.
 | 26 | `HW_I2S_BCLK` | Output | MAX98357A `BCLK` | I2S bit clock. |
 | 25 | `HW_I2S_WS` | Output | MAX98357A `LRCLK` / `LRC` / `WS` | I2S word-select clock. |
 | 22 | `HW_I2S_DOUT` | Output | MAX98357A `DIN` | I2S audio data. |
-| 21 | `PIN_AMP_MUTE` | Output | `AMP_MUTE_CTL` low-side transistor | Active HIGH mute control; the transistor pulls `SD_MODE` LOW. |
+| 21 | `PIN_AMP_MUTE` | Output | Production: 634 kΩ directly to MAX98357A `SD_MODE`; generic board: Q3 mute transistor | Production is active LOW; the generic board is active HIGH. Select the matching firmware environment. |
 | 18 | `PIN_SD_SCK` | Output | microSD `SCK` / `CLK` | SPI clock, 20 MHz after initialization. |
 | 19 | `PIN_SD_MISO` | Input | microSD `MISO` / `DO` | Card-to-ESP32 data. |
 | 23 | `PIN_SD_MOSI` | Output | microSD `MOSI` / `DI` / `CMD` | ESP32-to-card data. |
@@ -121,7 +121,7 @@ production result.
 | `BCLK` | GPIO26. |
 | `LRC`, `LRCLK`, or `WS` | GPIO25. |
 | `DIN` | GPIO22. |
-| `SD` or `SD_MODE` | Output of the active-HIGH mute transistor described below. |
+| `SD` or `SD_MODE` | Production wiring: GPIO21 through 634 kΩ. The generic board instead uses its onboard active-HIGH Q3 circuit. |
 | `OUT+`, `OUT-` | The two speaker terminals. Neither terminal is ground. |
 
 The firmware sends 44.1 kHz, 16-bit stereo I2S. The MAX98357A produces one
@@ -129,17 +129,22 @@ speaker channel, so the breakout's `SD_MODE` bias determines whether it uses the
 left channel, right channel, or a mix of both. Verify the breakout configuration
 rather than assuming every module uses the same default.
 
-The planned mute circuit is inverted relative to the ESP32 output:
+The two supported boards use opposite GPIO21 polarity:
 
 ```text
-GPIO21 HIGH ---- mute transistor ON  ---- SD_MODE pulled LOW ---- amplifier off
-GPIO21 LOW  ---- mute transistor OFF ---- SD_MODE bias active --- amplifier on
+Production board — direct push-pull control:
+  GPIO21 LOW  ---- SD_MODE LOW ------------------------------- amplifier off
+  GPIO21 HIGH ---- 634 kΩ plus internal 100 kΩ pull-down ---- mixed mono
+
+Generic board — MMBT3904 low-side control:
+  GPIO21 HIGH ---- transistor ON  ---- SD_MODE LOW ---------- amplifier off
+  GPIO21 LOW  ---- transistor OFF ---- mixed-mono bias ------ amplifier on
 ```
 
-GPIO21 should drive the transistor input, not a production `SD_MODE` net
-directly. The normal `SD_MODE` bias must still select the desired audio channel
-when the transistor is off. This control provides deterministic mute and
-click/pop sequencing; removing 5 V power remains the production deep-sleep
+Flash PlatformIO environment `sweetyaar` on the production board and
+`sweetyaar-generic` on the generic board. Both targets use the same
+`setAmpMuted()` behavior in source code; only the compile-time electrical
+polarity differs. Removing 5 V power remains the production deep-sleep
 isolation mechanism.
 
 ### SD-card wiring
@@ -259,7 +264,7 @@ efficiency at very light load.
 | TPS63802 5 V buck-boost | `EN` LOW; input powered | 0.045 µA typical, 0.6 µA maximum | **≤1 µA** |
 | Separate amplifier load switch | Not required with the disconnecting 5 V TPS63802 | 0 µA | **0 µA** |
 | MAX98357A | `SD_MODE` LOW, then **off on peripheral rail** | 0.6 µA typical / 2 µA maximum in `SD_MODE` shutdown | **≈0 µA** |
-| Mute transistor and `SD_MODE` bias | `5V_PERIPH_SW` and its bias network off; use a MOSFET-style insulated control input with no pull-up to `3V3_AON` | Exact NMOS not selected; gate and off-state leakage only | **≤0.1 µA provisional** |
+| Production GPIO21-to-`SD_MODE` control | GPIO21 is driven LOW before `5V_PERIPH_SW` is disabled and may remain LOW or become high-impedance in deep sleep; the 634 kΩ series resistor has no powered DC path | No intended current path | **≈0 µA** |
 | PCB surface leakage | Clean, dry PCB | Not predictable from the schematic alone | **≤1 µA provisional** |
 | **Planning total** | — | — | **approximately 38–59 µA** |
 
@@ -272,10 +277,11 @@ not a measured or guaranteed result.
 
 The resistor paths intentionally excluded from the total have zero voltage
 across them in the defined sleep state: the GPIO13 100 kΩ pulldown, the 5 V
-feedback divider on its discharged output, and the amplifier's mixed-mono bias
-network on `5V_PERIPH_SW`. The open button pull-ups also have no intended DC
-path, but a button held to GND during sleep can add pull-up current and is not
-covered by this budget. Charger-programming resistors are treated as part of
+feedback divider on its discharged output, and the amplifier's 634 kΩ
+GPIO21-to-`SD_MODE` connection while GPIO21 is LOW or high-impedance. The open
+button pull-ups also have no intended DC path, but a button held to GND during
+sleep can add pull-up current and is not covered by this budget.
+Charger-programming resistors are treated as part of
 the BQ25185's specified battery-only quiescent current. The selected Semitec
 103AT-2 thermistor connects between `TS/MR` and battery ground. The charger
 biases `TS/MR` while an input source is present; there is no intended thermistor
@@ -286,8 +292,8 @@ part of the sleep-current audit.
 > **TBD — Close the deep-sleep design budget:** Obtain or measure the
 > ARB-L18-3500 protection circuit's maximum standby current and require any
 > substitute cell not to exceed that allocation. Select the exact
-> always-powered ceramic capacitors, mute NMOS, charger-status input leakage,
-> and the second AP2281's maximum shutdown leakage,
+> always-powered ceramic capacitors, charger-status input leakage, and the
+> second AP2281's maximum shutdown leakage,
 > then add their worst-case leakage rather than relying on the provisional
 > allocations above. Recalculate battery-side current across the intended
 > battery-voltage and temperature range and audit every final-schematic
@@ -401,9 +407,9 @@ disconnect** with `EN` LOW. Some boost topologies still pass battery or `SYS`
 voltage to the output through a diode or internal switch when disabled; those
 parts require a separate amplifier load switch.
 
-GPIO21 and the mute transistor are retained even with a disconnecting boost.
-They allow firmware to mute before clocks or power disappear and to unmute only
-after the rail and I2S interface are stable.
+GPIO21 remains under firmware control even with a disconnecting boost. It lets
+firmware place the amplifier in shutdown before clocks or power disappear and
+enable it only after the rail and I2S interface are stable.
 
 The custom PCB cannot assume the pinout or passive components of a breakout.
 The production PCB will use `MAX98357AETE+T` in the 16-pin, 3 × 3 mm TQFN
@@ -418,22 +424,47 @@ leave `GAIN_SLOT` unconnected to select that MAX98357A default. Place 0.1 µF an
 thermal layout described in the
 [MAX98357A datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/MAX98357A-MAX98357B.pdf).
 
-GPIO21 (`PIN_AMP_MUTE`, driving `AMP_MUTE_CTL`) is the active-HIGH `SD_MODE`
-mute control. It must drive a low-side transistor rather than `SD_MODE`
-directly:
+On the production board, connect GPIO21 to `SD_MODE` through one **634 kΩ, 1%**
+series resistor. Do not fit an external transistor, pull-up, or pull-down on
+this path. The MAX98357A includes an internal 100 kΩ ±8% pull-down:
 
 ```text
-GPIO21 HIGH ---- transistor ON  ---- SD_MODE pulled LOW ---- shutdown
-GPIO21 LOW  ---- transistor OFF ---- mixed-mono bias active - amplifier on
+GPIO21 ---------------- 634 kΩ ---------------- SD_MODE
+                                                   |
+                                      internal 100 kΩ ±8%
+                                                   |
+                                                  GND
 ```
 
-The transistor must behave as an open-drain pull-down: it must never drive
-`SD_MODE` HIGH, must tolerate 5 V on its switched side, must turn on reliably
-from 3.3 V GPIO logic, and must not add material always-on or deep-sleep current.
-Power the mixed-mono bias network from `5V_PERIPH_SW` so the bias network turns
-off with the amplifier rail. The sleep budget assumes an insulated-gate
-NMOS; a BJT implementation would have to account for any base-resistor current.
-The exact NMOS part remains to be selected for the production BOM.
+This is the push-pull-driver connection in Figure 5 of the MAX98357A datasheet.
+With 3.3 V GPIO logic, the datasheet specifies `RLARGE = 634 kΩ`; together with
+the internal pull-down it produces approximately 0.45 V at `SD_MODE`, safely
+selecting mixed mono. GPIO21 LOW selects shutdown. A reset/high-impedance GPIO
+also lets the internal pull-down default the amplifier to shutdown.
+
+Firmware must drive GPIO21 LOW before enabling `5V_PERIPH_SW`, keep it LOW while
+the rail and I2S clocks initialize, and drive it HIGH only when ready to play.
+Before power-off, firmware must drive GPIO21 LOW before stopping I2S and
+disabling `5V_PERIPH_SW`. It must never drive GPIO21 HIGH while the amplifier
+rail is off. The production `sweetyaar` build therefore defaults to active-LOW
+mute. The generic board retains its active-HIGH MMBT3904 circuit and uses the
+`sweetyaar-generic` firmware environment.
+
+For comparison, the generic board implements GPIO21 control as follows:
+
+```text
+                                  +---- 100 kΩ ---- GND
+                                  |
+GPIO21 -------- 10 kΩ -------- Q3 base
+                              Q3 emitter --------- GND
+                              Q3 collector ------- SD_MODE
+
+3V3 ----------- 634 kΩ --------------------------- SD_MODE
+```
+
+On that board GPIO21 HIGH turns Q3 on and mutes the amplifier; GPIO21 LOW turns
+Q3 off and lets the 634 kΩ resistor select mixed mono. This inversion is why it
+must use the `sweetyaar-generic` build rather than the default production build.
 
 The speaker connects only between `OUTP` and `OUTN`; neither Class-D output may
 be tied to ground.
@@ -578,7 +609,7 @@ revision adds no SPI or I2S signal-isolation components.
 |---|---|
 | USB-powered CP2102N ↔ ESP32 on `3V3_AON` | UART and automatic-download signals must be high-impedance while USB `VBUS` is absent, so the USB-only bridge adds no battery-sleep load. Only raw USB `VBUS` powers the bridge. |
 | `3V3_AON` ↔ `3V3_PERIPH_SW` | Every SD pull-up belongs to the switched rail. Retain GPIO5 as the native VSPI `CS`. Firmware ends SPI, disables internal pulls, and makes the SPI pins inputs before driving `PERIPH_PWR_EN` LOW; on wake it enables the rail, waits for it to settle, and then reconfigures SPI. No SPI isolation buffer is planned. |
-| `3V3_AON` ↔ `5V_PERIPH_SW` | Firmware mutes the amplifier, ends I2S, makes BCLK/LRCLK/DIN inputs, and then disables the 5 V rail; enabling occurs in the reverse order after the rail settles. Keep the mixed-mono/mute bias network on `5V_PERIPH_SW`. No I2S isolation buffer is planned. |
+| `3V3_AON` ↔ `5V_PERIPH_SW` | Production GPIO21 connects to `SD_MODE` only through 634 kΩ. Firmware drives GPIO21 LOW before enabling or disabling the 5 V rail and drives it HIGH only after the rail and I2S are ready. Before power-off it mutes the amplifier, ends I2S, makes BCLK/LRCLK/DIN inputs, and then disables the rail. No I2S isolation buffer is planned. |
 | `5V_INPUT` ↔ `5V_PERIPH_SW` | These are different 5 V domains and must never be tied together. The switched peripheral boost output must provide true load disconnect and must not feed the external-input or charger path. |
 | Charge-status signals | Connect `STAT1` and `STAT2` only to ESP32 GPIO34 and GPIO35, using external pull-ups to `3V3_AON`. Include their leakage in the sleep audit. Do not add direct status LEDs to the BQ25185 outputs. |
 | `BAT` ↔ GPIO36 battery measurement | Feed the 820 kΩ / 300 kΩ divider through a second AP2281-3WG-7 whose `EN` is `PERIPH_PWR_EN`. This prevents `BAT` from driving the ADC while the ESP32 is unpowered and disconnects the divider in deep sleep. Do not measure `SYS` as a substitute. |
@@ -853,8 +884,8 @@ inputs.
 The battery-warning architecture is closed: direct `BAT` measurement through
 the AP2281-switched 820 kΩ / 300 kΩ divider on GPIO36.
 
-Exact connector models, regulator passives, and mute NMOS are schematic/BOM
-selections that must satisfy the fixed behavior above. The exact common-cathode
+Exact connector models and regulator passives are schematic/BOM selections
+that must satisfy the fixed behavior above. The exact common-cathode
 RGB LED and its three resistor values are BOM
 checks, not an open indicator-architecture decision. The deep-sleep calculation
 and production current measurements are verification work. They can force a

@@ -220,12 +220,17 @@ static void btSampleRateChanged(uint16_t rate) {
 // ---------------------------------------------------------------------------
 void setup() {
     Serial.begin(115200);
-    // Assert Rev A's mute transistor as early as possible during boot.
+    // Assert the selected board's shutdown level before peripheral power starts.
     pinMode(PIN_AMP_MUTE, OUTPUT);
     setAmpMuted(true);
 
     delay(500);
     Serial.println("\n=== SweetYaar Boot ===");
+    Serial.printf("[Audio] GPIO%d mute is active-%s\n",
+                  PIN_AMP_MUTE,
+                  AMP_MUTE_ACTIVE_HIGH
+                      ? "HIGH (generic board)"
+                      : "LOW (production board)");
     setupWakeState();
     setupPeripheralPower();
 
@@ -807,7 +812,7 @@ void preparePinsForPeripheralPowerOff() {
     pinMode(HW_I2S_BCLK, INPUT);
     pinMode(HW_I2S_WS, INPUT);
     pinMode(HW_I2S_DOUT, INPUT);
-    // Keep Rev A's mute transistor asserted; floating GPIO21 releases SD/MODE.
+    // Keep the hardware-specific MAX98357A shutdown level asserted.
     pinMode(PIN_SD_SCK, INPUT);
     pinMode(PIN_SD_MISO, INPUT);
     pinMode(PIN_SD_MOSI, INPUT);

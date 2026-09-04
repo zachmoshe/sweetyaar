@@ -22,7 +22,7 @@ UV ?= uv
 help: ## Show the available project commands.
 	@printf 'SweetYaar project commands\n\n'
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
-	@printf '\nOverrides: APP_PORT=8000 PIO_ENV=sweetyaar SERIAL_PORT=/dev/cu...\n'
+	@printf '\nOverrides: APP_PORT=8000 PIO_ENV=sweetyaar[-generic] SERIAL_PORT=/dev/cu...\n'
 
 setup: ## Create or refresh the root Python/PlatformIO environment with uv.
 	$(UV) sync

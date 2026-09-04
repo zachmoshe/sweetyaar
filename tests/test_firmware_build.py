@@ -6,14 +6,15 @@ from helpers import find_platformio, run_checked
 
 
 @pytest.mark.firmware
-def test_sweetyaar_firmware_build(repo_root) -> None:
+@pytest.mark.parametrize("environment", ["sweetyaar", "sweetyaar-generic"])
+def test_sweetyaar_firmware_build(repo_root, environment: str) -> None:
     pio = find_platformio(repo_root)
     if not pio:
         pytest.skip("PlatformIO not found; expected .venv/bin/pio in this repo or a parent checkout.")
 
     result = run_checked(
-        [pio, "run"],
+        [pio, "run", "-e", environment],
         cwd=repo_root / "firmware" / "esp32",
     )
-    assert "sweetyaar" in result.stdout
+    assert environment in result.stdout
     assert "SUCCESS" in result.stdout

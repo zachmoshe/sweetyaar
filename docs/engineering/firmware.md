@@ -221,10 +221,15 @@ wireless interfaces are Classic Bluetooth audio and BLE parent control.
 
 ## Building and flashing
 
-The production firmware is the PlatformIO `sweetyaar` environment. The board
-identifier inside PlatformIO is `esp32dev` because the current target is an
-original ESP32-WROOM-32 development module; that identifier is a build-system
-detail, not a second firmware application.
+There are two PlatformIO build environments for the two supported board designs:
+
+- `sweetyaar` is the default and targets the production SweetYaar PCB.
+- `sweetyaar-generic` targets the generic prototype board and accounts for its
+  different onboard support circuitry.
+
+The PlatformIO board identifier is `esp32dev` for both because both use the
+original ESP32-WROOM-32; that identifier is a build-system detail, not a third
+hardware target or firmware application.
 
 Set up the checked-in development environment from the repository root:
 
@@ -235,8 +240,13 @@ uv sync
 Build or flash the firmware from the repository root:
 
 ```bash
+# Production board (default)
 make build
 make flash
+
+# Generic prototype board
+make build PIO_ENV=sweetyaar-generic
+make flash PIO_ENV=sweetyaar-generic
 ```
 
 ## Testing changes
