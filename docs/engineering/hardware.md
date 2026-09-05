@@ -508,7 +508,8 @@ capacity may vary without changing the PCB design.
 | External-source mux | [TPS2116DRLR](https://www.ti.com/product/TPS2116), with USB `VBUS` on priority input `VIN1`, `AUX_5V_IN` on backup input `VIN2`, and `VOUT` feeding BQ25185 `IN`. It provides automatic priority selection, reverse-current blocking, and a 2.5 A path. |
 | Use while charging | Supported. Power the device from `SYS`; the BQ25185 reduces charge current when the input or thermal limit is reached and allows the battery to supplement load peaks. |
 | Charge current | **1 A production default, switchable to approximately 0.5 A with one solder jumper.** Connect two 301 Ω resistors in series from `ISET` to GND and place the jumper across the resistor nearest GND. Jumper open gives 602 Ω and approximately 0.5 A; bridged bypasses that resistor, leaving 301 Ω and approximately 1 A. Ship with the jumper bridged. |
-| Charger input-current limit | Use the BQ25185 1.1 A input-limit setting with the 4.2 V Li-ion configuration; the reference implementation uses 13 kΩ on `ILIM/VSET`. A future auxiliary source must either support that input or add a source-specific lower limit. |
+| Charger input-current limit | Use the BQ25185 1.1 A input-limit setting with the 4.2 V Li-ion configuration; the reference implementation uses 13 kΩ on `ILIM/VSET`. The board intentionally relies on BQ25185 VINDPM to reduce current if a weak source causes the input voltage to sag. A future auxiliary source must either support that input or add a source-specific lower limit. |
+| USB charger requirement | Require a 5 V USB-C charger that advertises at least 1.5 A on CC. State this requirement in the product documentation. The first revision does not decode the source's CC current advertisement and does not dynamically select the BQ25185 input-current limit. |
 | Battery connector | Connect the 18650 holder's short harness through a three-position connector from the larger 2.5 mm-pitch JST-XH family. Carry `BAT+`, `BAT−`/GND, and `BAT_TEMP`; choose the physical pin order during schematic/layout review and mark it unambiguously on the PCB and harness. |
 | Battery thermistor | Fit a **Semitec 103AT-2** 10 kΩ NTC (10 kΩ at 25°C, B25/85 = 3435 K) in the battery-holder harness. Connect BQ25185 `TS/MR` to `BAT_TEMP`; connect the thermistor between `BAT_TEMP` and `BAT−`/GND at the holder. Electrically insulate the sensor and press or tape it against the cell wrapper. Do not solder to, scrape, or use the bare 18650 can as a connection. |
 
@@ -519,6 +520,23 @@ clearly so it cannot accidentally short `ISET` directly to GND. Its charger
 fault handling does not replace cell protection. The 1 A charge setting is also
 separate from operating current: system load gets priority, and only the
 remaining input current is available for charging.
+
+This is a deliberate source-compatibility tradeoff. The two 5.1 kΩ `CC1` and
+`CC2` pull-downs identify the board as a USB-C sink, but they do not request or
+verify 1.5 A. With the 13 kΩ `ILIM/VSET` resistor, the BQ25185 may attempt to
+draw up to approximately 1.1 A total for the system and battery charger. If a
+weaker source holds its current limit by allowing its voltage to sag, VINDPM
+reduces the BQ25185 input current; other sources may instead shut down or cycle.
+This fallback behavior is accepted for the first revision and does not replace
+the requirement for a 5 V, 1.5 A-or-better USB-C charger.
+
+Opening the charge-current jumper lowers the battery fast-charge target to
+approximately 0.5 A and is the intended assembly option for a board known to
+use a lower-current source. The jumper changes `ISET` only: `ILIM/VSET` remains
+at the 1.1 A setting, and total input current can exceed 0.5 A while the system
+is running. If a future variant must guarantee a 500 mA total input limit,
+replace the 13 kΩ `ILIM/VSET` resistor with the datasheet's 18 kΩ value for
+4.2 V Li-ion operation rather than relying only on the charge-current jumper.
 
 The 103AT-2 matches the BQ25185's native 10 kΩ, B25/85 = 3435 K temperature
 profile, so no external hot/cold compensation network is planned. This direct
