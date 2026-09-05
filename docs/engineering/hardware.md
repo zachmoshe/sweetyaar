@@ -73,7 +73,7 @@ PCB.
 | 32 | `PIN_BTN1` | Input with internal pull-up | Song button to GND | Active LOW. |
 | 33 | `PIN_BTN2` | Input with internal pull-up | Animal button to GND | Active LOW. |
 | 27 | `PIN_VIB_WAKE` | Externally biased RTC input | Normally-closed vibration switch to GND | Resting LOW; movement opens the switch and wakes EXT0 on HIGH. |
-| 13 | `PIN_PERIPH_PWR_EN` | Output | `PERIPH_PWR_EN`: SD load-switch `EN` and 5 V converter `EN` | HIGH while awake; RTC-held LOW during deep sleep. |
+| 13 | `PIN_PERIPH_PWR_EN` | Output | `PERIPH_PWR_EN`: SD load-switch `EN`, battery-sense load-switch `EN`, and 5 V converter `EN` | HIGH while awake; RTC-held LOW during deep sleep. |
 | 34 | `PIN_CHARGER_STAT1` | Input with external pull-up | BQ25185 `STAT1` | First charger-status bit; 10 kΩ pull-up to `3V3_AON`. |
 | 35 | `PIN_CHARGER_STAT2` | Input with external pull-up | BQ25185 `STAT2` | Second charger-status bit; 10 kΩ pull-up to `3V3_AON`. |
 | 36 | `PIN_BATTERY_ADC` | ADC1 input | Midpoint of the switched 820 kΩ / 300 kΩ `BAT` divider | Calibrated coarse battery-state measurement on ADC1_CH0. |
@@ -286,7 +286,11 @@ the BQ25185's specified battery-only quiescent current. The selected Semitec
 103AT-2 thermistor connects between `TS/MR` and battery ground. The charger
 biases `TS/MR` while an input source is present; there is no intended thermistor
 current path in battery-only sleep, but final-board leakage at this pin remains
-part of the sleep-current audit.
+part of the sleep-current audit. If the thermistor is omitted, fit a fixed
+10 kΩ resistor from `BAT_TEMP`/`TS/MR` to GND instead. Never leave `BAT_TEMP`
+open: an open input is interpreted as a temperature fault and prevents normal
+charging. The fixed-resistor option deliberately disables real battery-temperature
+protection and must be recorded as an assembly choice.
 
 > [!WARNING]
 > **TBD — Close the deep-sleep design budget:** Obtain or measure the
@@ -392,12 +396,11 @@ the switched divider supply, and `EN` remains `PERIPH_PWR_EN`. Fit the
 datasheet-recommended 1 µF input and 0.1 µF output capacitors, plus the 100 nF
 ADC-node capacitor shown above. The `-3` variant actively discharges its output
 when disabled; the 300 kΩ resistor holds the ADC node at GND. Firmware enables
-2.5 dB ADC attenuation (`ADC_2_5db`, full-scale ≈ 1100 mV) and uses
-calibrated millivolt readings. The critical battery-warning transitions (3.1–3.4 V) map
-to 830–910 mV through the divider — roughly 75–83% of the ADC full scale, where
-linearity is best. Saturation at 4.2 V (full charge) is intentional: charging state is
-detected from the BQ25185 STAT1/STAT2 pins, not the ADC voltage, so ADC accuracy near
-4.2 V is irrelevant.
+2.5 dB ADC attenuation (`ADC_2_5db`) and uses calibrated millivolt readings.
+The critical battery-warning transitions (3.1–3.4 V) map to 830–910 mV through
+the divider. Exact accuracy at the upper end of the battery range is not
+required: the ADC provides coarse battery-state thresholds, while charging
+state is detected from the BQ25185 `STAT1`/`STAT2` pins.
 
 ### Amplifier rail and mute circuit
 
@@ -423,6 +426,13 @@ leave `GAIN_SLOT` unconnected to select that MAX98357A default. Place 0.1 µF an
 10 µF VDD bypass capacitors close to the IC and follow the required ground and
 thermal layout described in the
 [MAX98357A datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/MAX98357A-MAX98357B.pdf).
+
+`C_AMP3` is a 470 µF polarized bulk capacitor from `5V_PERIPH_SW` to GND.
+It is intentionally marked DNP for automated PCBA and will be soldered manually
+after assembly; **it is populated in the completed Rev A board**. Its polarity
+must be observed. This capacitor is retained because the prototype showed
+resets during loud playback without local bulk capacitance. The DNP flag is an
+assembly-method marker, not a decision to omit the capacitor from final use.
 
 On the production board, connect GPIO21 to `SD_MODE` through one **634 kΩ, 1%**
 series resistor. Do not fit an external transistor, pull-up, or pull-down on
@@ -508,10 +518,10 @@ capacity may vary without changing the PCB design.
 | External-source mux | [TPS2116DRLR](https://www.ti.com/product/TPS2116), with USB `VBUS` on priority input `VIN1`, `AUX_5V_IN` on backup input `VIN2`, and `VOUT` feeding BQ25185 `IN`. It provides automatic priority selection, reverse-current blocking, and a 2.5 A path. |
 | Use while charging | Supported. Power the device from `SYS`; the BQ25185 reduces charge current when the input or thermal limit is reached and allows the battery to supplement load peaks. |
 | Charge current | **1 A production default, switchable to approximately 0.5 A with one solder jumper.** Connect two 301 Ω resistors in series from `ISET` to GND and place the jumper across the resistor nearest GND. Jumper open gives 602 Ω and approximately 0.5 A; bridged bypasses that resistor, leaving 301 Ω and approximately 1 A. Ship with the jumper bridged. |
-| Charger input-current limit | Use the BQ25185 1.1 A input-limit setting with the 4.2 V Li-ion configuration; the reference implementation uses 13 kΩ on `ILIM/VSET`. The board intentionally relies on BQ25185 VINDPM to reduce current if a weak source causes the input voltage to sag. A future auxiliary source must either support that input or add a source-specific lower limit. |
-| USB charger requirement | Require a 5 V USB-C charger that advertises at least 1.5 A on CC. State this requirement in the product documentation. The first revision does not decode the source's CC current advertisement and does not dynamically select the BQ25185 input-current limit. |
+| Charger input-current limit | **1.1 A production default, manually switchable to approximately 0.5 A with `JP_ILIM`.** Bridged bypasses the 5.1 kΩ series resistor and leaves 13 kΩ from `ILIM/VSET` to GND; open gives 18.1 kΩ. Both settings select 4.2 V Li-ion charging. This is an assembly/configuration choice, not an automatic response to the connected source. |
+| USB charger requirement | Require a 5 V USB-C charger that advertises at least 1.5 A on CC. The supported 1.1 A configuration stays below that advertised capability. The first revision has two 5.1 kΩ CC pull-downs but does not decode the source's CC current advertisement and does not automatically change `JP_ILIM`. |
 | Battery connector | Connect the 18650 holder's short harness through a three-position connector from the larger 2.5 mm-pitch JST-XH family. Carry `BAT+`, `BAT−`/GND, and `BAT_TEMP`; choose the physical pin order during schematic/layout review and mark it unambiguously on the PCB and harness. |
-| Battery thermistor | Fit a **Semitec 103AT-2** 10 kΩ NTC (10 kΩ at 25°C, B25/85 = 3435 K) in the battery-holder harness. Connect BQ25185 `TS/MR` to `BAT_TEMP`; connect the thermistor between `BAT_TEMP` and `BAT−`/GND at the holder. Electrically insulate the sensor and press or tape it against the cell wrapper. Do not solder to, scrape, or use the bare 18650 can as a connection. |
+| Battery thermistor | Preferred configuration: fit a **Semitec 103AT-2** 10 kΩ NTC (10 kΩ at 25°C, B25/85 = 3435 K) in the battery-holder harness. Connect BQ25185 `TS/MR` to `BAT_TEMP`; connect the thermistor between `BAT_TEMP` and `BAT−`/GND at the holder. If the thermistor is omitted, fit a fixed 10 kΩ resistor from `BAT_TEMP`/`TS/MR` to GND instead; never leave the input open. The fixed resistor permits charging but removes actual cell-temperature protection. Electrically insulate a fitted sensor and press or tape it against the cell wrapper. Do not solder to, scrape, or use the bare 18650 can as a connection. |
 
 The BQ25185 uses `I_CHG = 300 AΩ / R_ISET`; 301 Ω gives approximately 0.997 A
 and 602 Ω gives approximately 0.498 A. The two-resistor arrangement is
@@ -522,21 +532,26 @@ separate from operating current: system load gets priority, and only the
 remaining input current is available for charging.
 
 This is a deliberate source-compatibility tradeoff. The two 5.1 kΩ `CC1` and
-`CC2` pull-downs identify the board as a USB-C sink, but they do not request or
-verify 1.5 A. With the 13 kΩ `ILIM/VSET` resistor, the BQ25185 may attempt to
-draw up to approximately 1.1 A total for the system and battery charger. If a
-weaker source holds its current limit by allowing its voltage to sag, VINDPM
-reduces the BQ25185 input current; other sources may instead shut down or cycle.
-This fallback behavior is accepted for the first revision and does not replace
-the requirement for a 5 V, 1.5 A-or-better USB-C charger.
+`CC2` pull-downs identify the board as a USB-C sink, but they do not decode or
+verify the source's advertised current. For the supported USB configuration,
+the product relies on a 5 V source that advertises at least 1.5 A; the board's
+1.1 A input limit then remains within the source-advertised capability. This
+charger requirement must appear in the user-facing product documentation.
 
-Opening the charge-current jumper lowers the battery fast-charge target to
-approximately 0.5 A and is the intended assembly option for a board known to
-use a lower-current source. The jumper changes `ISET` only: `ILIM/VSET` remains
-at the 1.1 A setting, and total input current can exceed 0.5 A while the system
-is running. If a future variant must guarantee a 500 mA total input limit,
-replace the 13 kΩ `ILIM/VSET` resistor with the datasheet's 18 kΩ value for
-4.2 V Li-ion operation rather than relying only on the charge-current jumper.
+If a weaker source holds its current limit by allowing VBUS to sag, BQ25185
+VINDPM reduces input current to try to maintain the input-voltage threshold.
+That is only a fallback: some weak or protected sources may instead shut down,
+cycle, or behave unpredictably. VINDPM does not make unrestricted use with an
+arbitrary USB source compliant and does not replace the 1.5 A charger
+requirement.
+
+The PCB also provides `JP_ILIM` as a manual 1.1 A/0.5 A total-input-limit
+selector. Bridged is the 13 kΩ, 1.1 A production default; open inserts the
+additional 5.1 kΩ for 18.1 kΩ total and approximately 0.5 A. The selection is
+not automatic and must be made before use with a known lower-current source.
+This is separate from `JP_ISET`, which changes only the battery fast-charge
+target between approximately 1 A and 0.5 A. Opening `JP_ISET` alone does not
+guarantee a 500 mA total USB input limit while the system is running.
 
 The 103AT-2 matches the BQ25185's native 10 kΩ, B25/85 = 3435 K temperature
 profile, so no external hot/cold compensation network is planned. This direct
@@ -548,6 +563,9 @@ temperature-monitoring architecture rather than merely approving the harness.
 Validate the actual suspend and recovery temperatures on the production
 assembly. See the [BQ25185 datasheet](https://www.ti.com/lit/ds/symlink/bq25185.pdf)
 and [Semitec 103AT family data](https://www.semitec-global.com/products/thermistor_at/).
+When a fixed 10 kΩ substitute is fitted instead, these temperature limits are
+not being measured; validation and operating restrictions must account for the
+loss of charger-controlled cell-temperature protection.
 
 The PCB must accept charging power from either the onboard USB-C receptacle or
 an unpopulated, two-wire auxiliary input:
@@ -557,7 +575,7 @@ USB_VBUS -------- TPS2116 VIN1 (priority) --+
                                              +---- TPS2116 VOUT ---- 5V_INPUT ---- BQ25185 IN
 AUX_5V_IN ------- TPS2116 VIN2 (backup) ----+
 
-USB_VBUS ------------------------------ CP2102N supply
+DEBUGGER_USB_VBUS ---- external debugger CP2102N ---- J_PROG1 ---- ESP32 UART0/EN/BOOT
 ```
 
 `AUX_5V_IN` is a 5 V input, not a raw battery connection. Provide clearly
@@ -599,7 +617,7 @@ Wire the mux as follows:
 |---|---|
 | 1 `GND` | Common PCB ground. Do not isolate the source grounds. |
 | 2, 7 `VOUT` | Join both pins and connect them to `5V_INPUT`, then to BQ25185 `IN`. |
-| 3 `VIN1` | Protected USB `VBUS`; this is the priority source. The separate CP2102N supply branch also comes from USB `VBUS` before the mux. |
+| 3 `VIN1` | Protected mainboard USB `VBUS`; this is the priority source. The external debugger has its own USB supply and does not connect to this rail. |
 | 4 `PR1` | USB-valid detector: 300 kΩ from USB `VBUS` to `PR1` and 100 kΩ from `PR1` to GND, both 1%. The nominal switchover threshold is 4.0 V; including the TPS2116 reference and resistor tolerances it is approximately 3.6–4.4 V, so a valid 5 V USB source is always selected. |
 | 5 `MODE` | Connect directly to `VIN1`/USB `VBUS` to enable automatic priority mode. |
 | 6 `VIN2` | Protected `AUX_5V_IN`; this is selected only when USB is absent or below the `PR1` threshold. |
@@ -625,13 +643,13 @@ revision adds no SPI or I2S signal-isolation components.
 
 | Boundary | Required schematic behavior |
 |---|---|
-| USB-powered CP2102N ↔ ESP32 on `3V3_AON` | UART and automatic-download signals must be high-impedance while USB `VBUS` is absent, so the USB-only bridge adds no battery-sleep load. Only raw USB `VBUS` powers the bridge. |
+| External USB-powered debugger ↔ ESP32 on `3V3_AON` | Rev A uses direct UART connections and the two-transistor EN/BOOT circuit without power-off isolation. This is accepted only under the operating rule that the debugger and target are both powered whenever the six-pin cable is attached. Disconnect the cable before removing either supply. The debugger never powers the target through `3V3_REF`. |
 | `3V3_AON` ↔ `3V3_PERIPH_SW` | Every SD pull-up belongs to the switched rail. Retain GPIO5 as the native VSPI `CS`. Firmware ends SPI, disables internal pulls, and makes the SPI pins inputs before driving `PERIPH_PWR_EN` LOW; on wake it enables the rail, waits for it to settle, and then reconfigures SPI. No SPI isolation buffer is planned. |
 | `3V3_AON` ↔ `5V_PERIPH_SW` | Production GPIO21 connects to `SD_MODE` only through 634 kΩ. Firmware drives GPIO21 LOW before enabling or disabling the 5 V rail and drives it HIGH only after the rail and I2S are ready. Before power-off it mutes the amplifier, ends I2S, makes BCLK/LRCLK/DIN inputs, and then disables the rail. No I2S isolation buffer is planned. |
 | `5V_INPUT` ↔ `5V_PERIPH_SW` | These are different 5 V domains and must never be tied together. The switched peripheral boost output must provide true load disconnect and must not feed the external-input or charger path. |
 | Charge-status signals | Connect `STAT1` and `STAT2` only to ESP32 GPIO34 and GPIO35, using external pull-ups to `3V3_AON`. Include their leakage in the sleep audit. Do not add direct status LEDs to the BQ25185 outputs. |
 | `BAT` ↔ GPIO36 battery measurement | Feed the 820 kΩ / 300 kΩ divider through a second AP2281-3WG-7 whose `EN` is `PERIPH_PWR_EN`. This prevents `BAT` from driving the ADC while the ESP32 is unpowered and disconnects the divider in deep sleep. Do not measure `SYS` as a substitute. |
-| Programming fixture ↔ board supplies | Treat the exposed target-voltage pad as a sense/reference connection until a fixture-power scheme is explicitly selected. A future fixture must not back-power USB, `AUX_5V_IN`, `SYS`, or the battery. |
+| Programming fixture ↔ board supplies | `3V3_REF` is a target-voltage reference/sense output only. The external debugger uses it for its indicator LED and must not drive it. A future fixture must not back-power USB, `AUX_5V_IN`, `SYS`, or the battery. |
 
 The schematic review must trace every power pin, pull-up, protection diode,
 indicator, test pad, and external connector against this table. Production
@@ -809,15 +827,15 @@ the electronics enclosure is designed. Electrically, the PCB must include:
 
 | Interface | Current requirement or decision |
 |---|---|
-| USB and auxiliary charging | USB-C is required on the main board for charging, firmware download, and live serial logs. Also provide unpopulated two-wire 5 V and GND auxiliary-input pads/footprint for a future power-only USB-C daughterboard, regulated wireless receiver, or other 5 V source. Fit no auxiliary connector in the first revision. |
+| USB and auxiliary charging | The mainboard USB-C connector is power-only and is required for charging. Also provide unpopulated two-wire 5 V and GND auxiliary-input pads/footprint for a future power-only USB-C daughterboard, regulated wireless receiver, or other 5 V source. Fit no auxiliary connector in the first revision. Firmware download and live serial logs use the separate USB-powered debugger through `J_PROG1`. |
 | Storage | Fit a replaceable bare microSD socket on `3V3_PERIPH_SW`, entirely inside the electronics enclosure. Changing the card requires opening the enclosure. Place the socket with insertion/removal clearance on the opened PCB, not at an enclosure edge or external opening. |
-| Battery | Use a protected removable 18650 in a holder. Connect its short harness through a three-position 2.5 mm-pitch JST-XH carrying `BAT+`, `BAT−`/GND, and `BAT_TEMP`. The holder harness contains the Semitec 103AT-2 from `BAT_TEMP` to `BAT−`/GND. |
+| Battery | Use a protected removable 18650 in a holder. Connect its short harness through a three-position 2.5 mm-pitch JST-XH carrying `BAT+`, `BAT−`/GND, and `BAT_TEMP`. The preferred holder harness contains the Semitec 103AT-2 from `BAT_TEMP` to `BAT−`/GND. If it is omitted, fit a fixed 10 kΩ substitute from `BAT_TEMP` to GND and record that temperature monitoring is disabled. |
 | Speaker | Use one keyed two-pin connector and a short stranded-wire harness. It must support either 4 Ω or 8 Ω speakers and must not be interchangeable with the battery connector. |
 | Song and animal buttons | Use one four-pin PCB connector arranged as `BTN_SONG`, GND, `BTN_ANIMAL`, GND. The two ground contacts join on the PCB, allowing four ordinary single-wire crimps and two independent two-wire button branches without a harness splice. |
 | Main power | Fit a physical latching **SPST pushbutton switch** on the enclosure as an exceptional safety/service control; deep sleep is normal. The complete switch body—not merely a remote actuator—mounts on the enclosure. Place it in series between BQ25185 `SYS` and the regulator inputs; leave `BAT+` permanently connected to BQ25185 `BAT`. Connect the switch to the PCB with two conductors and a two-pin connector. The switch and every harness contact must carry the validated current with margin. |
 | Vibration wake | The normally-closed vibration switch is soldered directly onto the PCB. Exact part and footprint remain schematic/BOM selections; its physical orientation follows enclosure design. |
 | Indicators | Route BQ25185 `STAT1`/`STAT2` only to ESP32 GPIO34/GPIO35. Fit one ordinary 5 mm through-hole common-cathode RGB status LED: GPIO2/red, GPIO16/green, and GPIO17/blue, each through its own current-limiting resistor. |
-| Programming/test | Use one unpopulated, non-proprietary 1×6 through-hole header footprint on 2.54 mm centers, in the documented order GPIO1/`U0TXD`, GPIO3/`U0RXD`, GPIO0/BOOT, `EN`, GND, and target-voltage reference. Its annular pads support a generic six-contact pogo fixture, while its holes allow a standard 1×6 pin header to be fitted temporarily or permanently. |
+| Programming/test | Use one unpopulated, non-proprietary 1×6 through-hole header footprint on 2.54 mm centers. Pins 1–6 are `3V3_REF`, GND, GPIO1/`UART_TXD`, GPIO3/`UART_RXD`, `ESP_EN`, and GPIO0/BOOT. Its annular pads support a generic six-contact pogo fixture, while its holes allow a standard 1×6 pin header to be fitted temporarily or permanently. The matching external debugger supplies CP2102N USB-to-UART and automatic-download control. |
 
 The auxiliary two-wire input can support a future power-only USB-C daughterboard
 near the doll surface. That daughterboard must implement the required USB-C
@@ -853,38 +871,60 @@ while the system is hard-off. The switch uses two terminals, two harness
 conductors, and a two-pin PCB connector. This is a direct mechanical disconnect
 rather than an electronic shutdown commanded through load-switch inputs.
 
-The USB-C connector is the production charging and service connector. Its
-`VBUS` pin continues to feed the BQ25185 charger input, while `D+` and `D-`
-connect to an onboard CP2102N USB-to-UART bridge for firmware download and live
-serial logs. Power the bridge and all bridge-side support circuitry **only from
-USB `VBUS`**, never from `SYS` or `3V3_AON`, so the bridge consumes no
-battery-only sleep current when USB is absent. The UART and automatic-download
-control connections must use a partial-power-down isolation arrangement that is
-high-impedance with `VBUS` absent; an unpowered bridge must not be back-powered
-by the always-powered ESP32 pins or add leakage to the sleep budget.
+The mainboard USB-C connector is power-only. Its `VBUS` pins feed the charging
+path, while its USB data pins are intentionally unconnected. Firmware download
+and live serial logs use a separate debugger board containing the CP2102N and
+its own USB-C connector. The debugger does not connect its USB `VBUS` or its
+CP2102N `VDD` to the target.
 
-Connect the bridge to ESP32 UART0: `U0TXD` on GPIO1 and `U0RXD` on GPIO3. Route
-the bridge's `DTR` and `RTS` through Espressif's two-transistor automatic-download
-circuit to `GPIO0` and `EN`, including the recommended `EN` capacitor, rather
-than connecting the control lines directly. Reserve GPIO0 for automatic
-download control and do not attach a production peripheral to it. The GPIO2
-RGB LED circuit must not add a pull-up or otherwise force GPIO2 HIGH during
-serial programming.
+The six programming contacts form a conventional unpopulated 1×6, 2.54 mm
+through-hole header rather than a proprietary footprint. Pins 1–6 are
+`3V3_REF`, GND, target GPIO1/`UART_TXD`, target GPIO3/`UART_RXD`, `ESP_EN`, and
+GPIO0/BOOT. `3V3_REF` is sense-only: on the debugger it powers only the
+2.2 kΩ series indicator LED and must never be driven back into the target.
+The UART directions cross normally: CP2102N `RXD` receives target `UART_TXD`,
+and CP2102N `TXD` drives target `UART_RXD`.
 
-Add USB ESD protection, route `D+` and `D-` as a short controlled differential
-pair, and keep the USB-UART circuitry away from the ESP32 antenna. USB serial
-provides live logs; retrieving logs produced before connection or a reset
-requires a separate firmware-managed persistent log buffer.
+The debugger routes CP2102N `DTR` and `RTS` through Espressif's two-transistor
+automatic-download circuit to target `EN` and BOOT. Its DPST serial-only switch
+disconnects those two automatic-reset controls when desired; UART TX/RX remain
+connected. The target retains the recommended 10 kΩ/1 µF `ESP_EN` network and
+10 kΩ GPIO0 pull-up. Reserve GPIO0 for automatic download control and do not
+attach another production peripheral to it.
 
-The six programming contacts provide a recovery and production-programming path
-now and allow a future cost-reduced revision to omit the onboard USB-to-UART
-bridge. They form a conventional unpopulated 1×6, 2.54 mm through-hole header,
-not a proprietary programming footprint. Size the plated holes for ordinary
-0.64 mm square header pins and leave exposed annular copper suitable for pogo
-contacts. The signal order is GPIO1/`U0TXD`, GPIO3/`U0RXD`, GPIO0/BOOT, `EN`,
-GND, and target-voltage reference. Whether the reference contact is sense-only
-remains a fixture-power detail; the fixture must not power the board until that
-scheme is deliberately designed.
+Rev A deliberately omits Espressif's optional 499 Ω series resistor on target
+`U0TXD`. The direct UART connection is accepted for the first revision to avoid
+another component; the omitted resistor is primarily an emissions/harmonic
+suppression recommendation, not a requirement for UART function. Revisit it
+only if EMC testing or signal measurements justify the change. It would not by
+itself provide power-off isolation.
+
+Rev A also deliberately omits UART power-off isolation. Whenever the six-pin
+cable is attached, **power both the target and debugger continuously**. Power
+both boards before attaching the cable, and disconnect the cable before
+removing either supply. With both devices powered, static UART input current is
+only leakage-scale; the CP2102N specifies at most 1.1 µA for an in-range input,
+while the CP2102N itself typically consumes about 9.5 mA from debugger USB
+during normal operation. The target-reference LED additionally draws roughly
+`(3.3 V - LED_VF) / 2.2 kΩ`, typically well below 1 mA.
+
+If this operating rule is broken, the direct output-to-unpowered-input current
+is not bounded to a small, guaranteed value by either datasheet. A powered
+target can drive 3.3 V into an unpowered CP2102N `RXD`; with `VIO = 0`, that
+exceeds the CP2102N's `VIO + 2.5 V` absolute-maximum input voltage. A powered
+debugger can similarly inject current from CP2102N `TXD` into an unpowered
+ESP32 and partially back-power its 3.3 V domain. Actual current depends on
+internal protection structures and other rail loads and may be several
+milliamps or more; do not treat the datasheet's normal input-leakage number as a
+fault-current limit. A brief mistake may merely cause phantom powering or bad
+reset behavior, but it is outside the supported operating condition and is not
+guaranteed harmless.
+
+Add USB ESD protection on the debugger and route its `D+` and `D-` as a short
+controlled differential pair. Keep the debugger disconnected during
+battery-sleep measurements. USB serial provides live logs; retrieving logs
+produced before connection or reset requires a separate firmware-managed
+persistent log buffer.
 
 Programming-interface references: [ESP32 UART hardware guidance](https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32/schematic-checklist.html#uart),
 [ESP32 boot-mode and automatic-download behavior](https://docs.espressif.com/projects/esptool/en/latest/esp32/advanced-topics/boot-mode-selection.html),
@@ -929,10 +969,11 @@ interfaces are fixed now.
 
 Current enclosure requirements and open mechanical work are:
 
-- The main-board USB-C receptacle must be reachable for charging, flashing, and
-  logs. The first revision may require opening the doll zipper and electronics
-  enclosure. A future power-only daughterboard may move a charging connector to
-  the doll surface without replacing the main USB-C service path.
+- The mainboard USB-C receptacle must be reachable for charging. Firmware
+  flashing and logs use the internal six-pin programming header and separate
+  debugger, so they require opening the doll zipper and electronics enclosure.
+  A future power-only daughterboard may move a charging connector to the doll
+  surface without replacing the mainboard charging path.
 - The replaceable microSD socket is inside the electronics enclosure and is not
   accessible externally. Do not place it at the enclosure edge; instead provide
   enough internal finger and card-travel clearance to replace the card after the
@@ -1017,8 +1058,9 @@ connecting an 18650 cell or speaker. A practical order is:
 
 1. Verify USB-only charging through `5V_INPUT`, with no voltage or measurable
    reverse current appearing at `AUX_5V_IN`.
-2. Apply a current-limited 5 V bench supply to `AUX_5V_IN`; verify charging, no
-   voltage at the USB-C receptacle, and no power at the CP2102N supply.
+2. Apply a current-limited 5 V bench supply to `AUX_5V_IN`; verify charging and
+   no voltage at the mainboard USB-C receptacle. The external debugger and its
+   CP2102N supply remain electrically separate from this power-path test.
 3. Connect USB and AUX together, verify that USB takes priority,
    and measure reverse current into both sources. Do not rely only on voltage.
 4. Verify the charger/protection and `SYS` behavior by themselves.
