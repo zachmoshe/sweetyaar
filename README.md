@@ -90,7 +90,7 @@ build instructions, and test coverage.
 - `docs/assets/`: shared engineering-documentation images and diagrams.
 - `content/sd-card-template/`: expected SD-card folder structure, metadata, and config.
 - `tools/`: future standalone development and maintenance utilities.
-- `project-plan.md`: detailed architecture and hardware planning notes.
+- [`docs/overview.md`](docs/overview.md): high-level project overview and design history.
 - [`docs/engineering/firmware.md`](docs/engineering/firmware.md): device behavior, firmware components,
   build instructions, and regression tests.
 - [`docs/engineering/mobile-app.md`](docs/engineering/mobile-app.md): parent remote behavior, design
