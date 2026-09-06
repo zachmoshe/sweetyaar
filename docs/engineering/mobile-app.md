@@ -30,11 +30,12 @@ Web Bluetooth requires a secure origin. The deployed HTTPS site and
 with the site's origin, so moving the app to a different domain requires the
 parent to grant access again.
 
-After connecting, the app reads the current volume, theme, playback state, and
-available content from the toy. It also sends the phone or computer's time and
-UTC offset so the firmware can evaluate the Bedtime schedule. Status updates
-then arrive over BLE and keep the screen synchronized with physical-button and
-playback activity on the toy.
+After connecting, the app reads and subscribes to playback status first, then
+opens the appropriate Ready or Bluetooth-streaming screen. Ready-screen controls
+stay briefly disabled while the remaining characteristics, current values, and
+notifications load in the background. The app also sends the phone or
+computer's time and UTC offset so the firmware can evaluate the Bedtime
+schedule. Detailed theme and song scans remain deferred until Settings opens.
 
 If the toy disconnects, restarts, or enters deep sleep, the app returns to its
 opening screen and the parent must reconnect. Installing the app does not

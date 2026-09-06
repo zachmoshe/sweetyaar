@@ -2736,6 +2736,7 @@
       deviceName: "SweetYaar",
       status: "Disconnected",
       statusOnlyConnection: false,
+      remoteInitializing: false,
       volume: 75,
       theme: "",
       themes: [],
@@ -2883,7 +2884,7 @@
     }
 
     function controlsDisabled() {
-      return state.busy || !state.connected || isBtConnected();
+      return state.busy || state.remoteInitializing || !state.connected || isBtConnected();
     }
 
     function settingsBusy() {
@@ -3297,11 +3298,15 @@
       // below is only a fallback if a notification is missed.
       const notifyDriven = useDirectConfig && state.configResponseSubscribed;
       const responseName = useDirectConfig ? "configResponse" : "themes";
+      // Arm the notification waiter before writing. The ESP32 may publish the
+      // response before writeValueWithResponse() settles in the browser.
+      let responseWait = notifyDriven ? waitForConfigResponse(1000) : null;
       await writeText(useDirectConfig ? "configCommand" : "command", JSON.stringify({ id, ...payload }));
 
       const deadline = Date.now() + 15000;
       while (Date.now() < deadline) {
-        await waitForConfigResponse(notifyDriven ? 1000 : 80);
+        await (responseWait || waitForConfigResponse(notifyDriven ? 1000 : 80));
+        responseWait = null;
         const value = await state.chars[responseName].readValue();
         const text = readText(value);
         let parsed = null;
@@ -3345,7 +3350,7 @@
     }
 
     async function subscribeToConfigResponse() {
-      if (!state.chars.configResponse) return;
+      if (!state.chars.configResponse || state.configResponseSubscribed) return;
       await subscribe("configResponse", () => handleConfigResponseNotify());
       state.configResponseSubscribed = true;
     }
@@ -3800,7 +3805,7 @@
     }
 
     function openSettings() {
-      if (!state.connected || state.busy) return;
+      if (!state.connected || state.busy || state.remoteInitializing) return;
       state.view = "settings";
       state.themeOpen = false;
       state.settings.defaultThemeOpen = false;
@@ -4204,6 +4209,7 @@
       els.streamingView.hidden = !streaming;
       els.readyView.hidden = !ready;
       els.settingsView.hidden = !settings;
+      els.readyView.setAttribute("aria-busy", state.remoteInitializing ? "true" : "false");
       els.brandName.textContent = displayDeviceName();
       els.openingView.setAttribute("aria-label", `Connect to ${displayDeviceName()}`);
       els.streamingView.setAttribute("aria-label", `${displayDeviceName()} is streaming music`);
@@ -4291,7 +4297,7 @@
       } else {
         els.quietSub.textContent = "Pause the toy's buttons for 10 min";
       }
-      els.openSettingsButton.disabled = state.busy || !state.connected;
+      els.openSettingsButton.disabled = state.busy || state.remoteInitializing || !state.connected;
       renderInstallBanner();
       renderNoticeBanner();
       renderBatteryStatus();
@@ -4335,7 +4341,6 @@
       const volumeValue = await readInitialCharacteristic("volume");
       const killswitchValue = await readInitialCharacteristic("killswitch");
       const themeValue = await readInitialCharacteristic("theme");
-      const statusValue = await readInitialCharacteristic("status");
       const themesValue = await readInitialCharacteristic("themes");
       const batteryValue = state.chars.battery
         ? await readInitialCharacteristic("battery")
@@ -4345,20 +4350,16 @@
       state.volume = readUint8(volumeValue);
       state.killswitch = readUint8(killswitchValue) !== 0;
       state.theme = readText(themeValue);
-      state.status = readText(statusValue) || "Idle";
       state.battery = batteryValue ? decodeBatteryState(readUint8(batteryValue)) : "unknown";
     }
 
     async function completeRemoteInitialization(options = {}) {
       const subscribeStatus = options.subscribeStatus !== false;
+      // Make config requests notification-driven before the first request.
+      // Older cached GATT tables continue to use the polling fallback.
+      await subscribeToConfigResponse();
       await readInitialValues();
       await refreshDeviceClock({ renderAfter: false });
-      try {
-        await refreshRemoteThemes();
-      } catch (error) {
-        state.configError = error;
-        console.error("[SweetYaar technical error]", error.technicalMessage || error);
-      }
       await subscribeToNotifications({ subscribeStatus });
       state.statusOnlyConnection = false;
     }
@@ -4455,6 +4456,7 @@
 
     async function subscribeToNotifications(options = {}) {
       const subscribeStatus = options.subscribeStatus !== false;
+      await subscribeToConfigResponse();
       await subscribe("volume", (event) => {
         state.volume = readUint8(event.target.value);
         render();
@@ -4477,46 +4479,81 @@
           render();
         });
       }
-      await subscribeToConfigResponse();
     }
 
-    async function finishStatusOnlyConnection() {
-      if (!state.statusOnlyConnection || state.busy || !state.server) return;
-      state.busy = true;
-      render();
+    async function discoverRemoteCharacteristics(service) {
+      const statusChar = state.chars.status || await getCharacteristic(service, "status");
+      state.chars = {
+        volume: await getCharacteristic(service, "volume"),
+        killswitch: await getCharacteristic(service, "killswitch"),
+        theme: await getCharacteristic(service, "theme"),
+        status: statusChar,
+        themes: await getCharacteristic(service, "themes"),
+        command: await getCharacteristic(service, "command")
+      };
+      state.configAvailable = false;
+      state.configError = null;
       try {
-        const service = await state.server.getPrimaryService(UUIDS.service);
-        state.chars = {
-          volume: await getCharacteristic(service, "volume"),
-          killswitch: await getCharacteristic(service, "killswitch"),
-          theme: await getCharacteristic(service, "theme"),
-          status: state.chars.status || await getCharacteristic(service, "status"),
-          themes: await getCharacteristic(service, "themes"),
-          command: await getCharacteristic(service, "command")
-        };
+        state.chars.configCommand = await getCharacteristic(service, "configCommand");
+        state.chars.configResponse = await getCharacteristic(service, "configResponse");
+        state.configAvailable = true;
+      } catch (error) {
+        state.configError = error;
+        console.info(
+          "[SweetYaar BLE] Dedicated config characteristics unavailable; using legacy config transport.",
+          error.technicalMessage || error
+        );
+      }
+      state.chars.notice = await getOptionalCharacteristic(service, "notice");
+      state.chars.battery = await getOptionalCharacteristic(service, "battery");
+    }
+
+    async function initializeRemoteConnection(server, knownService = null) {
+      const startedAt = Date.now();
+      try {
+        const service = knownService || await server.getPrimaryService(UUIDS.service);
+        if (state.server !== server) return;
+        await discoverRemoteCharacteristics(service);
+        await completeRemoteInitialization({ subscribeStatus: false });
+        if (state.server !== server) return;
+        state.remoteInitializing = false;
+        state.message = "";
+        console.info(`[SweetYaar] Remote controls ready in ${Date.now() - startedAt} ms`);
+        render();
+      } catch (error) {
+        if (state.server !== server) return;
+        const message = describeError(error);
+        if (state.device?.gatt?.connected) {
+          state.suppressNextDisconnectMessage = true;
+          state.device.gatt.disconnect();
+        }
+        state.connected = false;
+        state.device = null;
+        state.server = null;
+        state.chars = {};
         state.configAvailable = false;
         state.configError = null;
-        try {
-          state.chars.configCommand = await getCharacteristic(service, "configCommand");
-          state.chars.configResponse = await getCharacteristic(service, "configResponse");
-          state.configAvailable = true;
-        } catch (error) {
-          state.configError = error;
-          console.info(
-            "[SweetYaar BLE] Dedicated config characteristics unavailable; using legacy config transport.",
-            error.technicalMessage || error
-          );
-        }
-        state.chars.notice = await getOptionalCharacteristic(service, "notice");
-        state.chars.battery = await getOptionalCharacteristic(service, "battery");
-        await completeRemoteInitialization({ subscribeStatus: false });
-        state.message = "";
-      } catch (error) {
-        state.message = describeError(error);
-      } finally {
-        state.busy = false;
+        state.configResponseSubscribed = false;
+        state.configNotifyResolve = null;
+        state.statusOnlyConnection = false;
+        state.remoteInitializing = false;
+        state.status = "Disconnected";
+        state.message = message;
         render();
       }
+    }
+
+    function beginRemoteInitialization(server, knownService = null) {
+      if (!server || state.remoteInitializing) return;
+      state.remoteInitializing = true;
+      state.message = "Loading controls...";
+      render();
+      void initializeRemoteConnection(server, knownService);
+    }
+
+    function finishStatusOnlyConnection() {
+      if (!state.statusOnlyConnection || state.busy || !state.server) return;
+      beginRemoteInitialization(state.server);
     }
 
     async function registerServiceWorker() {
@@ -4580,6 +4617,7 @@
         state.device = device;
         device.addEventListener("gattserverdisconnected", onDisconnected);
 
+        const connectionStartedAt = Date.now();
         const server = await device.gatt.connect();
         let service;
         try {
@@ -4601,47 +4639,25 @@
         state.server = server;
         const statusChar = await getCharacteristic(service, "status");
         state.chars = { status: statusChar };
+        await subscribeToStatusNotifications();
         const statusValue = await statusChar.readValue();
         state.status = readText(statusValue) || "Idle";
 
         if (isBtConnected()) {
-          await subscribeToStatusNotifications();
           state.statusOnlyConnection = true;
           state.connected = true;
           state.view = "remote";
           state.message = "";
+          console.info(`[SweetYaar] Streaming screen ready in ${Date.now() - connectionStartedAt} ms`);
           return;
         }
 
-        state.chars = {
-          volume: await getCharacteristic(service, "volume"),
-          killswitch: await getCharacteristic(service, "killswitch"),
-          theme: await getCharacteristic(service, "theme"),
-          status: statusChar,
-          themes: await getCharacteristic(service, "themes"),
-          command: await getCharacteristic(service, "command")
-        };
-        state.configAvailable = false;
-        state.configError = null;
-        try {
-          state.chars.configCommand = await getCharacteristic(service, "configCommand");
-          state.chars.configResponse = await getCharacteristic(service, "configResponse");
-          state.configAvailable = true;
-        } catch (error) {
-          state.configError = error;
-          console.info(
-            "[SweetYaar BLE] Dedicated config characteristics unavailable; using legacy config transport.",
-            error.technicalMessage || error
-          );
-        }
-        state.chars.notice = await getOptionalCharacteristic(service, "notice");
-        state.chars.battery = await getOptionalCharacteristic(service, "battery");
-
-        await completeRemoteInitialization();
-
+        state.statusOnlyConnection = false;
         state.connected = true;
         state.view = "remote";
-        state.message = "";
+        state.busy = false;
+        beginRemoteInitialization(server, service);
+        console.info(`[SweetYaar] Remote screen ready in ${Date.now() - connectionStartedAt} ms`);
       } catch (error) {
         const message = describeError(error);
         if (state.device?.gatt?.connected) {
@@ -4654,6 +4670,7 @@
         state.chars = {};
         state.configAvailable = false;
         state.configError = null;
+        state.remoteInitializing = false;
         state.statusOnlyConnection = false;
         state.status = "Disconnected";
         state.message = message;
@@ -4674,6 +4691,7 @@
       state.view = "remote";
       state.configAvailable = false;
       state.configError = null;
+      state.remoteInitializing = false;
       state.statusOnlyConnection = false;
       state.status = "Disconnected";
       state.killswitch = false;

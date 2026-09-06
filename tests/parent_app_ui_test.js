@@ -448,6 +448,14 @@ function makeBleHarness(options = {}) {
     return { id: payload.id, ok: false, error: "unknown op" };
   }
 
+  function publishConfigResponse(characteristic) {
+    if (options.synchronousConfigNotify) {
+      characteristic.emit(characteristic.value);
+    } else {
+      setTimeout(() => characteristic.emit(characteristic.value), 0);
+    }
+  }
+
   let response = { id: 0, ok: true };
   let activeReads = 0;
   let maxConcurrentReads = 0;
@@ -493,7 +501,7 @@ function makeBleHarness(options = {}) {
       response = configResponse(payload);
       chars.configResponse.value = JSON.stringify(response);
       chars.themes.value = JSON.stringify(response);
-      setTimeout(() => chars.configResponse.emit(chars.configResponse.value), 0);
+      publishConfigResponse(chars.configResponse);
     } else {
       const command = value[0];
       writes.command.push(command);
@@ -507,7 +515,7 @@ function makeBleHarness(options = {}) {
     writes.config.push(payload);
     response = configResponse(payload);
     chars.configResponse.value = JSON.stringify(response);
-    setTimeout(() => chars.configResponse.emit(chars.configResponse.value), 0);
+    publishConfigResponse(chars.configResponse);
   };
   chars.volume.write = (value) => {
     writes.volume.push(value[0]);
@@ -528,6 +536,10 @@ function makeBleHarness(options = {}) {
   };
 
   const charByUuid = new Map(Object.entries(UUIDS).map(([name, uuid]) => [uuid, chars[name]]));
+  let releaseRemoteInitialization = () => {};
+  const remoteInitializationGate = options.deferRemoteInitialization
+    ? new Promise((resolve) => { releaseRemoteInitialization = resolve; })
+    : null;
   const service = {
     async getCharacteristic(uuid) {
       const characteristic = charByUuid.get(uuid);
@@ -535,6 +547,9 @@ function makeBleHarness(options = {}) {
         const error = new Error("missing characteristic");
         error.name = "NotFoundError";
         throw error;
+      }
+      if (remoteInitializationGate && characteristic.name !== "status") {
+        await remoteInitializationGate;
       }
       return characteristic;
     },
@@ -588,6 +603,7 @@ function makeBleHarness(options = {}) {
     device,
     reads,
     notifications,
+    releaseRemoteInitialization,
     get maxConcurrentReads() { return maxConcurrentReads; },
     get requestCount() { return requestCount; }
   };
@@ -596,6 +612,9 @@ function makeBleHarness(options = {}) {
 async function connectWithFakeBle(options = {}) {
   const ble = makeBleHarness(options);
   await els.connectButton.click();
+  if (options.waitForRemoteInitialization !== false && state.remoteInitializing) {
+    await waitUntil(() => !state.remoteInitializing, "remote initialization");
+  }
   return ble;
 }
 
@@ -646,10 +665,41 @@ const tests = [
     assert.strictEqual(state.loop, false);
     assert.strictEqual(els.loopToggle.getAttribute("aria-checked"), "false");
     assert.strictEqual(els.loopBadge.hidden, true);
-    assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime", "scanThemes"]);
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime"]);
     assert.strictEqual(els.bedtimeTitle.textContent, "Daytime");
     assert.strictEqual(els.bedtimeMessage.textContent, "(ends at 18:30)");
     assert.strictEqual(els.deviceWatch.textContent, "Toy clock 21:05");
+  `],
+  ["connect opens remote before controls finish loading", String.raw`
+    const ble = await connectWithFakeBle({
+      deferRemoteInitialization: true,
+      waitForRemoteInitialization: false
+    });
+    assert.strictEqual(state.connected, true);
+    assert.strictEqual(state.remoteInitializing, true);
+    assertVisible(els.readyView, [els.openingView, els.streamingView, els.settingsView]);
+    assert.strictEqual(els.readyView.getAttribute("aria-busy"), "true");
+    assert.strictEqual(els.readyMessage.textContent, "Loading controls...");
+    assert.strictEqual(els.playSongButton.disabled, true);
+    assert.strictEqual(els.volumeRange.disabled, true);
+    assert.strictEqual(els.openSettingsButton.disabled, true);
+    assert.deepStrictEqual(ble.reads, ["status"]);
+    assert.deepStrictEqual(ble.notifications, ["status"]);
+
+    ble.releaseRemoteInitialization();
+    await waitUntil(() => !state.remoteInitializing, "deferred remote initialization");
+    assert.strictEqual(els.readyView.getAttribute("aria-busy"), "false");
+    assert.strictEqual(els.readyMessage.hidden, true);
+    assert.strictEqual(els.playSongButton.disabled, false);
+    assert.strictEqual(els.volumeRange.disabled, false);
+    assert.strictEqual(els.openSettingsButton.disabled, false);
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime"]);
+  `],
+  ["early config notification avoids the polling fallback", String.raw`
+    const startedAt = Date.now();
+    const ble = await connectWithFakeBle({ synchronousConfigNotify: true });
+    assert(Date.now() - startedAt < 500, "synchronous config response should not wait for fallback timer");
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime"]);
   `],
   ["bedtime card shows time unknown when sync is unavailable", String.raw`
     await connectWithFakeBle({ rejectSyncTime: true });
@@ -695,7 +745,7 @@ const tests = [
     assert.strictEqual(state.volume, 45);
     assert.strictEqual(els.volumeValue.textContent, "45%");
   `],
-  ["empty theme scan leaves remote picker empty", String.raw`
+  ["empty compact theme list leaves remote picker empty", String.raw`
     const ble = await connectWithFakeBle({
       themes: [],
       theme: "nature",
@@ -706,9 +756,9 @@ const tests = [
     assert.strictEqual(els.themeCurrent.textContent, "");
     assert.strictEqual(els.themeTrigger.disabled, true);
     assert.strictEqual(els.themeOptions.children.length, 0);
-    assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime", "scanThemes"]);
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime"]);
   `],
-  ["connect loads themes through legacy config transport", String.raw`
+  ["connect synchronizes time through legacy config transport", String.raw`
     const ble = await connectWithFakeBle({
       missingCharacteristics: ["configCommand", "configResponse"],
       theme: "nature",
@@ -717,7 +767,7 @@ const tests = [
     assert.strictEqual(state.connected, true);
     assert.strictEqual(state.configAvailable, false);
     assert.strictEqual(els.themeCurrent.textContent, "Nature");
-    assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime", "scanThemes"]);
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime"]);
   `],
   ["initial BLE reads are serialized for Android Chrome", String.raw`
     const ble = await connectWithFakeBle({ trackConcurrentReads: true });
@@ -765,12 +815,12 @@ const tests = [
       config: { activeTheme: "nature", defaultTheme: "nature" }
     });
     ble.chars.status.emit("Idle");
-    await waitUntil(() => state.connected && !state.statusOnlyConnection && !state.busy, "status-only hydration");
+    await waitUntil(() => state.connected && !state.statusOnlyConnection && !state.remoteInitializing, "status-only hydration");
     assertVisible(els.readyView, [els.openingView, els.streamingView, els.settingsView]);
     assert.strictEqual(els.volumeValue.textContent, "31%");
     assert.strictEqual(els.themeCurrent.textContent, "Nature");
-    assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime", "scanThemes"]);
-    assert.deepStrictEqual(ble.notifications, ["status", "volume", "killswitch", "theme", "notice", "battery", "configResponse"]);
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime"]);
+    assert.deepStrictEqual(ble.notifications, ["status", "configResponse", "volume", "killswitch", "theme", "notice", "battery"]);
   `],
   ["remote playback buttons write command values", String.raw`
     const ble = await connectWithFakeBle();

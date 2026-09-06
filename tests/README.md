@@ -38,6 +38,7 @@ Pytest only discovers `test_*.py` files directly. The `.js`, `.cpp`, and
 - `test_parent_app.py::test_parent_app_save_flow`: runs the Node UI regression runner against the real script embedded in `app/public/index.html`.
 - `parent_app_ui_test.js::initial opening screen is usable`: checks the first screen, connect button state, and visible copy.
 - `parent_app_ui_test.js::connect success shows ready remote`: simulates a successful Web Bluetooth connection and checks the ready remote state.
+- `parent_app_ui_test.js::connect opens remote before controls finish loading`: verifies that status alone opens the Ready screen while background BLE hydration keeps controls disabled.
 - `parent_app_ui_test.js::connect cancel stays on opening screen`: simulates user cancellation from the browser device chooser.
 - `parent_app_ui_test.js::missing BLE service asks for firmware upgrade`: simulates an incompatible firmware GATT shape and checks the upgrade message.
 - `parent_app_ui_test.js::BT streaming status shows streaming screen and disables remote`: simulates a BT streaming status notification and verifies local controls are disabled.
