@@ -50,10 +50,64 @@ static constexpr uint32_t BATTERY_DIVIDER_TOP_OHMS = 820000;
 static constexpr uint32_t BATTERY_DIVIDER_BOTTOM_OHMS = 300000;
 
 // --- Status LED -------------------------------------------------------------
-// Common-cathode RGB LED, driven active-HIGH by three LEDC PWM channels.
-static constexpr int PIN_LED_RED    = 2;
-static constexpr int PIN_LED_GREEN  = 16;
-static constexpr int PIN_LED_BLUE   = 17;
+// One WS2812/SK6812-compatible addressable RGB or RGBW LED. Production hardware
+// level-shifts GPIO2 through an inverting MMBT3904 stage, so the RMT waveform
+// is inverted in firmware by default and arrives non-inverted at LED DIN.
+#ifndef SWEETYAAR_STATUS_LED_DATA_INVERTED
+#define SWEETYAAR_STATUS_LED_DATA_INVERTED 1
+#endif
+
+#if SWEETYAAR_STATUS_LED_DATA_INVERTED != 0 && SWEETYAAR_STATUS_LED_DATA_INVERTED != 1
+#error "SWEETYAAR_STATUS_LED_DATA_INVERTED must be 0 or 1"
+#endif
+
+// Linear cap applied to every LED color channel by StatusLed. This is a product
+// tuning value rather than a separate brightness per status pattern.
+#ifndef SWEETYAAR_STATUS_LED_MAX_BRIGHTNESS_PCT
+#define SWEETYAAR_STATUS_LED_MAX_BRIGHTNESS_PCT 50
+#endif
+
+#if SWEETYAAR_STATUS_LED_MAX_BRIGHTNESS_PCT < 0 || SWEETYAAR_STATUS_LED_MAX_BRIGHTNESS_PCT > 100
+#error "SWEETYAAR_STATUS_LED_MAX_BRIGHTNESS_PCT must be in the range 0..100"
+#endif
+
+// Select RGB instead of GRB channel order. With an RGBW device the equivalent
+// choices are RGBW and GRBW. Verify the actual LED batch before production.
+#ifndef SWEETYAAR_STATUS_LED_COLOR_ORDER_GRB
+#define SWEETYAAR_STATUS_LED_COLOR_ORDER_GRB 0
+#endif
+
+#if SWEETYAAR_STATUS_LED_COLOR_ORDER_GRB != 0 && SWEETYAAR_STATUS_LED_COLOR_ORDER_GRB != 1
+#error "SWEETYAAR_STATUS_LED_COLOR_ORDER_GRB must be 0 or 1"
+#endif
+
+// Select a 32-bit SK6812-style RGBW frame instead of a 24-bit WS2812-style
+// RGB frame. The white channel remains independently addressable.
+#ifndef SWEETYAAR_STATUS_LED_RGBW
+#define SWEETYAAR_STATUS_LED_RGBW 0
+#endif
+
+#if SWEETYAAR_STATUS_LED_RGBW != 0 && SWEETYAAR_STATUS_LED_RGBW != 1
+#error "SWEETYAAR_STATUS_LED_RGBW must be 0 or 1"
+#endif
+
+#ifndef SWEETYAAR_STATUS_LED_PIXEL_COUNT
+#define SWEETYAAR_STATUS_LED_PIXEL_COUNT 1
+#endif
+
+#if SWEETYAAR_STATUS_LED_PIXEL_COUNT < 1
+#error "SWEETYAAR_STATUS_LED_PIXEL_COUNT must be at least 1"
+#endif
+
+static constexpr int PIN_STATUS_LED_DATA = 2;
+static constexpr uint16_t STATUS_LED_PIXEL_COUNT =
+    SWEETYAAR_STATUS_LED_PIXEL_COUNT;
+static constexpr bool STATUS_LED_DATA_INVERTED =
+    SWEETYAAR_STATUS_LED_DATA_INVERTED != 0;
+static constexpr bool STATUS_LED_HAS_WHITE_CHANNEL =
+    SWEETYAAR_STATUS_LED_RGBW != 0;
+static constexpr uint8_t STATUS_LED_MAX_BRIGHTNESS_PCT =
+    SWEETYAAR_STATUS_LED_MAX_BRIGHTNESS_PCT;
 
 // ---------------------------------------------------------------------------
 // Timing constants

@@ -145,6 +145,82 @@ BLE and Classic Bluetooth share the ESP32 radio and can run at the same time.
 The app can still report that Bluetooth streaming is active, but local playback
 controls remain unavailable until the A2DP session ends.
 
+## Status indicator
+
+The production status indicator is one addressable RGB or RGBW LED driven from
+GPIO2 through an inverting MMBT3904 level shifter. NeoPixelBus uses ESP32 RMT
+channel 0 and an inverted output method by default; the hardware and RMT
+inversions cancel at the LED. The `sweetyaar-generic` environment instead sets
+`SWEETYAAR_STATUS_LED_DATA_INVERTED=0` for a bench LED whose `DIN` is connected
+directly to GPIO2. This changes waveform polarity only; it does not provide the
+input-HIGH voltage margin of the production level shifter.
+
+`SWEETYAAR_STATUS_LED_RGBW` selects the wire protocol and pixel width. Leave it
+at `0` for a 24-bit WS2812-style RGB device, or set it to `1` for a 32-bit
+SK6812-style RGBW device. `SWEETYAAR_STATUS_LED_COLOR_ORDER_GRB` independently
+selects the channel order:
+
+| `RGBW` flag | `GRB` flag | Frame and channel order |
+|---:|---:|---|
+| `0` | `0` | 24-bit RGB |
+| `0` | `1` | 24-bit GRB |
+| `1` | `0` | 32-bit RGBW |
+| `1` | `1` | 32-bit GRBW |
+
+The existing yellow, green, blue, and red patterns leave the dedicated white
+channel at zero, so choosing RGBW does not change their appearance. A future
+pattern can set white independently; on an RGB-only build, a requested logical
+white is reproduced by mixing it into red, green, and blue. Verify both frame
+type and channel order against the actual LED batch.
+
+`StatusLed` applies one maximum-brightness percentage uniformly to every
+available color channel, preserving each pattern's color. It defaults to 50% through
+`SWEETYAAR_STATUS_LED_MAX_BRIGHTNESS_PCT`; `setMaxBrightnessPct()` can change it
+at runtime and immediately redraw the current phase. Tune the default after
+enclosure and diffuser testing.
+
+Firmware components report semantic `StatusSignal` values and never write the
+pixel or call `Show()` themselves. `StatusLed` resolves simultaneous signals,
+owns the frame buffer and RMT transmission, and is serviced once per main-loop
+pass with `statusLed.service(millis())`. Once a signal is set, its blinking
+continues without further calls from the producer. This remains valid if a
+Bluetooth callback later moves threads because setting a signal is atomic and
+the main loop remains the only LED hardware owner.
+
+| Condition | Pattern |
+|---|---|
+| Boot initialization | Solid yellow. |
+| Ready/idle | Green, 1 s on / 1 s off. |
+| Local song or animal playback | Green, 0.5 s on / 0.5 s off. |
+| Classic Bluetooth connected but not playing | Blue, 1 s on / 1 s off. |
+| Classic Bluetooth audio started | Blue, 0.5 s on / 0.5 s off. |
+| Quiet time | Purple, 1 s on / 0.25 s off. |
+| Persistent error after initialization | Red, 0.25 s on / 0.25 s off; currently set for SD initialization/removal failures and other persistent `error` notices. |
+| Deep sleep | Off and unpowered. |
+
+The same canonical definitions are printed at every boot, before the remaining
+subsystems initialize:
+
+```text
+[LED] Mode legend:
+[LED]   initialization: yellow solid
+[LED]   ready/idle: green 1000ms on / 1000ms off
+[LED]   local playback: green 500ms on / 500ms off
+[LED]   BT connected, idle: blue 1000ms on / 1000ms off
+[LED]   BT audio playing: blue 500ms on / 500ms off
+[LED]   Quiet time: purple 1000ms on / 250ms off
+[LED]   persistent error: red 250ms on / 250ms off
+[LED]   deep sleep/off: off
+```
+
+Initialization intentionally outranks errors so boot stays yellow. Once boot
+clears `Initializing`, a latched error outranks every operational state;
+active Bluetooth audio outranks an idle Bluetooth connection, which in turn
+outranks Quiet time, local playback, and ready. Adding a second
+indicator later means setting `SWEETYAAR_STATUS_LED_PIXEL_COUNT`, wiring LED1
+`DOUT` to LED2 `DIN`, and extending the controller's mapping. Producers do not
+change because they still report the same semantic signals.
+
 ## Bedtime mode
 
 Bedtime mode changes local playback during a parent-defined daily window. It
@@ -178,8 +254,10 @@ while the app's ten-minute Quiet time lock is active. A connected Bluetooth
 source that has stopped or suspended its audio does not keep the toy awake
 forever.
 
-Before sleeping, the firmware stops playback, mutes the amplifier, closes the
-SD, SPI, and I2S interfaces, and turns off the switched peripheral power. The
+Before sleeping, the firmware sends a black status-LED frame while switched 5 V
+is still present, stops playback, mutes the amplifier, closes the SD, SPI, and
+I2S interfaces, and turns off the switched peripheral power. It then releases
+GPIO2 so the NPN base path draws no sleep current. The
 normally-closed vibration switch is the wake source. Waking from deep sleep is
 a full reboot: Bluetooth connections, the current track, loop mode, and manual
 Bedtime overrides are not restored.
@@ -213,6 +291,7 @@ The high-level components are:
 | `firmware/esp32/src/NVSConfig.*`        | Device-local settings that should survive SD-card replacement.                           |
 | `firmware/esp32/src/BedtimeMode.*`      | Pure rules for daily windows and manual overrides.                                       |
 | `firmware/esp32/src/PeripheralPower.*`  | Power-gating behavior during boot and deep sleep.                                        |
+| `firmware/esp32/src/StatusLed.*` and `StatusLedPolicy.*` | Semantic status priority, blink timing, brightness limiting, and the single addressable-LED/RMT owner. |
 | `firmware/esp32/src/Config.h`           | Pin assignments, BLE identifiers, and firmware fallback values.                          |
 
 
@@ -221,11 +300,16 @@ wireless interfaces are Classic Bluetooth audio and BLE parent control.
 
 ## Building and flashing
 
-There are two PlatformIO build environments for the two supported board designs:
+There are two PlatformIO build environments, one per supported board design:
 
 - `sweetyaar` is the default and targets the production SweetYaar PCB.
-- `sweetyaar-generic` targets the generic prototype board and accounts for its
-  different onboard support circuitry.
+- `sweetyaar-generic` targets the current generic prototype board setup. It
+  includes every required override, including its directly wired 32-bit
+  RGBW/SK6812-style LED. Its tested channel order is GRBW.
+
+The production environment currently inherits the provisional RGB default from
+`Config.h`. Once the production LED is selected, set its RGB/RGBW and channel
+order flags in the `sweetyaar` environment rather than adding another target.
 
 The PlatformIO board identifier is `esp32dev` for both because both use the
 original ESP32-WROOM-32; that identifier is a build-system detail, not a third

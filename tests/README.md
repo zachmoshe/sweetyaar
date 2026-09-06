@@ -26,8 +26,8 @@ Pytest only discovers `test_*.py` files directly. The `.js`, `.cpp`, and
 
 ## Current Tests
 
-- `test_firmware_config.py::test_sd_template_has_versioned_sleep_config`: checks that `content/sd-card-template/config.json` has schema version 2, the expected defaults, and all sleep config fields.
-- `test_firmware_build.py::test_sweetyaar_firmware_build`: runs PlatformIO's default `sweetyaar` environment and expects a successful real-app firmware build.
+- `test_firmware_config.py`: checks the SD-card template, board-specific polarity overrides, and the default status-LED brightness setting.
+- `test_firmware_build.py::test_sweetyaar_firmware_build`: builds the production and generic PlatformIO environments and expects each real-app firmware build to succeed; generic includes the current RGBW bench-LED override.
 - `test_state_machine.py::test_state_machine_native_transitions`: compiles the real state machine on the host and runs the C++ scenarios in `state_machine_native_test.cpp`.
 - `state_machine_native_test.cpp::testLocalPlaybackTransitions`: verifies idle/local playback transitions for song, animal, and stop events.
 - `state_machine_native_test.cpp::testBtStreamingIgnoresLocalControls`: verifies that local play/stop controls do not change state while Classic BT streaming is active.
@@ -67,6 +67,6 @@ the scanner in Python just to inspect the template.
 # Fast local loop without a PlatformIO build.
 uv run python -m pytest -m "not firmware"
 
-# Complete suite, including the production firmware build.
+# Complete suite, including all firmware build variants.
 make test
 ```
