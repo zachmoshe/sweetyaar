@@ -100,9 +100,10 @@ flow, and offline support are described in [Mobile App](mobile-app.md).
 ## Battery and charging state
 
 The production PCB measures the protected 18650 directly from `BAT` through the
-switched 820 kΩ / 300 kΩ divider on GPIO36/ADC1_CH0. The firmware uses calibrated
-ADC millivolt readings with 2.5 dB attenuation, but never exposes the measured
-voltage or a percentage. It publishes only one coarse state:
+switched 634 kΩ / 200 kΩ divider on GPIO36/ADC1_CH0. The 200 kΩ lower leg is
+implemented as two 100 kΩ resistors in series. The firmware uses calibrated ADC
+millivolt readings with 2.5 dB attenuation, but never exposes the measured voltage
+or a percentage. It publishes only one coarse state:
 
 | Encoded value | State | Meaning |
 |---:|---|---|

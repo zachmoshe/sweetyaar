@@ -2,11 +2,11 @@
 
 namespace {
 
-// The ADC node is expected to cover roughly 0.59-1.23 V across the charger's
+// The ADC node is expected to cover roughly 0.53-1.10 V across the charger's
 // supported BAT range. Reject readings well outside that window so an unwired
 // prototype pin remains UNKNOWN instead of publishing a made-up battery level.
 static constexpr uint16_t MIN_VALID_ADC_MV = 400;
-static constexpr uint16_t MAX_VALID_ADC_MV = 1250;
+static constexpr uint16_t MAX_VALID_ADC_MV = 1150;
 
 const char* chargerPinsName(uint8_t pins) {
     switch (pins) {
@@ -92,6 +92,9 @@ bool BatteryMonitor::poll() {
 uint16_t BatteryMonitor::readBatteryMillivolts() const {
     uint32_t adcMv = analogReadMilliVolts(PIN_BATTERY_ADC);
     if (adcMv < MIN_VALID_ADC_MV || adcMv > MAX_VALID_ADC_MV) {
+        Serial.printf("[Battery] Invalid raw ADC=%lumV (valid=%u-%umV)\n",
+                      static_cast<unsigned long>(adcMv),
+                      MIN_VALID_ADC_MV, MAX_VALID_ADC_MV);
         return 0;
     }
 

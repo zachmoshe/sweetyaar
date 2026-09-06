@@ -18085,7 +18085,7 @@
 				)
 			)
 		)
-		(property "Value" "820k"
+		(property "Value" "634k"
 			(at 345.438 173.21 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -18164,7 +18164,7 @@
 				)
 			)
 		)
-		(property "Value" "300k"
+		(property "Value" "100k"
 			(at 345.44 180.848 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -20463,7 +20463,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 341.63 182.88 0)
+		(at 349.25 182.88 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -20473,7 +20473,7 @@
 		(dnp no)
 		(uuid "a2bc0135-0000-4000-8000-000000000135")
 		(property "Reference" "#PWR041"
-			(at 341.63 182.88 0)
+			(at 349.25 182.88 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -20484,7 +20484,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 341.63 186.944 0)
+			(at 349.25 186.944 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -20494,7 +20494,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 341.63 182.88 0)
+			(at 349.25 182.88 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -20504,7 +20504,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 341.63 182.88 0)
+			(at 349.25 182.88 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -20514,7 +20514,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 341.63 182.88 0)
+			(at 349.25 182.88 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -21137,6 +21137,85 @@
 			(project "sweetyaar-mainboard"
 				(path "/a2bc0001-0000-4000-8000-000000000001"
 					(reference "C_SD_SW_IN1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 345.44 182.88 270)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "b8d6a335-1e3b-4073-94ba-089e60fe4727")
+		(property "Reference" "R_BAT_L2"
+			(at 347.98 184.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "100k"
+			(at 345.44 179.07 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 345.44 182.88 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 345.44 182.88 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 345.44 182.88 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "fe7c52a7-0e7f-4462-ac15-7c68186c74e9")
+		)
+		(pin "2"
+			(uuid "a799e3fd-8249-4091-911d-1d1df5f184f8")
+		)
+		(instances
+			(project "sweetyaar-mainboard"
+				(path "/a2bc0001-0000-4000-8000-000000000001"
+					(reference "R_BAT_L2")
 					(unit 1)
 				)
 			)

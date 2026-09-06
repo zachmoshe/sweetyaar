@@ -42,12 +42,13 @@ static constexpr int PIN_PERIPH_PWR_EN = 13;  // SD, battery-sense, and 5 V shar
 
 // --- Battery / charger status ----------------------------------------------
 // GPIO34/35 use external 10 kOhm pull-ups to 3V3_AON. GPIO36 reads the
-// switched 820 kOhm / 300 kOhm BAT divider on ADC1_CH0.
+// switched 634 kOhm / 200 kOhm BAT divider on ADC1_CH0. The schematic
+// implements the 200 kOhm lower leg as two series 100 kOhm resistors.
 static constexpr int PIN_CHARGER_STAT1 = 34;
 static constexpr int PIN_CHARGER_STAT2 = 35;
 static constexpr int PIN_BATTERY_ADC   = 36;
-static constexpr uint32_t BATTERY_DIVIDER_TOP_OHMS = 820000;
-static constexpr uint32_t BATTERY_DIVIDER_BOTTOM_OHMS = 300000;
+static constexpr uint32_t BATTERY_DIVIDER_TOP_OHMS = 634000;
+static constexpr uint32_t BATTERY_DIVIDER_BOTTOM_OHMS = 200000;
 
 // --- Status LED -------------------------------------------------------------
 // One WS2812/SK6812-compatible addressable RGB or RGBW LED. Production hardware

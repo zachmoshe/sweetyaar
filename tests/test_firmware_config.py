@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import json
 import pathlib
+import re
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT / "content" / "sd-card-template" / "config.json"
 PLATFORMIO_PATH = ROOT / "firmware" / "esp32" / "platformio.ini"
 FIRMWARE_CONFIG_PATH = ROOT / "firmware" / "esp32" / "src" / "Config.h"
+MAINBOARD_SCHEMATIC_PATH = (
+    ROOT / "hardware" / "mainboard" / "sweetyaar-mainboard.kicad_sch"
+)
 
 
 def platformio_environment(name: str) -> str:
@@ -51,3 +55,23 @@ def test_status_led_default_max_brightness_is_50_percent() -> None:
     firmware_config = FIRMWARE_CONFIG_PATH.read_text()
     assert "#define SWEETYAAR_STATUS_LED_MAX_BRIGHTNESS_PCT 50" in firmware_config
     assert "#define SWEETYAAR_STATUS_LED_RGBW 0" in firmware_config
+
+
+def test_battery_divider_matches_production_schematic() -> None:
+    firmware_config = FIRMWARE_CONFIG_PATH.read_text()
+    schematic = MAINBOARD_SCHEMATIC_PATH.read_text()
+
+    assert "BATTERY_DIVIDER_TOP_OHMS = 634000" in firmware_config
+    assert "BATTERY_DIVIDER_BOTTOM_OHMS = 200000" in firmware_config
+
+    for reference, value in (
+        ("R_BAT_H1", "634k"),
+        ("R_BAT_L1", "100k"),
+        ("R_BAT_L2", "100k"),
+    ):
+        assert re.search(
+            rf'\(property "Reference" "{reference}".*?'
+            rf'\(property "Value" "{value}"',
+            schematic,
+            flags=re.DOTALL,
+        )
