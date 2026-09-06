@@ -75,9 +75,6 @@ public:
     bool killswitchTimerExpired() const;
     uint32_t killswitchRemainingMs() const;
 
-    // LED blink pattern driven by state
-    void updateLed();
-
 private:
     State _state = State::IDLE;
 
@@ -101,10 +98,6 @@ private:
 
     String  _pendingTheme;
     uint8_t _pendingVolume = 0;
-
-    // LED
-    uint32_t _ledLastToggleMs = 0;
-    bool     _ledState        = false;
 
     void transition(State next);
     void handleEvent(const QueueItem& item);

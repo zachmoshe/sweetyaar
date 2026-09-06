@@ -112,6 +112,8 @@ void applyVolume(uint8_t pct);
 void applyEffectiveVolume(const char* reason);
 uint8_t effectiveVolumePct();
 void handleStateEntry(State prev, State next);
+void updateStatusSignalsForState(State state);
+void printStatusLedModeLegend();
 bool processStateMachineTransitions();
 bool handleBleControls();
 void handleBleConfigCommands();
@@ -170,6 +172,9 @@ static void btConnectionStateChanged(esp_a2d_connection_state_t state,
                                      void* /*obj*/) {
     if (state == ESP_A2D_CONNECTION_STATE_CONNECTED) {
         btLinkConnected = true;
+        btAudioActive = false;
+        statusLed.setSignal(StatusSignal::BluetoothPlaying, false);
+        statusLed.setSignal(StatusSignal::BluetoothConnected, true);
         btConnectedAtMs = millis();
         Serial.printf("[BT] Connected (free=%u largest=%u)\n",
                       ESP.getFreeHeap(), ESP.getMaxAllocHeap());
@@ -177,6 +182,8 @@ static void btConnectionStateChanged(esp_a2d_connection_state_t state,
     } else if (state == ESP_A2D_CONNECTION_STATE_DISCONNECTED) {
         btLinkConnected = false;
         btAudioActive = false;
+        statusLed.setSignal(StatusSignal::BluetoothPlaying, false);
+        statusLed.setSignal(StatusSignal::BluetoothConnected, false);
         Serial.println("[BT] Disconnected");
         sm.postEvent(Event::BT_DISCONNECTED);
     }
@@ -202,12 +209,14 @@ static void btAudioStateChanged(esp_a2d_audio_state_t state, void*) {
             markActivity("BT audio started");
         }
         btAudioActive = true;
+        statusLed.setSignal(StatusSignal::BluetoothPlaying, true);
     } else if (state == ESP_A2D_AUDIO_STATE_STOPPED ||
                state == ESP_A2D_AUDIO_STATE_REMOTE_SUSPEND) {
         if (btAudioActive) {
             markActivity("BT audio inactive");
         }
         btAudioActive = false;
+        statusLed.setSignal(StatusSignal::BluetoothPlaying, false);
     }
 }
 
@@ -232,10 +241,13 @@ void setup() {
                       ? "HIGH (generic board)"
                       : "LOW (production board)");
     setupWakeState();
+    // The NPN input must be driven to its inactive level before its collector
+    // pull-up and the addressable LED receive power from 5V_PERIPH_SW.
+    statusLed.prepareForPeripheralPowerOn();
     setupPeripheralPower();
 
     statusLed.begin();
-    statusLed.setColor(LedColors::BLUE);  // solid blue during init
+    printStatusLedModeLegend();
 
     // Device-local NVS config
     nvs.begin();
@@ -263,6 +275,7 @@ void setup() {
     sdReady = wavPlayer.begin();
     if (!sdReady) {
         Serial.println("[WARN] SD init failed; WAV playback unavailable");
+        statusLed.setSignal(StatusSignal::Error, true);
     } else {
         parentConfig.load();
         // Single SD pass: read the whole content catalog into RAM. Every later
@@ -293,7 +306,9 @@ void setup() {
         Serial.println("[BLE] Parent service disabled for A2DP audio test");
     }
 
-    statusLed.off();  // init done
+    updateStatusSignalsForState(sm.currentState());
+    statusLed.setSignal(StatusSignal::Initializing, false);
+    statusLed.service(millis());
     lastActivityMs = millis();
     lastBleActivityMs = millis();
     lastBleConnected = ENABLE_BLE_PARENT_SERVICE && bleService.isConnected();
@@ -400,6 +415,7 @@ void loop() {
     pollBluetoothReopen();
     applyPendingBtNameIfPossible();
     if (ENABLE_BLE_PARENT_SERVICE) bleService.pollAdvertising();
+    statusLed.service(millis());
     pollIdleSleep();
 
     delay(wavPlayer.isIdle() ? 5 : 1);  // keep WAV streaming fed while still yielding
@@ -827,10 +843,11 @@ void enterIdleDeepSleep() {
                   static_cast<unsigned long>((millis() - lastActivityMs) / 1000UL),
                   PIN_VIB_WAKE);
 
-    statusLed.off();
+    statusLed.prepareForPeripheralPowerOff();
     wavPlayer.stop();
     preparePinsForPeripheralPowerOff();
     holdPeripheralPowerOffForDeepSleep();
+    statusLed.releaseAfterPeripheralPowerOff();
 
     rtc_gpio_deinit(static_cast<gpio_num_t>(PIN_VIB_WAKE));
     rtc_gpio_init(static_cast<gpio_num_t>(PIN_VIB_WAKE));
@@ -1416,6 +1433,9 @@ void publishBleValues() {
 // ---------------------------------------------------------------------------
 void sendNotice(const String& severity, const String& message) {
     Serial.printf("[Notice] %s: %s\n", severity.c_str(), message.c_str());
+    if (severity == "error") {
+        statusLed.setSignal(StatusSignal::Error, true);
+    }
     if (!ENABLE_BLE_PARENT_SERVICE) {
         return;
     }
@@ -1736,6 +1756,7 @@ void applyEffectiveVolume(const char* reason) {
 // ---------------------------------------------------------------------------
 void handleStateEntry(State prev, State next) {
     markActivity("state change");
+    updateStatusSignalsForState(next);
 
     // Stop WAV on any exit from PLAYING states
     bool exitedWav = (prev == State::PLAYING_SONG || prev == State::PLAYING_ANIMAL) &&
@@ -1780,5 +1801,54 @@ void handleStateEntry(State prev, State next) {
             setAmpMuted(true);
             Serial.printf("[SM] Killswitch active for %lu ms\n", KILLSWITCH_MS);
             break;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// updateStatusSignalsForState() — translates the central operational state to
+// semantic LED inputs. The StatusLed controller owns priority, color, cadence,
+// and all addressable-LED writes.
+// ---------------------------------------------------------------------------
+void updateStatusSignalsForState(State state) {
+    statusLed.setSignal(StatusSignal::Ready, state == State::IDLE);
+    statusLed.setSignal(
+        StatusSignal::LocalPlayback,
+        state == State::PLAYING_SONG || state == State::PLAYING_ANIMAL);
+    statusLed.setSignal(StatusSignal::Killswitch, state == State::KILLSWITCH);
+}
+
+// ---------------------------------------------------------------------------
+// printStatusLedModeLegend() — print the canonical controller definitions so
+// a bench log identifies every color and cadence in the running firmware.
+// ---------------------------------------------------------------------------
+void printStatusLedModeLegend() {
+    static constexpr StatusLedMode MODES[] = {
+        StatusLedMode::Initializing,
+        StatusLedMode::Ready,
+        StatusLedMode::LocalPlayback,
+        StatusLedMode::BluetoothConnected,
+        StatusLedMode::BluetoothPlaying,
+        StatusLedMode::Killswitch,
+        StatusLedMode::Error,
+        StatusLedMode::Off,
+    };
+
+    Serial.println("[LED] Mode legend:");
+    for (StatusLedMode mode : MODES) {
+        const StatusLedModeDefinition definition = statusLedModeDefinition(mode);
+        const StatusLedPattern& pattern = definition.pattern;
+        if (mode == StatusLedMode::Off) {
+            Serial.printf("[LED]   %s: %s\n",
+                          definition.condition, definition.colorName);
+        } else if (pattern.onMs == 0 || pattern.offMs == 0) {
+            Serial.printf("[LED]   %s: %s solid\n",
+                          definition.condition, definition.colorName);
+        } else {
+            Serial.printf("[LED]   %s: %s %ums on / %ums off\n",
+                          definition.condition,
+                          definition.colorName,
+                          static_cast<unsigned>(pattern.onMs),
+                          static_cast<unsigned>(pattern.offMs));
+        }
     }
 }

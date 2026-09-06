@@ -1,5 +1,4 @@
 #include "StateMachine.h"
-#include "StatusLed.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 
@@ -91,7 +90,6 @@ bool StateMachine::process() {
         handleEvent(item);
     }
 
-    updateLed();
     return (_state != before);
 }
 
@@ -281,41 +279,5 @@ void StateMachine::handleEvent(const QueueItem& item) {
                     break;  // All other events ignored
             }
             break;
-    }
-}
-
-// ---------------------------------------------------------------------------
-// LED blink pattern per state
-// ---------------------------------------------------------------------------
-void StateMachine::updateLed() {
-    uint32_t now = millis();
-    uint32_t interval = 0;
-
-    switch (_state) {
-        case State::IDLE:
-            interval = 1000;  // 1s on / 1s off: ready
-            break;
-        case State::PLAYING_SONG:
-        case State::PLAYING_ANIMAL:
-            interval = 500;   // 0.5s on / 0.5s off: local playback
-            break;
-        case State::BT_STREAMING:
-            interval = 100;   // 0.1s on / 0.1s off: Classic BT connected
-            break;
-        case State::KILLSWITCH:
-            // Hold the current phase for its requested duration before
-            // toggling: 1s lit, followed by a short 0.25s dark pulse.
-            interval = _ledState ? 1000 : 250;
-            break;
-    }
-
-    if ((now - _ledLastToggleMs) >= interval) {
-        _ledLastToggleMs = now;
-        _ledState = !_ledState;
-        if (_ledState) {
-            statusLed.setColor(LedColors::RED);
-        } else {
-            statusLed.off();
-        }
     }
 }

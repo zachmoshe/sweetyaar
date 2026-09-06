@@ -109,3 +109,14 @@ real app enables both branches during boot, then drives and RTC-holds GPIO13 LOW
 before deep sleep; see
 [`docs/engineering/hardware.md`](docs/engineering/hardware.md) for the AP2281-3WG-7 SD switch, 5 V amp
 boost, required common ground, and shared-enable pulldown.
+
+The production status indicator is a single 5 mm addressable RGB or RGBW LED on
+`5V_PERIPH_SW`. GPIO2 drives it through a 10 kΩ/MMBT3904 open-collector level
+shifter with a 4.7 kΩ pull-up; firmware uses inverted RMT output so normal LED
+data reaches `DIN`. The production LED protocol is selected by
+`SWEETYAAR_STATUS_LED_RGBW` once the production part is finalized. The
+`sweetyaar-generic` environment records the complete current bench setup: a
+directly wired 32-bit RGBW/SK6812-style LED with non-inverted data and GRBW
+channel order. GPIO16 and GPIO17 are consequently free. A controller-wide
+brightness setting scales every available color channel and currently defaults
+to 50% pending enclosure testing.

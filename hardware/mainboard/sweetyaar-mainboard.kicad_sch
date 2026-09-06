@@ -7206,6 +7206,520 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "LED:NeoPixel_THT"
+			(pin_names
+				(offset 0.254)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "D"
+				(at 5.08 5.715 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify right bottom)
+				)
+			)
+			(property "Value" "NeoPixel_THT"
+				(at 1.27 -5.715 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left top)
+				)
+			)
+			(property "Footprint" ""
+				(at 1.27 -7.62 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left top)
+				)
+			)
+			(property "Datasheet" "https://www.adafruit.com/product/1938"
+				(at 2.54 -9.525 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left top)
+				)
+			)
+			(property "Description" "RGB LED with integrated controller, 5mm/8mm LED package"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "RGB LED NeoPixel addressable"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "LED*D5.0mm* LED*D8.0mm*"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "NeoPixel_THT_0_0"
+				(text "RGB"
+					(at 2.286 -4.191 0)
+					(effects
+						(font
+							(size 0.762 0.762)
+						)
+					)
+				)
+			)
+			(symbol "NeoPixel_THT_0_1"
+				(polyline
+					(pts
+						(xy 1.27 -2.54) (xy 1.778 -2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 -3.556) (xy 1.778 -3.556)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.286 -1.524) (xy 1.27 -2.54) (xy 1.27 -2.032)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.286 -2.54) (xy 1.27 -3.556) (xy 1.27 -3.048)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 3.683 -1.016) (xy 3.683 -3.556) (xy 3.683 -4.064)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 4.699 -1.524) (xy 2.667 -1.524) (xy 3.683 -3.556) (xy 4.699 -1.524)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 4.699 -3.556) (xy 2.667 -3.556)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start 5.08 5.08)
+					(end -5.08 -5.08)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+			)
+			(symbol "NeoPixel_THT_1_1"
+				(pin output line
+					(at 7.62 0 180)
+					(length 2.54)
+					(name "DOUT"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 0 -7.62 90)
+					(length 2.54)
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 0 7.62 270)
+					(length 2.54)
+					(name "VDD"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -7.62 0 0)
+					(length 2.54)
+					(name "DIN"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "Transistor_BJT:MMBT3904"
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "Q"
+				(at 5.08 1.905 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "MMBT3904"
+				(at 5.08 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+				(at 5.08 -1.905 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+						(italic yes)
+					)
+					(justify left)
+				)
+			)
+			(property "Datasheet" "https://www.onsemi.com/pdf/datasheet/pzt3904-d.pdf"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Description" "0.2A Ic, 40V Vce, Small Signal NPN Transistor, SOT-23"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Sim.Device" "NPN"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Sim.Pins" "1=B 2=E 3=C"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "NPN Transistor"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "SOT?23*"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "MMBT3904_0_1"
+				(polyline
+					(pts
+						(xy -2.54 0) (xy 0.635 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.635 1.905) (xy 0.635 -1.905)
+					)
+					(stroke
+						(width 0.508)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 1.27 0)
+					(radius 2.8194)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "MMBT3904_1_1"
+				(polyline
+					(pts
+						(xy 0.635 0.635) (xy 2.54 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.635 -0.635) (xy 2.54 -2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 -1.778) (xy 1.778 -1.27) (xy 2.286 -2.286) (xy 1.27 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(pin input line
+					(at -5.08 0 0)
+					(length 2.54)
+					(name "B"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 2.54 -5.08 90)
+					(length 2.54)
+					(name "E"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 2.54 5.08 270)
+					(length 2.54)
+					(name "C"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 	)
 	(rectangle
 		(start 27.94 44.45)
@@ -7531,6 +8045,12 @@
 		(uuid "fe1f3a3f-de02-4bcc-b2a0-5b3fda878a0f")
 	)
 	(junction
+		(at 355.6 215.9)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "d7624186-1590-4f54-b947-9e74343e27d5")
+	)
+	(junction
 		(at 361.95 64.77)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -7836,6 +8356,24 @@
 		(color 0 0 0 0)
 		(uuid "f91499fb-cc67-4f3e-977d-20b09081c0c7")
 	)
+	(junction
+		(at 340.36 223.52)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "9f3557b1-3cd8-41e3-9977-0c52bbd39d84")
+	)
+	(no_connect
+		(at 363.22 223.52)
+		(uuid "8bb53e94-21ec-4c7a-b8cc-f5bbacdd7c7c")
+	)
+	(no_connect
+		(at 264.16 203.2)
+		(uuid "536d6770-e6e9-4421-85fe-f10fef7c93b8")
+	)
+	(no_connect
+		(at 264.16 205.74)
+		(uuid "4a0f27dc-b710-48f5-a9d0-e7529d218598")
+	)
 	(no_connect
 		(at 60.96 74.93)
 		(uuid "0d8ce41c-7600-4fb6-be54-218157b4295a")
@@ -7947,6 +8485,26 @@
 	(no_connect
 		(at 60.96 80.01)
 		(uuid "a47630e4-c11c-4ee3-a30e-de22e3259ca5")
+	)
+	(wire
+		(pts
+			(xy 340.36 215.9) (xy 375.92 215.9)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "43cb3927-14fd-4707-bdb8-2dac90ba1af0")
+	)
+	(wire
+		(pts
+			(xy 340.36 223.52) (xy 347.98 223.52)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "377aac38-cf14-40cc-b349-6aeb323a410a")
 	)
 	(wire
 		(pts
@@ -9428,6 +9986,16 @@
 		)
 		(uuid "ff0f903e-ad29-4faf-83b1-7e440ea2cf58")
 	)
+	(label "STATUS_LED_GPIO"
+		(at 325.12 228.6 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "bdf07b60-a276-431d-bd7c-aaad97e32f24")
+	)
 	(label "SD_CS"
 		(at 196.85 170.18 0)
 		(effects
@@ -9828,7 +10396,7 @@
 		)
 		(uuid "a2bc00ab-0000-4000-8000-0000000000ab")
 	)
-	(label "LED_RED"
+	(label "STATUS_LED_GPIO"
 		(at 264.16 182.88 0)
 		(effects
 			(font
@@ -9867,26 +10435,6 @@
 			(justify left bottom)
 		)
 		(uuid "a2bc00af-0000-4000-8000-0000000000af")
-	)
-	(label "LED_GREEN"
-		(at 264.16 203.2 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "a2bc00b0-0000-4000-8000-0000000000b0")
-	)
-	(label "LED_BLUE"
-		(at 264.16 205.74 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "a2bc00b1-0000-4000-8000-0000000000b1")
 	)
 	(label "SD_CLK"
 		(at 264.16 208.28 0)
@@ -10098,36 +10646,6 @@
 		)
 		(uuid "a2bc00d9-0000-4000-8000-0000000000d9")
 	)
-	(label "LED_RED"
-		(at 325.12 233.68 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "a2bc00fe-0000-4000-8000-0000000000fe")
-	)
-	(label "LED_GREEN"
-		(at 325.12 228.6 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "a2bc00ff-0000-4000-8000-0000000000ff")
-	)
-	(label "LED_BLUE"
-		(at 325.12 223.52 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "a2bc0100-0000-4000-8000-000000000100")
-	)
 	(label "PR1"
 		(at 124.46 74.93 180)
 		(effects
@@ -10227,6 +10745,29 @@
 			(justify left bottom)
 		)
 		(uuid "f8d698f5-ad9b-4f40-af99-351ec1ce3f70")
+	)
+	(global_label "5V_PERIPH_SW"
+		(shape input)
+		(at 340.36 215.9 180)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "006782fb-e6aa-447c-ade8-50be1465a2cf")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 340.36 215.9 180)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 	)
 	(global_label "BAT_PLUS"
 		(shape input)
@@ -13325,7 +13866,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 342.9 228.6 0)
+		(at 340.36 233.68 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -13333,9 +13874,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(uuid "78c3a227-2758-4eda-8009-6f1a97e3981f")
+		(uuid "e0813352-e181-48c9-b5a7-847437daf1b3")
 		(property "Reference" "#PWR030"
-			(at 342.9 228.6 0)
+			(at 340.36 233.68 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13346,7 +13887,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 342.9 229.87 0)
+			(at 340.36 234.95 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13357,7 +13898,8 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 342.9 228.6 0)
+			(at 340.36 233.68 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -13367,7 +13909,8 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 342.9 228.6 0)
+			(at 340.36 233.68 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -13377,7 +13920,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 342.9 228.6 0)
+			(at 340.36 233.68 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -13387,12 +13930,166 @@
 			)
 		)
 		(pin "1"
-			(uuid "80a0d078-bcf0-4e0f-b073-c20771c2f506")
+			(uuid "158ca839-6bae-4dbe-bab1-4c52e76b31a8")
 		)
 		(instances
 			(project "sweetyaar-mainboard"
 				(path "/a2bc0001-0000-4000-8000-000000000001"
 					(reference "#PWR030")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 355.6 231.14 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "53111d5b-4a41-4aaa-a70b-e6e80fa74a1f")
+		(property "Reference" "#PWR080"
+			(at 355.6 231.14 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 355.6 232.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 355.6 231.14 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 355.6 231.14 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 355.6 231.14 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "cba2786f-9038-4979-abe0-7b3699738e3c")
+		)
+		(instances
+			(project "sweetyaar-mainboard"
+				(path "/a2bc0001-0000-4000-8000-000000000001"
+					(reference "#PWR080")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 375.92 223.52 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "4947265d-55d9-4e61-a804-48418a4ff220")
+		(property "Reference" "#PWR081"
+			(at 375.92 223.52 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 375.92 224.79 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 375.92 223.52 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 375.92 223.52 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 375.92 223.52 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "1d95c471-b370-4534-baf0-d71cfe576ca9")
+		)
+		(instances
+			(project "sweetyaar-mainboard"
+				(path "/a2bc0001-0000-4000-8000-000000000001"
+					(reference "#PWR081")
 					(unit 1)
 				)
 			)
@@ -18357,8 +19054,8 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:LED_KRGB")
-		(at 337.82 228.6 180)
+		(lib_id "Device:R")
+		(at 328.93 228.6 90)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -18366,9 +19063,11 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(uuid "a2bc004c-0000-4000-8000-00000000004c")
-		(property "Reference" "LED1"
-			(at 338.328 217.424 0)
+		(uuid "84d8b649-85bf-41c7-9454-150b83dd5d0a")
+		(property "Reference" "R_LED_BASE1"
+			(at 328.93 223.52 0)
+			(hide yes)
+
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -18377,8 +19076,9 @@
 				)
 			)
 		)
-		(property "Value" "RGB_LED_5MM"
-			(at 338.328 219.456 0)
+		(property "Value" "10k"
+			(at 328.93 225.552 90)
+
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -18388,7 +19088,8 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 337.82 227.33 0)
+			(at 328.93 228.6 0)
+
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -18399,7 +19100,8 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 337.82 227.33 0)
+			(at 328.93 228.6 0)
+
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -18409,8 +19111,9 @@
 				)
 			)
 		)
-		(property "Description" "RGB LED, cathode/red/green/blue"
-			(at 337.82 228.6 0)
+		(property "Description" ""
+			(at 328.93 228.6 0)
+
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -18421,29 +19124,287 @@
 			)
 		)
 		(pin "1"
-			(uuid "f4c8280b-5dc6-41ac-963d-7442c26c2854")
+			(uuid "fc1579b0-10e4-4a25-b7db-fbe7b03276fb")
 		)
 		(pin "2"
-			(uuid "35d61b4b-89bf-49e0-8465-a47465f6219a")
+			(uuid "a83f2921-17f6-47d9-8ab3-503bed7bb3ab")
+		)
+		(instances
+			(project "sweetyaar-mainboard"
+				(path "/a2bc0001-0000-4000-8000-000000000001"
+					(reference "R_LED_BASE1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Transistor_BJT:MMBT3904")
+		(at 337.82 228.6 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "b09ac54b-c89c-48e4-93a4-d25485af73e4")
+		(property "Reference" "Q_LED1"
+			(at 337.82 223.52 0)
+			(hide yes)
+
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "MMBT3904"
+			(at 328.93 236.22 0)
+
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+			(at 337.82 228.6 0)
+
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://www.onsemi.com/pdf/datasheet/pzt3904-d.pdf"
+			(at 337.82 228.6 0)
+
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Small-signal NPN transistor used as an inverting 5 V level shifter"
+			(at 337.82 228.6 0)
+
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "b40234b5-99e9-45db-b084-d7c4830a3461")
+		)
+		(pin "2"
+			(uuid "be781f4f-420a-4255-b82a-c18528a0b055")
 		)
 		(pin "3"
-			(uuid "d2064049-9104-42fc-9464-1d609cf7ca13")
+			(uuid "a1220ffa-c315-48d4-a99b-7f2053d73348")
+		)
+		(instances
+			(project "sweetyaar-mainboard"
+				(path "/a2bc0001-0000-4000-8000-000000000001"
+					(reference "Q_LED1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 340.36 219.71 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "81201b43-cad9-4e12-ae95-4fed309d3ecb")
+		(property "Reference" "R_LED_PULLUP1"
+			(at 340.36 214.63 0)
+			(hide yes)
+
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "4.7k"
+			(at 344.17 219.71 0)
+
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 340.36 219.71 0)
+
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 340.36 219.71 0)
+
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 340.36 219.71 0)
+
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "8b575670-1a51-4dc0-9ac2-1396b09e7bc1")
+		)
+		(pin "2"
+			(uuid "e8c4d470-ed1e-4983-96ad-11657c2ad0e8")
+		)
+		(instances
+			(project "sweetyaar-mainboard"
+				(path "/a2bc0001-0000-4000-8000-000000000001"
+					(reference "R_LED_PULLUP1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "LED:NeoPixel_THT")
+		(at 355.6 223.52 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "284088dd-6155-49c8-a726-f46118b79c10")
+		(property "Reference" "D_LED1"
+			(at 355.6 218.44 0)
+			(hide yes)
+
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "ADDRESSABLE_RGB_OR_RGBW_5MM"
+			(at 355.6 213.36 0)
+
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 355.6 223.52 0)
+
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://he.aliexpress.com/item/1005006227163819.html"
+			(at 355.6 223.52 0)
+
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "5 mm through-hole addressable RGB LED; verify batch pinout and color order"
+			(at 355.6 223.52 0)
+
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "da61d2c9-27e4-45d9-8aff-05e140a9e3f4")
+		)
+		(pin "2"
+			(uuid "7a924538-5679-44f2-81bc-41194ed9f466")
+		)
+		(pin "3"
+			(uuid "7d91df08-d399-4da5-bb00-d9db2069544f")
 		)
 		(pin "4"
-			(uuid "3195b32f-c1bf-4424-b012-0cba877630cc")
+			(uuid "b9a14e89-bac4-481a-a01d-067e206b16bc")
 		)
 		(instances
 			(project "sweetyaar-mainboard"
 				(path "/a2bc0001-0000-4000-8000-000000000001"
-					(reference "LED1")
+					(reference "D_LED1")
 					(unit 1)
 				)
 			)
 		)
 	)
 	(symbol
-		(lib_id "Device:R")
-		(at 328.93 233.68 270)
+		(lib_id "Device:C")
+		(at 375.92 219.71 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -18451,10 +19412,11 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(uuid "a2bc004d-0000-4000-8000-00000000004d")
-		(property "Reference" "R_LED_R1"
-			(at 331.47 234.95 0)
+		(uuid "07011bd0-babc-4046-9292-84c92767016e")
+		(property "Reference" "C_LED1"
+			(at 370.84 218.44 0)
 			(hide yes)
+
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -18463,8 +19425,9 @@
 				)
 			)
 		)
-		(property "Value" "330"
-			(at 330.454 235.712 90)
+		(property "Value" "100n"
+			(at 379.73 219.71 0)
+
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -18474,7 +19437,8 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 328.93 233.68 0)
+			(at 375.92 219.71 0)
+
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -18485,7 +19449,8 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 328.93 233.68 0)
+			(at 375.92 219.71 0)
+
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -18496,7 +19461,9 @@
 			)
 		)
 		(property "Description" ""
-			(at 328.93 233.68 0)
+			(at 375.92 219.71 0)
+
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -18506,173 +19473,15 @@
 			)
 		)
 		(pin "1"
-			(uuid "7c85b2ac-50e4-435b-abb6-2ded381560ff")
+			(uuid "8c3ac74a-82e2-4c06-97a2-40ba78e1ab51")
 		)
 		(pin "2"
-			(uuid "252f6e3e-0dba-4c8d-a261-e071336b29f7")
+			(uuid "9e142202-5989-43ad-a317-e301843fa588")
 		)
 		(instances
 			(project "sweetyaar-mainboard"
 				(path "/a2bc0001-0000-4000-8000-000000000001"
-					(reference "R_LED_R1")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:R")
-		(at 328.93 228.6 270)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "a2bc004e-0000-4000-8000-00000000004e")
-		(property "Reference" "R_LED_G1"
-			(at 331.47 229.87 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "330"
-			(at 330.708 230.632 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 328.93 228.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 328.93 228.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 328.93 228.6 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "a091ca6c-f35b-4c46-a31b-eaf580926eba")
-		)
-		(pin "2"
-			(uuid "13b6844f-f452-40f1-ae57-6c1d442143a4")
-		)
-		(instances
-			(project "sweetyaar-mainboard"
-				(path "/a2bc0001-0000-4000-8000-000000000001"
-					(reference "R_LED_G1")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:R")
-		(at 328.93 223.52 270)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "a2bc004f-0000-4000-8000-00000000004f")
-		(property "Reference" "R_LED_B1"
-			(at 331.47 224.79 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "330"
-			(at 330.708 225.552 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 328.93 223.52 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 328.93 223.52 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 328.93 223.52 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "53c47fd4-af0a-4404-aae5-fc49531d035f")
-		)
-		(pin "2"
-			(uuid "198c100a-49f5-41f3-bb12-7bb3e921ea13")
-		)
-		(instances
-			(project "sweetyaar-mainboard"
-				(path "/a2bc0001-0000-4000-8000-000000000001"
-					(reference "R_LED_B1")
+					(reference "C_LED1")
 					(unit 1)
 				)
 			)

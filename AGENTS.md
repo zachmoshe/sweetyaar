@@ -58,6 +58,7 @@ Bluetooth, SD-card, or hardware workflows.
   - The prototype currently draws roughly 200–250mA from a 5V PSU during playback. Use 500mA as the preliminary high bound for expected low-battery current until BT streaming with a 4Ω speaker at 100% volume is measured; select the battery and power path with additional transient margin. This is separate from the charger module's tested 1A default setting. The current battery is 3400mAh; roughly 2000mAh will probably be sufficient if runtime and packaging tests confirm it.
   - The final 3.3V rail uses a low-quiescent-current buck-boost regulator so the ESP32 sees regulated 3.3V across charger/SYS changes and low-battery sag. Exact part selection remains open.
   - On the current `esp32_prototype_devboard`, GPIO13 only drives an indication LED rather than a real SD switch or boost EN, so the SD and amp remain powered during sleep-current tests.
+  - Production status LED: one 5 mm addressable RGB or RGBW LED powered by `5V_PERIPH_SW`; GPIO2 drives a 10 kΩ resistor into an MMBT3904 base, emitter goes to GND, and collector joins LED `DIN` plus a 4.7 kΩ pull-up to `5V_PERIPH_SW`. Fit 100 nF at the LED. Firmware defaults to inverted RMT data, a provisional 24-bit RGB frame, and RGB channel order; `SWEETYAAR_STATUS_LED_RGBW=1` selects the 32-bit SK6812-style RGBW frame and `SWEETYAAR_STATUS_LED_COLOR_ORDER_GRB=1` selects GRB/GRBW order. Record the final production selections in the `sweetyaar` environment rather than adding a target. Firmware establishes the inactive GPIO level before rail enable, sends black before rail disable, and releases GPIO2 only after 5 V is off. The controller-wide maximum brightness defaults to 50% and uniformly scales every available color channel; tune it after enclosure testing. The single `sweetyaar-generic` environment includes all current bench overrides: active-HIGH amp mute, non-inverted direct GPIO2-to-`DIN` data, and an RGBW LED with tested GRBW order. Direct 3.3 V data does not guarantee input-HIGH margin. GPIO16/GPIO17 are free. Verify the actual production LED batch's frame type, pinout, and color order.
   - If testing without the final power gating, direct SD/amp power is acceptable for functional firmware testing, but sleep-current measurements will not represent the final design.
 
 ## Hardware Findings
@@ -118,15 +119,22 @@ Bluetooth, SD-card, or hardware workflows.
     idle connected BLE defaults to 2 minutes.
   - Deep sleep is a full reboot on wake. BT/BLE connections, current song, and
     playback position are intentionally not preserved.
-  - Before sleep, firmware stops WAV playback, mutes the amp if GPIO21 is retained,
-    ends SD/SPI/I2S, sets SD/I2S pins to input/high-Z, disables and RTC-holds the
-    GPIO13 peripheral-enable control LOW, waits for the normally-closed wake switch to return to
-    its closed resting state if needed, and enables EXT0 wake on GPIO27 HIGH.
+  - Before sleep, firmware sends a black addressable-LED frame while 5 V remains
+    powered, stops WAV playback, mutes the amp if GPIO21 is retained, ends
+    SD/SPI/I2S, sets SD/I2S pins to input/high-Z, disables and RTC-holds the
+    GPIO13 peripheral-enable control LOW, detaches the RMT output and releases
+    GPIO2 after the rail is off, waits for the normally-closed wake switch to
+    return to its closed resting state if needed, and enables EXT0 wake on
+    GPIO27 HIGH.
 - Killswitch:
   - Writing/triggering `1` activates it outside BT mode.
   - Repeated `1` restarts the timer.
   - Writing/triggering `0` cancels it.
   - It has no effect during BT streaming.
+- Status LED:
+  - Components set semantic `StatusSignal` flags; only `StatusLed::service(millis())` owns blink timing and addressable-LED writes.
+  - Initialization is solid yellow; ready is green 1 s on/1 s off; local playback is green 0.5 s on/0.5 s off; BT connected but idle is blue 1 s on/1 s off; A2DP `STARTED` is blue 0.5 s on/0.5 s off; a persistent post-init error is red 0.25 s on/0.25 s off; Quiet time is purple 1 s on/0.25 s off; deep sleep is off.
+  - Firmware prints the complete canonical status-LED mode legend to serial at boot.
 - Theme scanning is from `/songs/<theme>/metadata.json`; include only themes
   with at least one playable WAV.
 - Keep the BLE theme-list payload under the conservative 512-byte cap.
