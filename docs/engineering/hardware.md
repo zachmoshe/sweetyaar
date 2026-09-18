@@ -28,13 +28,15 @@ audio source - BT A2DP -->|                      |
 ```
 
 The production power system keeps onboard USB charging permanently available,
-adds an optional isolated auxiliary charging input, and generates three system
-rails:
+adds an optional auxiliary charging input from an off-board source located
+elsewhere inside the device, and generates three system rails. The TPS2116
+provides reverse-current isolation between the two positive supply paths; this
+is not galvanic isolation, and both sources share the mainboard ground.
 
 ```text
-USB_VBUS ---- TPS2116 VIN1 (priority) --+
-                                         +---- TPS2116 VOUT ---- 5V_INPUT ---- BQ25185 IN
-AUX_5V_IN --- TPS2116 VIN2 (backup) ----+
+USB_VBUS ---------------- TPS2116 VIN1 (priority) --+
+                                                     +---- TPS2116 VOUT ---- 5V_INPUT ---- BQ25185 IN
+off-board regulated 5 V -- AUX_5V_IN -- VIN2 -------+
 
 protected 18650 Li-ion ------------------------------ BQ25185 BAT
            |
@@ -203,7 +205,7 @@ disabled during deep sleep.
 | `SYS` | BQ25185 `SYS` output through the single hard-off switch | BQ25185 `SYS` bypass capacitor on the charger side of the switch; both TPS63802 regulator inputs and their 10 µF input capacitors on the disconnected side | Available from the battery or charging input while the hard-off switch is closed. Opening the switch disconnects the regulator feed even if USB or AUX is attached, while the battery remains connected to the charger and may still charge. |
 | `3V3_AON` | TPS63802 set to 3.3 V | TPS63802 22 µF output capacitor, ESP32 and its decoupling, 470 kΩ GPIO27 wake pull-up, 510 kΩ/91 kΩ regulator-feedback divider, and the disabled AP2281 input with its 1 µF capacitor | On. GPIO2 is released only after the switched 5 V rail is off. |
 | `3V3_PERIPH_SW` | AP2281-3WG-7 load switch | Bare microSD card and every SD pull-up | Off. |
-| `5V_PERIPH_SW` | TPS63802 set to 5 V, with true shutdown | MAX98357A, one addressable 5 mm status LED and its 4.7 kΩ data pull-up, plus future switchable 5 V peripherals that fit the validated power budget | Off. |
+| `5V_PERIPH_SW` | TPS63802 set to 5 V, with true shutdown | MAX98357A, one addressable 5 mm status LED and its 1 kΩ data pull-up, plus future switchable 5 V peripherals that fit the validated power budget | Off. |
 
 `5V_PERIPH_SW` is the general switched 5 V peripheral rail, not an
 amplifier-only net. Future loads may use it if the regulator's steady-state and
@@ -231,8 +233,15 @@ prevents an immediate wake loop.
 
 #### Deep-sleep quiescent-current budget
 
-Target: **less than 50 µA at the battery**, with the main switch on and USB
-disconnected. These are selection targets until the production PCB is measured.
+Target: **at most 75 µA at the battery**, with the main switch on and USB, AUX,
+and the debugger disconnected. This is a design target until the production PCB
+is measured, not a measured consumption figure.
+
+For a **3400 mAh** battery, continuous sleep at 75 µA gives an ideal
+`3400 mAh / 0.075 mA = 45,333 hours`, or **1,889 days / 5.17 years**.
+The electronics consume 1.8 mAh per day at that current. This is a capacity-only
+estimate, not a shelf-life guarantee: battery self-discharge, aging, temperature,
+unusable capacity below cutoff, and every wake/playback interval shorten it.
 
 The budget assumes that both buttons are released, the addressable status LED
 and its data pull-up are unpowered, GPIO2 is high-impedance,
@@ -254,7 +263,7 @@ efficiency at very light load.
 | 3.3 V feedback divider | 510 kΩ from `3V3_AON` to `FB`, 91 kΩ from `FB` to GND | 3.302 V / 601 kΩ = 5.49 µA at `3V3_AON` | **5–7 µA battery-side** |
 | 470 kΩ vibration pull-up | Always on | 7 µA | **7 µA** |
 | GPIO13 100 kΩ pulldown | GPIO13 and all three controlled enable inputs held LOW | 0 V across the resistor; EN leakage is included in the two AP2281 rows and the 5 V TPS63802 row | **≈0 µA** |
-| Buttons and addressable indicator | Buttons released; `5V_PERIPH_SW` off; GPIO2 high-impedance after the rail is removed | The LED, 4.7 kΩ pull-up, and MMBT3904 collector are unpowered; the 10 kΩ base resistor has no driven voltage | **≈0 µA** |
+| Buttons and addressable indicator | Buttons released; `5V_PERIPH_SW` off; GPIO2 high-impedance after the rail is removed | The LED, 1 kΩ pull-up, and MMBT3904 collector are unpowered; the 10 kΩ base resistor has no driven voltage | **≈0 µA** |
 | `STAT1` / `STAT2` inputs | Battery-only state is HIGH/HIGH through the two 10 kΩ pull-ups | BQ25185 high-level output leakage is 1 µA maximum per pin; include ESP32 input leakage | **≤2 µA, provisional** |
 | Always-powered ceramic capacitors | BQ25185 `BAT` 1 µF and `SYS` ≥10 µF; two TPS63802 10 µF input capacitors; 3.3 V TPS63802 22 µF output capacitor; SD-switch AP2281 `IN` 1 µF; battery-sense AP2281 `IN` 1 µF; ESP32 local decoupling | Dielectric insulation leakage; exact capacitor part numbers not selected | **≤2 µA combined, provisional** |
 | AP2281 SD load switch | Disabled; input powered | 0.01 µA typical | **≤1 µA** |
@@ -302,7 +311,7 @@ protection and must be recorded as an assembly choice.
 > allocations above. Recalculate battery-side current across the intended
 > battery-voltage and temperature range and audit every final-schematic
 > connection to `SYS` and `3V3_AON`. The resulting worst-case design budget must
-> fit below 50 µA with documented margin. If it does not, reduce fixed current—
+> stay within 75 µA with documented margin. If it does not, reduce fixed current—
 > starting with the 3.3 V feedback divider—subject to the TPS63802's
 > feedback-network requirements and noise validation.
 
@@ -519,6 +528,7 @@ capacity may vary without changing the PCB design.
 | Battery protection | The cell must include overcharge, over-discharge, over-current, and short-circuit protection. **Fit no additional fuse or resettable PTC in the current design.** Verify the complete holder, harness, connector, switch, and PCB under expected and fault-current conditions. |
 | Charger | [BQ25185DLHR](https://www.ti.com/product/BQ25185), 1-cell charger with power path, input-current management, thermal regulation, and selectable LiPo/LiFePO4 charge voltage. |
 | External-source mux | [TPS2116DRLR](https://www.ti.com/product/TPS2116), with USB `VBUS` on priority input `VIN1`, `AUX_5V_IN` on backup input `VIN2`, and `VOUT` feeding BQ25185 `IN`. It provides automatic priority selection, reverse-current blocking, and a 2.5 A path. |
+| Auxiliary-source requirement | `AUX_5V_IN` comes from a complete off-board power module mounted elsewhere inside the device, such as a regulated wireless-charging receiver. Require 5.0 V nominal and never more than 5.5 V at the mainboard input. For the default 1.1 A input-current limit, the source and harness must have a continuous-current rating above 1.1 A with suitable margin; otherwise configure `JP_ILIM` for approximately 0.5 A and validate the complete device under load. Connect only a regulated DC output, never a raw wireless-power coil or unregulated rectifier output. |
 | Use while charging | Supported. Power the device from `SYS`; the BQ25185 reduces charge current when the input or thermal limit is reached and allows the battery to supplement load peaks. |
 | Charge current | **1 A production default, switchable to approximately 0.5 A with one solder jumper.** Connect two 301 Ω resistors in series from `ISET` to GND and place the jumper across the resistor nearest GND. Jumper open gives 602 Ω and approximately 0.5 A; bridged bypasses that resistor, leaving 301 Ω and approximately 1 A. Ship with the jumper bridged. |
 | Charger input-current limit | **1.1 A production default, manually switchable to approximately 0.5 A with `JP_ILIM`.** Bridged bypasses the 5.1 kΩ series resistor and leaves 13 kΩ from `ILIM/VSET` to GND; open gives 18.1 kΩ. Both settings select 4.2 V Li-ion charging. This is an assembly/configuration choice, not an automatic response to the connected source. |
@@ -558,12 +568,25 @@ guarantee a 500 mA total USB input limit while the system is running.
 
 The 103AT-2 matches the BQ25185's native 10 kΩ, B25/85 = 3435 K temperature
 profile, so no external hot/cold compensation network is planned. This direct
-connection gives the charger's fixed window of approximately 0°C at the cold
-edge and 55–60°C at the hot edge, including device and thermistor tolerances.
-Every compatible substitute must permit charging across that window; a cell with a
-narrower charging-temperature rating requires a different charger or
-temperature-monitoring architecture rather than merely approving the harness.
-Validate the actual suspend and recovery temperatures on the production
+connection gives nominal suspend thresholds near **0°C and 60°C**, not a
+guaranteed 0–60°C charging window after tolerances. For example, the nominal hot
+threshold is `115 mV / 38 µA = 3.03 kΩ`, close to the thermistor's 3.02 kΩ at
+60°C. Combining the charger's 105 mV minimum threshold and 39.5 µA maximum bias
+gives 2.66 kΩ, approximately 64°C before thermistor tolerance and thermal-contact
+error. The cold cutoff also has tolerance; nominal 0°C is not a guaranteed
+no-charge-below-0°C limit.
+
+SweetYaar has **no separate product-specific temperature target**. The requirement
+is to remain within the selected battery manufacturer's permitted charging
+conditions and the charger's operating limits, with margin for electrical
+tolerance and sensor placement. The reference ARB-L18-3500's permitted charging
+temperature range has not yet been verified from an authoritative battery
+specification, so temperature-safety compatibility is **not yet closed**. If a
+selected cell permits charging only up to 45°C, this circuit does not enforce
+that limit; the temperature-control design must then change. Charger junction
+thermal regulation and a cell's general protection circuit are not substitutes
+for a verified cell-temperature charging limit. Validate actual suspend and
+recovery thresholds against the selected cell's limits on the production
 assembly. See the [BQ25185 datasheet](https://www.ti.com/lit/ds/symlink/bq25185.pdf)
 and [Semitec 103AT family data](https://www.semitec-global.com/products/thermistor_at/).
 When a fixed 10 kΩ substitute is fitted instead, these temperature limits are
@@ -571,25 +594,38 @@ not being measured; validation and operating restrictions must account for the
 loss of charger-controlled cell-temperature protection.
 
 The PCB must accept charging power from either the onboard USB-C receptacle or
-an unpopulated, two-wire auxiliary input:
+an unpopulated, two-wire connection to a complete off-board power module located
+elsewhere inside the device:
 
 ```text
-USB_VBUS -------- TPS2116 VIN1 (priority) --+
-                                             +---- TPS2116 VOUT ---- 5V_INPUT ---- BQ25185 IN
-AUX_5V_IN ------- TPS2116 VIN2 (backup) ----+
+USB_VBUS ---------------- TPS2116 VIN1 (priority) --+
+                                                     +---- TPS2116 VOUT ---- 5V_INPUT ---- BQ25185 IN
+off-board regulated 5 V -- AUX_5V_IN -- VIN2 -------+
 
 DEBUGGER_USB_VBUS ---- external debugger CP2102N ---- J_PROG1 ---- ESP32 UART0/EN/BOOT
 ```
 
-`AUX_5V_IN` is a 5 V input, not a raw battery connection. Provide clearly
-labeled 5 V and GND through-hole pads or an unpopulated two-pin connector
-footprint with mechanical strain-relief provisions; fit no connector in the
-first revision. A later cable may be soldered there and terminated in a JST
-female connector. A TPS2116 power mux prevents reverse current between the USB
-and auxiliary sources and gives USB explicit priority. The auxiliary input is
-power-only and does not provide USB data. The onboard USB-C charging path is
-permanent and remains fully functional whether or not anything is ever fitted
-to the auxiliary input.
+`AUX_5V_IN` is a power-only input from a separate module mounted inside the
+device but outside the main PCB. A complete regulated wireless-charging receiver
+is one intended source. The source must provide 5.0 V nominal and must never
+exceed 5.5 V at the mainboard input. A lower regulated voltage is acceptable
+only after verifying that the BQ25185 starts and charges at an acceptable rate
+across source tolerance, system load, and the battery-voltage range; merely
+being below 5 V does not prove compatibility.
+Never connect a raw battery, wireless-power coil, or unregulated rectifier
+output.
+
+Provide clearly labeled 5 V and GND through-hole pads or an unpopulated two-pin
+connector footprint with mechanical strain-relief provisions. The PCBA vendor
+does not fit this connector; the selected connector or cable is soldered during
+device assembly. Place `D2`, an
+[ESD441](https://www.ti.com/lit/ds/symlink/esd441.pdf), close to this connection
+with its cathode on `AUX_5V_IN` and its anode on GND. `D2` suppresses fast ESD
+and connection transients; it is not a regulator, sustained-overvoltage clamp,
+reverse-polarity protector, or substitute for the source-voltage requirement.
+A TPS2116 power mux prevents reverse current between the USB and auxiliary
+sources and gives USB explicit priority. The onboard USB-C charging path
+remains fully functional whether or not an auxiliary module is installed.
 
 `5V_INPUT` means the selected external 5 V supply at the BQ25185 `IN` pin. It is
 not the battery-charging output, it is not BQ25185 `SYS`, and it is not the
@@ -604,7 +640,7 @@ do not put a diode or switch in the common-ground connection.
 |---|---|
 | USB `VBUS` ↔ `AUX_5V_IN` | Never connect the two sources directly. Route them through the TPS2116 so USB-only, AUX-only, and simultaneous connection are all safe. USB must take precedence whenever both inputs are valid; do not combine or share their current. |
 | USB `VBUS` → `5V_INPUT` | This permanent path always remains available for charging. Isolation must prevent an auxiliary source from driving voltage out of the USB-C receptacle. |
-| `AUX_5V_IN` → `5V_INPUT` | This optional, power-only path must prevent USB `VBUS` from driving backward into an absent or unpowered daughterboard or wireless receiver. The isolation circuit is required on the PCB even though the connector is initially unpopulated. |
+| `AUX_5V_IN` → `5V_INPUT` | This optional, power-only path receives regulated DC from an off-board module inside the device. It must prevent USB `VBUS` from driving backward into an absent or unpowered source module. The isolation circuit and mainboard ESD diode are required even though the connector is not populated by the PCBA vendor. |
 | `5V_INPUT` ↔ battery/`SYS` | Reach `BAT` and `SYS` only through the BQ25185 power path; do not add an external bypass around its input/battery reverse-current management. |
 
 Use a [TI TPS2116](https://www.ti.com/product/TPS2116), orderable as
@@ -623,15 +659,16 @@ Wire the mux as follows:
 | 3 `VIN1` | Protected mainboard USB `VBUS`; this is the priority source. The external debugger has its own USB supply and does not connect to this rail. |
 | 4 `PR1` | USB-valid detector: 300 kΩ from USB `VBUS` to `PR1` and 100 kΩ from `PR1` to GND, both 1%. The nominal switchover threshold is 4.0 V; including the TPS2116 reference and resistor tolerances it is approximately 3.6–4.4 V, so a valid 5 V USB source is always selected. |
 | 5 `MODE` | Connect directly to `VIN1`/USB `VBUS` to enable automatic priority mode. |
-| 6 `VIN2` | Protected `AUX_5V_IN`; this is selected only when USB is absent or below the `PR1` threshold. |
+| 6 `VIN2` | `AUX_5V_IN` after the local `D2` ESD shunt; this is selected only when USB is absent or below the `PR1` threshold. The off-board source must remain at or below 5.5 V. |
 | 8 `ST` | Optional open-drain source-status output. Leave unconnected in the first revision or expose only as a test pad; no ESP32 GPIO is allocated. |
 
 Place a 1 µF ceramic capacitor from each of `VIN1` and `VIN2` to GND close
 to the mux. Place at least 1 µF from `VOUT`/`5V_INPUT` to GND close to the
 mux and BQ25185; this capacitor also satisfies the charger's `IN` decoupling
 requirement when the two ICs are placed together. Use short, wide copper for
-`VIN1`, `VIN2`, `VOUT`, and GND. The USB-C and AUX protection circuits must keep
-the mux inputs inside the 5.5 V recommended operating maximum.
+`VIN1`, `VIN2`, `VOUT`, and GND. Normal source voltage must remain inside the
+TPS2116's 5.5 V recommended operating maximum. `D1` and `D2` reduce fast
+ESD/transient energy but do not make an out-of-range DC source acceptable.
 
 With this wiring, valid USB selects `VIN1`; removing or badly sagging USB
 selects `VIN2`; and the break-before-make, reverse-blocking switches prevent the
@@ -648,7 +685,7 @@ revision adds no SPI or I2S signal-isolation components.
 |---|---|
 | External USB-powered debugger ↔ ESP32 on `3V3_AON` | Rev A uses direct UART connections and the two-transistor EN/BOOT circuit without power-off isolation. This is accepted only under the operating rule that the debugger and target are both powered whenever the six-pin cable is attached. Disconnect the cable before removing either supply. The debugger never powers the target through `3V3_REF`. |
 | `3V3_AON` ↔ `3V3_PERIPH_SW` | Every SD pull-up belongs to the switched rail. Retain GPIO5 as the native VSPI `CS`. Firmware ends SPI, disables internal pulls, and makes the SPI pins inputs before driving `PERIPH_PWR_EN` LOW; on wake it enables the rail, waits for it to settle, and then reconfigures SPI. No SPI isolation buffer is planned. |
-| `3V3_AON` ↔ `5V_PERIPH_SW` | Production GPIO21 connects to `SD_MODE` only through 634 kΩ. The GPIO2 status-data crossing uses a 10 kΩ base resistor and MMBT3904 whose collector is pulled up to switched 5 V through 4.7 kΩ; the 5 V net never reaches GPIO2. Firmware establishes both inactive GPIO levels before enabling the rail. Before power-off it sends an LED-off frame, mutes the amplifier, ends I2S, disables the rail, and only then releases GPIO2. No I2S or LED isolation buffer is planned. |
+| `3V3_AON` ↔ `5V_PERIPH_SW` | Production GPIO21 connects to `SD_MODE` only through 634 kΩ. The GPIO2 status-data crossing uses a 10 kΩ base resistor and MMBT3904 whose collector is pulled up to switched 5 V through 1 kΩ; the 5 V net never reaches GPIO2. Firmware establishes both inactive GPIO levels before enabling the rail. Before power-off it sends an LED-off frame, mutes the amplifier, ends I2S, disables the rail, and only then releases GPIO2. No I2S or LED isolation buffer is planned. |
 | `5V_INPUT` ↔ `5V_PERIPH_SW` | These are different 5 V domains and must never be tied together. The switched peripheral boost output must provide true load disconnect and must not feed the external-input or charger path. |
 | Charge-status signals | Connect `STAT1` and `STAT2` only to ESP32 GPIO34 and GPIO35, using external pull-ups to `3V3_AON`. Include their leakage in the sleep audit. Do not add direct status LEDs to the BQ25185 outputs. |
 | `BAT` ↔ GPIO36 battery measurement | Feed the 634 kΩ / 200 kΩ divider through a second AP2281-3WG-7 whose `EN` is `PERIPH_PWR_EN`; implement the 200 kΩ lower leg as two series 100 kΩ resistors. This prevents `BAT` from driving the ADC while the ESP32 is unpowered and disconnects the divider in deep sleep. Do not measure `SYS` as a substitute. |
@@ -706,12 +743,14 @@ future option only if a reliable percentage or runtime estimate becomes useful.
 
 #### Addressable status LED
 
-The production indicator is one **5 mm through-hole addressable RGB or RGBW LED**
-on `5V_PERIPH_SW`. The selected four-lead part must expose `VDD`, GND, `DIN`, and
-`DOUT`; verify the actual batch's lead order, 24-bit RGB versus 32-bit RGBW
-frame type, and RGB/GRB/RGBW/GRBW channel order before the PCB/BOM is frozen
-because through-hole variants are not consistent. Firmware defaults to a
-24-bit RGB device; `SWEETYAAR_STATUS_LED_RGBW=1` selects a 32-bit
+The currently selected production indicator is the **WS2812D-F5-12mA-C1
+(LCSC C4154875)**, a 5 mm through-hole, 24-bit RGB LED on `5V_PERIPH_SW`.
+Its lead order is 1=`DOUT`, 2=`VDD`, 3=GND, 4=`DIN`, and its serial channel
+order is RGB. Verify the delivered batch against the
+[manufacturer's datasheet](https://www.ecsimple.com/files/0f/ws2812d-f5-12ma-c1.pdf)
+before assembly; through-hole addressable LEDs are not interchangeable by
+appearance alone. Firmware defaults match this 24-bit RGB selection;
+`SWEETYAAR_STATUS_LED_RGBW=1` instead selects a 32-bit
 SK6812-style RGBW device, and `SWEETYAAR_STATUS_LED_COLOR_ORDER_GRB=1` selects
 GRB or GRBW order. `DOUT` may be left unconnected or routed to a labeled test pad;
 it is the input for an optional second indicator later and needs no second
@@ -723,7 +762,7 @@ Use the same MMBT3904 already stocked for the debugger's transistor stages:
 GPIO2 ---- 10 kΩ ---- Q_LED1 base
                          emitter ---- GND
 
-5V_PERIPH_SW ---- 4.7 kΩ ----+---- LED1 DIN
+5V_PERIPH_SW ---- 1 kΩ ------+---- LED1 DIN
                               |
                          Q_LED1 collector
 
@@ -734,12 +773,28 @@ LED1 DOUT ------------------------- no-connect (current one-LED build)
 ```
 
 This open-collector stage both translates the data HIGH level to switched 5 V
-and inverts it. NeoPixelBus uses the ESP32 RMT peripheral with the matching
-inverted WS2812 or SK6812 method, so the two inversions cancel at `DIN`. With a
-4.7 kΩ pull-up the
-transistor sinks about 1.1 mA for a data LOW; the 10 kΩ base resistor draws
-about 0.26 mA while GPIO2 is HIGH. Do not connect the collector pull-up directly
-to GPIO2. Place the 100 nF ceramic capacitor at the LED leads.
+and inverts it. NeoPixelBus uses the ESP32 RMT peripheral with a configurable
+inverted waveform, so the two inversions cancel at `DIN`. `R_LED_PULLUP1`
+is **1 kΩ, UNI-ROYAL 0603WAF1001T5E (LCSC C21190), 0603, 1%, 100 mW**,
+from the same series as the former 4.7 kΩ part. The lower resistance reduces
+the collector's RC rise delay; transistor storage delay still needs measurement.
+The transistor sinks approximately 5 mA for a data LOW, including the normal
+powered idle state; the pull-up dissipates approximately 25 mW at 5 V.
+The unchanged 10 kΩ base resistor draws about 0.26 mA while GPIO2 is HIGH.
+Both paths are inactive in normal deep sleep. Do not connect the collector
+pull-up directly to GPIO2. Place the 100 nF ceramic capacitor at the LED leads.
+
+The production timing defaults are **T0H = 300 ns, T0L = 950 ns,
+T1H = 900 ns, T1L = 350 ns, reset LOW = 300 µs**. These target the
+WS2812D-F5-12mA-C1 timing specification; they do not establish compatibility
+with every WS2812/SK6812 variant. Build flags independently configure T0H, T1H,
+the bit period, and reset time; see the firmware guide. The generic bench build
+retains its previous 400/850 ns zero, 800/450 ns one, and 80 µs reset.
+These are RMT-generated durations, not measured pulse widths after the NPN:
+the collector's RC rise and transistor storage time still require scope
+verification at `DIN`. The subsequent 1 kΩ pull-up selection does not change
+these firmware defaults or the selected LED. After PCBA, plan on firmware
+timing/frame adjustments and hand-soldered LED replacement only, not SMD rework.
 
 The controller applies a global linear brightness cap to every RGB or RGBW
 channel, currently 50%. This is an appearance and normal-current limit, not a
@@ -758,17 +813,19 @@ GPIO2 is an ESP32 boot-strapping pin, but the 5 V pull-up is isolated from it by
 the transistor and `5V_PERIPH_SW` remains off during reset. Firmware drives
 GPIO2 HIGH before enabling the switched rail, keeping physical `DIN` LOW until
 RMT owns the pin. Before sleep it sends a black frame while the LED is powered,
-turns off `5V_PERIPH_SW`, and then makes GPIO2 an input so the base resistor adds
-no intended sleep current. GPIO16 and GPIO17 are now free.
+disables the 5 V regulator, and then makes GPIO2 an input so the base resistor
+adds no intended sleep current. The rail's output capacitors discharge through
+the remaining load; firmware does not wait for or measure a zero-volt rail.
+The amplifier is muted before regulator disable. GPIO16 and GPIO17 are now free.
 
 The original DevKit's discrete GPIO2 LED is not a functional substitute for
 this circuit. For the current direct GPIO2-to-`DIN` RGBW bench wiring, use
 `sweetyaar-generic`; it records the non-inverted waveform and 32-bit RGBW frame
 along with the board's other required overrides. Its tested channel order is
 GRBW. Validate the 3.3 V logic-HIGH margin against the externally powered LED.
-The production build continues to
-require the NPN and inverted RMT waveform. Once its LED is selected, record the
-RGB/RGBW frame and channel order in the `sweetyaar` environment. Validate frame
+The production build continues to require the NPN and inverted RMT waveform.
+If a different LED is selected later, record its overrides in the `sweetyaar`
+environment. Validate frame
 type, color order, inversion, and sleep sequencing before relying on the visual
 states.
 
@@ -871,25 +928,27 @@ the electronics enclosure is designed. Electrically, the PCB must include:
 
 | Interface | Current requirement or decision |
 |---|---|
-| USB and auxiliary charging | The mainboard USB-C connector is power-only and is required for charging. Also provide unpopulated two-wire 5 V and GND auxiliary-input pads/footprint for a future power-only USB-C daughterboard, regulated wireless receiver, or other 5 V source. Fit no auxiliary connector in the first revision. Firmware download and live serial logs use the separate USB-powered debugger through `J_PROG1`. |
+| USB and auxiliary charging | The mainboard USB-C connector is power-only and is required for charging. Also provide unpopulated two-wire 5 V and GND auxiliary-input pads/footprint for a complete off-board source mounted elsewhere inside the device, such as a regulated wireless-charging receiver or power-only USB-C daughterboard. The PCBA vendor fits neither an auxiliary connector nor cable; it is added during device assembly when that option is used. `D2` remains populated on the mainboard. Firmware download and live serial logs use the separate USB-powered debugger through `J_PROG1`. |
 | Storage | Fit a replaceable bare microSD socket on `3V3_PERIPH_SW`, entirely inside the electronics enclosure. Changing the card requires opening the enclosure. Place the socket with insertion/removal clearance on the opened PCB, not at an enclosure edge or external opening. |
 | Battery | Use a protected removable 18650 in a holder. Connect its short harness through a three-position 2.5 mm-pitch JST-XH carrying `BAT+`, `BAT−`/GND, and `BAT_TEMP`. The preferred holder harness contains the Semitec 103AT-2 from `BAT_TEMP` to `BAT−`/GND. If it is omitted, fit a fixed 10 kΩ substitute from `BAT_TEMP` to GND and record that temperature monitoring is disabled. |
 | Speaker | Use one keyed two-pin connector and a short stranded-wire harness. It must support either 4 Ω or 8 Ω speakers and must not be interchangeable with the battery connector. |
 | Song and animal buttons | Use one four-pin PCB connector arranged as `BTN_SONG`, GND, `BTN_ANIMAL`, GND. The two ground contacts join on the PCB, allowing four ordinary single-wire crimps and two independent two-wire button branches without a harness splice. |
 | Main power | Fit a physical latching **SPST pushbutton switch** on the enclosure as an exceptional safety/service control; deep sleep is normal. The complete switch body—not merely a remote actuator—mounts on the enclosure. Place it in series between BQ25185 `SYS` and the regulator inputs; leave `BAT+` permanently connected to BQ25185 `BAT`. Connect the switch to the PCB with two conductors and a two-pin connector. The switch and every harness contact must carry the validated current with margin. |
 | Vibration wake | The normally-closed vibration switch is soldered directly onto the PCB. Exact part and footprint remain schematic/BOM selections; its physical orientation follows enclosure design. |
-| Indicators | Route BQ25185 `STAT1`/`STAT2` only to ESP32 GPIO34/GPIO35. Fit one 5 mm through-hole addressable RGB or RGBW status LED on `5V_PERIPH_SW`, with 100 nF local decoupling and the GPIO2/10 kΩ/MMBT3904/4.7 kΩ open-collector level shifter. Verify the selected part's frame type, lead order, and color order; preserve or test-pad `DOUT` for a future daisy-chained indicator. |
-| Programming/test | Use one unpopulated, non-proprietary 1×6 through-hole header footprint on 2.54 mm centers. Pins 1–6 are `3V3_REF`, GND, GPIO1/`UART_TXD`, GPIO3/`UART_RXD`, `ESP_EN`, and GPIO0/BOOT. Its annular pads support a generic six-contact pogo fixture, while its holes allow a standard 1×6 pin header to be fitted temporarily or permanently. The matching external debugger supplies CP2102N USB-to-UART and automatic-download control. |
+| Indicators | Route BQ25185 `STAT1`/`STAT2` only to ESP32 GPIO34/GPIO35. Fit one 5 mm through-hole addressable RGB or RGBW status LED on `5V_PERIPH_SW`, with 100 nF local decoupling and the GPIO2/10 kΩ/MMBT3904/1 kΩ open-collector level shifter. Verify the selected part's frame type, lead order, and color order; preserve or test-pad `DOUT` for a future daisy-chained indicator. |
+| Programming/test | Use six exposed surface contact pads on 2.54 mm centers (`SweetYaar:DebuggerPad_1x06_P2.54mm`), without holes or solder-paste apertures. Nothing is soldered onto the mainboard here: header pins or pogo pins on the debugger/fixture temporarily touch the pads. Contacts 1–6 are `3V3_REF`, GND, GPIO1/`UART_TXD`, GPIO3/`UART_RXD`, `ESP_EN`, and GPIO0/BOOT. The external debugger supplies CP2102N USB-to-UART and automatic-download control. |
 
-The auxiliary two-wire input can support a future power-only USB-C daughterboard
-near the doll surface. That daughterboard must implement the required USB-C
-sink configuration and protection locally, then send only regulated 5 V and
-GND to `AUX_5V_IN`; two wires cannot carry firmware data or serial logs.
+The auxiliary source is physically separate from the main PCB but remains
+inside the device enclosure. If the source is a power-only USB-C daughterboard
+near the doll surface, that daughterboard must implement the required USB-C sink
+configuration and connector-side protection locally, then send only regulated
+5 V and GND to `AUX_5V_IN`; two wires cannot carry firmware data or serial logs.
 
 Wireless charging uses the same two-wire interface: connect the regulated 5 V
 and GND output of a complete receiver assembly to `AUX_5V_IN`, not its raw
-resonant coil. In a Qi system, the receiver asks the transmitter for a supported
-wireless-power level and the transmitter delivers the negotiated level. The
+resonant coil or unregulated rectifier output. In a Qi system, the receiver asks
+the transmitter for a supported wireless-power level and the transmitter
+delivers the negotiated level. The
 receiver module then enforces its own output rating, while the BQ25185 separately
 limits input current to 1.1 A and battery charge current to 1 A. Transmitter
 capability, coupling/alignment, receiver rating, BQ25185 input limit, system
@@ -921,8 +980,13 @@ and live serial logs use a separate debugger board containing the CP2102N and
 its own USB-C connector. The debugger does not connect its USB `VBUS` or its
 CP2102N `VDD` to the target.
 
-The six programming contacts form a conventional unpopulated 1×6, 2.54 mm
-through-hole header rather than a proprietary footprint. Pins 1–6 are
+The six programming contacts are **bare surface pads on 2.54 mm centers**,
+using `SweetYaar:DebuggerPad_1x06_P2.54mm`. There are no through-holes and no
+mainboard connector to solder. Standard male header pins or pogo pins on the
+debugger/fixture temporarily touch these pads; the fixture must hold all six
+contacts reliably throughout flashing. The pads expose copper through the
+solder mask but have no `F.Paste` apertures, so the assembly stencil does not
+deposit solder paste on them. Contacts 1–6 are
 `3V3_REF`, GND, target GPIO1/`UART_TXD`, target GPIO3/`UART_RXD`, `ESP_EN`, and
 GPIO0/BOOT. `3V3_REF` is sense-only: on the debugger it powers only the
 2.2 kΩ series indicator LED and must never be driven back into the target.
@@ -988,9 +1052,9 @@ the AP2281-switched 634 kΩ / 200 kΩ divider on GPIO36, with the 200 kΩ lower
 leg implemented as two series 100 kΩ resistors.
 
 Exact connector models and regulator passives are schematic/BOM selections
-that must satisfy the fixed behavior above. The exact addressable 5 mm RGB or
-RGBW LED remains a BOM verification item: confirm its pinout, 24-bit versus
-32-bit frame, channel order, logic timing, and full-white current on the
+that must satisfy the fixed behavior above. The selected WS2812D-F5-12mA-C1
+remains a batch-verification item: confirm its pinout, 24-bit RGB frame,
+RGB channel order, logic timing, and full-white current on the
 purchased batch. The indicator
 architecture and its MMBT3904, 10 kOhm base resistor, 4.7 kOhm pull-up, and
 100 nF decoupling are fixed. The deep-sleep calculation and production current
@@ -1017,7 +1081,7 @@ interfaces are fixed now.
 Current enclosure requirements and open mechanical work are:
 
 - The mainboard USB-C receptacle must be reachable for charging. Firmware
-  flashing and logs use the internal six-pin programming header and separate
+  flashing and logs use the internal six-pad programming contact row and separate
   debugger, so they require opening the doll zipper and electronics enclosure.
   A future power-only daughterboard may move a charging connector to the doll
   surface without replacing the mainboard charging path.
@@ -1105,9 +1169,12 @@ connecting an 18650 cell or speaker. A practical order is:
 
 1. Verify USB-only charging through `5V_INPUT`, with no voltage or measurable
    reverse current appearing at `AUX_5V_IN`.
-2. Apply a current-limited 5 V bench supply to `AUX_5V_IN`; verify charging and
-   no voltage at the mainboard USB-C receptacle. The external debugger and its
-   CP2102N supply remain electrically separate from this power-path test.
+2. Apply a current-limited 5 V bench supply to `AUX_5V_IN`; verify charging, the
+   expected input current, and no voltage at the mainboard USB-C receptacle.
+   Repeat with the intended off-board module and its production cable, confirming
+   that the mainboard input remains at or below 5.5 V during startup and normal
+   operation. The external debugger and its CP2102N supply remain electrically
+   separate from this power-path test.
 3. Connect USB and AUX together, verify that USB takes priority,
    and measure reverse current into both sources. Do not rely only on voltage.
 4. Verify the charger/protection and `SYS` behavior by themselves.

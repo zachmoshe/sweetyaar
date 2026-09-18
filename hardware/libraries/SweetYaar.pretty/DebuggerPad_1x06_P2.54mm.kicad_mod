@@ -1,0 +1,119 @@
+(footprint "DebuggerPad_1x06_P2.54mm"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(property "Reference" "REF**"
+		(at 0 -0.5 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(hide yes)
+		(uuid "34a04d52-aba7-41b2-b7f3-06f5f2cdbca2")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+		)
+	)
+	(property "Value" "DebuggerPad_1x06_P2.54mm"
+		(at 0 1 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(uuid "d9432d97-379a-4bfc-8001-65a2d62dea0d")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "9e83a139-febe-47c2-b053-1a72e0f1702e")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "d290983f-4a54-4d41-9717-9e195eba558b")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr exclude_from_pos_files exclude_from_bom)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_rect
+		(start -7.62 -1.27)
+		(end 7.62 1.27)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "75e18361-6497-4a52-8a43-360e3711d6ff")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 2.5 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(uuid "751804c3-c670-4ce2-a2c7-ea60bceb2420")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(pad "1" smd circle
+		(at -6.35 0)
+		(size 2 2)
+		(layers "F.Cu" "F.Mask")
+		(uuid "e2f7505e-60d3-4fe9-ab42-8302b33bf7fd")
+	)
+	(pad "2" smd circle
+		(at -3.81 0)
+		(size 2 2)
+		(layers "F.Cu" "F.Mask")
+		(uuid "d803544c-9fa7-40a8-acec-d0ca1d25fa50")
+	)
+	(pad "3" smd circle
+		(at -1.27 0)
+		(size 2 2)
+		(layers "F.Cu" "F.Mask")
+		(uuid "8ab165bb-d11c-48f5-8121-0d1975940fcc")
+	)
+	(pad "4" smd circle
+		(at 1.27 0)
+		(size 2 2)
+		(layers "F.Cu" "F.Mask")
+		(uuid "18eb17d3-d76c-42f3-aa1e-1b25ae9a1d62")
+	)
+	(pad "5" smd circle
+		(at 3.81 0)
+		(size 2 2)
+		(layers "F.Cu" "F.Mask")
+		(uuid "1f239e8b-d983-4230-b191-07343df19fc9")
+	)
+	(pad "6" smd circle
+		(at 6.35 0)
+		(size 2 2)
+		(layers "F.Cu" "F.Mask")
+		(uuid "5f137359-318d-4967-a7f6-810257a29e58")
+	)
+	(embedded_fonts no)
+)
