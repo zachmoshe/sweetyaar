@@ -4157,6 +4157,217 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "LCSC:WS2812B-V6"
+			(pin_names
+				(offset 1.016)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "LED"
+				(at 0 5.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "WS2812B-V6"
+				(at 0 -5.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "LCSC:WS2812B-V6"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" "https://img.jlc.com/image//data/smt-stock-produce/componentSizePhoto/2022-01-10/5ccaf76195334eaabd9d3430708bba91/BG2201080400_D22010300172_font.png"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "WS2812B-V6; LED-SMD_4P-L5.0-W5.0-TL-A; worldsemi"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "LCSC" "C52917433"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "worldsemi"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part" "WS2812B-V6"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "C52917433 LED-SMD_4P-L5.0-W5.0-TL-A WS2812B-V6 worldsemi"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "WS2812B-V6_0_1"
+				(circle
+					(center -6.35 2.54)
+					(radius 0.381)
+					(stroke
+						(width 0.254)
+						(type solid)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(polyline
+					(pts
+						(xy 7.112 -3.81) (xy 7.2111 -3.8002) (xy 7.3064 -3.7713) (xy 7.3942 -3.7244) (xy 7.4712 -3.6612)
+						(xy 7.5344 -3.5842) (xy 7.5813 -3.4964) (xy 7.6102 -3.4011) (xy 7.62 -3.302) (xy 7.6102 3.4011)
+						(xy 7.5813 3.4964) (xy 7.5344 3.5842) (xy 7.4712 3.6612) (xy 7.3942 3.7244) (xy 7.3064 3.7713)
+						(xy 7.2111 3.8002) (xy 7.112 3.81) (xy -7.2111 3.8002) (xy -7.3064 3.7713) (xy -7.3942 3.7244)
+						(xy -7.4712 3.6612) (xy -7.5344 3.5842) (xy -7.5813 3.4964) (xy -7.6102 3.4011) (xy -7.62 3.302)
+						(xy -7.6102 -3.4011) (xy -7.5813 -3.4964) (xy -7.5344 -3.5842) (xy -7.4712 -3.6612) (xy -7.3942 -3.7244)
+						(xy -7.3064 -3.7713) (xy -7.2111 -3.8002) (xy -7.112 -3.81) (xy 7.112 -3.81)
+					)
+					(stroke
+						(width 0.254)
+						(type solid)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(pin power_in line
+					(at -10.16 1.27 0)
+					(length 2.54)
+					(name "VDD"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at -10.16 -1.27 0)
+					(length 2.54)
+					(name "DOUT"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 10.16 -1.27 180)
+					(length 2.54)
+					(name "VSS"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 10.16 1.27 180)
+					(length 2.54)
+					(name "DIN"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "Power_Management:TPS2116DRL"
 			(exclude_from_sim no)
 			(in_bom yes)
@@ -6428,277 +6639,6 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "SweetYaar:WS2812B"
-			(pin_names
-				(offset 0.254)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "D"
-				(at 5.08 5.715 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify right bottom)
-				)
-			)
-			(property "Value" "WS2812B"
-				(at 1.27 -5.715 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left top)
-				)
-			)
-			(property "Footprint" "LED_THT:LED_D5.0mm-4_RGB"
-				(at 1.27 -7.62 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left top)
-				)
-			)
-			(property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
-				(at 2.54 -9.525 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left top)
-				)
-			)
-			(property "Description" "RGB LED with integrated controller"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_keywords" "RGB LED NeoPixel addressable"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_fp_filters" "LED*WS2812*PLCC*5.0x5.0mm*P3.2mm*"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "WS2812B_0_0"
-				(text "RGB"
-					(at 2.286 -4.191 0)
-					(effects
-						(font
-							(size 0.762 0.762)
-						)
-					)
-				)
-			)
-			(symbol "WS2812B_0_1"
-				(polyline
-					(pts
-						(xy 1.27 -2.54) (xy 1.778 -2.54)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 1.27 -3.556) (xy 1.778 -3.556)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 2.286 -1.524) (xy 1.27 -2.54) (xy 1.27 -2.032)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 2.286 -2.54) (xy 1.27 -3.556) (xy 1.27 -3.048)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 3.683 -1.016) (xy 3.683 -3.556) (xy 3.683 -4.064)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 4.699 -1.524) (xy 2.667 -1.524) (xy 3.683 -3.556) (xy 4.699 -1.524)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 4.699 -3.556) (xy 2.667 -3.556)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(rectangle
-					(start 5.08 5.08)
-					(end -5.08 -5.08)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type background)
-					)
-				)
-			)
-			(symbol "WS2812B_1_1"
-				(pin output line
-					(at 7.62 0 180)
-					(length 2.54)
-					(name "DOUT"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin power_in line
-					(at 0 7.62 270)
-					(length 2.54)
-					(name "VDD"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin power_in line
-					(at 0 -7.62 90)
-					(length 2.54)
-					(name "VSS"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at -7.62 0 0)
-					(length 2.54)
-					(name "DIN"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "4"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
 		(symbol "Switch:SW_Push_Open"
 			(pin_numbers
 				(hide yes)
@@ -6854,249 +6794,6 @@
 						)
 					)
 					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
-		(symbol "Transistor_BJT:MMBT3904"
-			(pin_names
-				(offset 0)
-				(hide yes)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "Q"
-				(at 5.08 1.905 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Value" "MMBT3904"
-				(at 5.08 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
-				(at 5.08 -1.905 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-						(italic yes)
-					)
-					(justify left)
-				)
-			)
-			(property "Datasheet" "https://www.onsemi.com/pdf/datasheet/pzt3904-d.pdf"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Description" "0.2A Ic, 40V Vce, Small Signal NPN Transistor, SOT-23"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Sim.Device" "NPN"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Sim.Pins" "1=B 2=E 3=C"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_keywords" "NPN Transistor"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_fp_filters" "SOT?23*"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "MMBT3904_0_1"
-				(polyline
-					(pts
-						(xy -2.54 0) (xy 0.635 0)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0.635 1.905) (xy 0.635 -1.905)
-					)
-					(stroke
-						(width 0.508)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(circle
-					(center 1.27 0)
-					(radius 2.8194)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "MMBT3904_1_1"
-				(polyline
-					(pts
-						(xy 0.635 0.635) (xy 2.54 2.54)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0.635 -0.635) (xy 2.54 -2.54)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 1.27 -1.778) (xy 1.778 -1.27) (xy 2.286 -2.286) (xy 1.27 -1.778)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type outline)
-					)
-				)
-				(pin input line
-					(at -5.08 0 0)
-					(length 2.54)
-					(name "B"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 2.54 -5.08 90)
-					(length 2.54)
-					(name "E"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 2.54 5.08 270)
-					(length 2.54)
-					(name "C"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -7703,12 +7400,6 @@
 		(uuid "09ef60f6-59c2-49d2-a8ee-d8f1d4e4af27")
 	)
 	(junction
-		(at 355.6 213.36)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "0d09cbe0-953f-45dd-8d85-767f206f91d0")
-	)
-	(junction
 		(at 346.71 72.39)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -7769,12 +7460,6 @@
 		(uuid "2fd58166-21b6-44f3-9d10-c9aba2c86965")
 	)
 	(junction
-		(at 339.09 223.52)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "311473eb-ed57-4c01-ac1d-a335b71261d6")
-	)
-	(junction
 		(at 199.39 100.33)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -7785,6 +7470,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "4e4ec923-7030-4f4d-a242-dbd37d18dd93")
+	)
+	(junction
+		(at 328.93 222.25)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "52fed712-551c-48a1-ae37-c46800461b65")
 	)
 	(junction
 		(at 248.92 256.54)
@@ -8106,16 +7797,6 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 222.25) (xy 339.09 223.52)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "03b94b53-8405-4cc2-b490-001399419761")
-	)
-	(wire
-		(pts
 			(xy 288.29 113.03) (xy 292.1 113.03)
 		)
 		(stroke
@@ -8306,6 +7987,16 @@
 	)
 	(wire
 		(pts
+			(xy 328.93 222.25) (xy 332.74 222.25)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2a8be5cc-517b-43a8-9677-26bb4d974731")
+	)
+	(wire
+		(pts
 			(xy 321.31 167.64) (xy 321.31 170.18)
 		)
 		(stroke
@@ -8353,16 +8044,6 @@
 			(type default)
 		)
 		(uuid "2df08a59-8b79-4068-b669-ef1341094854")
-	)
-	(wire
-		(pts
-			(xy 339.09 214.63) (xy 339.09 213.36)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "2f283cab-c60c-4acf-aa79-ab0d21799330")
 	)
 	(wire
 		(pts
@@ -8466,16 +8147,6 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 213.36) (xy 355.6 213.36)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "39aad66a-57cc-44cc-8158-68b925407f6b")
-	)
-	(wire
-		(pts
 			(xy 389.89 220.98) (xy 388.62 220.98)
 		)
 		(stroke
@@ -8523,6 +8194,16 @@
 			(type default)
 		)
 		(uuid "3f5416b2-6ad4-43f5-8762-4eb8df9b4c05")
+	)
+	(wire
+		(pts
+			(xy 356.87 223.52) (xy 389.89 223.52)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "406a4ae7-34fa-400b-b70c-56172a90b086")
 	)
 	(wire
 		(pts
@@ -8636,16 +8317,6 @@
 	)
 	(wire
 		(pts
-			(xy 363.22 223.52) (xy 389.89 223.52)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "50de5049-65a7-4b8a-959b-89deaca811cf")
-	)
-	(wire
-		(pts
 			(xy 339.09 113.03) (xy 349.25 113.03)
 		)
 		(stroke
@@ -8726,16 +8397,6 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 223.52) (xy 339.09 224.79)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "667e8ea2-f496-43f4-93ad-7ed11692e71d")
-	)
-	(wire
-		(pts
 			(xy 199.39 241.3) (xy 205.74 241.3)
 		)
 		(stroke
@@ -8743,16 +8404,6 @@
 			(type default)
 		)
 		(uuid "6767b493-f3be-4067-ac2f-eaa4810fc23a")
-	)
-	(wire
-		(pts
-			(xy 339.09 223.52) (xy 347.98 223.52)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "68088031-a0f0-4bab-a49e-3f43904d9f8a")
 	)
 	(wire
 		(pts
@@ -8773,16 +8424,6 @@
 			(type default)
 		)
 		(uuid "6e5940d8-0a3a-407f-9aa8-e9f5d78fc59d")
-	)
-	(wire
-		(pts
-			(xy 355.6 209.55) (xy 363.22 209.55)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6e65be42-74ac-4ded-ae14-5994c488e036")
 	)
 	(wire
 		(pts
@@ -8923,6 +8564,16 @@
 			(type default)
 		)
 		(uuid "80945510-aaa2-4aa5-8693-eb9eb27d6ddb")
+	)
+	(wire
+		(pts
+			(xy 325.12 222.25) (xy 328.93 222.25)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "83885797-7fbd-4c5d-8f00-9fbf9eb20f00")
 	)
 	(wire
 		(pts
@@ -9076,16 +8727,6 @@
 	)
 	(wire
 		(pts
-			(xy 355.6 213.36) (xy 355.6 215.9)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a2fa5a1c-6baa-449f-b622-71ca51e91e6e")
-	)
-	(wire
-		(pts
 			(xy 370.84 85.09) (xy 370.84 88.9)
 		)
 		(stroke
@@ -9146,6 +8787,16 @@
 	)
 	(wire
 		(pts
+			(xy 354.33 222.25) (xy 353.06 222.25)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a8f58184-94f1-47b7-97dc-4407985a35af")
+	)
+	(wire
+		(pts
 			(xy 327.66 85.09) (xy 327.66 87.63)
 		)
 		(stroke
@@ -9163,16 +8814,6 @@
 			(type default)
 		)
 		(uuid "acda2429-ced5-428c-b19e-144cd44f16d1")
-	)
-	(wire
-		(pts
-			(xy 355.6 209.55) (xy 355.6 213.36)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "ad23a475-5a19-49aa-9bf1-780a83e698bf")
 	)
 	(wire
 		(pts
@@ -9303,6 +8944,16 @@
 			(type default)
 		)
 		(uuid "bbc2472f-d98b-4503-8f32-4bbeafce98ba")
+	)
+	(wire
+		(pts
+			(xy 332.74 232.41) (xy 356.87 232.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bd01cdc7-6fc0-4bfe-beec-b7c49edf1fff")
 	)
 	(wire
 		(pts
@@ -9466,6 +9117,16 @@
 	)
 	(wire
 		(pts
+			(xy 356.87 232.41) (xy 356.87 223.52)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d2fb6551-4ff2-4fcd-b5c9-1a4e3fe6443f")
+	)
+	(wire
+		(pts
 			(xy 138.43 97.79) (xy 138.43 100.33)
 		)
 		(stroke
@@ -9513,6 +9174,16 @@
 			(type default)
 		)
 		(uuid "db336564-162f-42e2-94c0-b30afc69f00f")
+	)
+	(wire
+		(pts
+			(xy 332.74 224.79) (xy 332.74 232.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dd026dca-2357-4cf7-ac4d-7f77e21170cf")
 	)
 	(wire
 		(pts
@@ -9965,12 +9636,12 @@
 		(uuid "922ccdbb-1bbc-46be-aaad-45c96720d08f")
 	)
 	(label "STATUS_LED_GPIO"
-		(at 323.85 229.87 180)
+		(at 354.33 214.63 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify right bottom)
+			(justify left bottom)
 		)
 		(uuid "9c4258ca-7468-4fa5-b4d3-9144f7e6ba93")
 	)
@@ -11154,7 +10825,7 @@
 	)
 	(global_label "5V_PERIPH_SW"
 		(shape input)
-		(at 355.6 209.55 180)
+		(at 325.12 222.25 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -11164,7 +10835,7 @@
 		)
 		(uuid "b043e7e5-3f89-42af-88f4-663b6bc5741b")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 338.8263 209.55 0)
+			(at 308.3463 222.25 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11491,7 +11162,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 363.22 217.17 0)
+		(at 328.93 229.87 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -11501,7 +11172,7 @@
 		(dnp no)
 		(uuid "0548b24c-3a25-475e-bae5-6277241b0f9a")
 		(property "Reference" "#PWR031"
-			(at 363.22 217.17 0)
+			(at 328.93 229.87 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11512,7 +11183,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 363.22 218.44 0)
+			(at 328.93 231.14 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11523,7 +11194,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 363.22 217.17 0)
+			(at 328.93 229.87 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11533,7 +11204,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 363.22 217.17 0)
+			(at 328.93 229.87 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11543,7 +11214,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 363.22 217.17 0)
+			(at 328.93 229.87 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11640,7 +11311,7 @@
 	)
 	(symbol
 		(lib_id "Device:C")
-		(at 363.22 213.36 0)
+		(at 328.93 226.06 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -11650,7 +11321,7 @@
 		(dnp no)
 		(uuid "06f6b4a6-2c17-4bee-8b93-a9b567e71268")
 		(property "Reference" "C_LED1"
-			(at 364.49 210.82 0)
+			(at 330.2 223.52 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11661,7 +11332,7 @@
 			)
 		)
 		(property "Value" "100nF, 50 V, X7R, ±10%"
-			(at 366.014 216.154 0)
+			(at 314.198 225.806 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11671,7 +11342,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
-			(at 363.22 213.36 0)
+			(at 328.93 226.06 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11682,7 +11353,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 363.22 213.36 0)
+			(at 328.93 226.06 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11693,7 +11364,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 363.22 213.36 0)
+			(at 328.93 226.06 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11703,7 +11374,7 @@
 			)
 		)
 		(property "LCSC" "C14663"
-			(at 363.22 213.36 0)
+			(at 328.93 226.06 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12056,97 +11727,6 @@
 			(project "sweetyaar-mainboard"
 				(path "/a2bc0001-0000-4000-8000-000000000001"
 					(reference "#PWR034")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:R")
-		(at 339.09 218.44 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "1ec14416-e416-4ddb-b3b6-e4f959cbdaf1")
-		(property "Reference" "R_LED_PULLUP1"
-			(at 332.74 218.44 90)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "1k"
-			(at 342.392 219.964 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
-			(at 337.312 218.44 90)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 339.09 218.44 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Resistor"
-			(at 339.09 218.44 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "LCSC" "C21190"
-			(at 339.09 218.44 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "2"
-			(uuid "0fc0d6f2-6e29-4ede-964e-7fc37b024356")
-		)
-		(pin "1"
-			(uuid "f5bb53af-542a-4fb5-9025-7512cae6dba9")
-		)
-		(instances
-			(project "sweetyaar-mainboard"
-				(path "/a2bc0001-0000-4000-8000-000000000001"
-					(reference "R_LED_PULLUP1")
 					(unit 1)
 				)
 			)
@@ -12730,83 +12310,6 @@
 			(project "sweetyaar-mainboard"
 				(path "/a2bc0001-0000-4000-8000-000000000001"
 					(reference "#PWR077")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 339.09 234.95 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "38f5bdf1-0ba7-4f70-8e18-c0dc225c23c4")
-		(property "Reference" "#PWR04"
-			(at 339.09 241.3 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 339.09 239.268 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 339.09 234.95 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 339.09 234.95 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 339.09 234.95 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "d52f0bc8-82f1-4ab5-8118-43e6d2f95dea")
-		)
-		(instances
-			(project "sweetyaar-mainboard"
-				(path "/a2bc0001-0000-4000-8000-000000000001"
-					(reference "#PWR04")
 					(unit 1)
 				)
 			)
@@ -13598,8 +13101,8 @@
 		)
 	)
 	(symbol
-		(lib_id "SweetYaar:WS2812B")
-		(at 355.6 223.52 0)
+		(lib_id "LCSC:WS2812B-V6")
+		(at 342.9 223.52 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -13609,7 +13112,7 @@
 		(dnp no)
 		(uuid "599ccd8b-b18b-4873-916b-151287a5a8e5")
 		(property "Reference" "D_LED1"
-			(at 367.03 217.0998 0)
+			(at 354.33 217.0998 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13619,8 +13122,8 @@
 				)
 			)
 		)
-		(property "Value" "WS2812D-F5-12mA-C1"
-			(at 361.696 230.378 0)
+		(property "Value" "WS2812B-V6"
+			(at 343.154 228.854 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -13629,32 +13132,8 @@
 				)
 			)
 		)
-		(property "Footprint" "LED_THT:LED_D5.0mm-4_RGB"
-			(at 356.87 231.14 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-			)
-		)
-		(property "Datasheet" ""
-			(at 358.14 233.045 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-			)
-		)
-		(property "Description" "RGB LED with integrated controller"
-			(at 355.6 223.52 0)
+		(property "Footprint" "LCSC:WS2812B-V6"
+			(at 342.9 223.52 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13664,8 +13143,52 @@
 				)
 			)
 		)
-		(property "LCSC" "C4154875"
-			(at 355.6 223.52 0)
+		(property "Datasheet" "https://img.jlc.com/image//data/smt-stock-produce/componentSizePhoto/2022-01-10/5ccaf76195334eaabd9d3430708bba91/BG2201080400_D22010300172_font.png"
+			(at 342.9 223.52 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "WS2812B-V6; LED-SMD_4P-L5.0-W5.0-TL-A; worldsemi"
+			(at 342.9 223.52 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C52917433"
+			(at 342.9 223.52 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "worldsemi"
+			(at 342.9 223.52 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part" "WS2812B-V6"
+			(at 342.9 223.52 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13937,97 +13460,6 @@
 			(project "sweetyaar-mainboard"
 				(path "/a2bc0001-0000-4000-8000-000000000001"
 					(reference "JP2")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:R")
-		(at 327.66 229.87 270)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "636ef4ff-14f7-4b8e-afaf-dfdf3d847c43")
-		(property "Reference" "R_LED_BASE1"
-			(at 327.66 223.52 90)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "10k"
-			(at 329.438 232.156 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
-			(at 327.66 228.092 90)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 327.66 229.87 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Resistor"
-			(at 327.66 229.87 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "LCSC" "C25804"
-			(at 327.66 229.87 270)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "2"
-			(uuid "a3b975cb-99f5-4a2c-af10-c8c1b16be48e")
-		)
-		(pin "1"
-			(uuid "c75a3313-84fc-40bc-809e-2a25b07b5499")
-		)
-		(instances
-			(project "sweetyaar-mainboard"
-				(path "/a2bc0001-0000-4000-8000-000000000001"
-					(reference "R_LED_BASE1")
 					(unit 1)
 				)
 			)
@@ -14640,7 +14072,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 355.6 231.14 0)
+		(at 353.06 224.79 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -14650,7 +14082,7 @@
 		(dnp no)
 		(uuid "78c3a227-2758-4eda-8009-6f1a97e3981f")
 		(property "Reference" "#PWR030"
-			(at 355.6 231.14 0)
+			(at 353.06 224.79 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14661,7 +14093,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 355.6 232.41 0)
+			(at 353.06 226.06 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14672,7 +14104,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 355.6 231.14 0)
+			(at 353.06 224.79 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -14682,7 +14114,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 355.6 231.14 0)
+			(at 353.06 224.79 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -14692,7 +14124,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 355.6 231.14 0)
+			(at 353.06 224.79 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -22555,127 +21987,6 @@
 		)
 	)
 	(symbol
-		(lib_id "Transistor_BJT:MMBT3904")
-		(at 336.55 229.87 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "d3daf74d-db11-4b44-be66-176c40457d0e")
-		(property "Reference" "Q_LED1"
-			(at 341.63 228.5999 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "MMBT3904"
-			(at 340.36 232.41 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
-			(at 341.63 231.775 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-					(italic yes)
-				)
-				(justify left)
-			)
-		)
-		(property "Datasheet" "https://www.onsemi.com/pdf/datasheet/pzt3904-d.pdf"
-			(at 336.55 229.87 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Description" "0.2A Ic, 40V Vce, Small Signal NPN Transistor, SOT-23"
-			(at 336.55 229.87 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "LCSC" "C20526"
-			(at 336.55 229.87 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Sim.Device" "NPN"
-			(at 336.55 229.87 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Sim.Pins" "1=B 2=E 3=C"
-			(at 336.55 229.87 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "3"
-			(uuid "27880a78-1de7-40e9-a900-1ee46c1a0128")
-		)
-		(pin "2"
-			(uuid "c5a59275-f409-49c3-886b-357e1f905204")
-		)
-		(pin "1"
-			(uuid "14fd2b63-72ed-49f7-9351-1afb4471e414")
-		)
-		(instances
-			(project "sweetyaar-mainboard"
-				(path "/a2bc0001-0000-4000-8000-000000000001"
-					(reference "Q_LED1")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "power:PWR_FLAG")
 		(at 60.96 62.23 0)
 		(unit 1)
@@ -23617,6 +22928,96 @@
 			(project "sweetyaar-mainboard"
 				(path "/a2bc0001-0000-4000-8000-000000000001"
 					(reference "J_BATT1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 354.33 218.44 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "f7d53ed4-4ec2-42d5-a9b5-e6543fcc4871")
+		(property "Reference" "R_LED_DIN1"
+			(at 353.06 220.98 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "301"
+			(at 356.616 216.916 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
+			(at 354.33 218.44 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 354.33 218.44 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 354.33 218.44 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C25192"
+			(at 354.33 218.44 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "11a1af46-6c41-4ac6-b17b-301c000f6d67")
+		)
+		(pin "2"
+			(uuid "9b951f48-7281-4037-8929-4f77a0e36f5f")
+		)
+		(instances
+			(project "sweetyaar-mainboard"
+				(path "/a2bc0001-0000-4000-8000-000000000001"
+					(reference "R_LED_DIN1")
 					(unit 1)
 				)
 			)

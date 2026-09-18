@@ -79,7 +79,7 @@ PCB.
 | 34 | `PIN_CHARGER_STAT1` | Input with external pull-up | BQ25185 `STAT1` | First charger-status bit; 10 kΩ pull-up to `3V3_AON`. |
 | 35 | `PIN_CHARGER_STAT2` | Input with external pull-up | BQ25185 `STAT2` | Second charger-status bit; 10 kΩ pull-up to `3V3_AON`. |
 | 36 | `PIN_BATTERY_ADC` | ADC1 input | Midpoint of the switched 634 kΩ / 200 kΩ `BAT` divider; the 200 kΩ lower leg is two series 100 kΩ resistors | Calibrated coarse battery-state measurement on ADC1_CH0. |
-| 2 | `PIN_STATUS_LED_DATA` | RMT output | 10 kΩ to the base of the status-LED MMBT3904 level shifter | Firmware waveform is inverted by default; the NPN restores normal addressable-LED polarity at `LED_DIN`. |
+| 2 | `PIN_STATUS_LED_DATA` | RMT output | WS2812B-V6 `DIN` through a series data resistor | Non-inverted 24-bit GRB; no NPN or pull-up to 5 V. Validate direct-drive logic margin. |
 
 GPIO16 and GPIO17 were released by the addressable status LED and are currently
 unassigned. No GPIO is currently assigned to I2C, charger control, an encoder,
@@ -205,7 +205,7 @@ disabled during deep sleep.
 | `SYS` | BQ25185 `SYS` output through the single hard-off switch | BQ25185 `SYS` bypass capacitor on the charger side of the switch; both TPS63802 regulator inputs and their 10 µF input capacitors on the disconnected side | Available from the battery or charging input while the hard-off switch is closed. Opening the switch disconnects the regulator feed even if USB or AUX is attached, while the battery remains connected to the charger and may still charge. |
 | `3V3_AON` | TPS63802 set to 3.3 V | TPS63802 22 µF output capacitor, ESP32 and its decoupling, 470 kΩ GPIO27 wake pull-up, 510 kΩ/91 kΩ regulator-feedback divider, and the disabled AP2281 input with its 1 µF capacitor | On. GPIO2 is released only after the switched 5 V rail is off. |
 | `3V3_PERIPH_SW` | AP2281-3WG-7 load switch | Bare microSD card and every SD pull-up | Off. |
-| `5V_PERIPH_SW` | TPS63802 set to 5 V, with true shutdown | MAX98357A, one addressable 5 mm status LED and its 1 kΩ data pull-up, plus future switchable 5 V peripherals that fit the validated power budget | Off. |
+| `5V_PERIPH_SW` | TPS63802 set to 5 V, with true shutdown | MAX98357A, one WS2812B-V6 addressable status LED, plus future switchable 5 V peripherals that fit the validated power budget | Off. |
 
 `5V_PERIPH_SW` is the general switched 5 V peripheral rail, not an
 amplifier-only net. Future loads may use it if the regulator's steady-state and
@@ -263,7 +263,7 @@ efficiency at very light load.
 | 3.3 V feedback divider | 510 kΩ from `3V3_AON` to `FB`, 91 kΩ from `FB` to GND | 3.302 V / 601 kΩ = 5.49 µA at `3V3_AON` | **5–7 µA battery-side** |
 | 470 kΩ vibration pull-up | Always on | 7 µA | **7 µA** |
 | GPIO13 100 kΩ pulldown | GPIO13 and all three controlled enable inputs held LOW | 0 V across the resistor; EN leakage is included in the two AP2281 rows and the 5 V TPS63802 row | **≈0 µA** |
-| Buttons and addressable indicator | Buttons released; `5V_PERIPH_SW` off; GPIO2 high-impedance after the rail is removed | The LED, 1 kΩ pull-up, and MMBT3904 collector are unpowered; the 10 kΩ base resistor has no driven voltage | **≈0 µA** |
+| Buttons and addressable indicator | Buttons released; `5V_PERIPH_SW` off; GPIO2 high-impedance after the rail is disabled | The LED is unpowered; no driven HIGH on DIN and no pull-up to an always-on rail | **≈0 µA** |
 | `STAT1` / `STAT2` inputs | Battery-only state is HIGH/HIGH through the two 10 kΩ pull-ups | BQ25185 high-level output leakage is 1 µA maximum per pin; include ESP32 input leakage | **≤2 µA, provisional** |
 | Always-powered ceramic capacitors | BQ25185 `BAT` 1 µF and `SYS` ≥10 µF; two TPS63802 10 µF input capacitors; 3.3 V TPS63802 22 µF output capacitor; SD-switch AP2281 `IN` 1 µF; battery-sense AP2281 `IN` 1 µF; ESP32 local decoupling | Dielectric insulation leakage; exact capacitor part numbers not selected | **≤2 µA combined, provisional** |
 | AP2281 SD load switch | Disabled; input powered | 0.01 µA typical | **≤1 µA** |
@@ -685,7 +685,7 @@ revision adds no SPI or I2S signal-isolation components.
 |---|---|
 | External USB-powered debugger ↔ ESP32 on `3V3_AON` | Rev A uses direct UART connections and the two-transistor EN/BOOT circuit without power-off isolation. This is accepted only under the operating rule that the debugger and target are both powered whenever the six-pin cable is attached. Disconnect the cable before removing either supply. The debugger never powers the target through `3V3_REF`. |
 | `3V3_AON` ↔ `3V3_PERIPH_SW` | Every SD pull-up belongs to the switched rail. Retain GPIO5 as the native VSPI `CS`. Firmware ends SPI, disables internal pulls, and makes the SPI pins inputs before driving `PERIPH_PWR_EN` LOW; on wake it enables the rail, waits for it to settle, and then reconfigures SPI. No SPI isolation buffer is planned. |
-| `3V3_AON` ↔ `5V_PERIPH_SW` | Production GPIO21 connects to `SD_MODE` only through 634 kΩ. The GPIO2 status-data crossing uses a 10 kΩ base resistor and MMBT3904 whose collector is pulled up to switched 5 V through 1 kΩ; the 5 V net never reaches GPIO2. Firmware establishes both inactive GPIO levels before enabling the rail. Before power-off it sends an LED-off frame, mutes the amplifier, ends I2S, disables the rail, and only then releases GPIO2. No I2S or LED isolation buffer is planned. |
+| `3V3_AON` ↔ `5V_PERIPH_SW` | Production GPIO21 connects to `SD_MODE` only through 634 kΩ. GPIO2 drives WS2812B-V6 DIN through the 301 Ω `R_LED_DIN1`, without an NPN or 5 V pull-up; validate direct-drive logic-HIGH margin. Firmware establishes both inactive GPIO levels before enabling the rail. Before power-off it sends an LED-off frame, mutes the amplifier, ends I2S, disables the rail, and only then releases GPIO2. No I2S or LED isolation buffer is planned. |
 | `5V_INPUT` ↔ `5V_PERIPH_SW` | These are different 5 V domains and must never be tied together. The switched peripheral boost output must provide true load disconnect and must not feed the external-input or charger path. |
 | Charge-status signals | Connect `STAT1` and `STAT2` only to ESP32 GPIO34 and GPIO35, using external pull-ups to `3V3_AON`. Include their leakage in the sleep audit. Do not add direct status LEDs to the BQ25185 outputs. |
 | `BAT` ↔ GPIO36 battery measurement | Feed the 634 kΩ / 200 kΩ divider through a second AP2281-3WG-7 whose `EN` is `PERIPH_PWR_EN`; implement the 200 kΩ lower leg as two series 100 kΩ resistors. This prevents `BAT` from driving the ADC while the ESP32 is unpowered and disconnects the divider in deep sleep. Do not measure `SYS` as a substitute. |
@@ -743,58 +743,63 @@ future option only if a reliable percentage or runtime estimate becomes useful.
 
 #### Addressable status LED
 
-The currently selected production indicator is the **WS2812D-F5-12mA-C1
-(LCSC C4154875)**, a 5 mm through-hole, 24-bit RGB LED on `5V_PERIPH_SW`.
-Its lead order is 1=`DOUT`, 2=`VDD`, 3=GND, 4=`DIN`, and its serial channel
-order is RGB. Verify the delivered batch against the
-[manufacturer's datasheet](https://www.ecsimple.com/files/0f/ws2812d-f5-12ma-c1.pdf)
-before assembly; through-hole addressable LEDs are not interchangeable by
-appearance alone. Firmware defaults match this 24-bit RGB selection;
-`SWEETYAAR_STATUS_LED_RGBW=1` instead selects a 32-bit
-SK6812-style RGBW device, and `SWEETYAAR_STATUS_LED_COLOR_ORDER_GRB=1` selects
-GRB or GRBW order. `DOUT` may be left unconnected or routed to a labeled test pad;
-it is the input for an optional second indicator later and needs no second
-ESP32 GPIO.
+The production indicator is **WS2812B-V6 (LCSC C52917433)**,
+a 5050 SMD, 24-bit RGB LED on `5V_PERIPH_SW`. Its pin order is 1=`VDD`,
+2=`DOUT`, 3=GND, 4=`DIN`, and its serial channel order is GRB. Verify the
+footprint and delivered batch against the
+[manufacturer's datasheet](https://datasheet.lcsc.com/datasheet/pdf/0689d8fd6dabfc7959e82552d4ffad8b.pdf?productCode=C52917433).
+This replaces the old WS2812D-F5-12mA-C1 through-hole LED and its inverting
+MMBT3904 stage; it is not a footprint-compatible swap. The schematic and
+production firmware now use the direct-data circuit below. Do not use the new
+non-inverted production firmware with an older NPN-based board.
 
-Use the same MMBT3904 already stocked for the debugger's transistor stages:
+Firmware explicitly selects `SWEETYAAR_STATUS_LED_RGBW=0`,
+`SWEETYAAR_STATUS_LED_COLOR_ORDER_GRB=1` and
+`SWEETYAAR_STATUS_LED_DATA_INVERTED=0` in the `sweetyaar` environment.
+`DOUT` is routed to `J_LED_EXT1` pin 2 for a future daisy-chained indicator;
+pin 1 supplies `5V_PERIPH_SW` and pin 3 is GND. The connector is DNP for
+assembly. Do not connect its 5 V data output to an ESP32 input. Firmware currently
+drives only the onboard pixel; enabling another status indicator requires code
+changes, not just increasing the pixel count (additional pixels are kept black).
+
+Current direct-data connection (`R_LED_DIN1`: 301 Ω, 0603, LCSC C25192):
 
 ```text
-GPIO2 ---- 10 kΩ ---- Q_LED1 base
-                         emitter ---- GND
-
-5V_PERIPH_SW ---- 1 kΩ ------+---- LED1 DIN
-                              |
-                         Q_LED1 collector
+GPIO2 ----------- 301 Ω ----------- LED1 DIN
 
 5V_PERIPH_SW ---------------------- LED1 VDD
 GND ------------------------------- LED1 GND
 LED1 VDD -------- 100 nF --------- LED1 GND
-LED1 DOUT ------------------------- no-connect (current one-LED build)
+LED1 DOUT ------------------------- J_LED_EXT1 pin 2 (optional extension)
 ```
 
-This open-collector stage both translates the data HIGH level to switched 5 V
-and inverts it. NeoPixelBus uses the ESP32 RMT peripheral with a configurable
-inverted waveform, so the two inversions cancel at `DIN`. `R_LED_PULLUP1`
-is **1 kΩ, UNI-ROYAL 0603WAF1001T5E (LCSC C21190), 0603, 1%, 100 mW**,
-from the same series as the former 4.7 kΩ part. The lower resistance reduces
-the collector's RC rise delay; transistor storage delay still needs measurement.
-The transistor sinks approximately 5 mA for a data LOW, including the normal
-powered idle state; the pull-up dissipates approximately 25 mW at 5 V.
-The unchanged 10 kΩ base resistor draws about 0.26 mA while GPIO2 is HIGH.
-Both paths are inactive in normal deep sleep. Do not connect the collector
-pull-up directly to GPIO2. Place the 100 nF ceramic capacitor at the LED leads.
+The LED's MMBT3904, 10 kΩ base resistor and 1 kΩ pull-up to 5 V are removed;
+the debugger's transistors are unrelated and remain unchanged. This eliminates
+the former approximately 5 mA powered-idle pull-up current and NPN storage delay.
+Keep 100 nF local decoupling. No external DIN pulldown is currently fitted;
+a weak 47–100 kΩ pulldown is an optional refinement to hold the input LOW while
+GPIO2 is high-impedance. Never pull GPIO2 up to 5 V.
+
+Direct-drive qualification remains required: V6 specifies `VIH = 0.55 × VDD`
+(2.75 V at 5 V), but the ESP32-WROOM-32E's minimum specified output HIGH is
+`0.8 × VDD` (2.64 V at 3.3 V). Thus a nominal 3.3 V signal meets the LED's
+threshold, but the two datasheets alone do not guarantee worst-case system
+margin. Validate supply tolerances, DIN levels and timing on the intended
+short connection; if adequate margin cannot be established, revisit the
+interface before production. Firmware timing changes do not fix voltage margin.
+See the [ESP32 module DC characteristics](https://www.espressif.com/sites/default/files/documentation/esp32-wroom-32e_esp32-wroom-32ue_datasheet_en.pdf).
 
 The production timing defaults are **T0H = 300 ns, T0L = 950 ns,
-T1H = 900 ns, T1L = 350 ns, reset LOW = 300 µs**. These target the
-WS2812D-F5-12mA-C1 timing specification; they do not establish compatibility
+T1H = 650 ns, T1L = 600 ns, reset LOW = 300 µs**. These target the
+WS2812B-V6 timing specification; they do not establish compatibility
 with every WS2812/SK6812 variant. Build flags independently configure T0H, T1H,
 the bit period, and reset time; see the firmware guide. The generic bench build
 retains its previous 400/850 ns zero, 800/450 ns one, and 80 µs reset.
-These are RMT-generated durations, not measured pulse widths after the NPN:
-the collector's RC rise and transistor storage time still require scope
-verification at `DIN`. The subsequent 1 kΩ pull-up selection does not change
-these firmware defaults or the selected LED. After PCBA, plan on firmware
-timing/frame adjustments and hand-soldered LED replacement only, not SMD rework.
+These are RMT-generated durations, not measured pulse widths at the LED:
+verify them at `DIN` after assembly. V6 requires T0H = 220–380 ns and
+T1H/T0L/T1L = 580–1000 ns; the previous 900/350 ns one-bit pulse violates
+its minimum LOW duration. The user cannot rework SMD components, so validate
+the new package, interface and enclosure optics before committing to assembly.
 
 The controller applies a global linear brightness cap to every RGB or RGBW
 channel, currently 50%. This is an appearance and normal-current limit, not a
@@ -809,12 +814,12 @@ Firmware prints the complete mode legend and exact on/off durations to the seria
 log at every boot; the canonical table and example output are in the firmware
 engineering guide.
 
-GPIO2 is an ESP32 boot-strapping pin, but the 5 V pull-up is isolated from it by
-the transistor and `5V_PERIPH_SW` remains off during reset. Firmware drives
-GPIO2 HIGH before enabling the switched rail, keeping physical `DIN` LOW until
+GPIO2 is an ESP32 boot-strapping pin; do not add a pull-up to 5 V, and keep
+`5V_PERIPH_SW` off during reset. Firmware drives
+GPIO2 LOW before enabling the switched rail, keeping physical `DIN` LOW until
 RMT owns the pin. Before sleep it sends a black frame while the LED is powered,
-disables the 5 V regulator, and then makes GPIO2 an input so the base resistor
-adds no intended sleep current. The rail's output capacitors discharge through
+disables the 5 V regulator, and then makes GPIO2 an input to avoid driving HIGH
+into the unpowered LED. The rail's output capacitors discharge through
 the remaining load; firmware does not wait for or measure a zero-volt rail.
 The amplifier is muted before regulator disable. GPIO16 and GPIO17 are now free.
 
@@ -823,7 +828,7 @@ this circuit. For the current direct GPIO2-to-`DIN` RGBW bench wiring, use
 `sweetyaar-generic`; it records the non-inverted waveform and 32-bit RGBW frame
 along with the board's other required overrides. Its tested channel order is
 GRBW. Validate the 3.3 V logic-HIGH margin against the externally powered LED.
-The production build continues to require the NPN and inverted RMT waveform.
+The production build uses non-inverted WS2812B-V6 data with a 24-bit GRB frame.
 If a different LED is selected later, record its overrides in the `sweetyaar`
 environment. Validate frame
 type, color order, inversion, and sleep sequencing before relying on the visual
@@ -935,7 +940,7 @@ the electronics enclosure is designed. Electrically, the PCB must include:
 | Song and animal buttons | Use one four-pin PCB connector arranged as `BTN_SONG`, GND, `BTN_ANIMAL`, GND. The two ground contacts join on the PCB, allowing four ordinary single-wire crimps and two independent two-wire button branches without a harness splice. |
 | Main power | Fit a physical latching **SPST pushbutton switch** on the enclosure as an exceptional safety/service control; deep sleep is normal. The complete switch body—not merely a remote actuator—mounts on the enclosure. Place it in series between BQ25185 `SYS` and the regulator inputs; leave `BAT+` permanently connected to BQ25185 `BAT`. Connect the switch to the PCB with two conductors and a two-pin connector. The switch and every harness contact must carry the validated current with margin. |
 | Vibration wake | The normally-closed vibration switch is soldered directly onto the PCB. Exact part and footprint remain schematic/BOM selections; its physical orientation follows enclosure design. |
-| Indicators | Route BQ25185 `STAT1`/`STAT2` only to ESP32 GPIO34/GPIO35. Fit one 5 mm through-hole addressable RGB or RGBW status LED on `5V_PERIPH_SW`, with 100 nF local decoupling and the GPIO2/10 kΩ/MMBT3904/1 kΩ open-collector level shifter. Verify the selected part's frame type, lead order, and color order; preserve or test-pad `DOUT` for a future daisy-chained indicator. |
+| Indicators | Route BQ25185 `STAT1`/`STAT2` only to ESP32 GPIO34/GPIO35. Target one WS2812B-V6 (C52917433, 5050 SMD) on `5V_PERIPH_SW`, with 100 nF local decoupling and GPIO2 driving DIN through a series data resistor, without the old NPN/5 V pull-up. Verify direct-drive voltage margin, footprint, 24-bit GRB order and timing; preserve or test-pad `DOUT` for a future daisy-chained indicator. |
 | Programming/test | Use six exposed surface contact pads on 2.54 mm centers (`SweetYaar:DebuggerPad_1x06_P2.54mm`), without holes or solder-paste apertures. Nothing is soldered onto the mainboard here: header pins or pogo pins on the debugger/fixture temporarily touch the pads. Contacts 1–6 are `3V3_REF`, GND, GPIO1/`UART_TXD`, GPIO3/`UART_RXD`, `ESP_EN`, and GPIO0/BOOT. The external debugger supplies CP2102N USB-to-UART and automatic-download control. |
 
 The auxiliary source is physically separate from the main PCB but remains
@@ -1052,12 +1057,12 @@ the AP2281-switched 634 kΩ / 200 kΩ divider on GPIO36, with the 200 kΩ lower
 leg implemented as two series 100 kΩ resistors.
 
 Exact connector models and regulator passives are schematic/BOM selections
-that must satisfy the fixed behavior above. The selected WS2812D-F5-12mA-C1
-remains a batch-verification item: confirm its pinout, 24-bit RGB frame,
-RGB channel order, logic timing, and full-white current on the
-purchased batch. The indicator
-architecture and its MMBT3904, 10 kOhm base resistor, 4.7 kOhm pull-up, and
-100 nF decoupling are fixed. The deep-sleep calculation and production current
+that must satisfy the fixed behavior above. The selected WS2812B-V6 remains
+a hardware-verification item: confirm its SMD
+footprint, 24-bit GRB frame, direct-drive voltage margin, logic timing and
+full-white current on the purchased batch. Keep the local 100 nF decoupling;
+the old MMBT3904/base-resistor/pull-up interface is no longer the target design.
+The deep-sleep calculation and production current
 measurements are verification work. They can force a component change if a
 limit is missed, but they are not additional product-feature decisions.
 
@@ -1111,7 +1116,7 @@ Current enclosure requirements and open mechanical work are:
   access, retention, cable routing, strain relief, and service access. The
   switch and both harness contacts must satisfy their electrical and mechanical
   ratings.
-- The 5 mm through-hole addressable RGB or RGBW status LED must be visible from outside. Its
+- The WS2812B-V6 SMD addressable RGB status LED must be visible from outside. Its
   position, diffuser or light pipe, brightness limit, and color/flash-state
   legend must be designed at the same time.
 - The optional wireless receiver—complete coil, ferrite shielding, rectifier,

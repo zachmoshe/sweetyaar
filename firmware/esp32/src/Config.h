@@ -51,11 +51,12 @@ static constexpr uint32_t BATTERY_DIVIDER_TOP_OHMS = 634000;
 static constexpr uint32_t BATTERY_DIVIDER_BOTTOM_OHMS = 200000;
 
 // --- Status LED -------------------------------------------------------------
-// One WS2812/SK6812-compatible addressable RGB or RGBW LED. Production hardware
-// level-shifts GPIO2 through an inverting MMBT3904 stage, so the RMT waveform
-// is inverted in firmware by default and arrives non-inverted at LED DIN.
+// Production fallback: WS2812B-V6, 24-bit GRB, driven directly from GPIO2.
+// Board-specific selections are explicit in platformio.ini. Inversion remains
+// available for hardware with an inverting level shifter; neither current
+// environment uses it.
 #ifndef SWEETYAAR_STATUS_LED_DATA_INVERTED
-#define SWEETYAAR_STATUS_LED_DATA_INVERTED 1
+#define SWEETYAAR_STATUS_LED_DATA_INVERTED 0
 #endif
 
 #if SWEETYAAR_STATUS_LED_DATA_INVERTED != 0 && SWEETYAAR_STATUS_LED_DATA_INVERTED != 1
@@ -72,10 +73,10 @@ static constexpr uint32_t BATTERY_DIVIDER_BOTTOM_OHMS = 200000;
 #error "SWEETYAAR_STATUS_LED_MAX_BRIGHTNESS_PCT must be in the range 0..100"
 #endif
 
-// Select RGB instead of GRB channel order. With an RGBW device the equivalent
-// choices are RGBW and GRBW. Verify the actual LED batch before production.
+// WS2812B-V6 sends GRB (1); select RGB with 0. With an RGBW device the equivalent
+// choices are GRBW and RGBW. Verify the actual LED batch before production.
 #ifndef SWEETYAAR_STATUS_LED_COLOR_ORDER_GRB
-#define SWEETYAAR_STATUS_LED_COLOR_ORDER_GRB 0
+#define SWEETYAAR_STATUS_LED_COLOR_ORDER_GRB 1
 #endif
 
 #if SWEETYAAR_STATUS_LED_COLOR_ORDER_GRB != 0 && SWEETYAAR_STATUS_LED_COLOR_ORDER_GRB != 1
@@ -90,6 +91,38 @@ static constexpr uint32_t BATTERY_DIVIDER_BOTTOM_OHMS = 200000;
 
 #if SWEETYAAR_STATUS_LED_RGBW != 0 && SWEETYAAR_STATUS_LED_RGBW != 1
 #error "SWEETYAAR_STATUS_LED_RGBW must be 0 or 1"
+#endif
+
+// WS2812B-V6 waveform at DIN: zero 300/950 ns, one 650/600 ns, reset 300 us.
+// V6 specifies T0H=220..380 ns, T1H/T0L/T1L=580..1000 ns, bit >=1250 ns,
+// and reset >280 us. Timing is independent of frame width, order and inversion.
+// The ESP32 RMT backend uses 25 ns ticks; reject unrepresentable durations.
+#ifndef SWEETYAAR_STATUS_LED_T0H_NS
+#define SWEETYAAR_STATUS_LED_T0H_NS 300
+#endif
+#ifndef SWEETYAAR_STATUS_LED_T1H_NS
+#define SWEETYAAR_STATUS_LED_T1H_NS 650
+#endif
+#ifndef SWEETYAAR_STATUS_LED_BIT_NS
+#define SWEETYAAR_STATUS_LED_BIT_NS 1250
+#endif
+#ifndef SWEETYAAR_STATUS_LED_RESET_US
+#define SWEETYAAR_STATUS_LED_RESET_US 300
+#endif
+
+#if SWEETYAAR_STATUS_LED_T0H_NS <= 0 || SWEETYAAR_STATUS_LED_T1H_NS <= 0 || \
+    SWEETYAAR_STATUS_LED_T0H_NS >= SWEETYAAR_STATUS_LED_BIT_NS || \
+    SWEETYAAR_STATUS_LED_T1H_NS >= SWEETYAAR_STATUS_LED_BIT_NS || \
+    SWEETYAAR_STATUS_LED_BIT_NS > 65535
+#error "Status LED high/low durations must be positive and the bit period <= 65535 ns"
+#endif
+#if SWEETYAAR_STATUS_LED_T0H_NS % 25 != 0 || SWEETYAAR_STATUS_LED_T1H_NS % 25 != 0 || \
+    SWEETYAAR_STATUS_LED_BIT_NS % 25 != 0
+#error "Status LED pulse timings must be multiples of 25 ns"
+#endif
+// The final RMT item's reset duration occupies a 15-bit counter.
+#if SWEETYAAR_STATUS_LED_RESET_US < 1 || SWEETYAAR_STATUS_LED_RESET_US > 819
+#error "SWEETYAAR_STATUS_LED_RESET_US must be in the range 1..819"
 #endif
 
 #ifndef SWEETYAAR_STATUS_LED_PIXEL_COUNT

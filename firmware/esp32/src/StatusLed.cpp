@@ -22,19 +22,39 @@ using StatusLedFeature = NeoRgbFeature;
 using StatusLedPixelColor = RgbColor;
 #endif
 
-#if SWEETYAAR_STATUS_LED_RGBW
 #if SWEETYAAR_STATUS_LED_DATA_INVERTED
-using StatusLedMethod = NeoEsp32Rmt0Sk6812InvertedMethod;
+using StatusLedRmtSpeedBase = NeoEsp32RmtInvertedSpeedBase;
 #else
-using StatusLedMethod = NeoEsp32Rmt0Sk6812Method;
+using StatusLedRmtSpeedBase = NeoEsp32RmtSpeedBase;
 #endif
-#else
-#if SWEETYAAR_STATUS_LED_DATA_INVERTED
-using StatusLedMethod = NeoEsp32Rmt0Ws2812xInvertedMethod;
-#else
-using StatusLedMethod = NeoEsp32Rmt0Ws2812xMethod;
-#endif
-#endif
+
+// Keep the translator non-template and its definition out of the class, as in
+// NeoPixelBus's built-in RMT speeds, to preserve ESP32 IRAM placement.
+class StatusLedRmtSpeed : public StatusLedRmtSpeedBase {
+public:
+    const static DRAM_ATTR uint32_t RmtBit0 = Item32Val(
+        SWEETYAAR_STATUS_LED_T0H_NS,
+        SWEETYAAR_STATUS_LED_BIT_NS - SWEETYAAR_STATUS_LED_T0H_NS);
+    const static DRAM_ATTR uint32_t RmtBit1 = Item32Val(
+        SWEETYAAR_STATUS_LED_T1H_NS,
+        SWEETYAAR_STATUS_LED_BIT_NS - SWEETYAAR_STATUS_LED_T1H_NS);
+    const static DRAM_ATTR uint16_t RmtDurationReset =
+        FromNs(SWEETYAAR_STATUS_LED_RESET_US * 1000UL);
+
+    static void IRAM_ATTR Translate(const void* src, rmt_item32_t* dest,
+                                   size_t srcSize, size_t wantedNum,
+                                   size_t* translatedSize, size_t* itemNum);
+};
+
+void IRAM_ATTR StatusLedRmtSpeed::Translate(
+    const void* src, rmt_item32_t* dest, size_t srcSize, size_t wantedNum,
+    size_t* translatedSize, size_t* itemNum) {
+    _translate(src, dest, srcSize, wantedNum, translatedSize, itemNum,
+               RmtBit0, RmtBit1, RmtDurationReset);
+}
+
+using StatusLedMethod =
+    NeoEsp32RmtMethodBase<StatusLedRmtSpeed, NeoEsp32RmtChannel0>;
 
 using StatusLedBus = NeoPixelBus<StatusLedFeature, StatusLedMethod>;
 StatusLedBus pixels(STATUS_LED_PIXEL_COUNT, PIN_STATUS_LED_DATA);

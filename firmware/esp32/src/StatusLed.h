@@ -12,8 +12,8 @@ class StatusLed {
 public:
     StatusLed();
 
-    // Call before enabling 5V_PERIPH_SW. It establishes the inactive GPIO
-    // level so the NPN collector cannot generate a spurious LED data edge.
+    // Call before enabling 5V_PERIPH_SW. Establishes inactive DIN (LOW for
+    // direct drive) to avoid back-powering or a spurious edge during power-up.
     void prepareForPeripheralPowerOn();
 
     // Call after 5V_PERIPH_SW has settled.
@@ -35,8 +35,8 @@ public:
     // Send an explicit black frame while 5V_PERIPH_SW is still powered.
     void prepareForPeripheralPowerOff();
 
-    // Call only after 5V_PERIPH_SW is off; releases GPIO2 so the 10 kOhm NPN
-    // base resistor cannot draw current during deep sleep.
+    // Call only after 5V_PERIPH_SW is disabled; releases GPIO2 to high-Z so
+    // firmware cannot drive HIGH into the unpowered LED during deep sleep.
     void releaseAfterPeripheralPowerOff();
 
 private:

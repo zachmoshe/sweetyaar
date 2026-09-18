@@ -148,15 +148,21 @@ controls remain unavailable until the A2DP session ends.
 
 ## Status indicator
 
-The production status indicator is one addressable RGB or RGBW LED driven from
-GPIO2 through an inverting MMBT3904 level shifter. NeoPixelBus uses ESP32 RMT
-channel 0 and an inverted output method by default; the hardware and RMT
-inversions cancel at the LED. The `sweetyaar-generic` environment instead sets
-`SWEETYAAR_STATUS_LED_DATA_INVERTED=0` for a bench LED whose `DIN` is connected
-directly to GPIO2. This changes waveform polarity only; it does not provide the
-input-HIGH voltage margin of the production level shifter.
+The production status indicator is one **WS2812B-V6 (LCSC C52917433)**,
+a 5050 SMD, 24-bit RGB LED with GRB serial channel order. GPIO2 drives `DIN`
+without an inverting transistor. NeoPixelBus uses ESP32 RMT channel 0 with
+`SWEETYAAR_STATUS_LED_DATA_INVERTED=0`. The `sweetyaar-generic` environment
+also uses non-inverted direct drive, but retains its existing RGBW/GRBW bench LED
+and timings. Inversion remains configurable for other hardware.
 
-`SWEETYAAR_STATUS_LED_RGBW` selects the wire protocol and pixel width. Leave it
+These production settings require the revised direct-DIN schematic, not the old
+WS2812D/MMBT3904 circuit. The schematic now connects GPIO2 through 301 Ω to DIN. Verify
+logic-HIGH margin and the waveform on the assembled board: configuring polarity
+and timing does not validate the electrical connection. Only the onboard pixel
+receives status colors; an additional LED on `J_LED_EXT1` requires code changes,
+because increasing the pixel count alone leaves additional pixels black.
+
+`SWEETYAAR_STATUS_LED_RGBW` selects the pixel width, independently of timing. Leave it
 at `0` for a 24-bit WS2812-style RGB device, or set it to `1` for a 32-bit
 SK6812-style RGBW device. `SWEETYAAR_STATUS_LED_COLOR_ORDER_GRB` independently
 selects the channel order:
@@ -173,6 +179,32 @@ channel at zero, so choosing RGBW does not change their appearance. A future
 pattern can set white independently; on an RGB-only build, a requested logical
 white is reproduced by mixing it into red, green, and blue. Verify both frame
 type and channel order against the actual LED batch.
+
+LED pulse timing is independently configurable with PlatformIO build flags:
+
+| Build flag | Production default | `sweetyaar-generic` |
+|---|---:|---:|
+| `SWEETYAAR_STATUS_LED_T0H_NS` | 300 ns | 400 ns |
+| `SWEETYAAR_STATUS_LED_T1H_NS` | 650 ns | 800 ns |
+| `SWEETYAAR_STATUS_LED_BIT_NS` | 1250 ns | 1250 ns |
+| `SWEETYAAR_STATUS_LED_RESET_US` | 300 µs | 80 µs |
+
+T0L and T1L are the bit period minus their respective HIGH durations. Production
+therefore uses 300/950 ns for zero and 650/600 ns for one, targeting the
+[WS2812B-V6 datasheet](https://datasheet.lcsc.com/datasheet/pdf/0689d8fd6dabfc7959e82552d4ffad8b.pdf?productCode=C52917433)
+(V1.1, page 4): T0H = 220–380 ns; T1H, T0L and T1L = 580–1000 ns;
+bit period ≥1250 ns; reset >280 µs. The former 900/350 ns one-bit pulse does
+not meet the V6 minimum LOW duration. The generic environment explicitly retains
+the previous SK6812 waveform. For example, change the relevant environment's
+existing T0H flag to `-DSWEETYAAR_STATUS_LED_T0H_NS=350` in `build_flags`
+to change that HIGH pulse (and its complementary LOW pulse). These are
+compile-time settings; frame width, channel order, and inversion remain separate.
+Pulse durations must be positive multiples of the RMT's 25 ns tick, with HIGH
+shorter than the bit period; the bit period is limited to 65535 ns by the backend
+encoding helper, and reset to 1–819 µs by its 15-bit RMT counter. These are
+encoding limits, not a claim that every allowed value matches an LED protocol.
+Verify actual pulse widths and voltage levels at LED `DIN` on hardware before
+accepting the production LED and its wiring.
 
 `StatusLed` applies one maximum-brightness percentage uniformly to every
 available color channel, preserving each pattern's color. It defaults to 50% through
@@ -258,7 +290,7 @@ forever.
 Before sleeping, the firmware sends a black status-LED frame while switched 5 V
 is still present, stops playback, mutes the amplifier, closes the SD, SPI, and
 I2S interfaces, and turns off the switched peripheral power. It then releases
-GPIO2 so the NPN base path draws no sleep current. The
+GPIO2 to high-impedance so it cannot drive HIGH into the unpowered LED. The
 normally-closed vibration switch is the wake source. Waking from deep sleep is
 a full reboot: Bluetooth connections, the current track, loop mode, and manual
 Bedtime overrides are not restored.
@@ -306,11 +338,17 @@ There are two PlatformIO build environments, one per supported board design:
 - `sweetyaar` is the default and targets the production SweetYaar PCB.
 - `sweetyaar-generic` targets the current generic prototype board setup. It
   includes every required override, including its directly wired 32-bit
-  RGBW/SK6812-style LED. Its tested channel order is GRBW.
+  RGBW/SK6812-style LED. Its tested channel order is GRBW, with the preserved
+  400 ns T0H / 800 ns T1H / 1250 ns bit / 80 µs reset timing.
 
-The production environment currently inherits the provisional RGB default from
-`Config.h`. Once the production LED is selected, set its RGB/RGBW and channel
-order flags in the `sweetyaar` environment rather than adding another target.
+The production environment explicitly selects non-inverted, 24-bit GRB and
+300 ns T0H / 650 ns T1H / 1250 ns bit / 300 µs reset timing for WS2812B-V6.
+`Config.h` has matching fallback values. Both environments share only common
+compiler flags through `[common]`; the generic build does not inherit production
+LED flags and redefine them. If the LED selection changes, update the frame,
+channel-order, inversion, and timing flags in the appropriate environment rather
+than adding another target. The controller-wide brightness cap remains 50%
+pending enclosure testing.
 
 The PlatformIO board identifier is `esp32dev` for both because both use the
 original ESP32-WROOM-32; that identifier is a build-system detail, not a third

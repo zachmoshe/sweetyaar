@@ -241,8 +241,8 @@ void setup() {
                       ? "HIGH (generic board)"
                       : "LOW (production board)");
     setupWakeState();
-    // The NPN input must be driven to its inactive level before its collector
-    // pull-up and the addressable LED receive power from 5V_PERIPH_SW.
+    // Keep LED DIN inactive before 5V_PERIPH_SW starts. With direct drive this
+    // is LOW, avoiding back-powering the LED through its input.
     statusLed.prepareForPeripheralPowerOn();
     setupPeripheralPower();
 
