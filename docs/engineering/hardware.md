@@ -602,7 +602,7 @@ USB_VBUS ---------------- TPS2116 VIN1 (priority) --+
                                                      +---- TPS2116 VOUT ---- 5V_INPUT ---- BQ25185 IN
 off-board regulated 5 V -- AUX_5V_IN -- VIN2 -------+
 
-DEBUGGER_USB_VBUS ---- external debugger CP2102N ---- J_PROG1 ---- ESP32 UART0/EN/BOOT
+DEBUGGER_USB_VBUS ---- external debugger CH340C ---- J_PROG1 ---- ESP32 UART0/EN/BOOT
 ```
 
 `AUX_5V_IN` is a power-only input from a separate module mounted inside the
@@ -941,7 +941,7 @@ the electronics enclosure is designed. Electrically, the PCB must include:
 | Main power | Fit a physical latching **SPST pushbutton switch** on the enclosure as an exceptional safety/service control; deep sleep is normal. The complete switch body—not merely a remote actuator—mounts on the enclosure. Place it in series between BQ25185 `SYS` and the regulator inputs; leave `BAT+` permanently connected to BQ25185 `BAT`. Connect the switch to the PCB with two conductors and a two-pin connector. The switch and every harness contact must carry the validated current with margin. |
 | Vibration wake | The normally-closed vibration switch is soldered directly onto the PCB. Exact part and footprint remain schematic/BOM selections; its physical orientation follows enclosure design. |
 | Indicators | Route BQ25185 `STAT1`/`STAT2` only to ESP32 GPIO34/GPIO35. Target one WS2812B-V6 (C52917433, 5050 SMD) on `5V_PERIPH_SW`, with 100 nF local decoupling and GPIO2 driving DIN through a series data resistor, without the old NPN/5 V pull-up. Verify direct-drive voltage margin, footprint, 24-bit GRB order and timing; preserve or test-pad `DOUT` for a future daisy-chained indicator. |
-| Programming/test | Use six exposed surface contact pads on 2.54 mm centers (`SweetYaar:DebuggerPad_1x06_P2.54mm`), without holes or solder-paste apertures. Nothing is soldered onto the mainboard here: header pins or pogo pins on the debugger/fixture temporarily touch the pads. Contacts 1–6 are `3V3_REF`, GND, GPIO1/`UART_TXD`, GPIO3/`UART_RXD`, `ESP_EN`, and GPIO0/BOOT. The external debugger supplies CP2102N USB-to-UART and automatic-download control. |
+| Programming/test | Use six exposed surface contact pads on 2.54 mm centers (`SweetYaar:DebuggerPad_1x06_P2.54mm`), without holes or solder-paste apertures. Nothing is soldered onto the mainboard here: header pins or pogo pins on the debugger/fixture temporarily touch the pads. Contacts 1–6 are `3V3_REF`, GND, GPIO1/`UART_TXD`, GPIO3/`UART_RXD`, `ESP_EN`, and GPIO0/BOOT. The external debugger supplies CH340C USB-to-UART and automatic-download control. |
 
 The auxiliary source is physically separate from the main PCB but remains
 inside the device enclosure. If the source is a power-only USB-C daughterboard
@@ -981,9 +981,29 @@ rather than an electronic shutdown commanded through load-switch inputs.
 
 The mainboard USB-C connector is power-only. Its `VBUS` pins feed the charging
 path, while its USB data pins are intentionally unconnected. Firmware download
-and live serial logs use a separate debugger board containing the CP2102N and
-its own USB-C connector. The debugger does not connect its USB `VBUS` or its
-CP2102N `VDD` to the target.
+and live serial logs use a separate debugger board containing a CH340C
+(LCSC C7464026, SOP-16), matching the generic board, and its own USB-C connector.
+USB `VBUS` feeds an XC6206P332MR-G (C5446, SOT-23-3), which generates the
+debugger-only `3V3_DEBUG` supply. Connect both CH340C pin 16 `VCC` and pin 4 `V3`
+to this rail; this is the datasheet's external 3.3 V configuration and keeps its
+UART outputs at ESP32-compatible levels. Do not power CH340C `VCC` directly
+from 5 V in this direct-UART design. The debugger does not connect its USB
+`VBUS` or `3V3_DEBUG` supply to the target.
+
+CH340C uses the project symbol `SweetYaar:CH340C_3V3`, based on KiCad's CH340C
+symbol with `V3` defined as a power input for this supply configuration.
+Its footprint is `Package_SO:SOIC-16_3.9x9.9mm_P1.27mm`. Pin 1 is GND, pin 15
+`R232` is tied to GND for normal UART polarity, and unused modem pins and
+pin 8 `OUT#` are left unconnected. No external crystal, VBUS-sense divider,
+or reset pull-up is needed.
+
+`C4` at the regulator input and `C2` at its output are both 2.2 µF, 25 V X7R
+0805, C126591, matching the mainboard; these provide margin over the regulator's
+1 µF application-circuit capacitors. `C3` is a local 100 nF capacitor beside
+CH340C pins 16/4. `C1` decouples the USB ESD device. Both 100 nF capacitors use
+the mainboard's 50 V X7R 0603 C14663. All debugger resistors are 0603, 1%:
+`R_CC1/R_CC2` are 5.1 kΩ C23186, `R_DTR1/R_RTS1` are 10 kΩ C25804, and the
+green indicator's `R1` is 301 Ω C25192. These are all existing mainboard parts.
 
 The six programming contacts are **bare surface pads on 2.54 mm centers**,
 using `SweetYaar:DebuggerPad_1x06_P2.54mm`. There are no through-holes and no
@@ -993,14 +1013,18 @@ contacts reliably throughout flashing. The pads expose copper through the
 solder mask but have no `F.Paste` apertures, so the assembly stencil does not
 deposit solder paste on them. Contacts 1–6 are
 `3V3_REF`, GND, target GPIO1/`UART_TXD`, target GPIO3/`UART_RXD`, `ESP_EN`, and
-GPIO0/BOOT. `3V3_REF` is sense-only: on the debugger it powers only the
-2.2 kΩ series indicator LED and must never be driven back into the target.
-The UART directions cross normally: CP2102N `RXD` receives target `UART_TXD`,
-and CP2102N `TXD` drives target `UART_RXD`.
+GPIO0/BOOT. `3V3_REF` is sense-only: on the debugger it powers only the green
+KT-0805G indicator LED (C2297, 0805) through 301 Ω and must never be driven
+back into the target. The UART directions cross normally: CH340C pin 3 `RXD`
+receives target `UART_TXD`, and pin 2 `TXD` drives target `UART_RXD`.
 
-The debugger routes CP2102N `DTR` and `RTS` through Espressif's two-transistor
-automatic-download circuit to target `EN` and BOOT. Its DPST serial-only switch
-disconnects those two automatic-reset controls when desired; UART TX/RX remain
+The debugger routes CH340C pin 13 `DTR#` and pin 14 `RTS#` through Espressif's
+two-transistor automatic-download circuit to target `EN` and BOOT. SW1 is the
+generic board's MS-22D28-G020 DPDT slide switch (C963205), using the matching
+`SweetYaar:SW-SMD_MS-22D28-G020` footprint as a two-pole disconnect. Pins 1–2
+connect `ESP_EN` to `TARGET_EN`, and pins 6–5 connect BOOT to `TARGET_BOOT`;
+pins 3 and 4 are unused. These two selected contact pairs close together in
+one position and open together in the serial-only position. UART TX/RX remain
 connected. The target retains the recommended 10 kΩ/1 µF `ESP_EN` network and
 10 kΩ GPIO0 pull-up. Reserve GPIO0 for automatic download control and do not
 attach another production peripheral to it.
@@ -1015,23 +1039,23 @@ itself provide power-off isolation.
 Rev A also deliberately omits UART power-off isolation. Whenever the six-pin
 cable is attached, **power both the target and debugger continuously**. Power
 both boards before attaching the cable, and disconnect the cable before
-removing either supply. With both devices powered, static UART input current is
-only leakage-scale; the CP2102N specifies at most 1.1 µA for an in-range input,
-while the CP2102N itself typically consumes about 9.5 mA from debugger USB
-during normal operation. The target-reference LED additionally draws roughly
-`(3.3 V - LED_VF) / 2.2 kΩ`, typically well below 1 mA.
+removing either supply. CH340C specifies about 4 mA typical, 12 mA maximum
+operating current in its 3.3 V configuration, supplied from debugger USB through
+the regulator. Its RXD includes an internal pull-up, so do not describe all
+static input current as leakage-only. The target-reference LED additionally
+draws roughly `(3.3 V - LED_VF) / 301 Ω` from the target, approximately
+0.7–2.3 mA using the LED's listed 2.6–3.1 V forward-voltage range; actual current
+and brightness depend on its low-current forward characteristic.
 
 If this operating rule is broken, the direct output-to-unpowered-input current
 is not bounded to a small, guaranteed value by either datasheet. A powered
-target can drive 3.3 V into an unpowered CP2102N `RXD`; with `VIO = 0`, that
-exceeds the CP2102N's `VIO + 2.5 V` absolute-maximum input voltage. A powered
-debugger can similarly inject current from CP2102N `TXD` into an unpowered
-ESP32 and partially back-power its 3.3 V domain. Actual current depends on
-internal protection structures and other rail loads and may be several
-milliamps or more; do not treat the datasheet's normal input-leakage number as a
-fault-current limit. A brief mistake may merely cause phantom powering or bad
-reset behavior, but it is outside the supported operating condition and is not
-guaranteed harmless.
+target can drive an unpowered CH340C `RXD`; the general CH340 input limit is
+`VCC + 0.5 V`, and this design does not depend on the lot-specific inward-current
+protection described for newer CH340C silicon. A powered debugger can similarly
+inject current from CH340C `TXD` into an unpowered ESP32 and partially back-power
+its 3.3 V domain. Actual current depends on internal protection structures and
+other rail loads; normal input-current specifications are not fault-current
+limits. Keep both boards powered while connected.
 
 Add USB ESD protection on the debugger and route its `D+` and `D-` as a short
 controlled differential pair. Keep the debugger disconnected during
@@ -1042,7 +1066,8 @@ persistent log buffer.
 Programming-interface references: [ESP32 UART hardware guidance](https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32/schematic-checklist.html#uart),
 [ESP32 boot-mode and automatic-download behavior](https://docs.espressif.com/projects/esptool/en/latest/esp32/advanced-topics/boot-mode-selection.html),
 [ESP32-DevKitC reference schematic](https://dl.espressif.com/dl/schematics/esp32_devkitc_v4_sch.pdf),
-and [CP2102N datasheet](https://www.silabs.com/documents/public/data-sheets/cp2102n-datasheet.pdf).
+and [CH340 datasheet](https://www.wch-ic.com/downloads/CH340DS1_PDF.html).
+Debugger regulator reference: [XC6206 datasheet](https://product.torexsemi.com/system/files/series/xc6206.pdf).
 
 The TPS2116 closes the USB-priority source-mux selection. During schematic and
 layout review, verify the divider threshold, both 1 µF input capacitors, the
@@ -1178,7 +1203,7 @@ connecting an 18650 cell or speaker. A practical order is:
    expected input current, and no voltage at the mainboard USB-C receptacle.
    Repeat with the intended off-board module and its production cable, confirming
    that the mainboard input remains at or below 5.5 V during startup and normal
-   operation. The external debugger and its CP2102N supply remain electrically
+   operation. The external debugger and its CH340C supply remain electrically
    separate from this power-path test.
 3. Connect USB and AUX together, verify that USB takes priority,
    and measure reverse current into both sources. Do not rely only on voltage.

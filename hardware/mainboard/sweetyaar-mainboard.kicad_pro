@@ -690,7 +690,7 @@
         "uuid": "a2bc0001-0000-4000-8000-000000000001"
       }
     ],
-    "used_designators": "D2",
+    "used_designators": "R1,R_ISET3,D2",
     "variants": []
   },
   "sheets": [
