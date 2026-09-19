@@ -18134,7 +18134,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C861504"
+		(property "LCSC" "C65831"
 			(at 341.63 171.45 0)
 			(hide yes)
 			(show_name no)
@@ -19269,7 +19269,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C861504"
+		(property "LCSC" "C65831"
 			(at 152.4 269.24 90)
 			(hide yes)
 			(show_name no)
