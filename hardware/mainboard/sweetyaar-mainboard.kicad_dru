@@ -1,0 +1,28 @@
+(version 1)
+
+# JLCPCB, four-layer FR-4 with 1 oz copper. Reviewed 2026-09-20.
+# https://jlcpcb.com/capabilities/pcb-capabilities
+# Component lead holes have different limits from vias. Heatsink pads are
+# footprint thermal vias, so do not apply component lead-hole limits to them.
+
+(rule "JLCPCB component PTH to inner copper"
+  (layer inner)
+  (condition "A.Type == 'Pad' && A.Pad_Type == 'Through-hole' && A.Fabrication_Property != 'Heatsink pad'")
+  (constraint hole_clearance (min 0.30mm)))
+
+(rule "JLCPCB component PTH to outer track"
+  (layer outer)
+  (condition "A.Type == 'Pad' && A.Pad_Type == 'Through-hole' && A.Fabrication_Property != 'Heatsink pad' && B.Type == 'Track'")
+  (constraint hole_clearance (min 0.28mm)))
+
+(rule "JLCPCB component pad hole spacing"
+  (condition "A.Type == 'Pad' && A.Pad_Type == 'Through-hole' && A.Fabrication_Property != 'Heatsink pad' && B.Type == 'Pad' && B.Pad_Type == 'Through-hole' && B.Fabrication_Property != 'Heatsink pad'")
+  (constraint hole_to_hole (min 0.45mm)))
+
+(rule "JLCPCB component PTH annular ring"
+  (condition "A.Type == 'Pad' && A.Pad_Type == 'Through-hole' && A.Fabrication_Property != 'Heatsink pad'")
+  (constraint annular_width (min 0.15mm)))
+
+(rule "JLCPCB round NPTH diameter"
+  (condition "A.Type == 'Pad' && A.Pad_Type == 'NPTH, mechanical' && A.Hole_Size_X == A.Hole_Size_Y")
+  (constraint hole_size (min 0.50mm)))

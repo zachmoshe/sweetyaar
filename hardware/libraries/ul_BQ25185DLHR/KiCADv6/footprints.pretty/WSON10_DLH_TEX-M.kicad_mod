@@ -43,4 +43,9 @@
   (pad "9" smd rect (at 1.1811 -0.40005) (size 0.762 0.2032) (layers "F.Cu" "F.Paste" "F.Mask"))
   (pad "10" smd rect (at 1.1811 -0.8001) (size 0.762 0.2032) (layers "F.Cu" "F.Paste" "F.Mask"))
   (pad "11" smd rect (at 0 0) (size 0.9906 1.6002) (layers "F.Cu" "F.Paste" "F.Mask"))
+	(model "${KICAD10_3DMODEL_DIR}/Package_DFN_QFN.3dshapes/Texas_DLH0010A_WSON-10-1EP_2.2x2mm_P0.4mm_EP0.9x1.5mm.step"
+		(offset (xyz 0 0 0))
+		(scale (xyz 1 1 1))
+		(rotate (xyz 0 0 0))
+	)
 )

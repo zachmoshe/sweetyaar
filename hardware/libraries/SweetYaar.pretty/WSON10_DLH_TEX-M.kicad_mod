@@ -343,5 +343,10 @@
 		(layers "F.Cu" "F.Mask" "F.Paste")
 		(uuid "13c29dd5-3cb7-4875-b392-3264da7ad51a")
 	)
+	(model "${KICAD10_3DMODEL_DIR}/Package_DFN_QFN.3dshapes/Texas_DLH0010A_WSON-10-1EP_2.2x2mm_P0.4mm_EP0.9x1.5mm.step"
+		(offset (xyz 0 0 0))
+		(scale (xyz 1 1 1))
+		(rotate (xyz 0 0 0))
+	)
 	(embedded_fonts no)
 )

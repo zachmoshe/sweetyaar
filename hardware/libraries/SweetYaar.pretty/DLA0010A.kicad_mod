@@ -233,5 +233,10 @@
 		(layers "F.Cu" "F.Mask" "F.Paste")
 		(uuid "6db85a84-3b56-4921-932d-c1f77429b631")
 	)
+	(model "${KIPRJMOD}/../libraries/SweetYaar.3dshapes/TI_DLA0010A.step"
+		(offset (xyz 0 0 0))
+		(scale (xyz 1 1 1))
+		(rotate (xyz 0 0 0))
+	)
 	(embedded_fonts no)
 )

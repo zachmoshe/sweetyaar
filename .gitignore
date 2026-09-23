@@ -22,6 +22,7 @@ content/sd-card-template/**/*.wav
 **/fp-info-cache
 **/*-backups/
 **/_restore_backup_*/
+**/*.bak
 
 # Generated PCB working output. Immutable manufacturing snapshots belong under
 # hardware/mainboard/releases/<revision>/ and remain tracked.
