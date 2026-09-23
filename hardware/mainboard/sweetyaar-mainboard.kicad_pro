@@ -70,7 +70,16 @@
         }
       },
       "diff_pair_dimensions": [],
-      "drc_exclusions": [],
+      "drc_exclusions": [
+        [
+          "silk_edge_clearance|34650000|100000000|1eff0831-1dc2-4504-9283-8dc0a4d2e1f2|78dcf4b9-7036-47f4-acf3-6951301839f0",
+          "Because USB connector is a bit proud of the PCB"
+        ],
+        [
+          "silk_edge_clearance|44050000|100000000|1eff0831-1dc2-4504-9283-8dc0a4d2e1f2|666c19fb-84e1-47ef-9787-e0e44b1039df",
+          "Because USB connector is a bit proud of the PCB"
+        ]
+      ],
       "meta": {
         "version": 2
       },

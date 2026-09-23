@@ -27,7 +27,7 @@ audio source - BT A2DP -->|                      |
                           +----------------------+
 ```
 
-The production power system keeps onboard USB charging permanently available,
+The production power system keeps the onboard USB charging input permanently connected,
 adds an optional auxiliary charging input from an off-board source located
 elsewhere inside the device, and generates three system rails. The TPS2116
 provides reverse-current isolation between the two positive supply paths; this
@@ -35,14 +35,15 @@ is not galvanic isolation, and both sources share the mainboard ground.
 
 ```text
 USB_VBUS ---------------- TPS2116 VIN1 (priority) --+
-                                                     +---- TPS2116 VOUT ---- 5V_INPUT ---- BQ25185 IN
-off-board regulated 5 V -- AUX_5V_IN -- VIN2 -------+
+                                                     +---- TPS2116 VOUT ---- 5V_INPUT ---- BQ25186 IN
+off-board regulated 5 V -- AUX_5V_IN -- VIN2 -------+                                  |
+                                                                                        +-- I2C, /PG, /INT --> ESP32
 
-protected 18650 Li-ion ------------------------------ BQ25185 BAT
+protected 18650 Li-ion ------------------------------ BQ25186 BAT
            |
            +---- AP2281 switched divider -------------------------- GPIO36 ADC1
 
-BQ25185 SYS ---- hard-off SPST switch ----+---- TPS63802 3.3 V ---- 3V3_AON ---- ESP32
+BQ25186 SYS ---- hard-off SPST switch ----+---- TPS63802 3.3 V ---- 3V3_AON ---- ESP32
                                           |                                  |
                                           |                                  +---- load switch ---- 3V3_PERIPH_SW
                                           |
@@ -76,15 +77,17 @@ PCB.
 | 33 | `PIN_BTN2` | Input with internal pull-up | Animal button to GND | Active LOW. |
 | 27 | `PIN_VIB_WAKE` | Externally biased RTC input | Normally-closed vibration switch to GND | Resting LOW; movement opens the switch and wakes EXT0 on HIGH. |
 | 13 | `PIN_PERIPH_PWR_EN` | Output | `PERIPH_PWR_EN`: SD load-switch `EN`, battery-sense load-switch `EN`, and 5 V converter `EN` | HIGH while awake; RTC-held LOW during deep sleep. |
-| 34 | `PIN_CHARGER_STAT1` | Input with external pull-up | BQ25185 `STAT1` | First charger-status bit; 10 kΩ pull-up to `3V3_AON`. |
-| 35 | `PIN_CHARGER_STAT2` | Input with external pull-up | BQ25185 `STAT2` | Second charger-status bit; 10 kΩ pull-up to `3V3_AON`. |
+| 14 | `PIN_CHARGER_ENABLE` | Output | Base resistor of the MMBT3904 that pulls BQ25186 `/CE` LOW | HIGH enables charging. A base pulldown and `/CE` pull-up make reset, hard-off, and firmware failure default to charging disabled. |
+| 16 | `PIN_CHARGER_SDA` | Bidirectional open-drain | BQ25186 `SDA` | 100 kHz I2C data; 10 kΩ pull-up to `3V3_AON`. |
+| 17 | `PIN_CHARGER_SCL` | Bidirectional open-drain | BQ25186 `SCL` | 100 kHz I2C clock; 10 kΩ pull-up to `3V3_AON`. |
+| 34 | `PIN_CHARGER_PG` | Input with external pull-up | BQ25186 `/PG/GPO` | LOW means valid external input; 10 kΩ pull-up to `3V3_AON`. Also wakes the ESP32 if charging power is attached during deep sleep. |
+| 35 | `PIN_CHARGER_INT` | Input with external pull-up | BQ25186 `/INT` | Active-LOW event pulse; 10 kΩ pull-up to `3V3_AON`. |
 | 36 | `PIN_BATTERY_ADC` | ADC1 input | Midpoint of the switched 634 kΩ / 200 kΩ `BAT` divider; the 200 kΩ lower leg is two series 100 kΩ resistors | Calibrated coarse battery-state measurement on ADC1_CH0. |
 | 2 | `PIN_STATUS_LED_DATA` | RMT output | WS2812B-V6 `DIN` through a series data resistor | Non-inverted 24-bit GRB; no NPN or pull-up to 5 V. Validate direct-drive logic margin. |
 
-GPIO16 and GPIO17 were released by the addressable status LED and are currently
-unassigned. No GPIO is currently assigned to I2C, charger control, an encoder,
-or additional sensors. Charger status and coarse battery level use the three
-input-only pins GPIO34, GPIO35, and GPIO36 as listed above.
+GPIO16 and GPIO17, released by the addressable status LED, now form the charger
+I2C bus. GPIO34 and GPIO35 are input-only and therefore suit the charger's two
+open-drain outputs. GPIO36 remains the coarse battery-voltage ADC input.
 
 ## Hardware development and debugging
 
@@ -202,7 +205,7 @@ disabled during deep sleep.
 
 | Rail | Source | Loads | State during deep sleep |
 |---|---|---|---|
-| `SYS` | BQ25185 `SYS` output through the single hard-off switch | BQ25185 `SYS` bypass capacitor on the charger side of the switch; both TPS63802 regulator inputs and their 10 µF input capacitors on the disconnected side | Available from the battery or charging input while the hard-off switch is closed. Opening the switch disconnects the regulator feed even if USB or AUX is attached, while the battery remains connected to the charger and may still charge. |
+| `SYS` | BQ25186 `SYS` output through the single hard-off switch | BQ25186 `SYS` bypass capacitor on the charger side of the switch; both TPS63802 regulator inputs and their 10 µF input capacitors on the disconnected side | Available from the battery or charging input while the hard-off switch is closed. Opening the switch disconnects the regulator feed even if USB or AUX is attached. The unpowered ESP32 also releases the external `/CE` pull-down, so charging is disabled while hard-off. |
 | `3V3_AON` | TPS63802 set to 3.3 V | TPS63802 22 µF output capacitor, ESP32 and its decoupling, 470 kΩ GPIO27 wake pull-up, 510 kΩ/91 kΩ regulator-feedback divider, and the disabled AP2281 input with its 1 µF capacitor | On. GPIO2 is released only after the switched 5 V rail is off. |
 | `3V3_PERIPH_SW` | AP2281-3WG-7 load switch | Bare microSD card and every SD pull-up | Off. |
 | `5V_PERIPH_SW` | TPS63802 set to 5 V, with true shutdown | MAX98357A, one WS2812B-V6 addressable status LED, plus future switchable 5 V peripherals that fit the validated power budget | Off. |
@@ -231,6 +234,13 @@ peripherals again. If the switch is still open when the toy wants to sleep,
 firmware waits for it to close before arming the HIGH-level wake source; this
 prevents an immediate wake loop.
 
+Battery-only deep sleep also drives the charger-enable transistor off and
+disables the BQ25186 host watchdog. This removes NPN base current from the sleep
+budget. GPIO34 `/PG` is armed as a second wake source: attaching valid USB or
+AUX power pulls `/PG` LOW, reboots the ESP32, and allows firmware to verify the
+charger configuration before asserting `/CE`. While external input remains
+valid, firmware stays awake to supervise charging.
+
 #### Deep-sleep quiescent-current budget
 
 Target: **at most 75 µA at the battery**, with the main switch on and USB, AUX,
@@ -247,8 +257,8 @@ The budget assumes that both buttons are released, the addressable status LED
 and its data pull-up are unpowered, GPIO2 is high-impedance,
 `PERIPH_PWR_EN` is RTC-held LOW, and no unlisted
 indicator, test-point pull-up, or other circuit is connected to `SYS` or
-`3V3_AON`. The `STAT1` and `STAT2` external pull-ups and BQ25185 output leakage
-must be included in the final
+`3V3_AON`. The I2C, `/PG`, and `/INT` pull-ups and BQ25186 pin leakage must be
+included in the final
 audit. Both TPS63802 `PGOOD` pins are left unconnected. The budget treats
 currents specified at `3V3_AON` as approximately battery-side currents; the
 exact battery current depends on battery voltage and the 3.3 V converter's
@@ -256,16 +266,16 @@ efficiency at very light load.
 
 | Component | Deep-sleep state | Reference current | Sleep budget |
 |---|---|---:|---:|
-| BQ25185 charger/power path | Battery-only; system asleep | 4 µA typical, 5 µA maximum at 3.6 V and 0–85°C | **4–5 µA** |
+| BQ25186 charger/power path | Battery-only; system asleep | 4 µA typical, 5 µA maximum at 3.6 V and 0–85°C | **4–5 µA** |
 | 18650 protection circuit | Always on | ARB-L18-3500 reference cell; verify a substitute does not exceed the reference design allocation | **1–2 µA provisional** |
 | TPS63802 3.3 V buck-boost | Always on | 11 µA typical | **11–14 µA** |
-| ESP32-WROOM-32 + EXT0 | Deep sleep | 10–15 µA | **10–15 µA** |
+| ESP32-WROOM-32 + EXT0/EXT1 | Deep sleep | 10–15 µA | **10–15 µA** |
 | 3.3 V feedback divider | 510 kΩ from `3V3_AON` to `FB`, 91 kΩ from `FB` to GND | 3.302 V / 601 kΩ = 5.49 µA at `3V3_AON` | **5–7 µA battery-side** |
 | 470 kΩ vibration pull-up | Always on | 7 µA | **7 µA** |
 | GPIO13 100 kΩ pulldown | GPIO13 and all three controlled enable inputs held LOW | 0 V across the resistor; EN leakage is included in the two AP2281 rows and the 5 V TPS63802 row | **≈0 µA** |
 | Buttons and addressable indicator | Buttons released; `5V_PERIPH_SW` off; GPIO2 high-impedance after the rail is disabled | The LED is unpowered; no driven HIGH on DIN and no pull-up to an always-on rail | **≈0 µA** |
-| `STAT1` / `STAT2` inputs | Battery-only state is HIGH/HIGH through the two 10 kΩ pull-ups | BQ25185 high-level output leakage is 1 µA maximum per pin; include ESP32 input leakage | **≤2 µA, provisional** |
-| Always-powered ceramic capacitors | BQ25185 `BAT` 1 µF and `SYS` ≥10 µF; two TPS63802 10 µF input capacitors; 3.3 V TPS63802 22 µF output capacitor; SD-switch AP2281 `IN` 1 µF; battery-sense AP2281 `IN` 1 µF; ESP32 local decoupling | Dielectric insulation leakage; exact capacitor part numbers not selected | **≤2 µA combined, provisional** |
+| Charger digital signals | `/PG`, `/INT`, `SDA`, and `SCL` are HIGH through four 10 kΩ pull-ups when idle; no DC path exists through an ideal high-impedance input | Include BQ25186 and ESP32 leakage for all four pins | **≤4 µA, provisional** |
+| Always-powered ceramic capacitors | BQ25186 `BAT` 1 µF and `SYS` ≥10 µF; two TPS63802 10 µF input capacitors; 3.3 V TPS63802 22 µF output capacitor; SD-switch AP2281 `IN` 1 µF; battery-sense AP2281 `IN` 1 µF; ESP32 local decoupling | Dielectric insulation leakage; exact capacitor part numbers not selected | **≤2 µA combined, provisional** |
 | AP2281 SD load switch | Disabled; input powered | 0.01 µA typical | **≤1 µA** |
 | AP2281 battery-sense load switch | `PERIPH_PWR_EN` LOW; `BAT` input powered, divider output discharged | 0.01 µA typical, 1 µA maximum shutdown current | **≤1 µA** |
 | Battery-sense divider | Disconnected from `BAT` by its AP2281; the series 200 kΩ lower leg holds GPIO36 at GND | No voltage across the 634 kΩ / 200 kΩ path | **≈0 µA** |
@@ -275,10 +285,10 @@ efficiency at very light load.
 | MAX98357A | `SD_MODE` LOW, then **off on peripheral rail** | 0.6 µA typical / 2 µA maximum in `SD_MODE` shutdown | **≈0 µA** |
 | Production GPIO21-to-`SD_MODE` control | GPIO21 is driven LOW before `5V_PERIPH_SW` is disabled and may remain LOW or become high-impedance in deep sleep; the 634 kΩ series resistor has no powered DC path | No intended current path | **≈0 µA** |
 | PCB surface leakage | Clean, dry PCB | Not predictable from the schematic alone | **≤1 µA provisional** |
-| **Planning total** | — | — | **approximately 38–59 µA** |
+| **Planning total** | — | — | **approximately 40–61 µA** |
 
 The capacitor allocation covers only capacitors that retain DC voltage in
-battery-only sleep. The BQ25185 `IN` capacitor and capacitors on
+battery-only sleep. The BQ25186 `IN` capacitor and capacitors on
 `3V3_PERIPH_SW` and `5V_PERIPH_SW` are unpowered and have approximately zero DC
 leakage in this state. The final BOM must sum the maximum specified insulation
 leakage of every always-powered capacitor; the **≤2 µA** value is an allocation,
@@ -290,22 +300,22 @@ feedback divider on its discharged output, and the amplifier's 634 kΩ
 GPIO21-to-`SD_MODE` connection while GPIO21 is LOW or high-impedance. The open
 button pull-ups also have no intended DC path, but a button held to GND during
 sleep can add pull-up current and is not covered by this budget.
-Charger-programming resistors are treated as part of
-the BQ25185's specified battery-only quiescent current. The selected Semitec
-103AT-2 thermistor connects between `TS/MR` and battery ground. The charger
+There are no analog charger-programming resistor ladders: charge parameters are
+held in BQ25186 registers and checked by firmware. The selected Semitec
+103AT-2 thermistor connects between `TS/MR` and the dedicated `TS_RETURN`
+conductor. The charger
 biases `TS/MR` while an input source is present; there is no intended thermistor
 current path in battery-only sleep, but final-board leakage at this pin remains
-part of the sleep-current audit. If the thermistor is omitted, fit a fixed
-10 kΩ resistor from `BAT_TEMP`/`TS/MR` to GND instead. Never leave `BAT_TEMP`
-open: an open input is interpreted as a temperature fault and prevents normal
-charging. The fixed-resistor option deliberately disables real battery-temperature
-protection and must be recorded as an assembly choice.
+part of the sleep-current audit. Never leave `BAT_TEMP` open: an open input is
+interpreted as a temperature fault and prevents normal charging. A fixed 10 kΩ
+substitute would defeat real cell-temperature protection and is not a
+production option.
 
 > [!WARNING]
 > **TBD — Close the deep-sleep design budget:** Obtain or measure the
 > ARB-L18-3500 protection circuit's maximum standby current and require any
 > substitute cell not to exceed that allocation. Select the exact
-> always-powered ceramic capacitors, charger-status input leakage, and the
+> always-powered ceramic capacitors, charger-interface leakage, and the
 > second AP2281's maximum shutdown leakage,
 > then add their worst-case leakage rather than relying on the provisional
 > allocations above. Recalculate battery-side current across the intended
@@ -329,7 +339,8 @@ would be additional. Its true shutdown means no separate amplifier load switch
 is required.
 
 References:
-[BQ25185 datasheet](https://www.ti.com/lit/ds/symlink/bq25185.pdf),
+[BQ25186 datasheet](https://www.ti.com/lit/ds/symlink/bq25186.pdf),
+[BQ25186 thermistor selection](https://www.ti.com/lit/an/spva059/spva059.pdf),
 [TPS63802 datasheet](https://www.ti.com/lit/ds/symlink/tps63802.pdf),
 [TPS631000 datasheet](https://www.ti.com/lit/ds/symlink/tps631000.pdf),
 [AP2281 product data](https://www.diodes.com/part/view/AP2281),
@@ -412,7 +423,7 @@ enables 2.5 dB ADC attenuation (`ADC_2_5db`) and uses calibrated millivolt readi
 The critical battery-warning transitions (3.1–3.4 V) map to 743–815 mV through
 the divider. Exact accuracy at the upper end of the battery range is not
 required: the ADC provides coarse battery-state thresholds, while charging
-state is detected from the BQ25185 `STAT1`/`STAT2` pins.
+state is detected from the BQ25186 `STAT0.CHG_STAT` field over I2C.
 
 ### Amplifier rail and mute circuit
 
@@ -526,72 +537,94 @@ capacity may vary without changing the PCB design.
 | Required current capability | At least 1 A charging and more than 2 A continuous discharge. These are minimum substitute-cell requirements, not open product choices. |
 | Capacity | May vary without changing the PCB, provided the substitute still meets the fixed electrical, protection, and mechanical requirements. |
 | Battery protection | The cell must include overcharge, over-discharge, over-current, and short-circuit protection. **Fit no additional fuse or resettable PTC in the current design.** Verify the complete holder, harness, connector, switch, and PCB under expected and fault-current conditions. |
-| Charger | [BQ25185DLHR](https://www.ti.com/product/BQ25185), 1-cell charger with power path, input-current management, thermal regulation, and selectable LiPo/LiFePO4 charge voltage. |
-| External-source mux | [TPS2116DRLR](https://www.ti.com/product/TPS2116), with USB `VBUS` on priority input `VIN1`, `AUX_5V_IN` on backup input `VIN2`, and `VOUT` feeding BQ25185 `IN`. It provides automatic priority selection, reverse-current blocking, and a 2.5 A path. |
-| Auxiliary-source requirement | `AUX_5V_IN` comes from a complete off-board power module mounted elsewhere inside the device, such as a regulated wireless-charging receiver. Require 5.0 V nominal and never more than 5.5 V at the mainboard input. For the default 1.1 A input-current limit, the source and harness must have a continuous-current rating above 1.1 A with suitable margin; otherwise configure `JP_ILIM` for approximately 0.5 A and validate the complete device under load. Connect only a regulated DC output, never a raw wireless-power coil or unregulated rectifier output. |
-| Use while charging | Supported. Power the device from `SYS`; the BQ25185 reduces charge current when the input or thermal limit is reached and allows the battery to supplement load peaks. |
-| Charge current | **1 A production default, switchable to approximately 0.5 A with one solder jumper.** Connect two 301 Ω resistors in series from `ISET` to GND and place the jumper across the resistor nearest GND. Jumper open gives 602 Ω and approximately 0.5 A; bridged bypasses that resistor, leaving 301 Ω and approximately 1 A. Ship with the jumper bridged. |
-| Charger input-current limit | **1.1 A production default, manually switchable to approximately 0.5 A with `JP_ILIM`.** Bridged bypasses the 5.1 kΩ series resistor and leaves 13 kΩ from `ILIM/VSET` to GND; open gives 18.1 kΩ. Both settings select 4.2 V Li-ion charging. This is an assembly/configuration choice, not an automatic response to the connected source. |
-| USB charger requirement | Require a 5 V USB-C charger that advertises at least 1.5 A on CC. The supported 1.1 A configuration stays below that advertised capability. The first revision has two 5.1 kΩ CC pull-downs but does not decode the source's CC current advertisement and does not automatically change `JP_ILIM`. |
-| Battery connector | Connect the 18650 holder's short harness through a three-position connector from the larger 2.5 mm-pitch JST-XH family. Carry `BAT+`, `BAT−`/GND, and `BAT_TEMP`; choose the physical pin order during schematic/layout review and mark it unambiguously on the PCB and harness. |
-| Battery thermistor | Preferred configuration: fit a **Semitec 103AT-2** 10 kΩ NTC (10 kΩ at 25°C, B25/85 = 3435 K) in the battery-holder harness. Connect BQ25185 `TS/MR` to `BAT_TEMP`; connect the thermistor between `BAT_TEMP` and `BAT−`/GND at the holder. If the thermistor is omitted, fit a fixed 10 kΩ resistor from `BAT_TEMP`/`TS/MR` to GND instead; never leave the input open. The fixed resistor permits charging but removes actual cell-temperature protection. Electrically insulate a fitted sensor and press or tape it against the cell wrapper. Do not solder to, scrape, or use the bare 18650 can as a connection. |
+| Charger | [BQ25186DLHR](https://www.ti.com/product/BQ25186), I2C-controlled 1-cell Li-ion charger with power path. It was selected because firmware can set and verify the battery-temperature limits required by the cell rather than accepting the BQ25185's fixed 60°C HOT threshold. |
+| External-source mux | [TPS2116DRLR](https://www.ti.com/product/TPS2116), with USB `VBUS` on priority input `VIN1`, `AUX_5V_IN` on backup input `VIN2`, and `VOUT` feeding BQ25186 `IN`. It provides automatic priority selection, reverse-current blocking, and a 2.5 A path. |
+| Auxiliary-source requirement | `AUX_5V_IN` comes from a complete off-board power module mounted elsewhere inside the device, such as a regulated wireless-charging receiver. Require 5.0 V nominal and never more than 5.5 V at the mainboard input. The source and harness must continuously support the firmware-configured 1.05 A input limit with suitable margin. Connect only a regulated DC output, never a raw wireless-power coil or unregulated rectifier output. |
+| Use while charging | Supported. Power the device from `SYS`; the BQ25186 reduces charge current when the input or thermal limit is reached and allows the battery to supplement load peaks. |
+| Charge current | **1 A production default**, programmed and read back over I2C. There is no `ISET` resistor or current-selection jumper. |
+| Charger input-current limit | **1.05 A production default**, programmed and read back over I2C. There is no `ILIM/VSET` resistor ladder or `JP_ILIM`. |
+| USB charger requirement | Require a 5 V USB-C charger that advertises at least 1.5 A on CC. The 1.05 A programmed limit stays below that advertised capability. The two 5.1 kΩ CC pull-downs identify the board as a sink but do not decode the source's current advertisement. |
+| Battery connector | Use a four-position 2.5 mm-pitch JST-XH-family connector carrying `BAT+`, `BAT−`, `BAT_TEMP`, and `TS_RETURN`. Choose and clearly mark the physical pin order during schematic/layout review. |
+| Battery thermistor | Fit an insulated **Semitec 103AT-2** 10 kΩ NTC (10 kΩ at 25°C, B25/85 = 3435 K) firmly against the cell wrapper. Connect it only between `BAT_TEMP` and `TS_RETURN`; `BAT_TEMP` reaches BQ25186 `TS/MR`, while `TS_RETURN` returns independently to charger GND beside the IC. The fourth conductor is a Kelvin return: separating it from the current-carrying `BAT−` wire prevents harness voltage drop and load noise from shifting the small TS threshold voltage. Do not join `TS_RETURN` to `BAT−` at the holder. Never leave `BAT_TEMP` open. |
+| Cell-temperature policy | Program **0°C COLD and 45°C HOT hard charging cutoffs** to match the Fenix range, and disable the intermediate COOL/WARM derating zones. The cell PCM does not enforce this normal charging-temperature range; the external charger must do it. |
+| Hard-off policy | The SPST switch disconnects `SYS` from both regulators. `/CE` is also pulled HIGH when the ESP32 is unpowered, so USB/AUX cannot charge the battery while the device is hard-off. |
 
-The BQ25185 uses `I_CHG = 300 AΩ / R_ISET`; 301 Ω gives approximately 0.997 A
-and 602 Ω gives approximately 0.498 A. The two-resistor arrangement is
-electrically valid and reduces the resistor BOM to one value; label the jumper
-clearly so it cannot accidentally short `ISET` directly to GND. Its charger
-fault handling does not replace cell protection. The 1 A charge setting is also
-separate from operating current: system load gets priority, and only the
-remaining input current is available for charging.
+The two USB-C `CC1` and `CC2` pull-downs identify the board as a sink but do not
+decode the source's advertised current. Product documentation must therefore
+require a 5 V source advertising at least 1.5 A. VINDPM can reduce current when
+VBUS sags, but it does not make an arbitrary weak source compliant. System load
+still has priority over battery charging, so the actual charge current may be
+less than the 1 A target.
 
-This is a deliberate source-compatibility tradeoff. The two 5.1 kΩ `CC1` and
-`CC2` pull-downs identify the board as a USB-C sink, but they do not decode or
-verify the source's advertised current. For the supported USB configuration,
-the product relies on a 5 V source that advertises at least 1.5 A; the board's
-1.1 A input limit then remains within the source-advertised capability. This
-charger requirement must appear in the user-facing product documentation.
+#### BQ25186 pin migration and control
 
-If a weaker source holds its current limit by allowing VBUS to sag, BQ25185
-VINDPM reduces input current to try to maintain the input-voltage threshold.
-That is only a fallback: some weak or protected sources may instead shut down,
-cycle, or behave unpredictably. VINDPM does not make unrestricted use with an
-arbitrary USB source compliant and does not replace the 1.5 A charger
-requirement.
+The BQ25186 uses the same ten-pin DLH package and preserves the power pins, but
+it is not a schematic drop-in replacement for the analog-programmed BQ25185:
 
-The PCB also provides `JP_ILIM` as a manual 1.1 A/0.5 A total-input-limit
-selector. Bridged is the 13 kΩ, 1.1 A production default; open inserts the
-additional 5.1 kΩ for 18.1 kΩ total and approximately 0.5 A. The selection is
-not automatic and must be made before use with a known lower-current source.
-This is separate from `JP_ISET`, which changes only the battery fast-charge
-target between approximately 1 A and 0.5 A. Opening `JP_ISET` alone does not
-guarantee a 500 mA total USB input limit while the system is running.
+| Pin | BQ25185 function | BQ25186 connection |
+|---:|---|---|
+| 1 | `SYS` | `SYS`, unchanged. |
+| 2 | `BAT` | `BAT`, unchanged. |
+| 3 | `STAT2` | `/PG/GPO` to GPIO34 with a 10 kΩ pull-up to `3V3_AON`. |
+| 4 | `/CE` | `/CE`, now driven by the fail-closed transistor circuit. |
+| 5 | GND | GND, unchanged. |
+| 6 | `TS/MR` | `BAT_TEMP`, with the thermistor returning through `TS_RETURN`. Push-button actions are disabled. |
+| 7 | `ILIM/VSET` | `SDA` to GPIO16 with a 10 kΩ pull-up to `3V3_AON`; remove the old programming ladder and jumper. |
+| 8 | `ISET` | `SCL` to GPIO17 with a 10 kΩ pull-up to `3V3_AON`; remove the old programming resistors and jumper. |
+| 9 | `STAT1` | `/INT` to GPIO35 with a 10 kΩ pull-up to `3V3_AON`. |
+| 10 | `IN` | `5V_INPUT`, unchanged. |
+| Exposed pad | GND | Solder to the local solid GND/thermal plane. |
 
-The 103AT-2 matches the BQ25185's native 10 kΩ, B25/85 = 3435 K temperature
-profile, so no external hot/cold compensation network is planned. This direct
-connection gives nominal suspend thresholds near **0°C and 60°C**, not a
-guaranteed 0–60°C charging window after tolerances. For example, the nominal hot
-threshold is `115 mV / 38 µA = 3.03 kΩ`, close to the thermistor's 3.02 kΩ at
-60°C. Combining the charger's 105 mV minimum threshold and 39.5 µA maximum bias
-gives 2.66 kΩ, approximately 64°C before thermistor tolerance and thermal-contact
-error. The cold cutoff also has tolerance; nominal 0°C is not a guaranteed
-no-charge-below-0°C limit.
+The 100 kΩ `/CE` pull-up goes to `5V_INPUT`, so lack of external power creates
+no battery-only pull-up current. An MMBT3904 has collector at `/CE`, emitter
+directly at GND, and base driven by GPIO14 through 10 kΩ with 100 kΩ from base
+to GND. GPIO14 HIGH enables charging. Reset, an unpowered ESP32, a firmware
+failure, or the hard-off switch opening leaves the transistor off and charging
+disabled. Firmware asserts it only after every safety register has been written
+and read back successfully, and only while valid input power is present.
 
-SweetYaar has **no separate product-specific temperature target**. The requirement
-is to remain within the selected battery manufacturer's permitted charging
-conditions and the charger's operating limits, with margin for electrical
-tolerance and sensor placement. The reference ARB-L18-3500's permitted charging
-temperature range has not yet been verified from an authoritative battery
-specification, so temperature-safety compatibility is **not yet closed**. If a
-selected cell permits charging only up to 45°C, this circuit does not enforce
-that limit; the temperature-control design must then change. Charger junction
-thermal regulation and a cell's general protection circuit are not substitutes
-for a verified cell-temperature charging limit. Validate actual suspend and
-recovery thresholds against the selected cell's limits on the production
-assembly. See the [BQ25185 datasheet](https://www.ti.com/lit/ds/symlink/bq25185.pdf)
+`/PG` is a hardware indication that valid external input exists. `/INT` gives a
+short active-LOW pulse when an enabled event changes. Neither signal is required
+to configure the charger or read its state—the I2C status registers are
+authoritative—but both are wired because suitable GPIOs are available. `/PG`
+also wakes the ESP32 when power is attached during battery-only deep sleep;
+`/INT` avoids waiting for the periodic status poll while awake.
+
+#### I2C configuration and status
+
+The BQ25186 uses 7-bit address `0x6A`; firmware runs the bus at 100 kHz. It can
+set charge voltage/current, input-current limit, termination/precharge behavior,
+VINDPM, junction thermal regulation, battery UVLO/OCP, SYS mode/voltage, TS
+cutoffs, safety timer, watchdog behavior, interrupt masks, and ship/reset
+behavior. It can read the charging phase, input-good state, TS zone/open state,
+input/DPPM/thermal limiting, VIN overvoltage, battery UVLO/OCP, safety-timer
+fault, event flags, and device ID.
+
+The production register policy is 4.20 V, 1.00 A charge current, 1.05 A input
+limit, 10% termination, 4.5 V VINDPM, 4.5 V normal `SYS`, 3.0 V battery UVLO,
+3 A battery OCP, a six-hour safety timer, 0°C/45°C TS cutoffs, COOL/WARM zones
+disabled, and `TS/MR` push-button actions disabled. The 40-second charger host
+watchdog is enabled while awake and disabled immediately before deliberate
+deep sleep. These settings do not turn `SYS` into a boost converter: the 3.3 V
+and 5 V regulators remain required.
+
+The read-and-verify path has no configuration cache. At boot firmware writes
+one register and immediately reads the physical register back before advancing.
+It then rereads every configured register every 10 seconds and on `/INT`. Any
+I2C failure, unexpected device ID, or mismatch immediately releases `/CE`;
+firmware attempts one complete rewrite/read-back cycle and re-enables charging
+only after successful verification. The BQ25186 also provides its independent
+40-second no-I2C power-cycle watchdog.
+
+The 103AT-2 is the 10 kΩ/B25/85=3435 K profile used by TI's BQ25186 temperature
+thresholds. Firmware selects the hard 0°C and 45°C thresholds recommended for
+the reference Fenix battery and disables the optional intermediate zones.
+Validate actual suspend and recovery temperatures on the complete holder,
+including thermistor tolerance, sensor contact, and thermal lag. A fixed 10 kΩ
+substitute defeats cell-temperature protection and is not a production option.
+See the [BQ25186 datasheet](https://www.ti.com/lit/ds/symlink/bq25186.pdf),
+[TI thermistor-selection note](https://www.ti.com/lit/an/spva059/spva059.pdf),
 and [Semitec 103AT family data](https://www.semitec-global.com/products/thermistor_at/).
-When a fixed 10 kΩ substitute is fitted instead, these temperature limits are
-not being measured; validation and operating restrictions must account for the
-loss of charger-controlled cell-temperature protection.
 
 The PCB must accept charging power from either the onboard USB-C receptacle or
 an unpopulated, two-wire connection to a complete off-board power module located
@@ -599,7 +632,7 @@ elsewhere inside the device:
 
 ```text
 USB_VBUS ---------------- TPS2116 VIN1 (priority) --+
-                                                     +---- TPS2116 VOUT ---- 5V_INPUT ---- BQ25185 IN
+                                                     +---- TPS2116 VOUT ---- 5V_INPUT ---- BQ25186 IN
 off-board regulated 5 V -- AUX_5V_IN -- VIN2 -------+
 
 DEBUGGER_USB_VBUS ---- external debugger CH340C ---- J_PROG1 ---- ESP32 UART0/EN/BOOT
@@ -609,7 +642,7 @@ DEBUGGER_USB_VBUS ---- external debugger CH340C ---- J_PROG1 ---- ESP32 UART0/EN
 device but outside the main PCB. A complete regulated wireless-charging receiver
 is one intended source. The source must provide 5.0 V nominal and must never
 exceed 5.5 V at the mainboard input. A lower regulated voltage is acceptable
-only after verifying that the BQ25185 starts and charges at an acceptable rate
+only after verifying that the BQ25186 starts and charges at an acceptable rate
 across source tolerance, system load, and the battery-voltage range; merely
 being below 5 V does not prove compatibility.
 Never connect a raw battery, wireless-power coil, or unregulated rectifier
@@ -627,8 +660,8 @@ A TPS2116 power mux prevents reverse current between the USB and auxiliary
 sources and gives USB explicit priority. The onboard USB-C charging path
 remains fully functional whether or not an auxiliary module is installed.
 
-`5V_INPUT` means the selected external 5 V supply at the BQ25185 `IN` pin. It is
-not the battery-charging output, it is not BQ25185 `SYS`, and it is not the
+`5V_INPUT` means the selected external 5 V supply at the BQ25186 `IN` pin. It is
+not the battery-charging output, it is not BQ25186 `SYS`, and it is not the
 boosted `5V_PERIPH_SW` rail.
 
 #### Power-source selection and reverse-current isolation
@@ -639,9 +672,9 @@ do not put a diode or switch in the common-ground connection.
 | Boundary | Required schematic behavior |
 |---|---|
 | USB `VBUS` ↔ `AUX_5V_IN` | Never connect the two sources directly. Route them through the TPS2116 so USB-only, AUX-only, and simultaneous connection are all safe. USB must take precedence whenever both inputs are valid; do not combine or share their current. |
-| USB `VBUS` → `5V_INPUT` | This permanent path always remains available for charging. Isolation must prevent an auxiliary source from driving voltage out of the USB-C receptacle. |
+| USB `VBUS` → `5V_INPUT` | This permanent path always reaches the charger input; actual charging additionally requires the switch-on, firmware-verified `/CE` permission. Isolation must prevent an auxiliary source from driving voltage out of the USB-C receptacle. |
 | `AUX_5V_IN` → `5V_INPUT` | This optional, power-only path receives regulated DC from an off-board module inside the device. It must prevent USB `VBUS` from driving backward into an absent or unpowered source module. The isolation circuit and mainboard ESD diode are required even though the connector is not populated by the PCBA vendor. |
-| `5V_INPUT` ↔ battery/`SYS` | Reach `BAT` and `SYS` only through the BQ25185 power path; do not add an external bypass around its input/battery reverse-current management. |
+| `5V_INPUT` ↔ battery/`SYS` | Reach `BAT` and `SYS` only through the BQ25186 power path; do not add an external bypass around its input/battery reverse-current management. |
 
 Use a [TI TPS2116](https://www.ti.com/product/TPS2116), orderable as
 `TPS2116DRLR`, for this source selection. It accepts two 1.6–5.5 V inputs,
@@ -655,7 +688,7 @@ Wire the mux as follows:
 | TPS2116 pin | Connection and purpose |
 |---|---|
 | 1 `GND` | Common PCB ground. Do not isolate the source grounds. |
-| 2, 7 `VOUT` | Join both pins and connect them to `5V_INPUT`, then to BQ25185 `IN`. |
+| 2, 7 `VOUT` | Join both pins and connect them to `5V_INPUT`, then to BQ25186 `IN`. |
 | 3 `VIN1` | Protected mainboard USB `VBUS`; this is the priority source. The external debugger has its own USB supply and does not connect to this rail. |
 | 4 `PR1` | USB-valid detector: 300 kΩ from USB `VBUS` to `PR1` and 100 kΩ from `PR1` to GND, both 1%. The nominal switchover threshold is 4.0 V; including the TPS2116 reference and resistor tolerances it is approximately 3.6–4.4 V, so a valid 5 V USB source is always selected. |
 | 5 `MODE` | Connect directly to `VIN1`/USB `VBUS` to enable automatic priority mode. |
@@ -664,7 +697,7 @@ Wire the mux as follows:
 
 Place a 1 µF ceramic capacitor from each of `VIN1` and `VIN2` to GND close
 to the mux. Place at least 1 µF from `VOUT`/`5V_INPUT` to GND close to the
-mux and BQ25185; this capacitor also satisfies the charger's `IN` decoupling
+mux and BQ25186; this capacitor also satisfies the charger's `IN` decoupling
 requirement when the two ICs are placed together. Use short, wide copper for
 `VIN1`, `VIN2`, `VOUT`, and GND. Normal source voltage must remain inside the
 TPS2116's 5.5 V recommended operating maximum. `D1` and `D2` reduce fast
@@ -687,7 +720,7 @@ revision adds no SPI or I2S signal-isolation components.
 | `3V3_AON` ↔ `3V3_PERIPH_SW` | Every SD pull-up belongs to the switched rail. Retain GPIO5 as the native VSPI `CS`. Firmware ends SPI, disables internal pulls, and makes the SPI pins inputs before driving `PERIPH_PWR_EN` LOW; on wake it enables the rail, waits for it to settle, and then reconfigures SPI. No SPI isolation buffer is planned. |
 | `3V3_AON` ↔ `5V_PERIPH_SW` | Production GPIO21 connects to `SD_MODE` only through 634 kΩ. GPIO2 drives WS2812B-V6 DIN through the 301 Ω `R_LED_DIN1`, without an NPN or 5 V pull-up; validate direct-drive logic-HIGH margin. Firmware establishes both inactive GPIO levels before enabling the rail. Before power-off it sends an LED-off frame, mutes the amplifier, ends I2S, disables the rail, and only then releases GPIO2. No I2S or LED isolation buffer is planned. |
 | `5V_INPUT` ↔ `5V_PERIPH_SW` | These are different 5 V domains and must never be tied together. The switched peripheral boost output must provide true load disconnect and must not feed the external-input or charger path. |
-| Charge-status signals | Connect `STAT1` and `STAT2` only to ESP32 GPIO34 and GPIO35, using external pull-ups to `3V3_AON`. Include their leakage in the sleep audit. Do not add direct status LEDs to the BQ25185 outputs. |
+| Charger control and status | Connect `SDA`/`SCL` to GPIO16/GPIO17 and `/PG`/`/INT` to GPIO34/GPIO35, each with a 10 kΩ pull-up to `3V3_AON`. Connect GPIO14 through the NPN stage to `/CE`. Include leakage in the sleep audit; do not add direct charger-status LEDs. |
 | `BAT` ↔ GPIO36 battery measurement | Feed the 634 kΩ / 200 kΩ divider through a second AP2281-3WG-7 whose `EN` is `PERIPH_PWR_EN`; implement the 200 kΩ lower leg as two series 100 kΩ resistors. This prevents `BAT` from driving the ADC while the ESP32 is unpowered and disconnects the divider in deep sleep. Do not measure `SYS` as a substitute. |
 | Programming fixture ↔ board supplies | `3V3_REF` is a target-voltage reference/sense output only. The external debugger uses it for its indicator LED and must not drive it. A future fixture must not back-power USB, `AUX_5V_IN`, `SYS`, or the battery. |
 
@@ -700,22 +733,19 @@ ICs.
 
 #### Charger-status indication
 
-Route the BQ25185 open-drain `STAT1` and `STAT2` outputs to ESP32 input-only
-GPIO34 and GPIO35, with approximately 10 kΩ external pull-ups to `3V3_AON`.
-GPIO34 and GPIO35 have no internal pull-ups, so the external resistors are
-required. Firmware will log charging and fault states, report them through the
-parent app. The current status-LED policy deliberately has no charging or
-low-battery pattern; those can be added later as semantic signals without
-changing the LED driver. The BQ25185 has no direct charger-status LEDs; this
-accepts that no changing indication is available while the ESP32 is in deep
-sleep or unavailable. Firmware may remain awake while external charging power
-is present if continuous indication is required.
+Firmware reads charging and fault state from the BQ25186 registers. `/PG` on
+GPIO34 is a redundant external-input indication and deep-sleep wake source;
+`/INT` on GPIO35 prompts an immediate I2C read after enabled events. Both are
+open-drain and require their external 10 kΩ pull-ups because GPIO34/GPIO35 have
+no internal pull-ups. The current status-LED policy deliberately has no
+charging or low-battery pattern; those can be added later as semantic signals
+without changing the electrical interface.
 
 #### Battery-level measurement
 
-The BQ25185 status outputs report charger state and faults, not remaining
+The BQ25186 status registers report charger state and faults, not remaining
 battery capacity. Measure `BAT` directly with the switched divider documented
-above. Do **not** substitute a `SYS` measurement: the BQ25185 regulates `SYS` to
+above. Do **not** substitute a `SYS` measurement: the BQ25186 regulates `SYS` to
 4.5 V while valid input power is present, and only says that `SYS` automatically
 switches to battery power after the input is removed. Its datasheet does not
 define `SYS` as a battery-voltage monitor; in battery-only operation it also
@@ -735,8 +765,8 @@ rolling ten-sample window. The voltage-state hysteresis is:
 | `MEDIUM` → `LOW` | ≤3.10 V |
 | `LOW` → `MEDIUM` | ≥3.20 V |
 
-`STAT1=HIGH` and `STAT2=LOW` overrides the voltage state as `CHARGING`
-immediately. The averaged voltage state continues updating underneath and is
+I2C `STAT0.CHG_STAT` values for constant-current or constant-voltage charging
+override the voltage state as `CHARGING`. The averaged voltage state continues updating underneath and is
 restored when charging ends. Li-ion terminal voltage still varies with load,
 temperature, cell model, and recent charging; a dedicated fuel gauge remains a
 future option only if a reliable percentage or runtime estimate becomes useful.
@@ -870,7 +900,7 @@ converter dissipates about 0.17 W at 300 mA, 0.28 W at 500 mA, and 0.56 W at
 enclosure.
 
 > [!WARNING]
-> **Battery-temperature validation:** Temperature sensing and the three-wire
+> **Battery-temperature validation:** Temperature sensing and the four-wire
 > connector are fixed decisions for the ARB-L18-3500 reference design. Verify
 > charge suspend and recovery on the assembled holder. The insulated sensor must
 > remain in firm thermal contact with the removable cell without compromising its
@@ -887,12 +917,14 @@ resistance, package, and temperature rating from TI's design limits. Select each
 capacitor by its **effective** capacitance after DC-bias derating, voltage
 rating, temperature rating, ESR, package, and worst-case insulation leakage.
 
-The BQ25185 needs at least 1 µF effective capacitance at `IN`, nominal 10 µF at
+The BQ25186 needs at least 1 µF effective capacitance at `IN`, nominal 10 µF at
 `SYS` with at least 1 µF remaining after DC bias, and at least 1 µF at `BAT`.
-TI recommends 25 V-rated ceramic parts for `IN` and `SYS` to preserve effective
-capacitance after derating. Exact manufacturer part numbers remain open until
-the schematic and layout are reviewed, and must be validated for startup,
-radio/audio transients, efficiency, heating, and sleep leakage.
+The `IN`, `SYS`, and `BAT` capacitors are placement-critical: put each directly
+beside its IC pin and the local GND/thermal plane. Select voltage ratings and
+package sizes that preserve the required effective capacitance after DC-bias
+derating. Exact manufacturer part numbers remain open until the schematic and
+layout are reviewed, and must be validated for startup, radio/audio transients,
+efficiency, heating, and sleep leakage.
 
 The current design relies on the mandatory protected 18650 and therefore adds
 no board-level or inline fuse/PTC. This is a fixed architecture decision, not a
@@ -935,12 +967,12 @@ the electronics enclosure is designed. Electrically, the PCB must include:
 |---|---|
 | USB and auxiliary charging | The mainboard USB-C connector is power-only and is required for charging. Also provide unpopulated two-wire 5 V and GND auxiliary-input pads/footprint for a complete off-board source mounted elsewhere inside the device, such as a regulated wireless-charging receiver or power-only USB-C daughterboard. The PCBA vendor fits neither an auxiliary connector nor cable; it is added during device assembly when that option is used. `D2` remains populated on the mainboard. Firmware download and live serial logs use the separate USB-powered debugger through `J_PROG1`. |
 | Storage | Fit a replaceable bare microSD socket on `3V3_PERIPH_SW`, entirely inside the electronics enclosure. Changing the card requires opening the enclosure. Place the socket with insertion/removal clearance on the opened PCB, not at an enclosure edge or external opening. |
-| Battery | Use a protected removable 18650 in a holder. Connect its short harness through a three-position 2.5 mm-pitch JST-XH carrying `BAT+`, `BAT−`/GND, and `BAT_TEMP`. The preferred holder harness contains the Semitec 103AT-2 from `BAT_TEMP` to `BAT−`/GND. If it is omitted, fit a fixed 10 kΩ substitute from `BAT_TEMP` to GND and record that temperature monitoring is disabled. |
+| Battery | Use a protected removable 18650 in a holder. Connect its short harness through a four-position 2.5 mm-pitch JST-XH-family connector carrying `BAT+`, `BAT−`, `BAT_TEMP`, and `TS_RETURN`. Fit the insulated Semitec 103AT-2 between `BAT_TEMP` and `TS_RETURN` at the cell. Route `TS_RETURN` separately to charger GND; do not join it to the current-carrying `BAT−` conductor at the holder. |
 | Speaker | Use one keyed two-pin connector and a short stranded-wire harness. It must support either 4 Ω or 8 Ω speakers and must not be interchangeable with the battery connector. |
 | Song and animal buttons | Use one four-pin PCB connector arranged as `BTN_SONG`, GND, `BTN_ANIMAL`, GND. The two ground contacts join on the PCB, allowing four ordinary single-wire crimps and two independent two-wire button branches without a harness splice. |
-| Main power | Fit a physical latching **SPST pushbutton switch** on the enclosure as an exceptional safety/service control; deep sleep is normal. The complete switch body—not merely a remote actuator—mounts on the enclosure. Place it in series between BQ25185 `SYS` and the regulator inputs; leave `BAT+` permanently connected to BQ25185 `BAT`. Connect the switch to the PCB with two conductors and a two-pin connector. The switch and every harness contact must carry the validated current with margin. |
+| Main power | Fit a physical latching **SPST pushbutton switch** on the enclosure as an exceptional safety/service control; deep sleep is normal. The complete switch body—not merely a remote actuator—mounts on the enclosure. Place it in series between BQ25186 `SYS` and the regulator inputs; leave `BAT+` permanently connected to BQ25186 `BAT`. Connect the switch to the PCB with two conductors and a two-pin connector. The switch and every harness contact must carry the validated current with margin. |
 | Vibration wake | The normally-closed vibration switch is soldered directly onto the PCB. Exact part and footprint remain schematic/BOM selections; its physical orientation follows enclosure design. |
-| Indicators | Route BQ25185 `STAT1`/`STAT2` only to ESP32 GPIO34/GPIO35. Target one WS2812B-V6 (C52917433, 5050 SMD) on `5V_PERIPH_SW`, with 100 nF local decoupling and GPIO2 driving DIN through a series data resistor, without the old NPN/5 V pull-up. Verify direct-drive voltage margin, footprint, 24-bit GRB order and timing; preserve or test-pad `DOUT` for a future daisy-chained indicator. |
+| Indicators | Route BQ25186 `/PG` and `/INT` to ESP32 GPIO34/GPIO35; charger configuration and detailed status use I2C on GPIO16/GPIO17. Target one WS2812B-V6 (C52917433, 5050 SMD) on `5V_PERIPH_SW`, with 100 nF local decoupling and GPIO2 driving DIN through a series data resistor, without the old NPN/5 V pull-up. Verify direct-drive voltage margin, footprint, 24-bit GRB order and timing; preserve or test-pad `DOUT` for a future daisy-chained indicator. |
 | Programming/test | Use six exposed surface contact pads on 2.54 mm centers (`SweetYaar:DebuggerPad_1x06_P2.54mm`), without holes or solder-paste apertures. Nothing is soldered onto the mainboard here: header pins or pogo pins on the debugger/fixture temporarily touch the pads. Contacts 1–6 are `3V3_REF`, GND, GPIO1/`UART_TXD`, GPIO3/`UART_RXD`, `ESP_EN`, and GPIO0/BOOT. The external debugger supplies CH340C USB-to-UART and automatic-download control. |
 
 The auxiliary source is physically separate from the main PCB but remains
@@ -954,28 +986,28 @@ and GND output of a complete receiver assembly to `AUX_5V_IN`, not its raw
 resonant coil or unregulated rectifier output. In a Qi system, the receiver asks
 the transmitter for a supported wireless-power level and the transmitter
 delivers the negotiated level. The
-receiver module then enforces its own output rating, while the BQ25185 separately
-limits input current to 1.1 A and battery charge current to 1 A. Transmitter
-capability, coupling/alignment, receiver rating, BQ25185 input limit, system
+receiver module then enforces its own output rating, while the BQ25186 separately
+limits input current to 1.05 A and battery charge current to 1 A. Transmitter
+capability, coupling/alignment, receiver rating, BQ25186 input limit, system
 load, battery charge setting, and thermal regulation all apply; the lowest
 available limit determines the actual charge rate. Select a receiver with a
-regulated 5 V output and enough margin for the 1.1 A charger-input setting, or
+regulated 5 V output and enough margin for the 1.05 A charger-input setting, or
 include a lower AUX-specific current limit.
 [Qi-certified](https://www.wirelesspowerconsortium.com/knowledge-base/testing-and-certification/qi-certified-products/)
 transmitter/receiver pairs are designed to negotiate a mutually supported
 level, but maximum power is not guaranteed and arbitrary uncertified modules
 must not be assumed interoperable. Temperature, alignment, and voltage stability
-must be tested in the real doll. USB charging remains permanently available on
-the main board, along with firmware service and live logs; wireless charging is
+must be tested in the real doll. A USB charging input remains permanently fitted
+on the main board, along with firmware service and live logs; wireless charging is
 only an optional additional input.
 
 Deep sleep, not the physical switch, is the normal way to stop using the toy.
 The enclosure-mounted latching SPST switch is a deliberate hard-off
-safety/service control. It opens the `SYS` feed between the BQ25185 and both
+safety/service control. It opens the `SYS` feed between the BQ25186 and both
 system regulators, preventing the battery, USB, or AUX input from powering the
 ESP32 or switched peripherals while off. `BAT+` remains permanently connected
-to BQ25185 `BAT`, so an attached USB or AUX source may still charge the battery
-while the system is hard-off. The switch uses two terminals, two harness
+to BQ25186 `BAT`, but the fail-closed `/CE` circuit disables charging because
+the ESP32 is unpowered. The switch uses two terminals, two harness
 conductors, and a two-pin PCB connector. This is a direct mechanical disconnect
 rather than an electronic shutdown commanded through load-switch inputs.
 
@@ -1071,7 +1103,7 @@ Debugger regulator reference: [XC6206 datasheet](https://product.torexsemi.com/s
 
 The TPS2116 closes the USB-priority source-mux selection. During schematic and
 layout review, verify the divider threshold, both 1 µF input capacitors, the
-shared mux-output/BQ25185-input capacitor, 2.5 A current paths, connector-side
+shared mux-output/BQ25186-input capacitor, 2.5 A current paths, connector-side
 protection, and the required absence of reverse current at both inactive
 inputs.
 
@@ -1207,9 +1239,11 @@ connecting an 18650 cell or speaker. A practical order is:
    separate from this power-path test.
 3. Connect USB and AUX together, verify that USB takes priority,
    and measure reverse current into both sources. Do not rely only on voltage.
-4. Verify the charger/protection and `SYS` behavior by themselves.
+4. Verify `/CE` remains HIGH through reset and hard-off. With the switch on,
+   confirm firmware detects device ID `0x1`, reads back every configured
+   register, then enables charging only while `/PG` indicates valid input.
 5. With the Semitec 103AT-2 installed against the cell wrapper, verify the
-   BQ25185 suspends and resumes charging at the intended hot and cold limits.
+   BQ25186 suspends and resumes charging at the intended 45°C and 0°C limits.
    Use a controlled-temperature or resistor-substitution fixture; do not heat,
    chill, short, or probe a live cell unsafely.
 6. Verify `3V3_AON` across the intended battery range and during ESP32 radio
@@ -1231,9 +1265,8 @@ connecting an 18650 cell or speaker. A practical order is:
 12. Enter deep sleep and measure total battery current, not only an individual
    rail.
 13. Open the hard-off switch and verify that neither the battery, USB, nor AUX
-    can power the system regulators while off. With USB or AUX attached, verify
-    that the battery can still charge through the BQ25185 while the regulator
-    side of the switch remains unpowered.
+    can power the system regulators and that `/CE` remains HIGH so the battery
+    does not charge even with USB or AUX attached.
 14. Move the vibration switch and confirm that the rails return only after the
     ESP32 reboots.
 

@@ -21,10 +21,10 @@ class BatteryMonitor {
 public:
     // Call after the rest of boot initialization has settled. This blocks for
     // roughly 500 ms while five ADC readings seed the first published state.
-    void begin();
+    void begin(bool charging);
 
     // Call from loop(). Returns true only when the public battery state changes.
-    bool poll();
+    bool poll(bool charging);
 
     BatteryState state() const { return _state; }
     uint8_t encodedState() const { return static_cast<uint8_t>(_state); }
@@ -33,7 +33,7 @@ private:
     uint16_t readBatteryMillivolts() const;
     void addVoltageSample(uint16_t batteryMillivolts);
     void updateVoltageState(uint16_t averagedMillivolts);
-    void updateChargerState();
+    void updateChargerState(bool charging);
     void updatePublicState();
     uint16_t averageMillivolts() const;
 
@@ -42,7 +42,6 @@ private:
     uint16_t _samples[BATTERY_ROLLING_SAMPLE_COUNT] = {0};
     uint8_t _sampleCount = 0;
     uint8_t _nextSample = 0;
-    uint8_t _chargerPins = 0xFF;
     bool _charging = false;
     bool _hasValidVoltage = false;
     uint32_t _lastPeriodicSampleMs = 0;

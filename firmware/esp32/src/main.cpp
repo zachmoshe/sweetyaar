@@ -28,6 +28,7 @@
 #include "StateMachine.h"
 #include "StatusLed.h"
 #include "BatteryMonitor.h"
+#include "BQ25186Charger.h"
 
 // ---------------------------------------------------------------------------
 // Global objects
@@ -38,6 +39,7 @@ ButtonHandler   buttons;
 BLEParentService bleService;
 StateMachine    sm;
 BatteryMonitor  batteryMonitor;
+BQ25186Charger  charger;
 
 // Audio pipeline:
 //   BT A2DP: A2DP sink -> I2SStream -> MAX98357A
@@ -290,10 +292,17 @@ void setup() {
     // Apply SD-configured volume, or the static firmware default.
     applyVolume(parentConfig.defaultVolumePct());
 
+    // The production /CE circuit remains fail-closed until every BQ25186
+    // setting has been written and read back. The generic fixture has no
+    // charger and compiles this path out through its board flag.
+    if (HAS_BQ25186 && !charger.begin()) {
+        statusLed.setSignal(StatusSignal::Error, true);
+    }
+
     // Battery initialization deliberately happens after the high-current boot
     // work. Five readings over roughly 500 ms seed an immediate coarse state;
     // later readings extend the rolling window at 30-second intervals.
-    batteryMonitor.begin();
+    batteryMonitor.begin(HAS_BQ25186 && charger.charging());
 
     // BLE parent service — shares the controller already started by A2DP.
     if (ENABLE_BLE_PARENT_SERVICE) {
@@ -320,6 +329,7 @@ void setup() {
 // loop()
 // ---------------------------------------------------------------------------
 void loop() {
+
     // Process asynchronous BT events before accepting local/BLE input.
     processStateMachineTransitions();
 
@@ -362,9 +372,18 @@ void loop() {
     pollBedtimeMode();
     pollBleConnectionState();
 
+    if (HAS_BQ25186) {
+        charger.poll();
+        if (!charger.healthy()) {
+            // Latch the visible error; failClosed() has already disabled /CE.
+            statusLed.setSignal(StatusSignal::Error, true);
+        }
+    }
+
     // Battery state is a separate one-byte BLE value. Avoid injecting a BLE
     // notification into the short Classic-BT connection settle interval.
-    if (batteryMonitor.poll() && ENABLE_BLE_PARENT_SERVICE) {
+    if (batteryMonitor.poll(HAS_BQ25186 && charger.charging()) &&
+        ENABLE_BLE_PARENT_SERVICE) {
         if (btLinkConnected && millis() - btConnectedAtMs < BT_SETTLE_MS) {
             btSettleBlePublishPending = true;
         } else {
@@ -795,6 +814,11 @@ bool canEnterIdleSleep() {
     if (btReopenPending) {
         return false;
     }
+    // With valid input power present, remain awake to supervise BQ25186
+    // charging and avoid holding the NPN /CE driver on during deep sleep.
+    if (HAS_BQ25186 && charger.inputPresent()) {
+        return false;
+    }
     return bleIdleAllowsSleep();
 }
 
@@ -839,6 +863,15 @@ void preparePinsForPeripheralPowerOff() {
 // enterIdleDeepSleep()
 // ---------------------------------------------------------------------------
 void enterIdleDeepSleep() {
+    if (HAS_BQ25186 && !charger.prepareForDeepSleep()) {
+        if (!charger.healthy()) {
+            statusLed.setSignal(StatusSignal::Error, true);
+        }
+        lastActivityMs = millis();
+        Serial.println("[Sleep] Aborted: charger could not be prepared safely");
+        return;
+    }
+
     Serial.printf("[Sleep] Entering deep sleep after %lus idle (wake GPIO%d HIGH)\n",
                   static_cast<unsigned long>((millis() - lastActivityMs) / 1000UL),
                   PIN_VIB_WAKE);
@@ -855,6 +888,18 @@ void enterIdleDeepSleep() {
     rtc_gpio_pullup_dis(static_cast<gpio_num_t>(PIN_VIB_WAKE));
     rtc_gpio_pulldown_dis(static_cast<gpio_num_t>(PIN_VIB_WAKE));
     esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(PIN_VIB_WAKE), 1);
+    if (HAS_BQ25186) {
+        // /PG is externally pulled HIGH without a valid input and is driven LOW
+        // by the BQ25186 when USB/AUX power becomes valid.
+        gpio_num_t pgPin = static_cast<gpio_num_t>(PIN_CHARGER_PG);
+        rtc_gpio_deinit(pgPin);
+        rtc_gpio_init(pgPin);
+        rtc_gpio_set_direction(pgPin, RTC_GPIO_MODE_INPUT_ONLY);
+        rtc_gpio_pullup_dis(pgPin);
+        rtc_gpio_pulldown_dis(pgPin);
+        esp_sleep_enable_ext1_wakeup(1ULL << PIN_CHARGER_PG,
+                                     ESP_EXT1_WAKEUP_ALL_LOW);
+    }
 
     if (rtc_gpio_get_level(static_cast<gpio_num_t>(PIN_VIB_WAKE)) == 1) {
         Serial.println("[Sleep] Wake switch is open; waiting for closure");

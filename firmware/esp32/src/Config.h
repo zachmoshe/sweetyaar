@@ -40,12 +40,25 @@ static constexpr int PIN_BTN2       = 33;  // Button 2: Animals
 static constexpr int PIN_VIB_WAKE   = 27;  // Externally biased NC vibration switch to GND; wake HIGH
 static constexpr int PIN_PERIPH_PWR_EN = 13;  // SD, battery-sense, and 5 V shared enable
 
-// --- Battery / charger status ----------------------------------------------
-// GPIO34/35 use external 10 kOhm pull-ups to 3V3_AON. GPIO36 reads the
-// switched 634 kOhm / 200 kOhm BAT divider on ADC1_CH0. The schematic
-// implements the 200 kOhm lower leg as two series 100 kOhm resistors.
-static constexpr int PIN_CHARGER_STAT1 = 34;
-static constexpr int PIN_CHARGER_STAT2 = 35;
+// --- Battery / BQ25186 charger ---------------------------------------------
+// GPIO34/35 are input-only and use external 10 kOhm pull-ups to 3V3_AON.
+// GPIO14 drives the base of the external /CE pull-down transistor: HIGH turns
+// the transistor on and enables charging. Its physical base pulldown makes
+// reset, an unpowered ESP32, and an open switch fail closed (charging off).
+#ifndef SWEETYAAR_BQ25186_ENABLED
+#define SWEETYAAR_BQ25186_ENABLED 1
+#endif
+
+#if SWEETYAAR_BQ25186_ENABLED != 0 && SWEETYAAR_BQ25186_ENABLED != 1
+#error "SWEETYAAR_BQ25186_ENABLED must be 0 or 1"
+#endif
+
+static constexpr bool HAS_BQ25186 = SWEETYAAR_BQ25186_ENABLED != 0;
+static constexpr int PIN_CHARGER_ENABLE = 14;
+static constexpr int PIN_CHARGER_SDA    = 16;
+static constexpr int PIN_CHARGER_SCL    = 17;
+static constexpr int PIN_CHARGER_PG     = 34;
+static constexpr int PIN_CHARGER_INT    = 35;
 static constexpr int PIN_BATTERY_ADC   = 36;
 static constexpr uint32_t BATTERY_DIVIDER_TOP_OHMS = 634000;
 static constexpr uint32_t BATTERY_DIVIDER_BOTTOM_OHMS = 200000;
@@ -154,6 +167,7 @@ static constexpr uint32_t SLEEP_NORMAL_IDLE_MS = 10UL * 60UL * 1000UL;
 static constexpr uint32_t SLEEP_VIB_WAKE_IDLE_MS = 2UL * 60UL * 1000UL;
 static constexpr uint32_t SLEEP_BLE_IDLE_MS = 2UL * 60UL * 1000UL;
 static constexpr uint32_t BATTERY_SAMPLE_INTERVAL_MS = 30UL * 1000UL;
+static constexpr uint32_t CHARGER_VERIFY_INTERVAL_MS = 10UL * 1000UL;
 static constexpr uint32_t BATTERY_BOOT_SAMPLE_INTERVAL_MS = 100;
 static constexpr uint8_t  BATTERY_BOOT_SAMPLE_COUNT = 5;
 static constexpr uint8_t  BATTERY_ROLLING_SAMPLE_COUNT = 10;

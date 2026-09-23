@@ -8,16 +8,6 @@ namespace {
 static constexpr uint16_t MIN_VALID_ADC_MV = 400;
 static constexpr uint16_t MAX_VALID_ADC_MV = 1150;
 
-const char* chargerPinsName(uint8_t pins) {
-    switch (pins) {
-        case 0b11: return "complete/sleep/disabled";
-        case 0b10: return "charging";
-        case 0b01: return "recoverable fault";
-        case 0b00: return "latch-off fault";
-        default: return "unknown";
-    }
-}
-
 }  // namespace
 
 const char* batteryStateName(BatteryState state) {
@@ -31,9 +21,7 @@ const char* batteryStateName(BatteryState state) {
     }
 }
 
-void BatteryMonitor::begin() {
-    pinMode(PIN_CHARGER_STAT1, INPUT);
-    pinMode(PIN_CHARGER_STAT2, INPUT);
+void BatteryMonitor::begin(bool charging) {
     pinMode(PIN_BATTERY_ADC, INPUT);
     analogSetPinAttenuation(PIN_BATTERY_ADC, ADC_2_5db);
 
@@ -58,15 +46,15 @@ void BatteryMonitor::begin() {
                       validBootSamples, BATTERY_BOOT_SAMPLE_COUNT);
     }
 
-    updateChargerState();
+    updateChargerState(charging);
     updatePublicState();
     _lastPeriodicSampleMs = millis();
     Serial.printf("[Battery] Initial state=%s\n", batteryStateName(_state));
 }
 
-bool BatteryMonitor::poll() {
+bool BatteryMonitor::poll(bool charging) {
     BatteryState previous = _state;
-    updateChargerState();
+    updateChargerState(charging);
 
     uint32_t now = millis();
     if (now - _lastPeriodicSampleMs >= BATTERY_SAMPLE_INTERVAL_MS) {
@@ -169,18 +157,10 @@ void BatteryMonitor::updateVoltageState(uint16_t averagedMillivolts) {
     }
 }
 
-void BatteryMonitor::updateChargerState() {
-    uint8_t pins = static_cast<uint8_t>(
-        (digitalRead(PIN_CHARGER_STAT1) == HIGH ? 0b10 : 0) |
-        (digitalRead(PIN_CHARGER_STAT2) == HIGH ? 0b01 : 0));
-    if (pins != _chargerPins) {
-        _chargerPins = pins;
-        Serial.printf("[Battery] STAT1=%u STAT2=%u (%s)\n",
-                      (pins >> 1U) & 1U, pins & 1U, chargerPinsName(pins));
-    }
+void BatteryMonitor::updateChargerState(bool charging) {
     // Require a valid battery reading before accepting CHARGING. This rejects
-    // the usual unwired-prototype case; the production circuit always has both.
-    _charging = _hasValidVoltage && pins == 0b10;
+    // the usual unwired-prototype case; production gets this state from STAT0.
+    _charging = _hasValidVoltage && charging;
 }
 
 void BatteryMonitor::updatePublicState() {

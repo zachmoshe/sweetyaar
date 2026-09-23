@@ -16,6 +16,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT / "content" / "sd-card-template" / "config.json"
 PLATFORMIO_PATH = ROOT / "firmware" / "esp32" / "platformio.ini"
 FIRMWARE_CONFIG_PATH = ROOT / "firmware" / "esp32" / "src" / "Config.h"
+BQ25186_SOURCE_PATH = ROOT / "firmware" / "esp32" / "src" / "BQ25186Charger.cpp"
 MAINBOARD_SCHEMATIC_PATH = (
     ROOT / "hardware" / "mainboard" / "sweetyaar-mainboard.kicad_sch"
 )
@@ -74,6 +75,12 @@ def test_generic_board_overrides_hardware_inversions() -> None:
     assert "-DSWEETYAAR_STATUS_LED_T1H_NS=800" in generic
     assert "-DSWEETYAAR_STATUS_LED_BIT_NS=1250" in generic
     assert "-DSWEETYAAR_STATUS_LED_RESET_US=80" in generic
+    assert "-DSWEETYAAR_BQ25186_ENABLED=0" in generic
+
+
+def test_production_board_enables_bq25186() -> None:
+    production = platformio_environment("sweetyaar")
+    assert "-DSWEETYAAR_BQ25186_ENABLED=1" in production
 
 
 @pytest.mark.parametrize("environment", ["sweetyaar", "sweetyaar-generic"])
@@ -167,6 +174,49 @@ def test_status_led_default_max_brightness_is_50_percent() -> None:
     firmware_config = FIRMWARE_CONFIG_PATH.read_text()
     assert "#define SWEETYAAR_STATUS_LED_MAX_BRIGHTNESS_PCT 50" in firmware_config
     assert "#define SWEETYAAR_STATUS_LED_RGBW 0" in firmware_config
+
+
+@pytest.mark.parametrize(
+    ("environment", "enabled"),
+    [(None, 1), ("sweetyaar", 1), ("sweetyaar-generic", 0)],
+)
+def test_charger_pinout_and_board_selection(
+    environment: str | None, enabled: int
+) -> None:
+    flags = platformio_build_flags(environment) if environment else []
+    result = compile_led_config(flags, f"""
+static_assert(SWEETYAAR_BQ25186_ENABLED == {enabled});
+static_assert(HAS_BQ25186 == {str(bool(enabled)).lower()});
+static_assert(PIN_CHARGER_ENABLE == 14);
+static_assert(PIN_CHARGER_SDA == 16);
+static_assert(PIN_CHARGER_SCL == 17);
+static_assert(PIN_CHARGER_PG == 34);
+static_assert(PIN_CHARGER_INT == 35);
+static_assert(CHARGER_VERIFY_INTERVAL_MS == 10000);
+""")
+    assert result.returncode == 0, result.stderr
+
+
+def test_bq25186_safety_policy_is_encoded_and_verified() -> None:
+    source = BQ25186_SOURCE_PATH.read_text()
+    for setting in (
+        "VALUE_VBAT_CTRL = 0x46",
+        "VALUE_ICHG_CTRL = 0x7F",
+        "VALUE_CHARGECTRL0 = 0x24",
+        "VALUE_CHARGECTRL1 = 0xD0",
+        "VALUE_IC_CTRL_AWAKE = 0x86",
+        "VALUE_IC_CTRL_SLEEP = 0x87",
+        "VALUE_TMR_ILIM = 0x4F",
+        "VALUE_SHIP_RST = 0x00",
+        "VALUE_SYS_REG = 0x40",
+        "VALUE_TS_CONTROL = 0xCC",
+        "VALUE_MASK_ID = 0x01",
+    ):
+        assert setting in source
+
+    assert "writeAndVerify(setting.reg, setting.value)" in source
+    assert "readRegister(setting.reg, actual)" in source
+    assert "setChargeEnabled(false)" in source
 
 
 def test_battery_divider_matches_production_schematic() -> None:

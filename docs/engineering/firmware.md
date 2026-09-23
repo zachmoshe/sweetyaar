@@ -111,7 +111,7 @@ or a percentage. It publishes only one coarse state:
 | 1 | `GOOD` | Averaged battery voltage is above the charge-soon band. |
 | 2 | `MEDIUM` | Charge soon. |
 | 3 | `LOW` | Charge now; playback may soon stop as the protected battery or charger power path reaches cutoff. |
-| 4 | `CHARGING` | BQ25185 `STAT1=HIGH`, `STAT2=LOW`; this temporarily overrides the voltage band. |
+| 4 | `CHARGING` | BQ25186 `STAT0.CHG_STAT` reports constant-current or constant-voltage charging; this temporarily overrides the voltage band. |
 
 Battery initialization runs after the higher-current boot work. Five samples
 100 ms apart are averaged into one seed observation, so the initial state is
@@ -123,12 +123,42 @@ five times.
 The state uses 100 mV hysteresis: `GOOD` falls to `MEDIUM` at 3.40 V and returns
 at 3.50 V; `MEDIUM` falls to `LOW` at 3.10 V and returns at 3.20 V. Voltage
 sampling continues while charging so the most recent band is ready when charge
-status ends. Charger fault combinations are logged, while only normal charging
-uses the `CHARGING` battery state.
+status ends. Charger faults are logged, while only normal charging uses the
+`CHARGING` battery state.
 
 The BLE battery characteristic is a one-byte read/notify value rather than
 JSON. This keeps the public contract deliberately small and prevents the app
 from presenting noisy voltage as precision that the circuit cannot provide.
+
+## Charger supervision
+
+The production board uses an I2C-controlled BQ25186 at 7-bit address `0x6A` on
+GPIO16/GPIO17. It was selected because firmware can set and verify the battery's
+required charging-temperature window. The fixed production policy is 4.20 V,
+1.00 A charge current, 1.05 A input limit, a six-hour safety timer, and hard
+0°C/45°C TS cutoffs with the intermediate COOL/WARM zones disabled.
+
+Charging is fail closed. GPIO14 drives an external NPN that can pull `/CE` LOW,
+but firmware leaves it off through reset and startup. It probes the device ID,
+writes each configuration register, immediately reads that physical register
+back, and enables charging only after the complete sequence succeeds. The
+verification path deliberately has no cached register values. Every ten seconds
+and after `/INT`, it rereads every configured register and the status/flag
+registers. A mismatch or I2C error releases `/CE`; one complete rewrite and
+read-back must succeed before charging can resume.
+
+`/PG` on GPIO34 reports valid input power and wakes the ESP32 when USB/AUX is
+attached during deep sleep. `/INT` on GPIO35 prompts a status read while awake.
+They are useful but not required for detailed reporting: charge phase, input
+state, temperature zone/open sensor, input/DPPM/thermal limiting, overvoltage,
+battery protection, safety-timer status, flags, and device ID are available over
+I2C. Firmware remains awake while valid charger input is present. For
+battery-only deep sleep it disables charging and the BQ25186 host watchdog;
+wake performs a fresh full configuration and verification.
+
+While awake, the BQ25186 40-second host watchdog requires continuing I2C
+traffic and power-cycles `SYS` if traffic stops. The charger watchdog is disabled
+only immediately before intentional deep sleep, after a final direct read-back.
 
 ## Bluetooth speaker mode
 
@@ -289,11 +319,12 @@ forever.
 
 Before sleeping, the firmware sends a black status-LED frame while switched 5 V
 is still present, stops playback, mutes the amplifier, closes the SD, SPI, and
-I2S interfaces, and turns off the switched peripheral power. It then releases
-GPIO2 to high-impedance so it cannot drive HIGH into the unpowered LED. The
-normally-closed vibration switch is the wake source. Waking from deep sleep is
-a full reboot: Bluetooth connections, the current track, loop mode, and manual
-Bedtime overrides are not restored.
+I2S interfaces, disables charging and the charger host watchdog, and turns off
+the switched peripheral power. It then releases GPIO2 to high-impedance so it
+cannot drive HIGH into the unpowered LED. The normally-closed vibration switch
+and charger `/PG` are wake sources. Waking from deep sleep is a full reboot:
+Bluetooth connections, the current track, loop mode, and manual Bedtime
+overrides are not restored.
 
 ## How the firmware is organized
 
@@ -324,6 +355,8 @@ The high-level components are:
 | `firmware/esp32/src/NVSConfig.*`        | Device-local settings that should survive SD-card replacement.                           |
 | `firmware/esp32/src/BedtimeMode.*`      | Pure rules for daily windows and manual overrides.                                       |
 | `firmware/esp32/src/PeripheralPower.*`  | Power-gating behavior during boot and deep sleep.                                        |
+| `firmware/esp32/src/BQ25186Charger.*`   | Fail-closed charger setup, direct I2C read-back, periodic verification, status, and watchdog handling. |
+| `firmware/esp32/src/BatteryMonitor.*`   | Coarse ADC battery bands plus the charger-reported `CHARGING` override.                   |
 | `firmware/esp32/src/StatusLed.*` and `StatusLedPolicy.*` | Semantic status priority, blink timing, brightness limiting, and the single addressable-LED/RMT owner. |
 | `firmware/esp32/src/Config.h`           | Pin assignments, BLE identifiers, and firmware fallback values.                          |
 
