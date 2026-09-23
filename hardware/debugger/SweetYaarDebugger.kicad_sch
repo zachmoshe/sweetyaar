@@ -1488,6 +1488,195 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "Jumper:SolderJumper_2_Bridged"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom no)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "JP"
+				(at 0 2.032 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "SolderJumper_2_Bridged"
+				(at 0 -2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 -6.35 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Solder Jumper, 2-pole, closed/bridged"
+				(at 0 -5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "solder jumper SPST"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "SolderJumper*Bridged*"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "SolderJumper_2_Bridged_0_1"
+				(rectangle
+					(start -0.508 0.508)
+					(end 0.508 -0.508)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.254 1.016) (xy -0.254 -1.016)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start -0.254 -1.016)
+					(mid -1.2656 0)
+					(end -0.254 1.016)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(arc
+					(start 0.254 1.016)
+					(mid 1.2656 0)
+					(end 0.254 -1.016)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.254 1.016) (xy 0.254 -1.016)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "SolderJumper_2_Bridged_1_1"
+				(pin passive line
+					(at -5.08 0 0)
+					(length 3.81)
+					(name "A"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 5.08 0 180)
+					(length 3.81)
+					(name "B"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "Power_Protection:USBLC6-2SC6"
 			(pin_names
 				(hide yes)
@@ -2509,295 +2698,6 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "SweetYaar:MS-22D28-G020"
-			(pin_names
-				(offset 0)
-				(hide yes)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "SW"
-				(at 0 6.858 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "SW_Slide_DPDT"
-				(at 0 -8.128 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" ""
-				(at 13.97 5.08 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Datasheet" ""
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Description" "Slide Switch, dual pole double throw"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_keywords" "switch dual-pole double-throw dpdt ON-ON"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "MS-22D28-G020_0_1"
-				(circle
-					(center -2.032 5.08)
-					(radius 0.508)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(circle
-					(center -2.032 0)
-					(radius 0.508)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(circle
-					(center -2.032 -5.08)
-					(radius 0.508)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -1.524 0.254) (xy -0.508 4.826)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 1.524 0.254) (xy 0.508 4.826)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(circle
-					(center 2.032 5.08)
-					(radius 0.508)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(circle
-					(center 2.032 0)
-					(radius 0.508)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(circle
-					(center 2.032 -5.08)
-					(radius 0.508)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "MS-22D28-G020_1_1"
-				(rectangle
-					(start -3.175 5.588)
-					(end 3.175 -5.588)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type background)
-					)
-				)
-				(pin passive line
-					(at -5.08 5.08 0)
-					(length 2.54)
-					(name "A"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -5.08 0 0)
-					(length 2.54)
-					(name "B"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -5.08 -5.08 0)
-					(length 2.54)
-					(name "C"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 5.08 -5.08 180)
-					(length 2.54)
-					(name "A"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "4"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 5.08 0 180)
-					(length 2.54)
-					(name "B"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "5"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 5.08 5.08 180)
-					(length 2.54)
-					(name "C"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "6"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
 		(symbol "Switch:SW_DPST"
 			(pin_names
 				(offset 0)
@@ -3551,17 +3451,6 @@
 			(embedded_fonts no)
 		)
 	)
-	(text "Serial only switch\n(no accidental resets)"
-		(exclude_from_sim no)
-		(at 198.374 86.868 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "32e4ec8b-556f-46f6-a6ed-e79fabf0bcad")
-	)
 	(text "SweetYaar Debugger Rev A"
 		(exclude_from_sim no)
 		(at 17.272 19.304 0)
@@ -3601,6 +3490,12 @@
 		(uuid "00182128-425e-42d1-bb93-6b62cac5e8a1")
 	)
 	(junction
+		(at 99.06 50.8)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "028b96e5-a79f-44b7-818c-efc5c21483f8")
+	)
+	(junction
 		(at 162.56 67.31)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -3625,6 +3520,18 @@
 		(uuid "838df6a8-6bd3-4561-b0ff-ac369698b21b")
 	)
 	(junction
+		(at 134.62 50.8)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "8ab2525d-35e5-464b-a2de-841d756ed80c")
+	)
+	(junction
+		(at 111.76 50.8)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "ac2b1c04-9509-443f-8029-b04f09ca3c44")
+	)
+	(junction
 		(at 118.11 81.28)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -3635,12 +3542,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "e173e175-5699-46d0-8beb-9a33db969b87")
-	)
-	(junction
-		(at 60.96 53.34)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "ed1c57b6-964e-4669-962a-ec934e2fb0b9")
 	)
 	(junction
 		(at 46.99 45.72)
@@ -3669,20 +3570,12 @@
 		(uuid "9a519e1a-9ebf-4066-98c8-7d9aecfa6024")
 	)
 	(no_connect
-		(at 204.47 83.82)
-		(uuid "bbb2e716-56ef-4af5-b61d-213deda85e32")
-	)
-	(no_connect
 		(at 130.81 111.76)
 		(uuid "c87cc8b7-61ad-451c-a4b0-3c938fe8d36f")
 	)
 	(no_connect
 		(at 45.72 76.2)
 		(uuid "dc4faddf-3537-4ac5-8f86-4d4123ce8f5a")
-	)
-	(no_connect
-		(at 214.63 83.82)
-		(uuid "f1ec1043-9e89-4262-ad37-7fdd047ed224")
 	)
 	(wire
 		(pts
@@ -3726,33 +3619,13 @@
 	)
 	(wire
 		(pts
-			(xy 139.7 50.8) (xy 139.7 54.61)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "234088b2-34f2-424d-aafa-a6a5f9fb9604")
-	)
-	(wire
-		(pts
-			(xy 60.96 53.34) (xy 60.96 55.88)
+			(xy 60.96 45.72) (xy 60.96 55.88)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "256a4fff-0a71-4c8c-a90d-54fa01272343")
-	)
-	(wire
-		(pts
-			(xy 60.96 45.72) (xy 60.96 53.34)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "2d05c13d-1f7e-47ab-90d4-6aeff5b6309b")
 	)
 	(wire
 		(pts
@@ -3846,7 +3719,7 @@
 	)
 	(wire
 		(pts
-			(xy 99.06 50.8) (xy 113.03 50.8)
+			(xy 99.06 50.8) (xy 111.76 50.8)
 		)
 		(stroke
 			(width 0)
@@ -3883,6 +3756,16 @@
 			(type default)
 		)
 		(uuid "706edeae-dcf3-4d64-a7e5-99bc021db24f")
+	)
+	(wire
+		(pts
+			(xy 111.76 50.8) (xy 113.03 50.8)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "79e008ab-80a5-43d0-ae5e-4cb82235aa90")
 	)
 	(wire
 		(pts
@@ -4006,7 +3889,17 @@
 	)
 	(wire
 		(pts
-			(xy 128.27 50.8) (xy 139.7 50.8)
+			(xy 134.62 50.8) (xy 143.51 50.8)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ddda1d66-2e1a-4fa1-b370-b7dc5d917164")
+	)
+	(wire
+		(pts
+			(xy 128.27 50.8) (xy 134.62 50.8)
 		)
 		(stroke
 			(width 0)
@@ -4095,7 +3988,7 @@
 		(uuid "037ec872-544e-42a0-ae8f-222efa65f8a0")
 	)
 	(label "3V3_DEBUG"
-		(at 139.7 50.8 0)
+		(at 143.51 50.8 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4134,16 +4027,6 @@
 		)
 		(uuid "1c702716-b883-41ef-bcd1-e8af83abf75c")
 	)
-	(label "GND"
-		(at 139.7 62.23 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "1f1d84ad-59e7-4f18-bdc4-5a55afad752d")
-	)
 	(label "UART_TXD"
 		(at 135.89 99.06 0)
 		(effects
@@ -4164,7 +4047,7 @@
 		)
 		(uuid "2a82966b-e4ec-469e-92a4-935eb3fa3010")
 	)
-	(label "USB_DM"
+	(label "USB_N"
 		(at 69.85 60.96 0)
 		(effects
 			(font
@@ -4174,15 +4057,15 @@
 		)
 		(uuid "2b12c4c7-786e-456d-b8c8-2d5457bd9d93")
 	)
-	(label "GND"
-		(at 93.98 90.17 0)
+	(label "USB_CONN_N"
+		(at 45.72 60.96 0)
 		(effects
 			(font
-				(size 1.27 1.27)
+				(size 1 1)
 			)
 			(justify left bottom)
 		)
-		(uuid "3b4f31a7-ab51-499f-99dd-b805dbc88b3b")
+		(uuid "2f19a7cb-f393-4188-829e-bf9c70fa8912")
 	)
 	(label "USB_VBUS"
 		(at 60.96 45.72 0)
@@ -4195,7 +4078,7 @@
 		(uuid "4429a02c-7f1e-4192-bcc0-86d066de9e48")
 	)
 	(label "ESP_EN"
-		(at 204.47 73.66 180)
+		(at 203.2 76.2 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4205,7 +4088,7 @@
 		(uuid "4ae79692-21e6-461a-96c3-c11af1869753")
 	)
 	(label "TARGET_BOOT"
-		(at 214.63 78.74 0)
+		(at 213.36 83.82 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4224,6 +4107,16 @@
 		)
 		(uuid "6aefcfa2-73f5-4e74-ab00-68697da073d6")
 	)
+	(label "USB_CONN_P"
+		(at 45.72 63.5 0)
+		(effects
+			(font
+				(size 1 1)
+			)
+			(justify left bottom)
+		)
+		(uuid "710fc427-3540-4803-bcbf-b5f6be81131a")
+	)
 	(label "GND"
 		(at 105.41 99.06 0)
 		(effects
@@ -4234,7 +4127,7 @@
 		)
 		(uuid "7ffa1d3a-8080-4b74-9219-cb423af5c069")
 	)
-	(label "USB_DM"
+	(label "USB_N"
 		(at 105.41 106.68 0)
 		(effects
 			(font
@@ -4255,12 +4148,12 @@
 		(uuid "9073a927-afe0-4ec7-a59e-7109b99b0dea")
 	)
 	(label "BOOT"
-		(at 214.63 73.66 0)
+		(at 203.2 83.82 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right)
 		)
 		(uuid "9b784c57-9926-4064-b12f-6687433ec608")
 	)
@@ -4284,7 +4177,7 @@
 		)
 		(uuid "ab34caac-dce2-4168-8342-7a15b4719d07")
 	)
-	(label "USB_DP"
+	(label "USB_P"
 		(at 69.85 63.5 0)
 		(effects
 			(font
@@ -4303,16 +4196,6 @@
 			(justify left bottom)
 		)
 		(uuid "ae413c8c-c6ec-496e-b9fe-efd0ffe1e963")
-	)
-	(label "GND"
-		(at 120.65 58.42 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "b3ec3931-8ce8-40ea-94b3-184d9eb573f8")
 	)
 	(label "BOOT"
 		(at 184.15 76.2 0)
@@ -4364,37 +4247,17 @@
 		)
 		(uuid "e92d9744-98e3-4d62-bac2-c9ab4e73d141")
 	)
-	(label "3V3_DEBUG"
-		(at 93.98 82.55 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "f270439c-29d3-4c94-96c0-c47a2200fa7e")
-	)
-	(label "GND"
-		(at 99.06 62.23 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "fb2bd09c-306e-462c-ada7-9c21ae06457f")
-	)
 	(label "TARGET_EN"
-		(at 204.47 78.74 180)
+		(at 213.36 76.2 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify right bottom)
+			(justify left bottom)
 		)
 		(uuid "fbd2d0da-81f0-40ee-8f38-cc8ca9e3b69b")
 	)
-	(label "USB_DP"
+	(label "USB_P"
 		(at 105.41 104.14 0)
 		(effects
 			(font
@@ -4483,7 +4346,7 @@
 	)
 	(symbol
 		(lib_id "Device:C")
-		(at 139.7 58.42 0)
+		(at 143.51 54.61 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -4493,7 +4356,7 @@
 		(dnp no)
 		(uuid "132eaef6-d959-4854-bfb1-688ecb2e0855")
 		(property "Reference" "C2"
-			(at 143.51 57.15 0)
+			(at 147.32 53.34 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -4504,7 +4367,7 @@
 			)
 		)
 		(property "Value" "2.2uF"
-			(at 143.51 59.69 0)
+			(at 147.32 55.88 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -4515,7 +4378,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0805_2012Metric"
-			(at 139.7 58.42 0)
+			(at 143.51 54.61 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4526,7 +4389,7 @@
 			)
 		)
 		(property "Datasheet" "https://www.lcsc.com/datasheet/C126591.pdf"
-			(at 139.7 58.42 0)
+			(at 143.51 54.61 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4537,7 +4400,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 139.7 58.42 0)
+			(at 143.51 54.61 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -4547,7 +4410,7 @@
 			)
 		)
 		(property "LCSC" "C126591"
-			(at 139.7 58.42 0)
+			(at 143.51 54.61 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4573,8 +4436,8 @@
 		)
 	)
 	(symbol
-		(lib_id "SweetYaar:MS-22D28-G020")
-		(at 209.55 78.74 0)
+		(lib_id "power:GND")
+		(at 120.65 58.42 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -4582,10 +4445,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "1d5d81db-9972-476a-abc7-8d871fb8877c")
-		(property "Reference" "SW1"
-			(at 209.55 69.85 0)
+		(uuid "1ac80ef2-b6f7-4e26-bd8d-dd0e97923707")
+		(property "Reference" "#PWR065"
+			(at 120.65 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4595,8 +4457,18 @@
 				)
 			)
 		)
-		(property "Value" "MS-22D28-G020 (SERIAL ONLY)"
-			(at 209.55 72.39 0)
+		(property "Value" "GND"
+			(at 123.698 60.96 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 120.65 58.42 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4606,8 +4478,8 @@
 				)
 			)
 		)
-		(property "Footprint" "SweetYaar:SW-SMD_MS-22D28-G020"
-			(at 209.55 78.74 0)
+		(property "Datasheet" ""
+			(at 120.65 58.42 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4617,8 +4489,8 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.lcsc.com/product-detail/C963205.html"
-			(at 209.55 78.74 0)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 120.65 58.42 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4627,51 +4499,91 @@
 					(size 1.27 1.27)
 				)
 			)
-		)
-		(property "Description" "DPDT slide switch used as two ganged disconnects for ESP_EN and BOOT"
-			(at 209.55 78.74 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "LCSC" "C963205"
-			(at 209.55 78.74 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "2"
-			(uuid "2685009d-4ed1-4a22-b68a-03bc2161a399")
-		)
-		(pin "3"
-			(uuid "b4391fe5-6f06-47a7-9976-286103410c03")
-		)
-		(pin "4"
-			(uuid "03883eb0-cb0e-4468-a7b2-c200c04580c1")
 		)
 		(pin "1"
-			(uuid "8ab53932-99d2-4033-ab91-2b2372070cf8")
-		)
-		(pin "5"
-			(uuid "8c457716-cb29-4c8a-aa2d-a7c3b15c6bb7")
-		)
-		(pin "6"
-			(uuid "96dc3d15-1c71-4507-8bcf-a1f154b0e6d1")
+			(uuid "839a63be-bf17-4492-918b-2080bb352f59")
 		)
 		(instances
 			(project "SweetYaarDebugger"
 				(path "/cc4a5ea1-77e3-4cf4-baa3-bd3ade14ad79"
-					(reference "SW1")
+					(reference "#PWR065")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 99.06 58.42 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "2225ea55-b18a-4206-b79c-e1fa00e20113")
+		(property "Reference" "#PWR064"
+			(at 99.06 64.77 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 102.108 60.96 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 99.06 58.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 99.06 58.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 99.06 58.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "14ccd5b3-f15c-4946-b852-c66aec75ff36")
+		)
+		(instances
+			(project "SweetYaarDebugger"
+				(path "/cc4a5ea1-77e3-4cf4-baa3-bd3ade14ad79"
+					(reference "#PWR064")
 					(unit 1)
 				)
 			)
@@ -4830,8 +4742,88 @@
 		)
 	)
 	(symbol
+		(lib_id "Jumper:SolderJumper_2_Bridged")
+		(at 208.28 83.82 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "36a609b9-369c-47d3-abe3-7dab35dc54ca")
+		(property "Reference" "JP2"
+			(at 208.026 81.28 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "SolderJumper_2_Bridged"
+			(at 208.28 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Jumper:SolderJumper-2_P1.3mm_Bridged_RoundedPad1.0x1.5mm"
+			(at 208.28 83.82 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 208.28 90.17 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Solder Jumper, 2-pole, closed/bridged"
+			(at 208.28 88.9 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "884e877b-fc47-44cc-9aeb-6557638929a3")
+		)
+		(pin "2"
+			(uuid "4a2dd818-f196-44f5-997f-147e8410df55")
+		)
+		(instances
+			(project "SweetYaarDebugger"
+				(path "/cc4a5ea1-77e3-4cf4-baa3-bd3ade14ad79"
+					(reference "JP2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:C")
-		(at 99.06 58.42 0)
+		(at 99.06 54.61 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -4841,7 +4833,7 @@
 		(dnp no)
 		(uuid "3c720bc4-ea1b-4b42-93ec-b70839ed497a")
 		(property "Reference" "C4"
-			(at 102.87 57.15 0)
+			(at 102.87 53.34 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -4852,7 +4844,7 @@
 			)
 		)
 		(property "Value" "2.2uF"
-			(at 102.87 59.69 0)
+			(at 102.87 55.88 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -4863,7 +4855,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0805_2012Metric"
-			(at 99.06 58.42 0)
+			(at 99.06 54.61 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4874,7 +4866,7 @@
 			)
 		)
 		(property "Datasheet" "https://www.lcsc.com/datasheet/C126591.pdf"
-			(at 99.06 58.42 0)
+			(at 99.06 54.61 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4885,7 +4877,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 99.06 58.42 0)
+			(at 99.06 54.61 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -4895,7 +4887,7 @@
 			)
 		)
 		(property "LCSC" "C126591"
-			(at 99.06 58.42 0)
+			(at 99.06 54.61 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5072,6 +5064,83 @@
 		)
 	)
 	(symbol
+		(lib_id "power:GND")
+		(at 143.51 58.42 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "701a9a65-095f-4dbe-8e69-a1bb7b3e910d")
+		(property "Reference" "#PWR067"
+			(at 143.51 64.77 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 146.558 60.96 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 143.51 58.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 143.51 58.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 143.51 58.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "8a27b628-c8ee-4030-9392-c799d73ac8eb")
+		)
+		(instances
+			(project "SweetYaarDebugger"
+				(path "/cc4a5ea1-77e3-4cf4-baa3-bd3ade14ad79"
+					(reference "#PWR067")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:R")
 		(at 167.64 81.28 90)
 		(unit 1)
@@ -5163,7 +5232,7 @@
 	)
 	(symbol
 		(lib_id "Device:C")
-		(at 93.98 86.36 0)
+		(at 134.62 54.61 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -5173,7 +5242,7 @@
 		(dnp no)
 		(uuid "80520636-4751-407d-a34f-979f5b923294")
 		(property "Reference" "C3"
-			(at 97.79 85.09 0)
+			(at 138.43 53.34 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -5184,7 +5253,7 @@
 			)
 		)
 		(property "Value" "100nF"
-			(at 97.79 87.63 0)
+			(at 138.43 55.88 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -5195,7 +5264,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
-			(at 93.98 86.36 0)
+			(at 134.62 54.61 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5206,7 +5275,7 @@
 			)
 		)
 		(property "Datasheet" "https://www.lcsc.com/datasheet/C14663.pdf"
-			(at 93.98 86.36 0)
+			(at 134.62 54.61 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5217,7 +5286,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 93.98 86.36 0)
+			(at 134.62 54.61 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -5227,7 +5296,7 @@
 			)
 		)
 		(property "LCSC" "C14663"
-			(at 93.98 86.36 0)
+			(at 134.62 54.61 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5254,7 +5323,7 @@
 	)
 	(symbol
 		(lib_id "Device:C")
-		(at 64.77 53.34 90)
+		(at 111.76 54.61 180)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -5264,7 +5333,7 @@
 		(dnp no)
 		(uuid "835229cb-5482-4754-ae23-9257463ff762")
 		(property "Reference" "C1"
-			(at 62.738 48.006 90)
+			(at 106.426 56.642 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5275,7 +5344,7 @@
 			)
 		)
 		(property "Value" "100nF"
-			(at 64.262 50.038 90)
+			(at 108.458 55.118 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -5285,7 +5354,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
-			(at 68.58 52.3748 0)
+			(at 110.7948 50.8 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5296,7 +5365,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 64.77 53.34 0)
+			(at 111.76 54.61 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5307,7 +5376,7 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor"
-			(at 64.77 53.34 0)
+			(at 111.76 54.61 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5318,7 +5387,7 @@
 			)
 		)
 		(property "LCSC" "C14663"
-			(at 64.77 53.34 90)
+			(at 111.76 54.61 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5338,6 +5407,86 @@
 			(project "SweetYaarDebugger"
 				(path "/cc4a5ea1-77e3-4cf4-baa3-bd3ade14ad79"
 					(reference "C1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Jumper:SolderJumper_2_Bridged")
+		(at 208.28 76.2 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "a4a39be0-7422-43e3-a52b-cd51248eb9df")
+		(property "Reference" "JP1"
+			(at 208.28 73.66 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "SolderJumper_2_Bridged"
+			(at 208.28 72.39 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Jumper:SolderJumper-2_P1.3mm_Bridged_RoundedPad1.0x1.5mm"
+			(at 208.28 76.2 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 208.28 82.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Solder Jumper, 2-pole, closed/bridged"
+			(at 208.28 81.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "beb1046e-ed29-4f77-98a8-df5bc49af6a7")
+		)
+		(pin "2"
+			(uuid "9e5e287d-d908-4a24-abe4-5b46d6184a0f")
+		)
+		(instances
+			(project "SweetYaarDebugger"
+				(path "/cc4a5ea1-77e3-4cf4-baa3-bd3ade14ad79"
+					(reference "JP1")
 					(unit 1)
 				)
 			)
@@ -5441,6 +5590,83 @@
 			(project "SweetYaarDebugger"
 				(path "/cc4a5ea1-77e3-4cf4-baa3-bd3ade14ad79"
 					(reference "D1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 134.62 58.42 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "aa99f313-46c1-4c90-b943-3f45195d9f9c")
+		(property "Reference" "#PWR066"
+			(at 134.62 64.77 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 137.668 60.96 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 134.62 58.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 134.62 58.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 134.62 58.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "b73e9d20-bd65-4a19-ad63-0927927724f6")
+		)
+		(instances
+			(project "SweetYaarDebugger"
+				(path "/cc4a5ea1-77e3-4cf4-baa3-bd3ade14ad79"
+					(reference "#PWR066")
 					(unit 1)
 				)
 			)
@@ -5680,7 +5906,7 @@
 				)
 			)
 		)
-		(property "Value" "301"
+		(property "Value" "330"
 			(at 208.026 67.056 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5701,7 +5927,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.lcsc.com/datasheet/C25192.pdf"
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C23138.pdf"
 			(at 207.01 64.77 0)
 			(hide yes)
 			(show_name no)
@@ -5723,7 +5949,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C25192"
+		(property "LCSC" "C23138"
 			(at 207.01 64.77 90)
 			(hide yes)
 			(show_name no)
@@ -5758,7 +5984,7 @@
 		(in_bom yes)
 		(on_board yes)
 		(in_pos_files yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "cdc8a3e3-f1a9-4299-8d31-afd3d8cf644d")
 		(property "Reference" "J_PROG1"
 			(at 248.92 85.09 0)
@@ -6568,7 +6794,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 68.58 53.34 0)
+		(at 111.76 58.42 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -6578,7 +6804,7 @@
 		(dnp no)
 		(uuid "e5d4a8cd-f7e0-4dc4-8851-0a6aa8dd25e1")
 		(property "Reference" "#PWR063"
-			(at 68.58 59.69 0)
+			(at 111.76 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6589,7 +6815,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 71.628 55.88 0)
+			(at 114.808 60.96 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -6599,7 +6825,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 68.58 53.34 0)
+			(at 111.76 58.42 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6610,7 +6836,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 68.58 53.34 0)
+			(at 111.76 58.42 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6621,7 +6847,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 68.58 53.34 0)
+			(at 111.76 58.42 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6712,7 +6938,7 @@
 				)
 			)
 		)
-		(property "LCSC" ""
+		(property "LCSC" "C7519"
 			(at 60.96 60.96 0)
 			(hide yes)
 			(show_name no)

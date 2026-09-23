@@ -1022,8 +1022,8 @@ The debugger routes CH340C pin 13 `DTR#` and pin 14 `RTS#` through Espressif's
 two-transistor automatic-download circuit to target `EN` and BOOT. SW1 is the
 generic board's MS-22D28-G020 DPDT slide switch (C963205), using the matching
 `SweetYaar:SW-SMD_MS-22D28-G020` footprint as a two-pole disconnect. Pins 1–2
-connect `ESP_EN` to `TARGET_EN`, and pins 6–5 connect BOOT to `TARGET_BOOT`;
-pins 3 and 4 are unused. These two selected contact pairs close together in
+connect `ESP_EN` to `TARGET_EN`, and pins 4–5 connect BOOT to `TARGET_BOOT`;
+pins 3 and 6 are unused. These two selected contact pairs close together in
 one position and open together in the serial-only position. UART TX/RX remain
 connected. The target retains the recommended 10 kΩ/1 µF `ESP_EN` network and
 10 kΩ GPIO0 pull-up. Reserve GPIO0 for automatic download control and do not
