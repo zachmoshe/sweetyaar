@@ -156,9 +156,12 @@ I2C. Firmware remains awake while valid charger input is present. For
 battery-only deep sleep it disables charging and the BQ25186 host watchdog;
 wake performs a fresh full configuration and verification.
 
-While awake, the BQ25186 40-second host watchdog requires continuing I2C
-traffic and power-cycles `SYS` if traffic stops. The charger watchdog is disabled
-only immediately before intentional deep sleep, after a final direct read-back.
+Two independent hang detectors protect this flow. The ESP32 task watchdog
+registers Arduino `loop()` on CPU1 alongside the already watched CPU0 idle task;
+the current ESP-IDF configuration uses a five-second timeout. While awake, the
+BQ25186 40-second host watchdog requires continuing I2C traffic and power-cycles
+`SYS` if traffic stops. The charger watchdog is disabled only immediately before
+intentional deep sleep, after a final direct read-back.
 
 ## Bluetooth speaker mode
 

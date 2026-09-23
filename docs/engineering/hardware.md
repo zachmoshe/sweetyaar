@@ -613,8 +613,9 @@ one register and immediately reads the physical register back before advancing.
 It then rereads every configured register every 10 seconds and on `/INT`. Any
 I2C failure, unexpected device ID, or mismatch immediately releases `/CE`;
 firmware attempts one complete rewrite/read-back cycle and re-enables charging
-only after successful verification. The BQ25186 also provides its independent
-40-second no-I2C power-cycle watchdog.
+only after successful verification. The ESP32 CPU1 loop task also uses the
+configured five-second task watchdog, while the BQ25186 provides the independent 40-second
+no-I2C power-cycle watchdog.
 
 The 103AT-2 is the 10 kΩ/B25/85=3435 K profile used by TI's BQ25186 temperature
 thresholds. Firmware selects the hard 0°C and 45°C thresholds recommended for

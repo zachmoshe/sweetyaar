@@ -6,6 +6,7 @@
 #include <esp_bt_device.h>
 #include <esp_gap_bt_api.h>
 #include <esp_sleep.h>
+#include <esp_task_wdt.h>
 #include <sys/time.h>
 #include <time.h>
 #include <driver/rtc_io.h>
@@ -101,6 +102,7 @@ static constexpr uint32_t MAX_HEAP_RESTARTS = 3;
 // Forward declarations
 // ---------------------------------------------------------------------------
 void setupWakeState();
+void setupLoopTaskWatchdog();
 void setupPeripheralPower();
 void setAmpMuted(bool muted);
 void setupI2S();
@@ -321,6 +323,7 @@ void setup() {
     lastActivityMs = millis();
     lastBleActivityMs = millis();
     lastBleConnected = ENABLE_BLE_PARENT_SERVICE && bleService.isConnected();
+    setupLoopTaskWatchdog();
 
     Serial.println("[Boot] Ready.");
 }
@@ -329,6 +332,7 @@ void setup() {
 // loop()
 // ---------------------------------------------------------------------------
 void loop() {
+    esp_task_wdt_reset();
 
     // Process asynchronous BT events before accepting local/BLE input.
     processStateMachineTransitions();
@@ -437,7 +441,27 @@ void loop() {
     statusLed.service(millis());
     pollIdleSleep();
 
+    esp_task_wdt_reset();
     delay(wavPlayer.isIdle() ? 5 : 1);  // keep WAV streaming fed while still yielding
+}
+
+// ---------------------------------------------------------------------------
+// setupLoopTaskWatchdog()
+// ---------------------------------------------------------------------------
+void setupLoopTaskWatchdog() {
+    // Arduino/ESP-IDF already initializes the task watchdog and registers the
+    // CPU0 idle task. Use the core helper so its loop wrapper also feeds this
+    // CPU1 task before each loop() call.
+    enableLoopWDT();
+    esp_err_t status = esp_task_wdt_status(nullptr);
+    if (status != ESP_OK) {
+        Serial.printf("[Watchdog] CPU1 loop task registration failed: %d\n",
+                      static_cast<int>(status));
+        statusLed.setSignal(StatusSignal::Error, true);
+        return;
+    }
+    Serial.printf("[Watchdog] CPU1 loop task armed (%ds)\n",
+                  CONFIG_ESP_TASK_WDT_TIMEOUT_S);
 }
 
 // ---------------------------------------------------------------------------
@@ -904,6 +928,7 @@ void enterIdleDeepSleep() {
     if (rtc_gpio_get_level(static_cast<gpio_num_t>(PIN_VIB_WAKE)) == 1) {
         Serial.println("[Sleep] Wake switch is open; waiting for closure");
         while (rtc_gpio_get_level(static_cast<gpio_num_t>(PIN_VIB_WAKE)) == 1) {
+            esp_task_wdt_reset();
             delay(20);
         }
         delay(50);
