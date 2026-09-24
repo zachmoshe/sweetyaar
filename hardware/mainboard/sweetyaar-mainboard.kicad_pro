@@ -84,6 +84,14 @@
         [
           "silk_edge_clearance|44050000|100000000|1eff0831-1dc2-4504-9283-8dc0a4d2e1f2|666c19fb-84e1-47ef-9787-e0e44b1039df",
           "Because USB connector is a bit proud of the PCB"
+        ],
+        [
+          "silk_over_copper|51756826|79125920|afe00944-efa0-4e8b-b8f7-dd53ee9ade17|85ac418c-e67c-493f-a2b1-9effa5712171",
+          ""
+        ],
+        [
+          "silk_over_copper|52328254|79340000|afe00944-efa0-4e8b-b8f7-dd53ee9ade17|c61c2cb2-ee73-40c9-8ced-b9c89319a47a",
+          ""
         ]
       ],
       "meta": {
