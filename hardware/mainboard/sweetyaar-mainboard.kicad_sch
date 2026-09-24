@@ -4182,217 +4182,6 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "LCSC:WS2812B-V6"
-			(pin_names
-				(offset 1.016)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "LED"
-				(at 0 5.81 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "WS2812B-V6"
-				(at 0 -5.81 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" "SweetYaar:WS2812B-V6"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Datasheet" "https://img.jlc.com/image//data/smt-stock-produce/componentSizePhoto/2022-01-10/5ccaf76195334eaabd9d3430708bba91/BG2201080400_D22010300172_font.png"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Description" "WS2812B-V6; LED-SMD_4P-L5.0-W5.0-TL-A; worldsemi"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "LCSC" "C52917433"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Manufacturer" "worldsemi"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Manufacturer Part" "WS2812B-V6"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_keywords" "C52917433 LED-SMD_4P-L5.0-W5.0-TL-A WS2812B-V6 worldsemi"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "WS2812B-V6_0_1"
-				(circle
-					(center -6.35 2.54)
-					(radius 0.381)
-					(stroke
-						(width 0.254)
-						(type solid)
-					)
-					(fill
-						(type outline)
-					)
-				)
-				(polyline
-					(pts
-						(xy 7.112 -3.81) (xy 7.2111 -3.8002) (xy 7.3064 -3.7713) (xy 7.3942 -3.7244) (xy 7.4712 -3.6612)
-						(xy 7.5344 -3.5842) (xy 7.5813 -3.4964) (xy 7.6102 -3.4011) (xy 7.62 -3.302) (xy 7.6102 3.4011)
-						(xy 7.5813 3.4964) (xy 7.5344 3.5842) (xy 7.4712 3.6612) (xy 7.3942 3.7244) (xy 7.3064 3.7713)
-						(xy 7.2111 3.8002) (xy 7.112 3.81) (xy -7.2111 3.8002) (xy -7.3064 3.7713) (xy -7.3942 3.7244)
-						(xy -7.4712 3.6612) (xy -7.5344 3.5842) (xy -7.5813 3.4964) (xy -7.6102 3.4011) (xy -7.62 3.302)
-						(xy -7.6102 -3.4011) (xy -7.5813 -3.4964) (xy -7.5344 -3.5842) (xy -7.4712 -3.6612) (xy -7.3942 -3.7244)
-						(xy -7.3064 -3.7713) (xy -7.2111 -3.8002) (xy -7.112 -3.81) (xy 7.112 -3.81)
-					)
-					(stroke
-						(width 0.254)
-						(type solid)
-					)
-					(fill
-						(type background)
-					)
-				)
-				(pin power_in line
-					(at -10.16 1.27 0)
-					(length 2.54)
-					(name "VDD"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin output line
-					(at -10.16 -1.27 0)
-					(length 2.54)
-					(name "DOUT"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin power_in line
-					(at 10.16 -1.27 180)
-					(length 2.54)
-					(name "VSS"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at 10.16 1.27 180)
-					(length 2.54)
-					(name "DIN"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "4"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
 		(symbol "Power_Management:TPS2116DRL"
 			(exclude_from_sim no)
 			(in_bom yes)
@@ -6318,6 +6107,217 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "SweetYaar:WS2812B-V6"
+			(pin_names
+				(offset 1.016)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "LED"
+				(at 0 5.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "WS2812B-V6"
+				(at 0 -5.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "SweetYaar:WS2812B-V6"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" "https://img.jlc.com/image//data/smt-stock-produce/componentSizePhoto/2022-01-10/5ccaf76195334eaabd9d3430708bba91/BG2201080400_D22010300172_font.png"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "WS2812B-V6; LED-SMD_4P-L5.0-W5.0-TL-A; worldsemi"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "LCSC" "C52917433"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "worldsemi"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part" "WS2812B-V6"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "C52917433 LED-SMD_4P-L5.0-W5.0-TL-A WS2812B-V6 worldsemi"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "WS2812B-V6_0_1"
+				(circle
+					(center -6.35 2.54)
+					(radius 0.381)
+					(stroke
+						(width 0.254)
+						(type solid)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(polyline
+					(pts
+						(xy 7.112 -3.81) (xy 7.2111 -3.8002) (xy 7.3064 -3.7713) (xy 7.3942 -3.7244) (xy 7.4712 -3.6612)
+						(xy 7.5344 -3.5842) (xy 7.5813 -3.4964) (xy 7.6102 -3.4011) (xy 7.62 -3.302) (xy 7.6102 3.4011)
+						(xy 7.5813 3.4964) (xy 7.5344 3.5842) (xy 7.4712 3.6612) (xy 7.3942 3.7244) (xy 7.3064 3.7713)
+						(xy 7.2111 3.8002) (xy 7.112 3.81) (xy -7.2111 3.8002) (xy -7.3064 3.7713) (xy -7.3942 3.7244)
+						(xy -7.4712 3.6612) (xy -7.5344 3.5842) (xy -7.5813 3.4964) (xy -7.6102 3.4011) (xy -7.62 3.302)
+						(xy -7.6102 -3.4011) (xy -7.5813 -3.4964) (xy -7.5344 -3.5842) (xy -7.4712 -3.6612) (xy -7.3942 -3.7244)
+						(xy -7.3064 -3.7713) (xy -7.2111 -3.8002) (xy -7.112 -3.81) (xy 7.112 -3.81)
+					)
+					(stroke
+						(width 0.254)
+						(type solid)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(pin power_in line
+					(at -10.16 1.27 0)
+					(length 2.54)
+					(name "VDD"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at -10.16 -1.27 0)
+					(length 2.54)
+					(name "DOUT"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 10.16 -1.27 180)
+					(length 2.54)
+					(name "VSS"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 10.16 1.27 180)
+					(length 2.54)
+					(name "DIN"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "Switch:SW_Push_Open"
 			(pin_numbers
 				(hide yes)
@@ -7194,17 +7194,6 @@
 		)
 		(uuid "d0a90945-c4a6-423b-bd0f-8529867c253a")
 	)
-	(text "Test points to allow easy connection \nof later added additional LEDs."
-		(exclude_from_sim no)
-		(at 376.682 214.122 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "d1d0e08e-2b37-4fb2-b790-721ccc4f0f34")
-	)
 	(text "Charging Module"
 		(exclude_from_sim no)
 		(at 194.564 55.626 0)
@@ -7346,12 +7335,6 @@
 		(uuid "2c7e1b99-69a6-4b9a-a01b-bca414ac4d80")
 	)
 	(junction
-		(at 248.92 243.84)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "2f2deee4-db60-4e1e-bcbc-18e7e110d0af")
-	)
-	(junction
 		(at 217.17 116.84)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -7416,6 +7399,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "7aa96513-1cbe-4496-8df0-69110bad7d87")
+	)
+	(junction
+		(at 144.78 72.39)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "7f830ece-edb8-45f6-8651-870ff597e1d3")
 	)
 	(junction
 		(at 336.55 120.65)
@@ -7614,6 +7603,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "f91499fb-cc67-4f3e-977d-20b09081c0c7")
+	)
+	(junction
+		(at 149.86 72.39)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "ff86de7c-5c42-4d32-83a5-0f57d3042431")
 	)
 	(no_connect
 		(at 60.96 74.93)
@@ -8317,6 +8312,16 @@
 	)
 	(wire
 		(pts
+			(xy 149.86 72.39) (xy 144.78 72.39)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6f579e52-fa02-4f99-a1c4-d07d3c2d3582")
+	)
+	(wire
+		(pts
 			(xy 283.21 233.68) (xy 283.21 231.14)
 		)
 		(stroke
@@ -8344,6 +8349,16 @@
 			(type default)
 		)
 		(uuid "75712211-0591-448d-97a2-7772d839216c")
+	)
+	(wire
+		(pts
+			(xy 152.4 72.39) (xy 149.86 72.39)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7aacd6c9-2379-4b35-9c67-93f200c525f8")
 	)
 	(wire
 		(pts
@@ -9576,7 +9591,7 @@
 		(uuid "9c4258ca-7468-4fa5-b4d3-9144f7e6ba93")
 	)
 	(label "5V_INPUT"
-		(at 144.78 72.39 0)
+		(at 152.4 72.39 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -14317,7 +14332,7 @@
 		)
 	)
 	(symbol
-		(lib_id "LCSC:WS2812B-V6")
+		(lib_id "SweetYaar:WS2812B-V6")
 		(at 342.9 223.52 0)
 		(unit 1)
 		(body_style 1)
@@ -15197,7 +15212,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "73d2e8e0-c696-4772-886c-532eb0c34b55")
-		(property "Reference" "C_3V3_IN1"
+		(property "Reference" "C_5V_IN1"
 			(at 283.21 106.68 0)
 			(hide yes)
 			(show_name no)
@@ -15303,7 +15318,7 @@
 		(instances
 			(project "sweetyaar-mainboard"
 				(path "/a2bc0001-0000-4000-8000-000000000001"
-					(reference "C_3V3_IN1")
+					(reference "C_5V_IN1")
 					(unit 1)
 				)
 			)
@@ -15779,6 +15794,80 @@
 		)
 	)
 	(symbol
+		(lib_id "power:GND")
+		(at 149.86 80.01 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "7b18472d-a536-41ad-87f1-b6765cbe4d3a")
+		(property "Reference" "#PWR08"
+			(at 149.86 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 150.114 83.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 149.86 80.01 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 149.86 80.01 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 149.86 80.01 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "db807205-c4c4-4e79-9d78-9863bbbb77b3")
+		)
+		(instances
+			(project "sweetyaar-mainboard"
+				(path "/a2bc0001-0000-4000-8000-000000000001"
+					(reference "#PWR08")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:R")
 		(at 252.73 256.54 90)
 		(unit 1)
@@ -15988,7 +16077,6 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "8c93ec36-0076-4d3c-aa6c-7b6fc75aa3ee")
 		(property "Reference" "JP3"
 			(at 210.82 121.92 0)
@@ -16960,6 +17048,129 @@
 			(project "sweetyaar-mainboard"
 				(path "/a2bc0001-0000-4000-8000-000000000001"
 					(reference "J_SD1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C")
+		(at 149.86 76.2 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "998abe28-7c74-4f26-ae4f-a268a2097bcf")
+		(property "Reference" "C_MUX4"
+			(at 151.13 73.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "1uF, 25 V, X7R, ±10%"
+			(at 154.432 74.168 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
+			(at 149.86 76.2 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 149.86 76.2 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 149.86 76.2 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C29936"
+			(at 149.86 76.2 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "FT Rotation Offset" ""
+			(at 149.86 76.2 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Device" ""
+			(at 149.86 76.2 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Pins" ""
+			(at 149.86 76.2 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "26252976-48f9-4018-94ec-ff7d59215eee")
+		)
+		(pin "2"
+			(uuid "e7a0ba1c-03c9-4a56-addd-ade2780a93cf")
+		)
+		(instances
+			(project "sweetyaar-mainboard"
+				(path "/a2bc0001-0000-4000-8000-000000000001"
+					(reference "C_MUX4")
 					(unit 1)
 				)
 			)
@@ -19494,7 +19705,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "a2bc001d-0000-4000-8000-00000000001d")
-		(property "Reference" "C17"
+		(property "Reference" "C_3V3_IN1"
 			(at 285.75 66.04 0)
 			(hide yes)
 			(show_name no)
@@ -19600,7 +19811,7 @@
 		(instances
 			(project "sweetyaar-mainboard"
 				(path "/a2bc0001-0000-4000-8000-000000000001"
-					(reference "C17")
+					(reference "C_3V3_IN1")
 					(unit 1)
 				)
 			)
@@ -19617,7 +19828,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "a2bc001e-0000-4000-8000-00000000001e")
-		(property "Reference" "C2"
+		(property "Reference" "C_3V3_OUT1"
 			(at 337.82 66.04 0)
 			(hide yes)
 			(show_name no)
@@ -19724,7 +19935,7 @@
 		(instances
 			(project "sweetyaar-mainboard"
 				(path "/a2bc0001-0000-4000-8000-000000000001"
-					(reference "C2")
+					(reference "C_3V3_OUT1")
 					(unit 1)
 				)
 			)
@@ -24338,118 +24549,6 @@
 			(project "sweetyaar-mainboard"
 				(path "/a2bc0001-0000-4000-8000-000000000001"
 					(reference "#PWR049")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Connector:TestPoint")
-		(at 248.92 243.84 270)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files no)
-		(dnp no)
-		(uuid "a36fdc82-6870-45df-9d19-614309837b7f")
-		(property "Reference" "TP12"
-			(at 254 242.316 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "${SHORT_NET_NAME(1)}"
-			(at 250.9521 246.38 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_D2.0mm"
-			(at 248.92 248.92 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 248.92 248.92 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "test point"
-			(at 248.92 243.84 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "FT Rotation Offset" ""
-			(at 248.92 243.84 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Sim.Device" ""
-			(at 248.92 243.84 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Sim.Pins" ""
-			(at 248.92 243.84 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "e2a42ede-e241-4558-b92b-dabbe0cdc05d")
-		)
-		(instances
-			(project "sweetyaar-mainboard"
-				(path "/a2bc0001-0000-4000-8000-000000000001"
-					(reference "TP12")
 					(unit 1)
 				)
 			)

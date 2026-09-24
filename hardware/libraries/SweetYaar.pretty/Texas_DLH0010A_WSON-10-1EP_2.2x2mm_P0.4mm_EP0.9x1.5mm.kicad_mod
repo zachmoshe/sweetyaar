@@ -356,6 +356,26 @@
 		(zone_connect 2)
 		(uuid "406511b2-9678-414c-810e-f5ff6f58bdb4")
 	)
+	(pad "11" thru_hole circle
+		(at -0.23 0)
+		(size 0.4 0.4)
+		(drill 0.2)
+		(property pad_prop_heatsink)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(zone_connect 2)
+		(uuid "d44d07a5-6081-4ce3-a57a-6c93b0f96f01")
+	)
+	(pad "11" thru_hole circle
+		(at 0.23 0)
+		(size 0.4 0.4)
+		(drill 0.2)
+		(property pad_prop_heatsink)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(zone_connect 2)
+		(uuid "fb8a1a1e-994c-4f16-b30d-9507bfa23131")
+	)
 	(embedded_fonts no)
 	(model "${KICAD10_3DMODEL_DIR}/Package_DFN_QFN.3dshapes/Texas_DLH0010A_WSON-10-1EP_2.2x2mm_P0.4mm_EP0.9x1.5mm.step"
 		(offset

@@ -26,3 +26,7 @@
 (rule "JLCPCB round NPTH diameter"
   (condition "A.Type == 'Pad' && A.Pad_Type == 'NPTH, mechanical' && A.Hole_Size_X == A.Hole_Size_Y")
   (constraint hole_size (min 0.50mm)))
+
+(rule "Power pad-zone connection"
+  (condition "A.hasNetclass('Power_Main') || A.hasNetclass('Power')")
+  (constraint connection_width (min 0.20mm)))

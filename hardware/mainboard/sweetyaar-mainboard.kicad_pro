@@ -52,24 +52,30 @@
         "zones": {
           "border_display_style": 2,
           "border_hatch_pitch": 0.5,
-          "corner_radius": 0.0,
-          "corner_smoothing": 0,
+          "corner_radius": 0.25,
+          "corner_smoothing": 2,
           "fill_mode": 0,
           "hatch_gap": 1.5,
           "hatch_orientation": 0.0,
           "hatch_smoothing_level": 0,
           "hatch_smoothing_value": 0.1,
           "hatch_thickness": 1.0,
-          "min_clearance": 0.5,
+          "min_clearance": 0.2,
           "min_island_area": 10.0,
-          "min_thickness": 0.25,
-          "pad_connection": 1,
+          "min_thickness": 0.2,
+          "pad_connection": 2,
           "remove_islands": 0,
           "thermal_relief_gap": 0.5,
           "thermal_relief_spoke_width": 0.5
         }
       },
-      "diff_pair_dimensions": [],
+      "diff_pair_dimensions": [
+        {
+          "gap": 0.0,
+          "via_gap": 0.0,
+          "width": 0.0
+        }
+      ],
       "drc_exclusions": [
         [
           "silk_edge_clearance|34650000|100000000|1eff0831-1dc2-4504-9283-8dc0a4d2e1f2|78dcf4b9-7036-47f4-acf3-6951301839f0",
@@ -213,6 +219,7 @@
         }
       ],
       "track_widths": [
+        0.0,
         0.2,
         0.3,
         0.5,
@@ -247,7 +254,11 @@
       },
       "via_dimensions": [
         {
-          "diameter": 0.6,
+          "diameter": 0.0,
+          "drill": 0.0
+        },
+        {
+          "diameter": 0.4,
           "drill": 0.2
         },
         {
@@ -736,7 +747,7 @@
           "group_by": false,
           "label": "FT Rotation Offset",
           "name": "FT Rotation Offset",
-          "show": true
+          "show": false
         },
         {
           "group_by": false,
@@ -748,18 +759,6 @@
           "group_by": false,
           "label": "#",
           "name": "${ITEM_NUMBER}",
-          "show": false
-        },
-        {
-          "group_by": false,
-          "label": "Manufacturer",
-          "name": "Manufacturer",
-          "show": false
-        },
-        {
-          "group_by": false,
-          "label": "Manufacturer Part",
-          "name": "Manufacturer Part",
           "show": false
         }
       ],
@@ -817,7 +816,7 @@
         "uuid": "a2bc0001-0000-4000-8000-000000000001"
       }
     ],
-    "used_designators": "TP1-16",
+    "used_designators": "D2",
     "variants": []
   },
   "sheets": [
