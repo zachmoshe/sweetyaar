@@ -27304,7 +27304,7 @@
 				)
 			)
 		)
-		(property "Value" "301"
+		(property "Value" "330"
 			(at 356.616 216.916 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -27325,7 +27325,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C23138.pdf"
 			(at 354.33 218.44 0)
 			(hide yes)
 			(show_name no)
@@ -27336,8 +27336,9 @@
 				)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "330 Ohm, +/-1%, 100mW, 0603 thick film resistor"
 			(at 354.33 218.44 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -27346,7 +27347,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C25192"
+		(property "LCSC" "C23138"
 			(at 354.33 218.44 90)
 			(hide yes)
 			(show_name no)

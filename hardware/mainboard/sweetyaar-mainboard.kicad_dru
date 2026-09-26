@@ -30,3 +30,9 @@
 (rule "Power pad-zone connection"
   (condition "A.hasNetclass('Power_Main') || A.hasNetclass('Power')")
   (constraint connection_width (min 0.20mm)))
+
+(rule "Allow barcode overlaps"
+  (condition "A.Type == 'Barcode' || B.Type == 'Barcode'")
+  (constraint physical_clearance)
+  (constraint silk_clearance)
+  (severity ignore))
