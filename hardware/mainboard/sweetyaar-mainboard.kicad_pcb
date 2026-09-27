@@ -4183,7 +4183,7 @@
 		(descr "USB Type-C receptacle for USB 2.0 and PD, http://www.krhro.com/uploads/soft/180320/1-1P320120243.pdf")
 		(tags "usb usb-c 2.0 pd")
 		(property "Reference" "J_USB1"
-			(at 0 -5.645 0)
+			(at -8.125 1.705 0)
 			(layer "F.SilkS")
 			(uuid "a088d812-54bb-467c-8934-e3813cf27790")
 			(effects
@@ -6897,7 +6897,7 @@
 		(descr "JST XH series connector, B4B-XH-A (http://www.jst-mfg.com/product/pdf/eng/eXH.pdf)")
 		(tags "connector JST XH vertical")
 		(property "Reference" "J_BATT1"
-			(at 3.75 -3.55 0)
+			(at -0.025 -3.6 0)
 			(layer "F.SilkS")
 			(uuid "4abfc9bb-cbb6-4fa0-bb5b-59f3d7443275")
 			(effects
@@ -15022,7 +15022,7 @@
 			)
 		)
 		(property "Value" "SYS_SW"
-			(at 0 2.05 0)
+			(at 0 -2.325 0)
 			(layer "F.SilkS")
 			(uuid "530e01ca-da86-43bb-ab2c-25e2008f0870")
 			(effects
@@ -17338,7 +17338,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 0 2.05 0)
+			(at 0 -2.325 0)
 			(layer "F.SilkS")
 			(uuid "f0641151-4ea7-4116-b713-4d33f858d775")
 			(effects
@@ -21398,7 +21398,7 @@
 		(descr "TQFN, 16 Pin (https://pdfserv.maximintegrated.com/package_dwgs/21-0136.PDF (T1633-5), https://pdfserv.maximintegrated.com/land_patterns/90-0032.PDF)")
 		(tags "TQFN NoLead")
 		(property "Reference" "U_AMP1"
-			(at 0 -2.8 0)
+			(at -5.475 1.5825 0)
 			(layer "F.SilkS")
 			(uuid "1de96462-b972-4157-9db3-db79f08a76d4")
 			(effects
@@ -22064,7 +22064,7 @@
 		(descr "JST XH series connector, B2B-XH-A (http://www.jst-mfg.com/product/pdf/eng/eXH.pdf)")
 		(tags "connector JST XH vertical")
 		(property "Reference" "J_AUX1"
-			(at -5.76 2.68 0)
+			(at 8.04 -1.72 0)
 			(layer "F.SilkS")
 			(uuid "d1d14473-470a-4886-ba08-79c8e1afc624")
 			(effects
@@ -23937,7 +23937,7 @@
 	(footprint "SweetYaar:Logo_SweetYaar_Teddy_20x20mm"
 		(layer "F.Cu")
 		(uuid "ee18e4a0-c179-45cd-81dc-16936f8940bb")
-		(at 80.825 83.5)
+		(at 80.825 80.25)
 		(descr "Teddy face and SweetYaar wordmark; 20 x 20 mm placement area; front silkscreen only; flip for rear.")
 		(tags "logo teddy bear SweetYaar silkscreen")
 		(property "Reference" "LOGO"
@@ -37406,6 +37406,71 @@
 				(thickness 0.2)
 			)
 			(justify left bottom)
+		)
+	)
+	(gr_text "BATTERY"
+		(at 20.925 90.2 0)
+		(layer "F.SilkS")
+		(uuid "a2889217-7888-42aa-8c2f-7252c404ad8f")
+		(effects
+			(font
+				(size 2 2)
+				(thickness 0.4)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "BUTTONS"
+		(at 71.83 93.415 0)
+		(layer "F.SilkS")
+		(uuid "4028acc4-186b-4857-98c2-e20cd67bfebd")
+		(effects
+			(font
+				(size 2 2)
+				(thickness 0.4)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "SPEAKER"
+		(at 86.425 38.925 0)
+		(layer "F.SilkS")
+		(uuid "5d9ee101-adb2-4d3d-8357-768ecb19e675")
+		(effects
+			(font
+				(size 2 2)
+				(thickness 0.4)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "ON/OFF\nSWITCH"
+		(at 35.05 78.935 0)
+		(layer "F.SilkS")
+		(uuid "5ebf9998-e6b9-4a1e-b98c-411190f8d6b5")
+		(effects
+			(font
+				(size 2 2)
+				(thickness 0.4)
+				(bold yes)
+			)
+			(justify bottom)
+		)
+	)
+	(gr_text "5V\nAUX"
+		(at 50.725 99.625 0)
+		(layer "F.SilkS")
+		(uuid "3a7997da-8893-4047-8b0b-7f0c99851579")
+		(effects
+			(font
+				(size 2 2)
+				(thickness 0.4)
+				(bold yes)
+			)
+			(justify bottom)
 		)
 	)
 	(gr_text "Built with love by Zach\nMoshe for the world's\ncutest child ♥, 2022.\n\nReimagined with Codex & \nClaude, 2026."
