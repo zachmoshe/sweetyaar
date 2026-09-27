@@ -30,6 +30,7 @@
 #include "StatusLed.h"
 #include "BatteryMonitor.h"
 #include "BQ25186Charger.h"
+#include "SleepEntryCheck.h"
 
 // ---------------------------------------------------------------------------
 // Global objects
@@ -41,6 +42,7 @@ BLEParentService bleService;
 StateMachine    sm;
 BatteryMonitor  batteryMonitor;
 BQ25186Charger  charger;
+SleepEntryCheck sleepEntryCheck;
 
 // Audio pipeline:
 //   BT A2DP: A2DP sink -> I2SStream -> MAX98357A
@@ -506,6 +508,7 @@ void setAmpMuted(bool muted) {
 // markActivity()
 // ---------------------------------------------------------------------------
 void markActivity(const char* reason) {
+    sleepEntryCheck.reset();
     lastActivityMs = millis();
     realActivitySeenSinceWake = true;
     (void)reason;
@@ -857,11 +860,14 @@ bool canEnterIdleSleep() {
 // ---------------------------------------------------------------------------
 void pollIdleSleep() {
     if (!canEnterIdleSleep()) {
+        sleepEntryCheck.reset();
         return;
     }
 
     uint32_t timeoutMs = currentSleepTimeoutMs();
-    if ((millis() - lastActivityMs) < timeoutMs) {
+    // Also finish a check requested by the low-heap recovery path. Normal
+    // activity cancels any pending check in markActivity().
+    if (!sleepEntryCheck.active() && (millis() - lastActivityMs) < timeoutMs) {
         return;
     }
 
@@ -893,6 +899,24 @@ void preparePinsForPeripheralPowerOff() {
 // enterIdleDeepSleep()
 // ---------------------------------------------------------------------------
 void enterIdleDeepSleep() {
+    // Sample before disabling charging/watchdogs or shutting down peripherals.
+    // Return to loop() between samples so controls and charging stay serviced.
+    const auto wakeCheck = sleepEntryCheck.update(
+        millis(), digitalRead(PIN_VIB_WAKE) == HIGH);
+    if (wakeCheck == SleepEntryCheck::Result::Sampling) {
+        return;
+    }
+    if (wakeCheck != SleepEntryCheck::Result::Quiet) {
+        // Use the full normal idle interval, even after a vibration-only wake.
+        markActivity("vibration prevented sleep");
+        Serial.println("[Sleep] Postponed: wake input was HIGH during the 500ms check");
+        if (wakeCheck == SleepEntryCheck::Result::PossiblyDisconnected) {
+            sendNotice("warn", "The movement sensor may be stuck or disconnected. "
+                       "Sleep was postponed; battery life may be shorter.");
+        }
+        return;
+    }
+
     if (HAS_BQ25186 && !charger.prepareForDeepSleep()) {
         if (!charger.healthy()) {
             statusLed.setSignal(StatusSignal::Error, true);
@@ -931,15 +955,8 @@ void enterIdleDeepSleep() {
                                      ESP_EXT1_WAKEUP_ALL_LOW);
     }
 
-    if (rtc_gpio_get_level(static_cast<gpio_num_t>(PIN_VIB_WAKE)) == 1) {
-        Serial.println("[Sleep] Wake switch is open; waiting for closure");
-        while (rtc_gpio_get_level(static_cast<gpio_num_t>(PIN_VIB_WAKE)) == 1) {
-            esp_task_wdt_reset();
-            delay(20);
-        }
-        delay(50);
-    }
-
+    // Movement after the check may wake us immediately; never wait here with
+    // the peripherals off and the charger watchdog already disabled.
     Serial.flush();
     esp_deep_sleep_start();
 }

@@ -123,9 +123,11 @@ Bluetooth, SD-card, or hardware workflows.
     powered, stops WAV playback, mutes the amp if GPIO21 is retained, ends
     SD/SPI/I2S, sets SD/I2S pins to input/high-Z, disables and RTC-holds the
     GPIO13 peripheral-enable control LOW, detaches the RMT output and releases
-    GPIO2 after the rail is off, waits for the normally-closed wake switch to
-    return to its closed resting state if needed, and enables EXT0 wake on
-    GPIO27 HIGH.
+    GPIO2 after the rail is off, and enables EXT0 wake on GPIO27 HIGH.
+  - Before any sleep shutdown, sample the normally-closed wake switch every
+    20 ms for 500 ms while continuing the normal loop. All LOW permits sleep;
+    any HIGH restarts the normal idle timer. All HIGH also sends a one-time
+    app warning for that attempt. Never wait for closure after shutdown.
 - Killswitch:
   - Writing/triggering `1` activates it outside BT mode.
   - Repeated `1` restarts the timer.

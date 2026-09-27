@@ -322,6 +322,20 @@ while the app's ten-minute Quiet time lock is active. A connected Bluetooth
 source that has stopped or suspended its audio does not keep the toy awake
 forever.
 
+Each sleep attempt first samples the normally-closed vibration switch every
+20 ms for 500 ms, while the normal loop continues servicing controls and the
+charger. LOW means the switch is closed at rest; HIGH means it is open. All
+LOW samples permit sleep. Any HIGH sample postpones sleep and restarts the
+normal idle timeout (ten minutes by default), including after a vibration-only
+wake. New user activity or loss of sleep eligibility cancels the check.
+
+If every sample is HIGH, that attempt also sends a one-time app warning that
+the movement sensor may be stuck or disconnected and battery life may be
+shorter. The warning uses the existing notice channel: only a connected app
+receives it, with no persistent fault state or replay on reconnect. A later
+sleep attempt checks again and can warn again. A stuck-closed switch cannot be
+distinguished from a resting toy by this check.
+
 Before sleeping, the firmware sends a black status-LED frame while switched 5 V
 is still present, stops playback, mutes the amplifier, closes the SD, SPI, and
 I2S interfaces, disables charging and the charger host watchdog, and turns off
@@ -330,6 +344,10 @@ cannot drive HIGH into the unpowered LED. The normally-closed vibration switch
 and charger `/PG` are wake sources. Waking from deep sleep is a full reboot:
 Bluetooth connections, the current track, loop mode, and manual Bedtime
 overrides are not restored.
+
+There is no wait for switch closure after peripheral shutdown. Movement that
+begins after the check can cause an immediate wake instead of trapping the toy
+awake with its peripherals off.
 
 ## How the firmware is organized
 

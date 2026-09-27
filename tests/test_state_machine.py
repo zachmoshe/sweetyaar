@@ -74,3 +74,24 @@ def test_status_led_policy_native_rules(repo_root: pathlib.Path, tmp_path: pathl
     ])
     result = run_checked([exe])
     assert "status-led policy native test passed" in result.stdout
+
+
+def test_sleep_entry_check_native_rules(repo_root: pathlib.Path, tmp_path: pathlib.Path) -> None:
+    compiler = shutil.which("c++") or shutil.which("g++") or shutil.which("clang++")
+    if not compiler:
+        pytest.skip("No C++ compiler found for native sleep-entry regression test.")
+
+    exe = tmp_path / "sleep_entry_check_native_test"
+    run_checked([
+        compiler,
+        "-std=c++17",
+        "-Wall",
+        "-Wextra",
+        "-I",
+        repo_root / "firmware" / "esp32" / "src",
+        repo_root / "tests" / "sleep_entry_check_native_test.cpp",
+        "-o",
+        exe,
+    ])
+    result = run_checked([exe])
+    assert "sleep-entry check native test passed" in result.stdout
