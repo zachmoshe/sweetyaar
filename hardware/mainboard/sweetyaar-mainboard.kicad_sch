@@ -12422,7 +12422,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-6"
+		(property "Footprint" "SweetYaar:SOT-23-6 - C128634"
 			(at 378.46 81.28 0)
 			(hide yes)
 			(show_name no)
@@ -12455,17 +12455,6 @@
 			)
 		)
 		(property "LCSC" "C128634"
-			(at 378.46 81.28 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "FT Rotation Offset" ""
 			(at 378.46 81.28 0)
 			(hide yes)
 			(show_name no)
@@ -17284,7 +17273,7 @@
 				)
 			)
 		)
-		(property "Footprint" "SweetYaar:USB_C_Receptacle_HRO_TYPE-C-31-M-12"
+		(property "Footprint" "SweetYaar:USB_C_Receptacle_HRO_TYPE-C-31-M-12 - C165948"
 			(at 49.53 77.47 0)
 			(hide yes)
 			(show_name no)
@@ -17696,7 +17685,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Package_TO_SOT_SMD:SOT-583-8"
+		(property "Footprint" "SweetYaar:SOT-583-8 - C3235557"
 			(at 134.62 77.47 0)
 			(hide yes)
 			(show_name no)
@@ -20859,7 +20848,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-6"
+		(property "Footprint" "SweetYaar:SOT-23-6 - C128634"
 			(at 328.93 173.99 0)
 			(hide yes)
 			(show_name no)
@@ -20892,17 +20881,6 @@
 			)
 		)
 		(property "LCSC" "C128634"
-			(at 328.93 173.99 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "FT Rotation Offset" ""
 			(at 328.93 173.99 0)
 			(hide yes)
 			(show_name no)
@@ -21608,7 +21586,7 @@
 				)
 			)
 		)
-		(property "Footprint" "RF_Module:ESP32-WROOM-32E"
+		(property "Footprint" "SweetYaar:ESP32-WROOM-32E - C701342"
 			(at 248.92 208.28 0)
 			(hide yes)
 			(show_name no)
@@ -21641,17 +21619,6 @@
 			)
 		)
 		(property "LCSC" "C701342"
-			(at 248.92 208.28 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "FT Rotation Offset" ""
 			(at 248.92 208.28 0)
 			(hide yes)
 			(show_name no)
@@ -22324,7 +22291,7 @@
 				)
 			)
 		)
-		(property "Footprint" "SweetYaar:TQFN-16-1EP_3x3mm_P0.5mm_EP1.23x1.23mm"
+		(property "Footprint" "SweetYaar:TQFN-16-1EP_3x3mm_P0.5mm_EP1.23x1.23mm - C910544"
 			(at 157.48 246.38 0)
 			(hide yes)
 			(show_name no)

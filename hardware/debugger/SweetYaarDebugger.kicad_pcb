@@ -139,6 +139,18 @@
 				)
 			)
 		)
+		(property "KiLib_Generator" "connector/pin_header_socket"
+			(at 0 0 180)
+			(layer "F.SilkS")
+			(hide yes)
+			(uuid "edd6e3c3-1ae8-4075-bf46-f48dabe56f64")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property "LCSC" ""
 			(at 0 0 180)
 			(unlocked yes)
@@ -156,12 +168,6 @@
 		(path "/cdc8a3e3-f1a9-4299-8d31-afd3d8cf644d")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "2" "3" "4" "5" "6")
-			)
-		)
 		(attr through_hole dnp)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -284,6 +290,17 @@
 			)
 			(layer "F.Fab")
 			(uuid "3264c2bf-8952-459f-920a-9cc5f57afe82")
+		)
+		(fp_text user "${REFERENCE}"
+			(at 0 6.35 270)
+			(layer "F.Fab")
+			(uuid "c81ba6a8-cfcc-47e2-a557-f0f08f4f0af7")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
 		)
 		(pad "1" thru_hole rect
 			(at 0 0 180)
@@ -416,6 +433,18 @@
 				)
 			)
 		)
+		(property "KiLib_Generator" "package/gullwing"
+			(at 0 0 0)
+			(layer "F.SilkS")
+			(hide yes)
+			(uuid "f7ad98de-4b27-4259-afed-2642e15b6e50")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property "Sim.Device" "NPN"
 			(at 0 0 0)
 			(unlocked yes)
@@ -459,12 +488,6 @@
 		(path "/d1963d96-c51c-498e-9262-0045b1639b1f")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "3" "2")
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -721,6 +744,17 @@
 			(layer "F.Fab")
 			(uuid "c1b2d7af-c36d-4c39-bd13-446383dbc3c1")
 		)
+		(fp_text user "${REFERENCE}"
+			(at 0 0 90)
+			(layer "F.Fab")
+			(uuid "f35c6403-3c4c-4233-af4f-41f723c8ff7c")
+			(effects
+				(font
+					(size 0.72 0.72)
+					(thickness 0.11)
+				)
+			)
+		)
 		(pad "1" smd roundrect
 			(at -0.9375 -0.95)
 			(size 1.475 0.6)
@@ -823,12 +857,6 @@
 		(path "/36a609b9-369c-47d3-abe3-7dab35dc54ca")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "2")
-			)
-		)
 		(zone_connect 1)
 		(attr exclude_from_bom allow_soldermask_bridges)
 		(net_tie_pad_groups "1, 2")
@@ -1113,12 +1141,6 @@
 		(path "/a4a39be0-7422-43e3-a52b-cd51248eb9df")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "2")
-			)
-		)
 		(zone_connect 1)
 		(attr exclude_from_bom allow_soldermask_bridges)
 		(net_tie_pad_groups "1, 2")
@@ -1344,16 +1366,15 @@
 		)
 		(embedded_fonts no)
 	)
-	(footprint "Connector_USB:USB_C_Receptacle_HRO_TYPE-C-31-M-12"
+	(footprint "SweetYaar:USB_C_Receptacle_HRO_TYPE-C-31-M-12 - C165948"
 		(layer "F.Cu")
 		(uuid "56bf0e72-d117-4d32-a3ca-a7385b8e3386")
 		(at 70.01 45.87 -90)
 		(descr "USB Type-C receptacle for USB 2.0 and PD, http://www.krhro.com/uploads/soft/180320/1-1P320120243.pdf")
 		(tags "usb usb-c 2.0 pd")
 		(property "Reference" "J_USB1"
-			(at 0 -5.645 90)
+			(at 0 -5.645 270)
 			(layer "F.SilkS")
-			(hide yes)
 			(uuid "69eb779a-d627-4a70-95ed-bcb05a7cb565")
 			(effects
 				(font
@@ -1363,9 +1384,8 @@
 			)
 		)
 		(property "Value" "TYPE-C-31-M-12"
-			(at 0 5.1 90)
-			(layer "F.SilkS")
-			(hide yes)
+			(at 0 5.1 270)
+			(layer "F.Fab")
 			(uuid "10eb6e27-6928-4186-ac00-2d0cbf16ed5e")
 			(effects
 				(font
@@ -1400,12 +1420,24 @@
 				)
 			)
 		)
+		(property "FT Position Offset" "0,1.397"
+			(at 0 0 270)
+			(layer "F.SilkS")
+			(hide yes)
+			(uuid "4051d2a7-74ae-4b49-b736-c949975bea54")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.1)
+				)
+			)
+		)
 		(property "LCSC" "C165948"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "4051d2a7-74ae-4b49-b736-c949975bea54")
+			(uuid "ed9ec546-697c-43ce-81bd-b0b9444fe11f")
 			(effects
 				(font
 					(size 1 1)
@@ -1417,14 +1449,6 @@
 		(path "/add197a4-7b84-44b9-be89-8329c01a8c0e")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "SH" "A1" "A12" "B1" "B12" "A4" "A9" "B4" "B9" "A5" "B5" "A7" "B7"
-					"A6" "B6" "A8" "B8"
-				)
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -1558,8 +1582,8 @@
 			(uuid "c127d969-a247-4a53-af65-abfbab08ceb4")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 0 0 90)
-			(layer "F.SilkS")
+			(at 0 0 270)
+			(layer "F.Fab")
 			(uuid "8b3ee085-a5eb-425e-b107-fd8ed2ea1a78")
 			(effects
 				(font
@@ -1855,6 +1879,18 @@
 				)
 			)
 		)
+		(property "KiLib_Generator" "package/gullwing"
+			(at 0 0 180)
+			(layer "F.SilkS")
+			(hide yes)
+			(uuid "d5a6752e-e718-44a6-a628-c075bc4ae430")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property "LCSC" "C7464026"
 			(at 0 0 180)
 			(unlocked yes)
@@ -1872,14 +1908,6 @@
 		(path "/e3dbcb4b-d98f-4d46-9d3f-53368f1244c5")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "15" "5" "6" "8" "7" "16" "4" "1" "2" "3" "9" "10" "11" "12" "13"
-					"14"
-				)
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -2322,6 +2350,18 @@
 				)
 			)
 		)
+		(property "KiLib_Generator" "package/gullwing"
+			(at 0 0 180)
+			(layer "F.SilkS")
+			(hide yes)
+			(uuid "4b6e5bc4-dea1-4f07-88a0-1ba13e028dde")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property "LCSC" "C5446"
 			(at 0 0 180)
 			(unlocked yes)
@@ -2339,12 +2379,6 @@
 		(path "/e14f3f4a-23f4-45b0-9eb4-93a4e7eb453b")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "3" "1" "2")
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -2601,6 +2635,17 @@
 			(layer "F.Fab")
 			(uuid "e10bdf47-b120-4315-93df-a9ba1a2e2ffb")
 		)
+		(fp_text user "${REFERENCE}"
+			(at 0 0 270)
+			(layer "F.Fab")
+			(uuid "4df9b750-8045-4110-a410-2ea927b501bb")
+			(effects
+				(font
+					(size 0.72 0.72)
+					(thickness 0.11)
+				)
+			)
+		)
 		(pad "1" smd roundrect
 			(at -1.1375 -0.95 180)
 			(size 1.325 0.6)
@@ -2644,7 +2689,7 @@
 			)
 		)
 	)
-	(footprint "Package_TO_SOT_SMD:SOT-23-6"
+	(footprint "SweetYaar:SOT-23-6 - USBLC6-2SC6 - C7519"
 		(layer "F.Cu")
 		(uuid "86dbdc09-0d69-45f7-853f-2b840f41b5dc")
 		(at 79.54 45.94)
@@ -2709,16 +2754,22 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(layer "F.SilkS")
+			(hide yes)
+			(uuid "5c4729ea-e84d-401a-8da2-b8d758ee11f9")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.1)
+				)
+			)
+		)
 		(property ki_fp_filters "SOT?23*")
 		(path "/e6bf67b1-f31e-4add-8036-be30c2d5fadb")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "3" "5" "2" "6" "4")
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -3050,7 +3101,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C23186"
+		(property "KiLib_Generator" "C23186"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -3063,16 +3114,23 @@
 				)
 			)
 		)
+		(property "LCSC" "C23186"
+			(at 0 0 90)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "cfa72a80-2978-49bd-b14a-e798b7e97a90")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "R_*")
 		(path "/ec24f4d2-aedd-4d0e-9705-fac99e8b908d")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "2")
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -3116,6 +3174,17 @@
 			(fill no)
 			(layer "F.Fab")
 			(uuid "8331f46f-f5e9-46b3-8b64-e73e8b793d91")
+		)
+		(fp_text user "${REFERENCE}"
+			(at 0 0 90)
+			(layer "F.Fab")
+			(uuid "7d45c088-68a4-4f96-96ef-5595d2966289")
+			(effects
+				(font
+					(size 0.4 0.4)
+					(thickness 0.06)
+				)
+			)
 		)
 		(pad "1" smd roundrect
 			(at -0.825 0 90)
@@ -3200,7 +3269,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C25804"
+		(property "KiLib_Generator" "C25804"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -3213,16 +3282,23 @@
 				)
 			)
 		)
+		(property "LCSC" "C25804"
+			(at 0 0 90)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "11efa949-2efd-47b1-916d-d8770797b35e")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "R_*")
 		(path "/739f7012-77db-4ef2-b1d7-28b578f924ce")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "2")
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -3266,6 +3342,17 @@
 			(fill no)
 			(layer "F.Fab")
 			(uuid "ea9d113a-965b-45f0-b2df-17d7b24de7cb")
+		)
+		(fp_text user "${REFERENCE}"
+			(at 0 0 90)
+			(layer "F.Fab")
+			(uuid "eb4e8adb-3419-4c28-9a0c-347514cc1eca")
+			(effects
+				(font
+					(size 0.4 0.4)
+					(thickness 0.06)
+				)
+			)
 		)
 		(pad "1" smd roundrect
 			(at -0.825 0 90)
@@ -3350,6 +3437,18 @@
 				)
 			)
 		)
+		(property "KiLib_Generator" "SMD_2terminal_chip_molded"
+			(at 0 0 0)
+			(layer "F.SilkS")
+			(hide yes)
+			(uuid "ec79276e-cdda-4a3b-95fe-c46c9b4779e0")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property "LCSC" "C14663"
 			(at 0 0 0)
 			(unlocked yes)
@@ -3367,12 +3466,6 @@
 		(path "/80520636-4751-407d-a34f-979f5b923294")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "2")
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -3416,6 +3509,17 @@
 			(fill no)
 			(layer "F.Fab")
 			(uuid "11c21897-2941-4a96-b1ef-f888f9a59c10")
+		)
+		(fp_text user "${REFERENCE}"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(uuid "0e21b5e1-cb42-4d56-adf1-2307d547923d")
+			(effects
+				(font
+					(size 0.4 0.4)
+					(thickness 0.06)
+				)
+			)
 		)
 		(pad "1" smd roundrect
 			(at -0.775 0)
@@ -3500,7 +3604,7 @@
 				)
 			)
 		)
-		(property "Sim.Pins" "1=K 2=A"
+		(property "KiLib_Generator" "1=K 2=A"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -3526,16 +3630,23 @@
 				)
 			)
 		)
+		(property "Sim.Pins" "1=K 2=A"
+			(at 0 0 90)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "1a43244c-2ab2-429a-9376-0b312062cbeb")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "LED* LED_SMD:* LED_THT:*")
 		(path "/a68c4748-4c4c-4838-9cfd-e9258d7af0ad")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "2")
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -3629,6 +3740,17 @@
 			(layer "F.Fab")
 			(uuid "5874fb96-aac4-44a0-a176-7f29cb333374")
 		)
+		(fp_text user "${REFERENCE}"
+			(at 0 0 90)
+			(layer "F.Fab")
+			(uuid "bed4d20b-68ef-49b5-8a42-a55530ebd731")
+			(effects
+				(font
+					(size 0.5 0.5)
+					(thickness 0.08)
+				)
+			)
+		)
 		(pad "1" smd roundrect
 			(at -0.9375 0 90)
 			(size 0.975 1.4)
@@ -3714,6 +3836,18 @@
 				)
 			)
 		)
+		(property "KiLib_Generator" "SMD_2terminal_chip_molded"
+			(at 0 0 180)
+			(layer "F.SilkS")
+			(hide yes)
+			(uuid "005e3169-ad1b-4a92-ac18-be81ecaeecaa")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property "LCSC" "C14663"
 			(at 0 0 180)
 			(unlocked yes)
@@ -3731,12 +3865,6 @@
 		(path "/835229cb-5482-4754-ae23-9257463ff762")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "2")
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -3780,6 +3908,17 @@
 			(fill no)
 			(layer "F.Fab")
 			(uuid "af8d06ea-55e0-46ff-ab98-cab76be58bc9")
+		)
+		(fp_text user "${REFERENCE}"
+			(at 0 0 180)
+			(layer "F.Fab")
+			(uuid "b70f23a1-09bb-40d7-aa61-9d18179d8464")
+			(effects
+				(font
+					(size 0.4 0.4)
+					(thickness 0.06)
+				)
+			)
 		)
 		(pad "1" smd roundrect
 			(at -0.775 0 180)
@@ -3864,7 +4003,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C25804"
+		(property "KiLib_Generator" "C25804"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -3877,16 +4016,23 @@
 				)
 			)
 		)
+		(property "LCSC" "C25804"
+			(at 0 0 90)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "155a1c00-b812-4c9c-8181-1b39f2a2e4cc")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "R_*")
 		(path "/e0972ec9-78b3-4040-9766-b9f57982c181")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "2")
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -3930,6 +4076,17 @@
 			(fill no)
 			(layer "F.Fab")
 			(uuid "589c569f-e6be-4b1e-baf8-c673014c0a59")
+		)
+		(fp_text user "${REFERENCE}"
+			(at 0 0 90)
+			(layer "F.Fab")
+			(uuid "f92f5225-8254-4d08-ae77-7d3319b14938")
+			(effects
+				(font
+					(size 0.4 0.4)
+					(thickness 0.06)
+				)
+			)
 		)
 		(pad "1" smd roundrect
 			(at -0.825 0 90)
@@ -4014,7 +4171,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C23186"
+		(property "KiLib_Generator" "C23186"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -4027,16 +4184,23 @@
 				)
 			)
 		)
+		(property "LCSC" "C23186"
+			(at 0 0 270)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "531ce5c1-a314-40cb-b6e8-1e14cfbc0e0a")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "R_*")
 		(path "/dc0f260f-d0e2-4f19-bdee-da9d8a03ec08")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "2")
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -4080,6 +4244,17 @@
 			(fill no)
 			(layer "F.Fab")
 			(uuid "3d63bc23-bf11-4ff8-8052-8852ec52350a")
+		)
+		(fp_text user "${REFERENCE}"
+			(at 0 0 270)
+			(layer "F.Fab")
+			(uuid "83ec9d92-20e4-4eb5-b1a5-545d4df0bce9")
+			(effects
+				(font
+					(size 0.4 0.4)
+					(thickness 0.06)
+				)
+			)
 		)
 		(pad "1" smd roundrect
 			(at -0.825 0 270)
@@ -4164,6 +4339,18 @@
 				)
 			)
 		)
+		(property "KiLib_Generator" "package/gullwing"
+			(at 0 0 0)
+			(layer "F.SilkS")
+			(hide yes)
+			(uuid "03ca08b1-b4a2-41ae-a074-7d0c6b87bd2e")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property "Sim.Device" "NPN"
 			(at 0 0 0)
 			(unlocked yes)
@@ -4207,12 +4394,6 @@
 		(path "/dccbf7fc-a76f-4194-b548-4b6d771c7606")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "3" "2")
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -4469,6 +4650,17 @@
 			(layer "F.Fab")
 			(uuid "34c18b05-3f10-402e-95f3-6ce8e56ec711")
 		)
+		(fp_text user "${REFERENCE}"
+			(at 0 0 90)
+			(layer "F.Fab")
+			(uuid "ce7b1f72-0696-40ce-be2f-557df90b5d1a")
+			(effects
+				(font
+					(size 0.72 0.72)
+					(thickness 0.11)
+				)
+			)
+		)
 		(pad "1" smd roundrect
 			(at -0.9375 -0.95)
 			(size 1.475 0.6)
@@ -4564,7 +4756,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C23138"
+		(property "KiLib_Generator" "C23138"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -4577,16 +4769,23 @@
 				)
 			)
 		)
+		(property "LCSC" "C23138"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "3256953f-8e06-4441-acb9-6463d13f0c08")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "R_*")
 		(path "/c29fb906-512c-4841-a402-86ee98be2a3a")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "2")
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -4630,6 +4829,17 @@
 			(fill no)
 			(layer "F.Fab")
 			(uuid "8417ec72-04f1-4b1d-8598-17991423e90e")
+		)
+		(fp_text user "${REFERENCE}"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(uuid "44aab8be-2017-4e1a-8945-157216fe4219")
+			(effects
+				(font
+					(size 0.4 0.4)
+					(thickness 0.06)
+				)
+			)
 		)
 		(pad "1" smd roundrect
 			(at -0.825 0)
@@ -4714,7 +4924,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C126591"
+		(property "KiLib_Generator" "C126591"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -4727,16 +4937,23 @@
 				)
 			)
 		)
+		(property "LCSC" "C126591"
+			(at 0 0 270)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "4d698585-b493-4344-9d59-49d180daa55e")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "C_*")
 		(path "/132eaef6-d959-4854-bfb1-688ecb2e0855")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "2")
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -4780,6 +4997,17 @@
 			(fill no)
 			(layer "F.Fab")
 			(uuid "9e5b9c1b-755d-4ad5-81b5-007aaedd7fd3")
+		)
+		(fp_text user "${REFERENCE}"
+			(at 0 0 270)
+			(layer "F.Fab")
+			(uuid "daa6286f-dee8-4039-9e05-8a3f16939255")
+			(effects
+				(font
+					(size 0.5 0.5)
+					(thickness 0.08)
+				)
+			)
 		)
 		(pad "1" smd roundrect
 			(at -0.95 0 270)
@@ -4864,7 +5092,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C126591"
+		(property "KiLib_Generator" "C126591"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -4877,16 +5105,23 @@
 				)
 			)
 		)
+		(property "LCSC" "C126591"
+			(at 0 0 90)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "6ead853a-4f22-44e4-ae3d-4e0566cde57c")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "C_*")
 		(path "/3c720bc4-ea1b-4b42-93ec-b70839ed497a")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "2")
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -4930,6 +5165,17 @@
 			(fill no)
 			(layer "F.Fab")
 			(uuid "f456f58a-e934-4786-a387-23513057ddfa")
+		)
+		(fp_text user "${REFERENCE}"
+			(at 0 0 90)
+			(layer "F.Fab")
+			(uuid "f4d93362-3e73-4a15-9921-8367bd1fd813")
+			(effects
+				(font
+					(size 0.5 0.5)
+					(thickness 0.08)
+				)
+			)
 		)
 		(pad "1" smd roundrect
 			(at -0.95 0 90)

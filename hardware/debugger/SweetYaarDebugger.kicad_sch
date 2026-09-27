@@ -5703,7 +5703,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Connector_USB:USB_C_Receptacle_HRO_TYPE-C-31-M-12"
+		(property "Footprint" "SweetYaar:USB_C_Receptacle_HRO_TYPE-C-31-M-12 - C165948"
 			(at 34.29 60.96 0)
 			(hide yes)
 			(show_name no)
@@ -6902,7 +6902,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-6"
+		(property "Footprint" "SweetYaar:SOT-23-6 - USBLC6-2SC6 - C7519"
 			(at 62.23 67.31 0)
 			(hide yes)
 			(show_name no)
