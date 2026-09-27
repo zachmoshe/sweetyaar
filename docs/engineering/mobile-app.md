@@ -204,6 +204,11 @@ connect. The battery characteristic is also optional for compatibility; without
 it the icon is gray and reports an unknown state. Firmware missing the required
 service or control characteristics is reported as needing an upgrade.
 
+Settings-command failures display the error returned by the toy. A missing or
+invalid `/config.json` is reported in Settings with instructions to restore the
+file and restart; it is not presented as a Bluetooth connection failure. Failed
+saves keep unsaved edits in the app so the parent can retry.
+
 ### Battery presentation
 
 The Ready screen stacks a compact battery icon above the settings control. It

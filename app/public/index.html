@@ -3318,7 +3318,11 @@
 
         if (parsed && parsed.id === id) {
           if (!parsed.ok) {
-            throw new Error(parsed.error || "The toy rejected the settings command.");
+            const error = new Error(parsed.error || "The toy rejected the settings command.");
+            // Firmware rejections describe a settings problem, not a failed
+            // Bluetooth connection. Keep the message visible in Settings.
+            error.userMessage = error.message;
+            throw error;
           }
           return parsed;
         }

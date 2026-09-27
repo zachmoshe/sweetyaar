@@ -395,6 +395,9 @@ function makeBleHarness(options = {}) {
   };
 
   function configResponse(payload) {
+    if (options.configFileError && ["getConfig", "syncTime"].includes(payload.op)) {
+      return { id: payload.id, ok: false, error: options.configFileError };
+    }
     if (payload.op === "syncTime") {
       if (options.rejectSyncTime) {
         return { id: payload.id, ok: false, error: "Unknown config command" };
@@ -1120,6 +1123,16 @@ const tests = [
     assert.strictEqual(state.settings.message, "Settings saved.");
     assert.strictEqual(els.settingsSaveButton.disabled, true);
   `],
+  ["config.json load failure is shown in Settings", String.raw`
+    const message = "Settings file is missing or invalid. Restore config.json on the SD card and restart the toy.";
+    await connectWithFakeBle({ configFileError: message });
+    assert.strictEqual(state.connected, true);
+    assert.strictEqual(state.configError.message, message);
+    await els.openSettingsButton.click();
+    await waitForSettingsLoaded();
+    assert.strictEqual(state.settings.message, message);
+    assert.strictEqual(state.settings.sessionScanned, false);
+  `],
   ["setTheme SD write failure surfaces error to app", String.raw`
     const ble = await connectWithFakeBle();
     await els.openSettingsButton.click();
@@ -1145,7 +1158,7 @@ const tests = [
 
     await els.settingsSaveButton.click();
 
-    assert.notStrictEqual(state.settings.message, "Settings saved.", "Expected error message after SD write failure");
+    assert.strictEqual(state.settings.message, "SD write failed");
     assert.strictEqual(state.settings.dirty, true, "Expected settings to remain dirty after failed save");
   `],
 ];

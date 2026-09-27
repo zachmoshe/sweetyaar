@@ -289,7 +289,9 @@ void setup() {
         Serial.println("[WARN] SD init failed; WAV playback unavailable");
         statusLed.setSignal(StatusSignal::Error, true);
     } else {
-        parentConfig.load();
+        if (!parentConfig.load()) {
+            statusLed.setSignal(StatusSignal::Error, true);
+        }
         // Single SD pass: read the whole content catalog into RAM. Every later
         // theme/song lookup (playback, BLE theme list, settings scans) is served
         // from memory; the card is re-read only on reboot.
@@ -1373,7 +1375,11 @@ void handleBleConfigCommand(const String& commandJson) {
                 bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "SD write failed"));
                 return;
             }
-            parentConfig.load();
+            if (!parentConfig.load()) {
+                statusLed.setSignal(StatusSignal::Error, true);
+                bleService.updateConfigResponse(buildConfigResponse(requestId));
+                return;
+            }
             refreshThemeList();
             activeTheme = parentConfig.defaultTheme();
             applyActiveThemeFallback();
@@ -1410,7 +1416,11 @@ void handleBleConfigCommand(const String& commandJson) {
             bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "SD write failed"));
             return;
         }
-        parentConfig.load();
+        if (!parentConfig.load()) {
+            statusLed.setSignal(StatusSignal::Error, true);
+            bleService.updateConfigResponse(buildConfigResponse(requestId));
+            return;
+        }
         refreshThemeList();
         applyActiveThemeFallback();
         lastInvalidBedtimeThemeLog = "";
@@ -1705,6 +1715,11 @@ void applyPendingBtNameIfPossible() {
 // buildConfigResponse()
 // ---------------------------------------------------------------------------
 String buildConfigResponse(uint32_t requestId) {
+    if (sdReady && !parentConfig.loaded()) {
+        return buildConfigErrorResponse(requestId,
+            "Settings file is missing or invalid. Restore config.json on the SD card "
+            "and restart the toy.");
+    }
     JsonDocument doc;
     doc["id"] = requestId;
     doc["ok"] = true;

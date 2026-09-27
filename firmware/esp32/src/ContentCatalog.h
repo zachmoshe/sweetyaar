@@ -92,6 +92,8 @@ String formatTimeOfDay(uint16_t minuteOfDay);
 
 JsonDocument readJsonFile(const String& path);
 JsonDocument readThemeMetadata(const String& themePath);
+// Write a .tmp file, check byte counts and size, then remove/rename into place.
+// No backup or content read-back; every failed operation returns false.
 bool writeJsonFile(const String& path, JsonDocument& doc);
 
 bool nameInJsonArray(JsonVariantConst value, const String& name);

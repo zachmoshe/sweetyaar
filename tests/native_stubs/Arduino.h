@@ -22,6 +22,7 @@ public:
     const char* c_str() const { return _value.c_str(); }
     std::size_t length() const { return _value.length(); }
     bool isEmpty() const { return _value.empty(); }
+    String operator+(const char* suffix) const { return String(_value + suffix); }
 
     long toInt() const {
         char* end = nullptr;

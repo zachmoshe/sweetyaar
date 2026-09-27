@@ -73,6 +73,10 @@ complete example card with the supported layout and configuration schema. If
 the card or configuration is missing, Bluetooth speaker mode still starts and
 the firmware uses safe defaults where possible, but local audio cannot play
 without readable content.
+If `/config.json` cannot be read or is not a valid JSON object, the error LED is
+set and the app's settings requests return an error asking the parent to
+restore the file and restart. Firmware defaults keep the toy operational;
+they are not reported as successfully loaded settings.
 
 ## Parent controls
 
@@ -87,6 +91,17 @@ Most content settings are saved in `/config.json` or the relevant theme's
 `metadata.json` on the SD card. The Bluetooth device name is different: it is
 stored in the ESP32's non-volatile storage so replacing the card does not rename
 the toy.
+
+SD JSON saves write a sibling `.tmp` file first, flush and close it, and compare
+the serializer's byte count and the resulting file size with the expected
+length. They do not reread or reparse the saved contents for verification.
+Only after those checks does firmware remove the previous file and rename the
+temporary file into place. Write, size-check, removal, and rename failures are
+reported to the app. No backup or automatic recovery is kept: power loss
+between removal and rename can leave the configuration missing, which is an
+accepted failure case. A later save truncates any leftover temporary file.
+Settings updates also fail if the existing JSON cannot be loaded, rather than
+silently replacing it with a partial set of defaults.
 
 The app's **Quiet time** switch gives a parent a temporary way to disable the doll's buttons.
 Activating it stops local audio and ignores physical-button and app playback commands for
@@ -375,6 +390,7 @@ The high-level components are:
 | `firmware/esp32/src/ContentCatalog.*`   | Scanning themes and tracks, validating content, and applying content-management changes. |
 | `firmware/esp32/src/BLEParentService.*` | BLE characteristics used by the parent app for controls, status, and configuration.      |
 | `firmware/esp32/src/ParentConfig.*`     | Parent-editable settings loaded from `/config.json`.                                     |
+| `firmware/esp32/src/JsonFile.cpp`       | Shared JSON loading and length-checked temporary-file saves for settings and metadata. |
 | `firmware/esp32/src/NVSConfig.*`        | Device-local settings that should survive SD-card replacement.                           |
 | `firmware/esp32/src/BedtimeMode.*`      | Pure rules for daily windows and manual overrides.                                       |
 | `firmware/esp32/src/PeripheralPower.*`  | Power-gating behavior during boot and deep sleep.                                        |

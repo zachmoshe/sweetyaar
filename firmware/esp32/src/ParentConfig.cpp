@@ -1,6 +1,5 @@
 #include "ParentConfig.h"
-#include <SD.h>
-#include <ArduinoJson.h>
+#include "ContentCatalog.h"
 #include "Config.h"
 
 namespace {
@@ -53,6 +52,7 @@ uint8_t readPercent(JsonObjectConst obj, const char* key, uint8_t fallback) {
 }  // namespace
 
 bool ParentConfig::load() {
+    _loaded = false;
     _defaultVolumePct = DEFAULT_VOLUME_PCT;
     _defaultTheme     = DEFAULT_THEME;
     _disabledThemeCount = 0;
@@ -66,18 +66,8 @@ bool ParentConfig::load() {
     _bedtimeTheme = DEFAULT_BEDTIME_THEME;
     _bedtimeVolumeCapPct = DEFAULT_BEDTIME_VOLUME_CAP_PCT;
 
-    File f = SD.open(SD_CONFIG_FILE);
-    if (!f) {
-        Serial.printf("[Config] %s not found; using firmware defaults\n", SD_CONFIG_FILE);
-        return false;
-    }
-
-    JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, f);
-    f.close();
-    if (err) {
-        Serial.printf("[Config] Failed to parse %s: %s; using defaults\n",
-                      SD_CONFIG_FILE, err.c_str());
+    JsonDocument doc = ContentCatalog::readJsonFile(SD_CONFIG_FILE);
+    if (doc.isNull()) {
         return false;
     }
 
@@ -137,6 +127,7 @@ bool ParentConfig::load() {
                   _bedtimeStartMinutes / 60, _bedtimeStartMinutes % 60,
                   _bedtimeEndMinutes / 60, _bedtimeEndMinutes % 60,
                   _bedtimeTheme.c_str(), _bedtimeVolumeCapPct);
+    _loaded = true;
     return true;
 }
 

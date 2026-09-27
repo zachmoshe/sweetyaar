@@ -15,6 +15,9 @@ If the venv is active, `pytest` is equivalent.
 - `helpers.py`: subprocess helpers and PlatformIO discovery.
 - `test_firmware_config.py`: static checks for checked-in SD-card templates and app-owned config defaults.
 - `test_firmware_build.py`: no-device firmware build checks through PlatformIO.
+- `test_json_file.py`: runs the real JSON save/load code against a fake SD card
+  with injected open, short-write, flush-truncation, removal, and rename failures.
+  Uses the pinned ArduinoJson headers installed by `make build`.
 - `test_state_machine.py`: pytest wrapper that compiles and runs native C++ state-machine tests.
 - `state_machine_native_test.cpp`: host-side C++ behavior tests for the real `firmware/esp32/src/StateMachine.cpp`.
 - `native_stubs/`: tiny Arduino/FreeRTOS headers used only by native host tests.

@@ -201,34 +201,8 @@ String formatTimeOfDay(uint16_t minuteOfDay) {
     return String(buf);
 }
 
-JsonDocument readJsonFile(const String& path) {
-    JsonDocument doc;
-    File f = SD.open(path.c_str());
-    if (!f) return doc;
-    DeserializationError err = deserializeJson(doc, f);
-    f.close();
-    if (err) {
-        Serial.printf("[Config] Failed to parse %s: %s\n", path.c_str(), err.c_str());
-        doc.clear();
-    }
-    return doc;
-}
-
 JsonDocument readThemeMetadata(const String& themePath) {
     return readJsonFile(themePath + "/" + METADATA_FILE);
-}
-
-bool writeJsonFile(const String& path, JsonDocument& doc) {
-    SD.remove(path.c_str());
-    File f = SD.open(path.c_str(), FILE_WRITE);
-    if (!f) {
-        Serial.printf("[Config] Cannot write %s\n", path.c_str());
-        return false;
-    }
-    serializeJsonPretty(doc, f);
-    f.println();
-    f.close();
-    return true;
 }
 
 bool nameInJsonArray(JsonVariantConst value, const String& name) {
@@ -619,6 +593,7 @@ bool updateSdConfig(uint8_t defaultVolumePct, const String& defaultTheme,
                     uint16_t bedtimeEndMinutes, const String& bedtimeTheme,
                     uint8_t bedtimeVolumeCapPct) {
     JsonDocument doc = readJsonFile(SD_CONFIG_FILE);
+    if (doc.isNull()) return false;
     doc["schemaVersion"] = 2;
     doc["defaultVolumePct"] = defaultVolumePct > 100 ? 100 : defaultVolumePct;
     doc["defaultTheme"] = defaultTheme;
@@ -650,6 +625,7 @@ bool setThemeDisabled(const String& themeId, bool disabled) {
         return true;
     }
     JsonDocument doc = readJsonFile(SD_CONFIG_FILE);
+    if (doc.isNull()) return false;
     doc["schemaVersion"] = 2;
     if (!doc["defaultVolumePct"].is<int>()) {
         doc["defaultVolumePct"] = DEFAULT_VOLUME_PCT;
@@ -671,6 +647,7 @@ bool setThemeShuffle(const String& themeId, bool shuffle) {
     String themePath = pathForThemeId(themeId);
     String path = themePath + "/" + METADATA_FILE;
     JsonDocument doc = readJsonFile(path);
+    if (doc.isNull()) return false;
     doc["schemaVersion"] = 2;
     const char* existingName = doc["name"] | "";
     if (!existingName || existingName[0] == '\0') {
@@ -693,6 +670,7 @@ bool setSongDisabled(const String& themeId, const String& fileName, bool disable
     String themePath = pathForThemeId(themeId);
     String path = themePath + "/" + METADATA_FILE;
     JsonDocument doc = readJsonFile(path);
+    if (doc.isNull()) return false;
     doc["schemaVersion"] = 2;
     const char* existingName = doc["name"] | "";
     if (!existingName || existingName[0] == '\0') {

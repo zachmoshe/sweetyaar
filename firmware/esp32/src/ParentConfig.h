@@ -6,7 +6,8 @@
 // ParentConfig — parent-editable settings loaded from SD:/config.json
 //
 // These are toy/content settings, not device identity. If the SD card is
-// missing or config.json is absent, safe firmware defaults are used.
+// missing or config.json is absent/invalid, defaults remain available but
+// load() fails; callers must report that error instead of claiming success.
 // ---------------------------------------------------------------------------
 class ParentConfig {
 public:
@@ -14,6 +15,7 @@ public:
 
     // Load settings from SD_CONFIG_FILE. SD must already be mounted.
     bool load();
+    bool loaded() const { return _loaded; }
 
     uint8_t defaultVolumePct() const { return _defaultVolumePct; }
     String defaultTheme() const { return _defaultTheme; }
@@ -29,6 +31,7 @@ public:
     uint8_t bedtimeVolumeCapPct() const { return _bedtimeVolumeCapPct; }
 
 private:
+    bool _loaded = false;
     uint8_t _defaultVolumePct = DEFAULT_VOLUME_PCT;
     String  _defaultTheme     = DEFAULT_THEME;
     String  _disabledThemes[CONFIG_MAX_DISABLED_THEMES];
