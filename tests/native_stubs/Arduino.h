@@ -23,6 +23,17 @@ public:
     std::size_t length() const { return _value.length(); }
     bool isEmpty() const { return _value.empty(); }
     String operator+(const char* suffix) const { return String(_value + suffix); }
+    String substring(std::size_t begin, std::size_t end) const {
+        return _value.substr(begin, end - begin);
+    }
+    void trim() {
+        const auto begin = _value.find_first_not_of(" \t\r\n");
+        if (begin == std::string::npos) {
+            _value.clear();
+            return;
+        }
+        _value = _value.substr(begin, _value.find_last_not_of(" \t\r\n") - begin + 1);
+    }
 
     long toInt() const {
         char* end = nullptr;

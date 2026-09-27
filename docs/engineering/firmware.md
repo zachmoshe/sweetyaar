@@ -87,6 +87,11 @@ and turn song looping on or off. The settings screen can rename the toy, choose
 defaults, configure sleep and Bedtime mode, and enable or disable themes and
 individual audio files.
 
+Saved default volume and theme are applied only at boot, including a wake from
+deep sleep. Settings saves preserve the current-session volume and theme.
+Bedtime cap changes still take effect immediately using the current requested
+volume; unrelated saves preserve manual Bedtime choices.
+
 Most content settings are saved in `/config.json` or the relevant theme's
 `metadata.json` on the SD card. The Bluetooth device name is different: it is
 stored in the ESP32's non-volatile storage so replacing the card does not rename

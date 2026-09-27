@@ -93,7 +93,9 @@ that result in memory until the toy disconnects.
 
 The Ready-screen volume and theme are current-session controls. The settings
 screen's default volume and theme are the values restored by the firmware on a
-future boot. Changing one does not silently change the other.
+future boot, including waking from deep sleep. Saving settings preserves the
+current-session volume and theme; changing a startup default does not apply it
+to the current session.
 
 ## Bedtime mode
 
@@ -136,6 +138,12 @@ changing the saved schedule. That manual choice lasts until the next automatic
 boundary or a reboot. Selecting a different Ready-screen theme while Bedtime is
 active changes the effective theme for the rest of that awake session; the
 volume cap remains active.
+
+Unrelated settings saves preserve these manual choices. Changing the bedtime
+volume cap applies it immediately without resetting the requested volume, mode,
+or theme. Changing the bedtime theme replaces a manual bedtime theme choice;
+changing the enabled flag or schedule clears the manual mode choice and
+reevaluates the schedule.
 
 The ESP32 does not retain wall-clock time through a cold boot. On every BLE
 connection, the app sends the controller's current time and UTC offset:

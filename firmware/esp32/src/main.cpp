@@ -1334,14 +1334,12 @@ void handleBleConfigCommand(const String& commandJson) {
                 sleep, "bleIdleSec", parentConfig.sleepBleIdleMs());
         }
 
-        bool bedtimeConfigTouched = false;
         bool nextBedtimeEnabled = parentConfig.bedtimeEnabled();
         uint16_t nextBedtimeStartMinutes = parentConfig.bedtimeStartMinutes();
         uint16_t nextBedtimeEndMinutes = parentConfig.bedtimeEndMinutes();
         String nextBedtimeTheme = parentConfig.bedtimeTheme();
         uint8_t nextBedtimeVolumeCapPct = parentConfig.bedtimeVolumeCapPct();
         if (doc["bedtime"].is<JsonObject>()) {
-            bedtimeConfigTouched = true;
             JsonObject bedtime = doc["bedtime"].as<JsonObject>();
             nextBedtimeEnabled = bedtime["enabled"] | nextBedtimeEnabled;
             nextBedtimeStartMinutes = parseBedtimeTimeString(
@@ -1362,6 +1360,13 @@ void handleBleConfigCommand(const String& commandJson) {
             nextBedtimeVolumeCapPct = static_cast<uint8_t>(cap);
         }
 
+        // Only schedule changes invalidate a manual Daytime/Bedtime choice.
+        // A cap or theme edit must not silently switch the current mode.
+        bool bedtimeScheduleChanged = nextBedtimeEnabled != parentConfig.bedtimeEnabled() ||
+            nextBedtimeStartMinutes != parentConfig.bedtimeStartMinutes() ||
+            nextBedtimeEndMinutes != parentConfig.bedtimeEndMinutes();
+        bool bedtimeThemeChanged = nextBedtimeTheme != parentConfig.bedtimeTheme();
+
         nvs.setBtName(nextName);
         currentDeviceName = nextName;
         if (sdReady) {
@@ -1381,17 +1386,22 @@ void handleBleConfigCommand(const String& commandJson) {
                 return;
             }
             refreshThemeList();
-            activeTheme = parentConfig.defaultTheme();
+            // Startup defaults are applied by setup(), including after deep
+            // sleep. Keep the current session's volume and theme on saves.
             applyActiveThemeFallback();
             lastInvalidBedtimeThemeLog = "";
-            bedtimeThemeOverride = "";
-            if (bedtimeConfigTouched) {
+            if (bedtimeThemeChanged) {
+                bedtimeThemeOverride = "";
+            }
+            if (bedtimeScheduleChanged) {
                 bedtimeOverride = BedtimeMode::Override::None;
                 bedtimeOverrideUntilUtc = 0;
             }
         }
-        applyVolume(nextVolume);
         pollBedtimeMode();
+        // A changed cap takes effect even if Bedtime remains active, without
+        // replacing the parent's requested volume with the startup default.
+        applyEffectiveVolume("settings update");
         applyDeviceName(nextName);
         publishBleValues();
         bleService.updateConfigResponse(buildConfigResponse(requestId));

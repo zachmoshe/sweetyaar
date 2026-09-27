@@ -415,7 +415,6 @@ function makeBleHarness(options = {}) {
       if (Object.prototype.hasOwnProperty.call(payload, "defaultVolumePct")) config.defaultVolumePct = payload.defaultVolumePct;
       if (Object.prototype.hasOwnProperty.call(payload, "defaultTheme")) {
         config.defaultTheme = payload.defaultTheme;
-        config.activeTheme = payload.defaultTheme;
       }
       if (payload.sleep) config.sleep = { ...config.sleep, ...payload.sleep };
       if (payload.bedtime) config.bedtime = { ...config.bedtime, ...payload.bedtime };
@@ -1122,6 +1121,34 @@ const tests = [
     assert.strictEqual(state.settings.dirty, false);
     assert.strictEqual(state.settings.message, "Settings saved.");
     assert.strictEqual(els.settingsSaveButton.disabled, true);
+  `],
+  ["saving startup defaults preserves the remote volume and theme", String.raw`
+    const ble = await connectWithFakeBle({ volume: 20 });
+    chooseTheme("nature");
+    await waitUntil(() => !state.busy && ble.config.activeTheme === "nature", "live theme change");
+    await els.openSettingsButton.click();
+    await waitForSettingsLoaded();
+    await els.settingsVolumeRange.input("42");
+    await els.settingsSaveButton.click();
+    assert.strictEqual(ble.config.defaultVolumePct, 42);
+    assert.strictEqual(state.volume, 20);
+    assert.strictEqual(state.theme, "nature");
+
+    await els.settingsBackButton.click();
+    chooseTheme("lullabies");
+    await waitUntil(() => !state.busy && ble.config.activeTheme === "lullabies", "second live theme change");
+    await els.openSettingsButton.click();
+    await waitForSettingsLoaded();
+    state.settings.defaultTheme = "nature";
+    await els.settingsDeviceName.input("SweetYaar Night");
+    await els.settingsSaveButton.click();
+    assert.strictEqual(ble.config.defaultTheme, "nature");
+    assert.strictEqual(state.volume, 20);
+    assert.strictEqual(state.theme, "lullabies");
+    assertJsonEqual(ble.writes.volume, []);
+    await els.settingsBackButton.click();
+    assert.strictEqual(state.volume, 20);
+    assert.strictEqual(state.theme, "lullabies");
   `],
   ["config.json load failure is shown in Settings", String.raw`
     const message = "Settings file is missing or invalid. Restore config.json on the SD card and restart the toy.";
