@@ -187,7 +187,7 @@ def test_charger_pinout_and_board_selection(
     result = compile_led_config(flags, f"""
 static_assert(SWEETYAAR_BQ25186_ENABLED == {enabled});
 static_assert(HAS_BQ25186 == {str(bool(enabled)).lower()});
-static_assert(PIN_CHARGER_ENABLE == 14);
+static_assert(PIN_CHARGER_ENABLE == 4);
 static_assert(PIN_CHARGER_SDA == 16);
 static_assert(PIN_CHARGER_SCL == 17);
 static_assert(PIN_CHARGER_PG == 34);

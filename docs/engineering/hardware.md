@@ -77,7 +77,7 @@ PCB.
 | 33 | `PIN_BTN2` | Input with internal pull-up | Animal button to GND | Active LOW. |
 | 27 | `PIN_VIB_WAKE` | Externally biased RTC input | Normally-closed vibration switch to GND | Resting LOW; movement opens the switch and wakes EXT0 on HIGH. |
 | 13 | `PIN_PERIPH_PWR_EN` | Output | `PERIPH_PWR_EN`: SD load-switch `EN`, battery-sense load-switch `EN`, and 5 V converter `EN` | HIGH while awake; RTC-held LOW during deep sleep. |
-| 14 | `PIN_CHARGER_ENABLE` | Output | Base resistor of the MMBT3904 that pulls BQ25186 `/CE` LOW | HIGH enables charging. A base pulldown and `/CE` pull-up make reset, hard-off, and firmware failure default to charging disabled. |
+| 4 | `PIN_CHARGER_ENABLE` | Output | Base resistor of the MMBT3904 that pulls BQ25186 `/CE` LOW | HIGH enables charging. GPIO4 defaults to an internal pulldown during and after reset; the external base pulldown and `/CE` pull-up keep charging disabled through boot and hard-off. |
 | 16 | `PIN_CHARGER_SDA` | Bidirectional open-drain | BQ25186 `SDA` | 100 kHz I2C data; 10 kΩ pull-up to `3V3_AON`. |
 | 17 | `PIN_CHARGER_SCL` | Bidirectional open-drain | BQ25186 `SCL` | 100 kHz I2C clock; 10 kΩ pull-up to `3V3_AON`. |
 | 34 | `PIN_CHARGER_PG` | Input with external pull-up | BQ25186 `/PG/GPO` | LOW means valid external input; 10 kΩ pull-up to `3V3_AON`. Also wakes the ESP32 if charging power is attached during deep sleep. |
@@ -577,11 +577,13 @@ it is not a schematic drop-in replacement for the analog-programmed BQ25185:
 
 The 100 kΩ `/CE` pull-up goes to `5V_INPUT`, so lack of external power creates
 no battery-only pull-up current. An MMBT3904 has collector at `/CE`, emitter
-directly at GND, and base driven by GPIO14 through 10 kΩ with 100 kΩ from base
-to GND. GPIO14 HIGH enables charging. Reset, an unpowered ESP32, a firmware
-failure, or the hard-off switch opening leaves the transistor off and charging
-disabled. Firmware asserts it only after every safety register has been written
-and read back successfully, and only while valid input power is present.
+directly at GND, and base driven by GPIO4 through 10 kΩ with 100 kΩ from base
+to GND. GPIO4 HIGH enables charging. Its reset-default internal pulldown and
+the external base pulldown keep charging disabled through reset and boot; the
+external pulldown also keeps it disabled when the ESP32 is unpowered or the
+hard-off switch is open. Firmware drives GPIO4 LOW at the start of `setup()`
+and asserts it only after every safety register has been written and read back
+successfully, and only while valid input power is present.
 
 `/PG` is a hardware indication that valid external input exists. `/INT` gives a
 short active-LOW pulse when an enabled event changes. Neither signal is required
@@ -721,7 +723,7 @@ revision adds no SPI or I2S signal-isolation components.
 | `3V3_AON` ↔ `3V3_PERIPH_SW` | Every SD pull-up belongs to the switched rail. Retain GPIO5 as the native VSPI `CS`. Firmware ends SPI, disables internal pulls, and makes the SPI pins inputs before driving `PERIPH_PWR_EN` LOW; on wake it enables the rail, waits for it to settle, and then reconfigures SPI. No SPI isolation buffer is planned. |
 | `3V3_AON` ↔ `5V_PERIPH_SW` | Production GPIO21 connects to `SD_MODE` only through 634 kΩ. GPIO2 drives WS2812B-V6 DIN through the 301 Ω `R_LED_DIN1`, without an NPN or 5 V pull-up; validate direct-drive logic-HIGH margin. Firmware establishes both inactive GPIO levels before enabling the rail. Before power-off it sends an LED-off frame, mutes the amplifier, ends I2S, disables the rail, and only then releases GPIO2. No I2S or LED isolation buffer is planned. |
 | `5V_INPUT` ↔ `5V_PERIPH_SW` | These are different 5 V domains and must never be tied together. The switched peripheral boost output must provide true load disconnect and must not feed the external-input or charger path. |
-| Charger control and status | Connect `SDA`/`SCL` to GPIO16/GPIO17 and `/PG`/`/INT` to GPIO34/GPIO35, each with a 10 kΩ pull-up to `3V3_AON`. Connect GPIO14 through the NPN stage to `/CE`. Include leakage in the sleep audit; do not add direct charger-status LEDs. |
+| Charger control and status | Connect `SDA`/`SCL` to GPIO16/GPIO17 and `/PG`/`/INT` to GPIO34/GPIO35, each with a 10 kΩ pull-up to `3V3_AON`. Connect GPIO4 through the NPN stage to `/CE`. Include leakage in the sleep audit; do not add direct charger-status LEDs. |
 | `BAT` ↔ GPIO36 battery measurement | Feed the 634 kΩ / 200 kΩ divider through a second AP2281-3WG-7 whose `EN` is `PERIPH_PWR_EN`; implement the 200 kΩ lower leg as two series 100 kΩ resistors. This prevents `BAT` from driving the ADC while the ESP32 is unpowered and disconnects the divider in deep sleep. Do not measure `SYS` as a substitute. |
 | Programming fixture ↔ board supplies | `3V3_REF` is a target-voltage reference/sense output only. The external debugger uses it for its indicator LED and must not drive it. A future fixture must not back-power USB, `AUX_5V_IN`, `SYS`, or the battery. |
 

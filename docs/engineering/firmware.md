@@ -138,8 +138,10 @@ required charging-temperature window. The fixed production policy is 4.20 V,
 1.00 A charge current, 1.05 A input limit, a six-hour safety timer, and hard
 0°C/45°C TS cutoffs with the intermediate COOL/WARM zones disabled.
 
-Charging is fail closed. GPIO14 drives an external NPN that can pull `/CE` LOW,
-but firmware leaves it off through reset and startup. It probes the device ID,
+Charging is fail closed. GPIO4 drives an external NPN that can pull `/CE` LOW.
+Its default internal pulldown and the external base pulldown keep the NPN off
+through reset and boot, and firmware explicitly drives GPIO4 LOW at the start
+of `setup()`. It probes the device ID,
 writes each configuration register, immediately reads that physical register
 back, and enables charging only after the complete sequence succeeds. The
 verification path deliberately has no cached register values. Every ten seconds

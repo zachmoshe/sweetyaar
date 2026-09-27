@@ -232,6 +232,12 @@ static void btSampleRateChanged(uint16_t rate) {
 // setup()
 // ---------------------------------------------------------------------------
 void setup() {
+    // Keep charging disabled before any startup work; enable only after the
+    // charger configuration has been written and verified by charger.begin().
+    if (HAS_BQ25186) {
+        digitalWrite(PIN_CHARGER_ENABLE, LOW);
+        pinMode(PIN_CHARGER_ENABLE, OUTPUT);
+    }
     Serial.begin(115200);
     // Assert the selected board's shutdown level before peripheral power starts.
     pinMode(PIN_AMP_MUTE, OUTPUT);

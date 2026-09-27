@@ -42,9 +42,10 @@ static constexpr int PIN_PERIPH_PWR_EN = 13;  // SD, battery-sense, and 5 V shar
 
 // --- Battery / BQ25186 charger ---------------------------------------------
 // GPIO34/35 are input-only and use external 10 kOhm pull-ups to 3V3_AON.
-// GPIO14 drives the base of the external /CE pull-down transistor: HIGH turns
-// the transistor on and enables charging. Its physical base pulldown makes
-// reset, an unpowered ESP32, and an open switch fail closed (charging off).
+// GPIO4 drives the base of the external /CE pull-down transistor: HIGH turns
+// the transistor on and enables charging. Its reset-default internal pulldown
+// and the physical base pulldown keep charging off through reset and boot;
+// the physical pulldown also keeps it off with an unpowered ESP32/open switch.
 #ifndef SWEETYAAR_BQ25186_ENABLED
 #define SWEETYAAR_BQ25186_ENABLED 1
 #endif
@@ -54,7 +55,7 @@ static constexpr int PIN_PERIPH_PWR_EN = 13;  // SD, battery-sense, and 5 V shar
 #endif
 
 static constexpr bool HAS_BQ25186 = SWEETYAAR_BQ25186_ENABLED != 0;
-static constexpr int PIN_CHARGER_ENABLE = 14;
+static constexpr int PIN_CHARGER_ENABLE = 4;
 static constexpr int PIN_CHARGER_SDA    = 16;
 static constexpr int PIN_CHARGER_SCL    = 17;
 static constexpr int PIN_CHARGER_PG     = 34;
