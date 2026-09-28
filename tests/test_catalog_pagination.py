@@ -44,7 +44,10 @@ def catalog_scan_exe(repo_root, tmp_path_factory):
         production_function(source, name) for name in (
             "jsonEscape", "isAnimalsTheme", "appendThemeRow", "appendSongRow",
             "mutableFindTheme", "themeCount", "themeAt", "findTheme",
-            "scanThemeStats", "buildThemesPageJson", "buildSongsPageJson",
+            "scanThemeStats", "scanPageHeader", "scanPageTail", "songPageHeader",
+            "scanSizeError", "buildThemesPageJson", "buildSongsPageJson",
+            "validThemeId", "worstCaseStats", "themeEntryFits", "songEntryFits",
+            "utf8Prefix", "recordOversizedEntry", "validateCatalog", "catalogWarning",
         )
     ))
     exe = build / "catalog_scan"
@@ -80,7 +83,7 @@ def catalog_fixture(op, count, variant="plain", page_size=0):
             themes[-1].update(id="__animals", special=True, disabledByUser=False)
     else:
         themes = [theme(0, [song(i) for i in range(count)])]
-    return dict(op=op, themes=themes, theme="t000", pageSize=page_size,
+    return dict(op=op, themes=themes, theme="t000", maxBytes=page_size,
                 id=4294960000 if variant == "unicode" else 1)
 
 
@@ -124,7 +127,8 @@ def scan(catalog_scan_exe, request):
         page = json.loads(raw.decode("utf-8", errors="strict"))
         assert page["id"] == request["id"] + page_index
         assert page["op"] == request["op"] and page["ok"] is True
-        assert page["page"] == page_index
+        assert page["cursor"] == len(rows)
+        assert page["nextCursor"] == len(rows) + len(page[rows_key])
         assert type(page["hasMore"]) is bool
         if rows_key == "songs":
             theme = expected_rows({**request, "op": "scanThemes"})[0]
@@ -154,7 +158,7 @@ def scan(catalog_scan_exe, request):
     ("scanSongs", (0, 1, 2, 3, 5, 17, 128, 601)),
 ])
 @pytest.mark.parametrize("variant", ["plain", "unicode"])
-@pytest.mark.parametrize("page_size", [0, 1, 2])
+@pytest.mark.parametrize("page_size", [0, 400, 450])
 def test_scan_pages_are_legal_and_complete(catalog_scan_exe, op, counts, variant, page_size):
     # Production defaults plus different divisions of the same catalog. Sizes
     # straddle page boundaries and the app's current fixed scan-loop limits.
@@ -170,11 +174,12 @@ def test_adjacent_scan_pages_cannot_fit_in_one_response(catalog_scan_exe, op):
         merged = copy.deepcopy(first)
         merged[key].extend(second[key])
         merged["hasMore"] = second["hasMore"]
+        merged["nextCursor"] = second["nextCursor"]
         size = len(serialized(merged))
         # Count the response envelope only once, including the final hasMore
         # value. Equality also fits: avoid a needless page at exactly 512 bytes.
         assert size > ATT_VALUE_LIMIT, (
-            f"{op} pages {first['page']} and {second['page']} combine into {size} bytes; "
+            f"{op} pages {first['cursor']} and {second['cursor']} combine into {size} bytes; "
             f"both fit in one {ATT_VALUE_LIMIT}-byte response"
         )
 
@@ -187,9 +192,10 @@ def test_nonfinal_scan_page_cannot_fit_next_entry(catalog_scan_exe, op):
         extended = copy.deepcopy(first)
         extended[key].append(second[key][0])
         extended["hasMore"] = second["hasMore"] or len(second[key]) > 1
+        extended["nextCursor"] += 1
         size = len(serialized(extended))
         assert size > ATT_VALUE_LIMIT, (
-            f"{op} page {first['page']} could include the next entry: "
+            f"{op} page {first['cursor']} could include the next entry: "
             f"{size} bytes <= {ATT_VALUE_LIMIT}"
         )
 
@@ -213,3 +219,59 @@ def test_app_consumes_all_firmware_scan_pages(catalog_scan_exe, repo_root, op, c
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30,
     )
     assert result.returncode == 0, result.stdout.decode()
+
+
+@pytest.mark.parametrize("character", ["a", "ש", "🌙", '"', "\\", "\n"])
+def test_catalog_rejects_names_at_exact_encoded_byte_boundary(catalog_scan_exe, character):
+    # Independently serialize worst-case envelopes. UTF-8 characters and JSON
+    # escape sequences consume bytes, so a character-count limit is insufficient.
+    themes = []
+    expected_themes = []
+    expected_songs = []
+    for length in range(1, 360):
+        name = character * length
+        theme = dict(id="t", name=name, songs=[dict(file="a.wav", supported=True)])
+        themes.append(theme)
+        stats = dict(id="t", name=name, enabled=False, disabledByUser=False,
+                     shuffle=False, special=False, canDisable=False, canSetDefault=False,
+                     activeValid=2147483647, total=2147483647, errors=2147483647)
+        envelope = dict(id=4294967295, ok=True, op="scanThemes", cursor=2147483647,
+                        themes=[stats], nextCursor=2147483647, hasMore=False)
+        song_header = dict(id=4294967295, ok=True, op="scanSongs", cursor=2147483647,
+                           theme="t", name=name, themeEnabled=False, disabledByUser=False,
+                           shuffle=False, errors=2147483647,
+                           nextCursor=2147483647, hasMore=False)
+        song = dict(file="a.wav", enabled=False, ok=True,
+                    sizeBytes=4294967295, durationMs=4294967295)
+        expected_themes.append(len(serialized(envelope)) <= 512 and
+                               len(serialized({**song_header, "songs": [song]})) <= 512)
+
+        filename = name + ".wav"
+        theme = dict(id="t", name="T", songs=[dict(file=filename, supported=True)])
+        themes.append(theme)
+        song["file"] = filename
+        song_header["name"] = "T"
+        command = dict(id=4294967295, op="setSong", theme="t", file=filename, enabled=False)
+        expected_songs.append(len(serialized({**song_header, "songs": [song]})) <= 512 and
+                              len(serialized(command)) <= 383)
+    result = subprocess.run([str(catalog_scan_exe)], input=serialized(dict(op="limits", themes=themes)),
+                            stdout=subprocess.PIPE, check=True, timeout=10)
+    result = json.loads(result.stdout.decode("utf-8", errors="strict"))
+    assert [row["fits"] for row in result["themes"][::2]] == expected_themes
+    assert [row["songs"][0] for row in result["themes"][1::2]] == expected_songs
+    assert result["retainedThemes"] == sum(expected_themes) + len(expected_songs)
+    assert result["retainedSongs"] == sum(expected_themes) + sum(expected_songs)
+    assert "…" in result["warning"] and "�" not in result["warning"]
+    assert len(serialized({"message": result["warning"]})) <= 512
+
+
+@pytest.mark.parametrize("character", ["a", "ש", "🌙", '"', "\n"])
+def test_theme_ids_fit_live_control_and_config_buffers(catalog_scan_exe, character):
+    ids = [character * count for count in range(1, 80)]
+    request = dict(op="limits", themes=[dict(id=value, name="T", songs=[]) for value in ids])
+    result = subprocess.run([str(catalog_scan_exe)], input=serialized(request),
+                            stdout=subprocess.PIPE, check=True, timeout=10)
+    result = json.loads(result.stdout)
+    expected = [len(value.encode()) <= 63 and len(serialized(value)) - 2 <= 126 for value in ids]
+    assert [row["fits"] for row in result["themes"]] == expected
+    assert result["retainedThemes"] == sum(expected)

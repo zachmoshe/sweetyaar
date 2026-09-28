@@ -163,7 +163,8 @@ void refreshThemeList();
 void applyActiveThemeFallback();
 void applyDeviceName(const String& deviceName);
 void applyPendingBtNameIfPossible();
-String buildConfigResponse(uint32_t requestId);
+String buildConfigAttribute(size_t index);
+void publishConfigAttributes();
 String buildConfigOkResponse(uint32_t requestId, const String& op);
 String buildConfigErrorResponse(uint32_t requestId, const String& message);
 bool isKnownTheme(const String& theme);
@@ -264,6 +265,10 @@ void setup() {
     // Device-local NVS config
     nvs.begin();
     currentDeviceName = nvs.getBtName();
+    if (currentDeviceName.length() > 32 || ContentCatalog::jsonEscape(currentDeviceName).length() > 64) {
+        Serial.printf("[Config] Ignoring oversized device name: %s\n", currentDeviceName.c_str());
+        currentDeviceName = DEFAULT_BT_NAME;
+    }
     Serial.printf("[Device] btName=%s\n", currentDeviceName.c_str());
 
     // Buttons
@@ -319,7 +324,6 @@ void setup() {
     // BLE parent service — shares the controller already started by A2DP.
     if (ENABLE_BLE_PARENT_SERVICE) {
         bleService.begin(currentDeviceName);
-        bleService.updateConfigResponse(buildConfigResponse(0));
         bleService.updateThemes(bleThemesJson);
         publishBleValues();
         pollBedtimeMode();
@@ -536,6 +540,7 @@ void pollBleConnectionState() {
     if (connected != lastBleConnected) {
         lastBleConnected = connected;
         markBleActivity(connected ? "BLE connected" : "BLE disconnected");
+        if (connected) publishConfigAttributes(); // Fresh clock sample on reconnect.
     }
 }
 
@@ -706,7 +711,15 @@ void pollBedtimeMode() {
     clearExpiredBedtimeOverride();
 
     bool active = bedtimeRuntimeActive();
+    // Automatic mode and manual override can change without changing active.
+    static bool lastAutomatic = false;
+    static BedtimeMode::Override lastOverride = BedtimeMode::Override::None;
+    const bool automatic = bedtimeAutomaticActive();
+    const bool metadataChanged = automatic != lastAutomatic || bedtimeOverride != lastOverride;
+    lastAutomatic = automatic;
+    lastOverride = bedtimeOverride;
     if (active == lastBedtimeActive) {
+        if (metadataChanged) publishBleValues();
         return;
     }
 
@@ -1251,27 +1264,22 @@ void handleBleConfigCommand(const String& commandJson) {
 
     const char* opValue = doc["op"] | "";
     String op = opValue;
-    if (op == "getConfig") {
-        bleService.updateConfigResponse(buildConfigResponse(requestId));
-        return;
-    }
-
     if (op == "scanThemes") {
-        int page = doc["page"] | 0;
+        int cursor = doc["cursor"] | 0;
         bleService.updateConfigResponse(
-            ContentCatalog::buildThemesPageJson(requestId, page, BLE_CONFIG_THEME_PAGE_SIZE));
+            ContentCatalog::buildThemesPageJson(requestId, cursor, BLE_CONFIG_MAX_BYTES));
         return;
     }
 
     if (op == "scanSongs") {
         const char* theme = doc["theme"] | "";
-        int page = doc["page"] | 0;
+        int cursor = doc["cursor"] | 0;
         if (theme == nullptr || theme[0] == '\0') {
             bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Missing theme id"));
             return;
         }
         bleService.updateConfigResponse(
-            ContentCatalog::buildSongsPageJson(requestId, String(theme), page, BLE_CONFIG_SONG_PAGE_SIZE));
+            ContentCatalog::buildSongsPageJson(requestId, String(theme), cursor, BLE_CONFIG_MAX_BYTES));
         return;
     }
 
@@ -1287,7 +1295,7 @@ void handleBleConfigCommand(const String& commandJson) {
         syncBedtimeClock(static_cast<time_t>(epochValue),
                          static_cast<int16_t>(tzOffsetValue));
         publishBleValues();
-        bleService.updateConfigResponse(buildConfigResponse(requestId));
+        bleService.updateConfigResponse(buildConfigOkResponse(requestId, op));
         return;
     }
 
@@ -1299,17 +1307,23 @@ void handleBleConfigCommand(const String& commandJson) {
         }
         setBedtimeRuntimeActive(doc["active"].as<bool>(), "BLE runtime toggle");
         publishBleValues();
-        bleService.updateConfigResponse(buildConfigResponse(requestId));
+        bleService.updateConfigResponse(buildConfigOkResponse(requestId, op));
         return;
     }
 
     if (op == "setConfig") {
+        if (!sdReady && (!doc["defaultVolumePct"].isNull() || !doc["defaultTheme"].isNull() ||
+            !doc["sleep"].isNull() || !doc["bedtime"].isNull())) {
+            bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "SD card unavailable. Settings were not saved."));
+            return;
+        }
         const char* deviceNameValue = doc["deviceName"] | currentDeviceName.c_str();
         String nextName = deviceNameValue;
         nextName.trim();
         if (nextName.isEmpty()) nextName = DEFAULT_BT_NAME;
-        if (nextName.length() > 32) {
-            nextName = nextName.substring(0, 32);
+        if (nextName.length() > 32 || ContentCatalog::jsonEscape(nextName).length() > 64) {
+            bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Device name is too long (32 UTF-8 bytes maximum)."));
+            return;
         }
 
         uint8_t nextVolume = static_cast<uint8_t>(doc["defaultVolumePct"] | parentConfig.defaultVolumePct());
@@ -1369,8 +1383,11 @@ void handleBleConfigCommand(const String& commandJson) {
             nextBedtimeEndMinutes != parentConfig.bedtimeEndMinutes();
         bool bedtimeThemeChanged = nextBedtimeTheme != parentConfig.bedtimeTheme();
 
-        nvs.setBtName(nextName);
-        currentDeviceName = nextName;
+        if (!ContentCatalog::validThemeId(nextDefaultTheme) ||
+            !ContentCatalog::validThemeId(nextBedtimeTheme)) {
+            bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Theme id is too long."));
+            return;
+        }
         if (sdReady) {
             if (!ContentCatalog::updateSdConfig(
                     nextVolume, nextDefaultTheme, nextSleepEnabled,
@@ -1384,7 +1401,8 @@ void handleBleConfigCommand(const String& commandJson) {
             }
             if (!parentConfig.load()) {
                 statusLed.setSignal(StatusSignal::Error, true);
-                bleService.updateConfigResponse(buildConfigResponse(requestId));
+                publishConfigAttributes();
+                bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Could not reload saved settings."));
                 return;
             }
             refreshThemeList();
@@ -1404,9 +1422,11 @@ void handleBleConfigCommand(const String& commandJson) {
         // A changed cap takes effect even if Bedtime remains active, without
         // replacing the parent's requested volume with the startup default.
         applyEffectiveVolume("settings update");
+        nvs.setBtName(nextName);
+        currentDeviceName = nextName;
         applyDeviceName(nextName);
         publishBleValues();
-        bleService.updateConfigResponse(buildConfigResponse(requestId));
+        bleService.updateConfigResponse(buildConfigOkResponse(requestId, op));
         return;
     }
 
@@ -1430,7 +1450,8 @@ void handleBleConfigCommand(const String& commandJson) {
         }
         if (!parentConfig.load()) {
             statusLed.setSignal(StatusSignal::Error, true);
-            bleService.updateConfigResponse(buildConfigResponse(requestId));
+            publishConfigAttributes();
+            bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Could not reload saved settings."));
             return;
         }
         refreshThemeList();
@@ -1538,6 +1559,7 @@ void publishBleValues() {
     bleService.updateTheme(activeTheme);
     bleService.updateStatus(bleStatusForState(state));
     bleService.updateBatteryState(batteryMonitor.encodedState());
+    publishConfigAttributes();
     lastBleStatusPublishMs = millis();
 }
 
@@ -1724,51 +1746,54 @@ void applyPendingBtNameIfPossible() {
 }
 
 // ---------------------------------------------------------------------------
-// buildConfigResponse()
+// Readable config groups (published separately from command acknowledgments)
 // ---------------------------------------------------------------------------
-String buildConfigResponse(uint32_t requestId) {
-    if (sdReady && !parentConfig.loaded()) {
-        return buildConfigErrorResponse(requestId,
-            "Settings file is missing or invalid. Restore config.json on the SD card "
-            "and restart the toy.");
-    }
+String buildConfigAttribute(size_t index) {
     JsonDocument doc;
-    doc["id"] = requestId;
-    doc["ok"] = true;
-    doc["op"] = "getConfig";
-    doc["deviceName"] = currentDeviceName;
-    doc["defaultVolumePct"] = parentConfig.defaultVolumePct();
-    doc["defaultTheme"] = parentConfig.defaultTheme();
-    doc["activeTheme"] = activeTheme;
-    doc["loop"] = sm.loopMode();
-    doc["sdReady"] = sdReady;
-
-    JsonObject sleep = doc["sleep"].to<JsonObject>();
-    sleep["enabled"] = parentConfig.sleepEnabled();
-    sleep["normalIdleSec"] = parentConfig.sleepNormalIdleMs() / 1000UL;
-    sleep["vibrationWakeIdleSec"] = parentConfig.sleepVibrationWakeIdleMs() / 1000UL;
-    sleep["bleIdleSec"] = parentConfig.sleepBleIdleMs() / 1000UL;
-
-    JsonObject bedtime = doc["bedtime"].to<JsonObject>();
-    bedtime["enabled"] = parentConfig.bedtimeEnabled();
-    bedtime["startTime"] = bedtimeTimeString(parentConfig.bedtimeStartMinutes());
-    bedtime["endTime"] = bedtimeTimeString(parentConfig.bedtimeEndMinutes());
-    bedtime["theme"] = parentConfig.bedtimeTheme();
-    bedtime["volumeCapPct"] = parentConfig.bedtimeVolumeCapPct();
-    bedtime["timeKnown"] = bedtimeTimeKnown();
-    bedtime["currentTime"] = bedtimeCurrentTimeString();
-    bedtime["currentSecondOfDay"] = bedtimeTimeKnown()
-        ? static_cast<int32_t>(bedtimeLocalSecondOfDay())
-        : -1;
-    bedtime["active"] = bedtimeRuntimeActive();
-    bedtime["autoActive"] = bedtimeAutomaticActive();
-    bedtime["override"] = bedtimeOverrideName();
-    bedtime["effectiveVolumePct"] = effectiveVolumePct();
-    bedtime["effectiveTheme"] = bedtimeEffectiveSongTheme();
-
+    if (index == 0) {
+        doc["deviceName"] = currentDeviceName;
+        doc["defaultVolumePct"] = parentConfig.defaultVolumePct();
+        doc["defaultTheme"] = parentConfig.defaultTheme();
+        doc["sdReady"] = sdReady;
+        if (sdReady && !parentConfig.loaded()) {
+            doc["error"] = "Settings file is missing or invalid. Restore config.json on the SD card and restart the toy.";
+        }
+    } else if (index == 1) {
+        doc["enabled"] = parentConfig.sleepEnabled();
+        doc["normalIdleSec"] = parentConfig.sleepNormalIdleMs() / 1000UL;
+        doc["vibrationWakeIdleSec"] = parentConfig.sleepVibrationWakeIdleMs() / 1000UL;
+        doc["bleIdleSec"] = parentConfig.sleepBleIdleMs() / 1000UL;
+    } else if (index == 2) {
+        doc["enabled"] = parentConfig.bedtimeEnabled();
+        doc["startTime"] = bedtimeTimeString(parentConfig.bedtimeStartMinutes());
+        doc["endTime"] = bedtimeTimeString(parentConfig.bedtimeEndMinutes());
+        doc["theme"] = parentConfig.bedtimeTheme();
+        doc["volumeCapPct"] = parentConfig.bedtimeVolumeCapPct();
+    } else if (index == 3) {
+        doc["loop"] = sm.loopMode();
+        doc["activeTheme"] = activeTheme;
+        doc["timeKnown"] = bedtimeTimeKnown();
+        doc["currentTime"] = bedtimeCurrentTimeString();
+        doc["currentSecondOfDay"] = bedtimeTimeKnown()
+            ? static_cast<int32_t>(bedtimeLocalSecondOfDay()) : -1;
+        doc["active"] = bedtimeRuntimeActive();
+        doc["autoActive"] = bedtimeAutomaticActive();
+        doc["override"] = bedtimeOverrideName();
+        doc["effectiveVolumePct"] = effectiveVolumePct();
+        doc["effectiveTheme"] = bedtimeEffectiveSongTheme();
+    } else {
+        doc["message"] = ContentCatalog::catalogWarning();
+    }
     String output;
     serializeJson(doc, output);
     return output;
+}
+
+void publishConfigAttributes() {
+    if (!ENABLE_BLE_PARENT_SERVICE) return;
+    for (size_t i = 0; i < BLE_CONFIG_ATTRIBUTE_COUNT; ++i) {
+        bleService.updateConfigAttribute(i, buildConfigAttribute(i));
+    }
 }
 
 String buildConfigOkResponse(uint32_t requestId, const String& op) {

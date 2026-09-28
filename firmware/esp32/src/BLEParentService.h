@@ -52,6 +52,8 @@ public:
     void updateStatus(const String& status);
     void updateThemes(const String& themesJson);
     void updateConfigResponse(const String& responseJson);
+    // JSON values are read in full; notifications only signal a changed value.
+    void updateConfigAttribute(size_t index, const String& value);
     void updateBatteryState(uint8_t state);
     void updateDeviceName(const String& deviceName);
 
@@ -96,6 +98,8 @@ private:
     BLECharacteristic* _configResponseChar = nullptr;
     BLECharacteristic* _noticeChar = nullptr;
     BLECharacteristic* _batteryChar = nullptr;
+    BLECharacteristic* _configAttributes[BLE_CONFIG_ATTRIBUTE_COUNT] = {};
+    void notifyChanged(BLECharacteristic* characteristic);
 
     // Pending events set by BLE callbacks, consumed by poll methods
     volatile bool    _newVolume     = false;

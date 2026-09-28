@@ -10,9 +10,9 @@ runInApp(String.raw`
   ble.chars.configCommand.write = (value) => {
     const request = JSON.parse(textFromValue(value));
     assert.strictEqual(request.op, transcript.op);
-    assert.strictEqual(request.page, requests.length);
     if (request.op === "scanSongs") assert.strictEqual(request.theme, transcript.theme);
-    const page = transcript.pages[request.page];
+    const page = transcript.pages[requests.length];
+    assert.strictEqual(request.cursor, page.cursor);
     assert(page, "App requested a page past the terminal response");
     requests.push(request);
     // Replay real C++ serializer output; only replace the request correlation

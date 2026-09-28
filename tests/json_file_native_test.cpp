@@ -87,6 +87,18 @@ int main() {
     assert(config.load() && config.loaded());
     assert(config.defaultVolumePct() == 42);
 
+    for (const std::string name : {std::string(64, 'a'), std::string(22, '\1')}) {
+        JsonDocument invalidNames;
+        invalidNames["defaultTheme"] = name;
+        invalidNames["bedtime"]["theme"] = name;
+        std::string serialized;
+        serializeJson(invalidNames, serialized);
+        FakeSD::files[SD_CONFIG_FILE] = serialized;
+        assert(config.load());
+        assert(config.defaultTheme() == DEFAULT_THEME);
+        assert(config.bedtimeTheme() == DEFAULT_BEDTIME_THEME);
+    }
+
     for (const char* invalid : {"", "{", "[]", "null", "42"}) {
         FakeSD::files[SD_CONFIG_FILE] = invalid;
         assert(!config.load());

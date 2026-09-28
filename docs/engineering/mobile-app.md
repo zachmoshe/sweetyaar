@@ -37,6 +37,25 @@ notifications load in the background. The app also sends the phone or
 computer's time and UTC offset so the firmware can evaluate the Bedtime
 schedule. Detailed theme and song scans remain deferred until Settings opens.
 
+The app subscribes to every config state attribute before sending its first
+update, including when connecting during Bluetooth streaming. Settings,
+Bedtime runtime, and clock displays are refreshed from those attributes;
+update-command replies only acknowledge success or failure. Notification signals
+trigger serialized GATT reads, so long JSON values do not depend on notification
+packet size. Saves finish when their update commands are acknowledged; they do
+not reread config groups or rescan themes/songs to verify success. Only changed
+fields are sent, grouped into commands within the byte limit. Acknowledged theme
+and song edits remain in the session cache. Clock sync and the Bedtime toggle
+also finish on their acknowledgments; state notifications update the UI
+independently, whether they arrive before or after the reply.
+Reconnect reads the current values and installs fresh listeners. Changes from
+the toy update live state without overwriting unsaved Settings edits.
+
+Theme and song scans follow byte-packed cursor pages until completion. Names
+that cannot fit the protocol are skipped by firmware at boot; a short retained
+warning points to the full serial boot log. Dismissing it lasts for the current
+connection.
+
 If the toy disconnects, restarts, or enters deep sleep, the app returns to its
 opening screen and the parent must reconnect. Installing the app does not
 remove the browser's Bluetooth permission or connection requirements.

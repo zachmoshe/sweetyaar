@@ -8,6 +8,8 @@
 namespace ContentCatalog {
 namespace {
 std::vector<CachedTheme> g_themes;
+unsigned g_oversizedEntries = 0;
+String g_firstOversizedEntry;
 }
 #include "catalog_scan_production.inc"
 }
@@ -39,20 +41,42 @@ int main() {
     }
 
     const std::string op = request["op"].as<const char*>();
+    if (op == "limits") {
+        JsonDocument result;
+        auto themes = result["themes"].to<JsonArray>();
+        for (const auto& theme : g_themes) {
+            auto row = themes.add<JsonObject>();
+            row["fits"] = themeEntryFits(theme);
+            auto songs = row["songs"].to<JsonArray>();
+            for (const auto& song : theme.songs) songs.add(songEntryFits(theme, song));
+        }
+        validateCatalog();
+        result["warning"] = catalogWarning().c_str();
+        result["retainedThemes"] = g_themes.size();
+        int songs = 0;
+        for (const auto& theme : g_themes) songs += theme.songs.size();
+        result["retainedSongs"] = songs;
+        std::string output;
+        serializeJson(result, output);
+        std::cout << output << '\n';
+        return 0;
+    }
     const String theme = request["theme"] | "";
-    const int pageSize = request["pageSize"] | 0;  // 0 selects production defaults.
+    const int maxBytes = request["maxBytes"] | 0;  // 0 selects production defaults.
     const uint32_t firstId = request["id"] | 1U;
     // One page beyond the end is emitted to check terminal-page behavior too.
     bool checkPastEnd = false;
+    int cursor = 0;
     for (int page = 0; page < 4096; ++page) {
         const String response = op == "scanThemes"
-            ? buildThemesPageJson(firstId + page, page, pageSize)
-            : buildSongsPageJson(firstId + page, theme, page, pageSize);
+            ? buildThemesPageJson(firstId + page, cursor, maxBytes)
+            : buildSongsPageJson(firstId + page, theme, cursor, maxBytes);
         JsonDocument parsed;
         if (deserializeJson(parsed, response.c_str())) return 2;
         std::cout << response.c_str() << '\n';
         if (checkPastEnd) return 0;
         checkPastEnd = !parsed["hasMore"].as<bool>();
+        cursor = parsed["nextCursor"] | cursor;
     }
     std::cerr << "Scan failed to terminate\n";
     return 3;

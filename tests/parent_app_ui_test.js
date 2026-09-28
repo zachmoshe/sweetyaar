@@ -126,6 +126,8 @@ class FakeElement {
 
   async click() {
     await this.dispatch("click");
+    // Let fire-and-forget DOM handlers finish their queued GATT microtasks.
+    await new Promise((resolve) => setTimeout(resolve, 0));
   }
 
   async input(value) {
@@ -283,9 +285,13 @@ class FakeCharacteristic {
       await this.hooks.beforeRead(this.name);
     }
     try {
-      if (typeof this.value === "number") return uint8View(this.value);
-      if (this.value instanceof DataView) return this.value;
-      return textView(String(this.value ?? ""));
+      const value = typeof this.value === "number" ? uint8View(this.value)
+        : this.value instanceof DataView ? this.value : textView(String(this.value ?? ""));
+      // Web Bluetooth fires this event for reads as well as notifications.
+      for (const listener of this.listeners.characteristicvaluechanged || []) {
+        listener({ target: { value } });
+      }
+      return value;
     } finally {
       if (this.hooks.afterRead) {
         this.hooks.afterRead(this.name);
@@ -311,9 +317,19 @@ class FakeCharacteristic {
     this.listeners[name].push(handler);
   }
 
+  removeEventListener(name, handler) {
+    this.listeners[name] = (this.listeners[name] || []).filter((item) => item !== handler);
+  }
+
   async startNotifications() {
     if (this.hooks.onStartNotifications) {
       this.hooks.onStartNotifications(this.name);
+    }
+  }
+
+  invalidate() {
+    for (const listener of this.listeners.characteristicvaluechanged || []) {
+      listener({ target: { value: uint8View(1) } });
     }
   }
 
@@ -328,6 +344,7 @@ class FakeCharacteristic {
 
 function makeBleHarness(options = {}) {
   const writes = {
+    subscriptionsAtConfigWrite: [],
     command: [],
     volume: [],
     theme: [],
@@ -395,9 +412,6 @@ function makeBleHarness(options = {}) {
   };
 
   function configResponse(payload) {
-    if (options.configFileError && ["getConfig", "syncTime"].includes(payload.op)) {
-      return { id: payload.id, ok: false, error: options.configFileError };
-    }
     if (payload.op === "syncTime") {
       if (options.rejectSyncTime) {
         return { id: payload.id, ok: false, error: "Unknown config command" };
@@ -405,10 +419,7 @@ function makeBleHarness(options = {}) {
       config.bedtime.timeKnown = true;
       config.bedtime.currentTime = options.deviceTime || config.bedtime.currentTime || "21:05";
       config.bedtime.currentSecondOfDay = options.deviceSecondOfDay ?? config.bedtime.currentSecondOfDay ?? 75907;
-      return { id: payload.id, ok: true, op: "getConfig", sdReady: true, ...config };
-    }
-    if (payload.op === "getConfig") {
-      return { id: payload.id, ok: true, op: "getConfig", sdReady: true, ...config };
+      return { id: payload.id, ok: true, op: payload.op };
     }
     if (payload.op === "setConfig") {
       if (Object.prototype.hasOwnProperty.call(payload, "deviceName")) config.deviceName = payload.deviceName;
@@ -418,7 +429,7 @@ function makeBleHarness(options = {}) {
       }
       if (payload.sleep) config.sleep = { ...config.sleep, ...payload.sleep };
       if (payload.bedtime) config.bedtime = { ...config.bedtime, ...payload.bedtime };
-      return { id: payload.id, ok: true, op: "getConfig", sdReady: true, ...config };
+      return { id: payload.id, ok: true, op: payload.op };
     }
     if (payload.op === "setBedtimeMode") {
       config.bedtime.active = !!payload.active && config.bedtime.enabled && config.bedtime.timeKnown;
@@ -427,10 +438,10 @@ function makeBleHarness(options = {}) {
         ? Math.min(config.defaultVolumePct, config.bedtime.volumeCapPct)
         : config.defaultVolumePct;
       config.bedtime.effectiveTheme = config.bedtime.active ? config.bedtime.theme : config.activeTheme;
-      return { id: payload.id, ok: true, op: "getConfig", sdReady: true, ...config };
+      return { id: payload.id, ok: true, op: payload.op };
     }
     if (payload.op === "scanThemes") {
-      return { id: payload.id, ok: true, op: "scanThemes", page: payload.page || 0, hasMore: false, themes };
+      return { id: payload.id, ok: true, op: "scanThemes", cursor: payload.cursor || 0, nextCursor: 0, hasMore: false, themes };
     }
     if (payload.op === "scanSongs") {
       return {
@@ -439,7 +450,7 @@ function makeBleHarness(options = {}) {
         op: "scanSongs",
         theme: payload.theme,
         name: themes.find((theme) => theme.id === payload.theme)?.name || payload.theme,
-        page: payload.page || 0,
+        cursor: payload.cursor || 0, nextCursor: 0,
         hasMore: false,
         songs: songs[payload.theme] || []
       };
@@ -492,6 +503,33 @@ function makeBleHarness(options = {}) {
     battery: new FakeCharacteristic("battery", options.battery ?? 1, readHooks)
   };
 
+  function configValues() {
+    const { enabled, startTime, endTime, theme, volumeCapPct, ...runtime } = config.bedtime;
+    return {
+      configGeneral: { deviceName: config.deviceName, defaultVolumePct: config.defaultVolumePct,
+        defaultTheme: config.defaultTheme, sdReady: true,
+        ...(options.configFileError ? { error: options.configFileError } : {}) },
+      configSleep: config.sleep,
+      configBedtime: { enabled, startTime, endTime, theme, volumeCapPct },
+      configRuntime: { ...runtime, loop: config.loop, activeTheme: config.activeTheme },
+      catalogNotice: { message: options.catalogWarning || "" }
+    };
+  }
+  for (const [name, value] of Object.entries(configValues())) {
+    chars[name] = new FakeCharacteristic(name, JSON.stringify(value), readHooks);
+  }
+
+  function publishConfigValues() {
+    for (const [name, value] of Object.entries(configValues())) {
+      const next = JSON.stringify(value);
+      if (chars[name].value === next) continue;
+      chars[name].value = next;
+      if (options.dropConfigNotifications) continue;
+      if (options.synchronousConfigNotify) chars[name].invalidate();
+      else setTimeout(() => chars[name].invalidate(), options.configNotifyDelay || 0);
+    }
+  }
+
   chars.command.write = (value) => {
     assert.strictEqual(value.length, 1, "command only accepts one-byte playback commands");
     const command = value[0];
@@ -504,7 +542,9 @@ function makeBleHarness(options = {}) {
   chars.configCommand.write = (value) => {
     const payload = JSON.parse(textFromValue(value));
     writes.config.push(payload);
+    writes.subscriptionsAtConfigWrite.push(notifications.slice());
     response = configResponse(payload);
+    if (response.ok && !payload.op.startsWith("scan")) publishConfigValues();
     chars.configResponse.value = JSON.stringify(response);
     publishConfigResponse(chars.configResponse);
   };
@@ -591,6 +631,7 @@ function makeBleHarness(options = {}) {
     chars,
     writes,
     config,
+    publishConfigValues,
     device,
     reads,
     notifications,
@@ -632,6 +673,433 @@ async function waitForSettingsLoaded() {
 `;
 
 const tests = [
+  ["config subscriptions precede every update and replies are acknowledgments", String.raw`
+    const ble = await connectWithFakeBle({ synchronousConfigNotify: true, trackConcurrentReads: true });
+    await toggleBedtimeMode();
+    for (const subscribed of ble.writes.subscriptionsAtConfigWrite) {
+      for (const name of CONFIG_ATTRIBUTES) assert(subscribed.includes(name), name);
+    }
+    assertJsonEqual(Object.keys(JSON.parse(ble.chars.configResponse.value)).sort(), ["id", "ok", "op"]);
+    assert.strictEqual(state.bedtime.active, true);
+    assert.strictEqual(state.bedtime.override, "on");
+    assert.strictEqual(els.volumeValue.textContent, "45%");
+    assert.strictEqual(ble.maxConcurrentReads, 1);
+  `],
+  ["unsolicited config notifications update every saved and runtime field", String.raw`
+    const ble = await connectWithFakeBle({ trackConcurrentReads: true });
+    Object.assign(ble.config, { deviceName: "New name", defaultVolumePct: 31, defaultTheme: "nature", activeTheme: "nature", loop: true });
+    ble.config.sleep = { enabled: false, normalIdleSec: 901, vibrationWakeIdleSec: 41, bleIdleSec: 52 };
+    Object.assign(ble.config.bedtime, { enabled: true, startTime: "19:45", endTime: "07:15",
+      theme: "nature", volumeCapPct: 22, active: true, autoActive: true, override: "none",
+      effectiveVolumePct: 22, effectiveTheme: "nature", currentTime: "19:46", currentSecondOfDay: 71160 });
+    const commandsBefore = ble.writes.config.length;
+    ble.publishConfigValues();
+    await waitUntil(() => state.bedtime.currentSecondOfDay === 71160, "unsolicited config refresh");
+    assert.strictEqual(state.deviceName, "New name");
+    assert.strictEqual(state.settings.deviceName, "New name");
+    assert.strictEqual(state.settings.defaultVolumePct, 31);
+    assert.strictEqual(state.settings.defaultTheme, "nature");
+    assert.strictEqual(state.settings.sleepEnabled, false);
+    assert.strictEqual(state.settings.sleepNormalIdleSec, 901);
+    assert.strictEqual(state.settings.sleepVibrationWakeIdleSec, 41);
+    assert.strictEqual(state.settings.sleepBleIdleSec, 52);
+    assert.strictEqual(state.settings.bedtimeStartTime, "19:45");
+    assert.strictEqual(state.settings.bedtimeEndTime, "07:15");
+    assert.strictEqual(state.settings.bedtimeTheme, "nature");
+    assert.strictEqual(state.settings.bedtimeVolumeCapPct, 22);
+    assert.strictEqual(state.bedtime.autoActive, true);
+    assert.strictEqual(state.bedtime.override, "none");
+    assert.strictEqual(state.bedtime.effectiveTheme, "nature");
+    assert.strictEqual(state.bedtime.effectiveVolumePct, 22);
+    assert.strictEqual(state.theme, "nature");
+    assert.strictEqual(state.loop, true);
+    assert.strictEqual(els.bedtimeTitle.textContent, "Bedtime");
+    assert.strictEqual(els.volumeValue.textContent, "22%");
+    assert.strictEqual(ble.writes.config.length, commandsBefore);
+    assert.strictEqual(ble.maxConcurrentReads, 1);
+  `],
+  ["runtime notifications preserve dirty settings drafts and failed saves", String.raw`
+    const ble = await connectWithFakeBle();
+    await openSettings();
+    await waitForSettingsLoaded();
+    await els.settingsDeviceName.input("Unsaved name");
+    await els.settingsBedtimeStartTime.input("20:15");
+    Object.assign(ble.config.bedtime, { active: true, autoActive: true, volumeCapPct: 21 });
+    ble.publishConfigValues();
+    await waitUntil(() => state.bedtime.active, "automatic bedtime");
+    assert.strictEqual(state.settings.deviceName, "Unsaved name");
+    assert.strictEqual(state.settings.bedtimeStartTime, "20:15");
+    assert.strictEqual(state.settings.bedtimeVolumeCapPct, 45);
+    assert.strictEqual(state.settings.dirty, true);
+    assert.strictEqual(state.bedtime.volumeCapPct, 21);
+    ble.chars.configCommand.write = (value) => {
+      const request = JSON.parse(textFromValue(value));
+      ble.chars.configResponse.emit(JSON.stringify({ id: request.id, ok: false, error: "SD write failed" }));
+    };
+    await saveSettings();
+    assert.strictEqual(state.settings.message, "SD write failed");
+    assert.strictEqual(state.settings.deviceName, "Unsaved name");
+    assert.strictEqual(state.settings.dirty, true);
+  `],
+  ["a name save finishes on its ACK while its state notification is withheld", String.raw`
+    const options = { synchronousConfigNotify: true };
+    const ble = await connectWithFakeBle(options);
+    await openSettings();
+    await waitForSettingsLoaded();
+    options.dropConfigNotifications = true;
+    await els.settingsDeviceName.input("Saved name");
+    const commandsBefore = ble.writes.config.length;
+    ble.reads.length = 0;
+    await saveSettings();
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config.slice(commandsBefore)), [
+      { op: "setConfig", deviceName: "Saved name" }
+    ]);
+    assertJsonEqual(ble.reads, ["configResponse"]);
+    assert.strictEqual(state.settings.message, "Settings saved.");
+    assert.strictEqual(state.settings.originalDeviceName, "Saved name");
+    assert.strictEqual(state.settings.dirty, false);
+    assert.strictEqual(state.busy, false);
+    assert.strictEqual(state.deviceName, "SweetYaar", "Live state waits for its notification, not a verification read");
+    ble.chars.configGeneral.invalidate();
+    await waitUntil(() => state.deviceName === "Saved name", "delayed name notification");
+    assertJsonEqual(ble.reads, ["configResponse", "configGeneral"]);
+    await saveSettings();
+    assert.strictEqual(ble.writes.config.length, commandsBefore + 1, "An acknowledged edit is no longer dirty");
+  `],
+  ["a settings timeout reports the missing reply and logs request identity without extra reads", String.raw`
+    const options = { synchronousConfigNotify: true };
+    const ble = await connectWithFakeBle(options);
+    await openSettings();
+    await waitForSettingsLoaded();
+    options.dropConfigNotifications = true;
+    await els.settingsVolumeRange.input("37");
+    const previousId = state.requestId;
+    const read = ble.chars.configResponse.readValue.bind(ble.chars.configResponse);
+    let now = Date.now();
+    const realNow = Date.now;
+    Date.now = () => now;
+    ble.chars.configResponse.readValue = async () => {
+      // The write succeeds, but the response remains an older command's reply.
+      ble.chars.configResponse.value = JSON.stringify({ id: previousId, op: "scanSongs", ok: true });
+      const value = await read();
+      now += 15001;
+      return value;
+    };
+    const commandsBefore = ble.writes.config.length;
+    ble.reads.length = 0;
+    try { await saveSettings(); } finally { Date.now = realNow; }
+    assert.strictEqual(state.settings.message, "The toy did not reply in time. Please try again.");
+    assert.strictEqual(state.settings.dirty, true);
+    assert.strictEqual(state.settings.originalDefaultVolumePct, 75);
+    assert.strictEqual(ble.writes.config.length, commandsBefore + 1);
+    assertJsonEqual(ble.reads, ["configResponse"]);
+    const trace = __consoleOutput.map((entry) => entry[1]).join("\n");
+    assert(trace.includes('#' + (previousId + 1) + ' setConfig start; fields=defaultVolumePct'));
+    assert(trace.includes("write completed"));
+    assert(trace.includes('"phase":"reply timeout"'));
+    assert(trace.includes('"responseReads":1'));
+    assert(trace.includes('"lastReply":{"id":' + previousId));
+    assert(trace.includes('"connected":true'));
+  `],
+  ["settings diagnostics distinguish a rejected SD save from a failed Bluetooth write", String.raw`
+    const ble = await connectWithFakeBle({ synchronousConfigNotify: true });
+    await openSettings();
+    await waitForSettingsLoaded();
+    await els.settingsVolumeRange.input("37");
+    const write = ble.chars.configCommand.write.bind(ble.chars.configCommand);
+    ble.chars.configCommand.write = (value) => {
+      const request = JSON.parse(textFromValue(value));
+      ble.chars.configResponse.emit(JSON.stringify({ id: request.id, ok: false, error: "SD write failed" }));
+    };
+    await saveSettings();
+    assert.strictEqual(state.settings.message, "SD write failed");
+    assert(__consoleOutput.some((entry) => String(entry[1]).includes('"phase":"firmware rejection"') &&
+      String(entry[1]).includes('"error":"SD write failed"')));
+    assert.strictEqual(state.settings.originalDefaultVolumePct, 75);
+    const transportError = new Error("GATT operation failed for unknown reason.");
+    transportError.name = "NetworkError";
+    ble.chars.configCommand.write = () => { throw transportError; };
+    await saveSettings();
+    assert(__consoleOutput.some((entry) => String(entry[1]).includes('"phase":"writing command"') && entry[2] === transportError));
+    assert.strictEqual(state.settings.dirty, true);
+    ble.chars.configCommand.write = write;
+    await saveSettings();
+    assert.strictEqual(state.settings.message, "Settings saved.");
+    assert.strictEqual(state.settings.originalDefaultVolumePct, 37);
+  `],
+  ["every single settings field sends only its changed value and reads only its ACK", String.raw`
+    const edits = [
+      ["settingsDeviceName", "input", "One name", { deviceName: "One name" }],
+      ["settingsVolumeRange", "input", "34", { defaultVolumePct: 34 }],
+      ["defaultTheme", "state", "nature", { defaultTheme: "nature" }],
+      ["settingsSleepEnabled", "change", false, { sleep: { enabled: false } }],
+      ["settingsNormalIdleSec", "input", "777", { sleep: { normalIdleSec: 777 } }],
+      ["settingsWakeIdleSec", "input", "91", { sleep: { vibrationWakeIdleSec: 91 } }],
+      ["settingsBleIdleSec", "input", "101", { sleep: { bleIdleSec: 101 } }],
+      ["settingsBedtimeEnabled", "change", false, { bedtime: { enabled: false } }],
+      ["settingsBedtimeStartTime", "input", "19:15", { bedtime: { startTime: "19:15" } }],
+      ["settingsBedtimeEndTime", "input", "07:15", { bedtime: { endTime: "07:15" } }],
+      ["bedtimeTheme", "state", "nature", { bedtime: { theme: "nature" } }],
+      ["settingsBedtimeVolumeRange", "input", "23", { bedtime: { volumeCapPct: 23 } }]
+    ];
+    for (const [field, event, value, patch] of edits) {
+      const options = { synchronousConfigNotify: true };
+      const ble = await connectWithFakeBle(options);
+      await openSettings();
+      await waitForSettingsLoaded();
+      options.dropConfigNotifications = true;
+      if (event === "state") { state.settings[field] = value; markSettingsDirty(); }
+      else await els[field][event](value);
+      const commandsBefore = ble.writes.config.length;
+      ble.reads.length = 0;
+      await saveSettings();
+      assertJsonEqual(payloadsWithoutIds(ble.writes.config.slice(commandsBefore)), [{ op: "setConfig", ...patch }]);
+      assertJsonEqual(ble.reads, ["configResponse"]);
+      assert.strictEqual(state.settings.message, "Settings saved.", field);
+      assert.strictEqual(state.settings.dirty, false, field);
+      ble.device.gatt.disconnect();
+      onDisconnected();
+    }
+  `],
+  ["save reads only notified attributes once, without scans or verification reads", String.raw`
+    const ble = await connectWithFakeBle({ synchronousConfigNotify: true });
+    await openSettings();
+    await waitForSettingsLoaded();
+    await els.settingsDeviceName.input("Saved name");
+    await els.settingsNormalIdleSec.input("777");
+    const commandsBefore = ble.writes.config.length;
+    ble.reads.length = 0;
+    await saveSettings();
+    await gattQueue;
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config.slice(commandsBefore)), [
+      { op: "setConfig", deviceName: "Saved name", sleep: { normalIdleSec: 777 } }
+    ]);
+    assertJsonEqual(ble.reads.slice().sort(), ["configGeneral", "configResponse", "configSleep"]);
+    assert.strictEqual(state.deviceName, "Saved name");
+    assert.strictEqual(state.settings.originalDeviceName, "Saved name");
+    assert.strictEqual(state.settings.originalSleepNormalIdleSec, 777);
+    assert.strictEqual(state.settings.message, "Settings saved.");
+  `],
+  ["clock sync and bedtime toggle finish on ACKs without verifying config", String.raw`
+    const options = { synchronousConfigNotify: true };
+    const ble = await connectWithFakeBle(options);
+    options.dropConfigNotifications = true;
+    ble.reads.length = 0;
+    const commandsBefore = ble.writes.config.length;
+    await refreshDeviceClock();
+    await toggleBedtimeMode();
+    assertJsonEqual(ble.writes.config.slice(commandsBefore).map((p) => p.op), ["syncTime", "setBedtimeMode"]);
+    assertJsonEqual(ble.reads, ["configResponse", "configResponse"]);
+    assert.strictEqual(state.busy, false);
+    assert.strictEqual(state.bedtime.active, false);
+    ble.chars.configRuntime.invalidate();
+    await waitUntil(() => state.bedtime.active, "delayed runtime notification");
+    assertJsonEqual(ble.reads, ["configResponse", "configResponse", "configRuntime"]);
+  `],
+  ["theme and song saves update the session cache without rescanning", String.raw`
+    const ble = await connectWithFakeBle({ synchronousConfigNotify: true });
+    await openSettings();
+    await waitForSettingsLoaded();
+    await selectSettingsTheme("nature");
+    setThemeShuffle("nature", false);
+    setSongEnabled("rain.wav", false);
+    const commandsBefore = ble.writes.config.length;
+    ble.reads.length = 0;
+    await saveSettings();
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config.slice(commandsBefore)), [
+      { op: "setTheme", theme: "nature", shuffle: false },
+      { op: "setSong", theme: "nature", file: "rain.wav", enabled: false }
+    ]);
+    assertJsonEqual(ble.reads, ["configResponse", "configResponse"]);
+    assert.strictEqual(state.settings.message, "Settings saved.");
+    assert.strictEqual(state.settings.themes.find((t) => t.id === "nature").activeValid, 0);
+    assert.strictEqual(state.settings.themes.find((t) => t.id === "nature").shuffle, false);
+    assert(!state.themes.some((t) => t.id === "nature"), "An empty theme leaves the remote selector");
+    await selectSettingsTheme("lullabies");
+    await selectSettingsTheme("nature");
+    assert.strictEqual(state.settings.songs[0].enabled, false);
+    assert.strictEqual(ble.writes.config.length, commandsBefore + 2, "Revisiting cached themes must not scan");
+    setSongEnabled("rain.wav", true);
+    await saveSettings();
+    assert(state.themes.some((t) => t.id === "nature"), "Re-enabling the song restores its theme");
+    setThemeEnabled("nature", false);
+    await saveSettings();
+    assert(!state.themes.some((t) => t.id === "nature"));
+    assert.strictEqual(state.settings.themes.find((t) => t.id === "nature").disabledByUser, true);
+    assertJsonEqual(ble.writes.config.slice(commandsBefore).map((p) => p.op),
+      ["setTheme", "setSong", "setSong", "setTheme"]);
+  `],
+  ["a partial save retries only commands that were not acknowledged", String.raw`
+    const ble = await connectWithFakeBle({ synchronousConfigNotify: true });
+    await openSettings();
+    await waitForSettingsLoaded();
+    await selectSettingsTheme("nature");
+    await els.settingsDeviceName.input("Accepted name");
+    setThemeShuffle("nature", false);
+    setSongEnabled("rain.wav", false);
+    const write = ble.chars.configCommand.write.bind(ble.chars.configCommand);
+    let rejectSong = true;
+    ble.chars.configCommand.write = (value) => {
+      const command = JSON.parse(textFromValue(value));
+      if (command.op === "setSong" && rejectSong) {
+        ble.chars.configResponse.emit(JSON.stringify({ id: command.id, ok: false, error: "SD write failed" }));
+      } else write(value);
+    };
+    await saveSettings();
+    assert.strictEqual(state.settings.message, "SD write failed");
+    assert.strictEqual(state.settings.dirty, true);
+    assert.strictEqual(state.settings.originalDeviceName, "Accepted name");
+    assertJsonEqual(state.settings.pendingThemeChanges, {});
+    assertJsonEqual(state.settings.pendingSongChanges, { nature: { "rain.wav": false } });
+    const commandsBefore = ble.writes.config.length;
+    ble.reads.length = 0;
+    rejectSong = false;
+    await saveSettings();
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config.slice(commandsBefore)), [
+      { op: "setSong", theme: "nature", file: "rain.wav", enabled: false }
+    ]);
+    assertJsonEqual(ble.reads, ["configResponse"]);
+    assert.strictEqual(state.settings.message, "Settings saved.");
+    assert.strictEqual(state.settings.dirty, false);
+  `],
+  ["an unchanged settings draft saves without any Bluetooth requests", String.raw`
+    const ble = await connectWithFakeBle({ synchronousConfigNotify: true });
+    await openSettings();
+    await waitForSettingsLoaded();
+    await els.settingsDeviceName.input("Temporary name");
+    await els.settingsDeviceName.input("SweetYaar");
+    const commandsBefore = ble.writes.config.length;
+    ble.reads.length = 0;
+    await saveSettings();
+    assert.strictEqual(ble.writes.config.length, commandsBefore);
+    assertJsonEqual(ble.reads, []);
+    assert.strictEqual(state.settings.dirty, false);
+    assert.strictEqual(state.settings.message, "Settings saved.");
+  `],
+  ["multi-field saves pack UTF-8 and escaped names within the command limit", String.raw`
+    const longTheme = '"'.repeat(63);
+    const options = { synchronousConfigNotify: true, themes: [
+      { id: "lullabies", name: "Lullabies", enabled: true, canSetDefault: true, activeValid: 1 },
+      { id: longTheme, name: "Long theme", enabled: true, canSetDefault: true, activeValid: 1 }
+    ] };
+    const ble = await connectWithFakeBle(options);
+    await openSettings();
+    await waitForSettingsLoaded();
+    options.dropConfigNotifications = true;
+    await els.settingsDeviceName.input('"'.repeat(24) + "😀😀");
+    await els.settingsVolumeRange.input("34");
+    state.settings.defaultTheme = longTheme;
+    state.settings.bedtimeTheme = longTheme;
+    await els.settingsSleepEnabled.change(false);
+    await els.settingsNormalIdleSec.input("86400");
+    await els.settingsWakeIdleSec.input("86399");
+    await els.settingsBleIdleSec.input("86398");
+    await els.settingsBedtimeEnabled.change(false);
+    await els.settingsBedtimeStartTime.input("20:15");
+    await els.settingsBedtimeEndTime.input("08:15");
+    await els.settingsBedtimeVolumeRange.input("19");
+    const commandsBefore = ble.writes.config.length;
+    ble.reads.length = 0;
+    await saveSettings();
+    const commands = ble.writes.config.slice(commandsBefore);
+    assert(commands.length > 1 && commands.length < 5);
+    for (const command of commands) {
+      assert.strictEqual(command.op, "setConfig");
+      assert(Object.keys(command).length > 2, "No empty updates");
+      assert(textEncoder.encode(JSON.stringify(command)).length <= 383);
+    }
+    assertJsonEqual(ble.reads, commands.map(() => "configResponse"));
+    assert.strictEqual(ble.config.deviceName, '"'.repeat(24) + "😀😀");
+    assert.strictEqual(ble.config.defaultTheme, longTheme);
+    assert.strictEqual(ble.config.bedtime.theme, longTheme);
+    assert.strictEqual(ble.config.sleep.bleIdleSec, 86398);
+    assert.strictEqual(ble.config.bedtime.volumeCapPct, 19);
+    assert.strictEqual(state.settings.message, "Settings saved.");
+  `],
+  ["oversized settings fail before sending any part of a save", String.raw`
+    const ble = await connectWithFakeBle({ synchronousConfigNotify: true });
+    await openSettings();
+    await waitForSettingsLoaded();
+    await els.settingsDeviceName.input('"'.repeat(200));
+    const commandsBefore = ble.writes.config.length;
+    ble.reads.length = 0;
+    await saveSettings();
+    assert.strictEqual(ble.writes.config.length, commandsBefore);
+    assertJsonEqual(ble.reads, []);
+    assert.strictEqual(state.settings.dirty, true);
+    assert(state.settings.message.includes("too long"));
+  `],
+  ["config reconnect reads missed changes and registers one listener per attribute", String.raw`
+    const ble = await connectWithFakeBle();
+    ble.device.gatt.disconnect();
+    onDisconnected();
+    ble.config.deviceName = "Changed while away";
+    ble.config.sleep.bleIdleSec = 333;
+    ble.publishConfigValues();
+    await els.connectButton.click();
+    await waitUntil(() => !state.remoteInitializing, "reconnection");
+    assert.strictEqual(state.deviceName, "Changed while away");
+    assert.strictEqual(state.settings.sleepBleIdleSec, 333);
+    for (const name of CONFIG_ATTRIBUTES) assert.strictEqual(ble.chars[name].listeners.characteristicvaluechanged.length, 1);
+  `],
+  ["config command queue preserves concurrent acknowledgments", String.raw`
+    const ble = await connectWithFakeBle({ synchronousConfigNotify: true });
+    const replies = await Promise.all([
+      configRequest({ op: "setConfig", defaultVolumePct: 32 }),
+      configRequest({ op: "setBedtimeMode", active: true })
+    ]);
+    assert.strictEqual(replies[0].op, "setConfig");
+    assert.strictEqual(replies[1].op, "setBedtimeMode");
+    assert(replies[1].id > replies[0].id);
+    await gattQueue;
+    assert.strictEqual(state.settings.defaultVolumePct, 32);
+    assert.strictEqual(state.bedtime.active, true);
+  `],
+  ["catalog warning is read on connect and retained until dismissed", String.raw`
+    await connectWithFakeBle({ catalogWarning: "Ignored oversized song שיר…; full details in boot log." });
+    assert.strictEqual(els.noticeBanner.hidden, false);
+    assert(els.noticeMessage.textContent.includes("שיר…"));
+    assert.strictEqual(state.notice.severity, "error");
+    dismissNotice();
+    await refreshConfigAttributes();
+    assert.strictEqual(state.notice, null);
+  `],
+  ["rereading a stored clock sample preserves its elapsed time", String.raw`
+    await connectWithFakeBle();
+    state.bedtime.currentTimeReceivedAtMs -= 600000;
+    const before = deviceWatchText();
+    await refreshConfigAttributes();
+    assert.strictEqual(deviceWatchText(), before);
+  `],
+  ["config notification during a read converges to the newer state", String.raw`
+    const ble = await connectWithFakeBle({ trackConcurrentReads: true });
+    const characteristic = ble.chars.configRuntime;
+    const originalRead = characteristic.readValue.bind(characteristic);
+    let entered;
+    let release;
+    const readingStarted = new Promise((resolve) => { entered = resolve; });
+    const readingReleased = new Promise((resolve) => { release = resolve; });
+    let first = true;
+    characteristic.readValue = async () => {
+      const snapshot = await originalRead();
+      if (first) {
+        first = false;
+        entered();
+        await readingReleased;
+      }
+      return snapshot;
+    };
+    const initialRead = readConfigAttribute("configRuntime");
+    await readingStarted;
+    const next = { ...JSON.parse(characteristic.value), active: true, autoActive: true, override: "none" };
+    characteristic.value = JSON.stringify(next);
+    characteristic.invalidate();
+    release();
+    await initialRead;
+    await waitUntil(() => state.bedtime.active && els.bedtimeTitle.textContent === "Bedtime", "newer notification");
+    assert.strictEqual(state.bedtime.autoActive, true);
+    assert.strictEqual(ble.maxConcurrentReads, 1);
+  `],
   ["initial opening screen is usable", String.raw`
     assertVisible(els.openingView, [els.readyView, els.streamingView, els.settingsView]);
     assert.strictEqual(els.connectButton.disabled, false);
@@ -701,6 +1169,20 @@ const tests = [
     assert.strictEqual(els.bedtimeToggleButton.disabled, true);
     assert.strictEqual(els.deviceWatch.textContent, "Toy clock not set");
   `],
+  ["failed clock sync does not block settings and recovery needs no config refresh", String.raw`
+    const options = { synchronousConfigNotify: true, rejectSyncTime: true };
+    const ble = await connectWithFakeBle(options);
+    await openSettings();
+    await waitForSettingsLoaded();
+    assert.strictEqual(state.settings.sessionScanned, true);
+    assert.strictEqual(state.configError, null);
+    options.rejectSyncTime = false;
+    ble.reads.length = 0;
+    await refreshDeviceClock();
+    await gattQueue;
+    assert.strictEqual(state.bedtime.timeKnown, true);
+    assertJsonEqual(ble.reads.slice().sort(), ["configResponse", "configRuntime"]);
+  `],
   ["bedtime card toggles runtime mode", String.raw`
     const ble = await connectWithFakeBle({
       theme: "nature",
@@ -750,7 +1232,7 @@ const tests = [
     assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime"]);
   `],
   ["connect requires both dedicated config characteristics", String.raw`
-    for (const name of ["configCommand", "configResponse"]) {
+    for (const name of ["configCommand", "configResponse", ...CONFIG_ATTRIBUTES]) {
       const ble = await connectWithFakeBle({ missingCharacteristics: [name] });
       assert.strictEqual(state.connected, false);
       assert.strictEqual(ble.device.gatt.connected, false);
@@ -766,7 +1248,7 @@ const tests = [
       config: { activeTheme: "nature", defaultTheme: "nature" }
     });
     const themes = ble.chars.themes.value;
-    await configRequest({ op: "getConfig" });
+    await refreshConfigAttributes();
     assert.strictEqual(ble.chars.themes.value, themes);
     assert.strictEqual(ble.writes.command.length, 0);
 
@@ -783,7 +1265,7 @@ const tests = [
     assert.strictEqual(els.themeTrigger.disabled, false);
     assert.strictEqual(els.themeOptions.children.length, 2);
     assert.strictEqual(els.themeCurrent.textContent, "Nature");
-    assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime", "getConfig", "syncTime"]);
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime", "syncTime"]);
   `],
   ["initial BLE reads are serialized for Android Chrome", String.raw`
     const ble = await connectWithFakeBle({ trackConcurrentReads: true });
@@ -812,18 +1294,19 @@ const tests = [
     assert.strictEqual(els.playSongButton.disabled, true);
     assert.strictEqual(els.volumeRange.disabled, true);
   `],
-  ["BT streaming initial status uses status-only connection", String.raw`
+  ["BT streaming also subscribes to all config attributes", String.raw`
     const ble = await connectWithFakeBle({ status: "BT connected" });
     assert.strictEqual(state.connected, true);
-    assert.strictEqual(state.statusOnlyConnection, true);
     assertVisible(els.streamingView, [els.openingView, els.readyView, els.settingsView]);
-    assert.deepStrictEqual(ble.reads, ["status"]);
-    assert.deepStrictEqual(ble.notifications, ["status"]);
-    assertJsonEqual(payloadsWithoutIds(ble.writes.config), []);
+    for (const name of CONFIG_ATTRIBUTES) {
+      assert(ble.notifications.includes(name));
+      assert(ble.reads.includes(name));
+    }
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((p) => p.op), ["syncTime"]);
     assert.strictEqual(els.playSongButton.disabled, true);
     assert.strictEqual(els.volumeRange.disabled, true);
   `],
-  ["BT streaming status-only connection hydrates after BT disconnects", String.raw`
+  ["BT streaming config subscription remains active after BT disconnects", String.raw`
     const ble = await connectWithFakeBle({
       status: "BT connected",
       volume: 31,
@@ -831,12 +1314,12 @@ const tests = [
       config: { activeTheme: "nature", defaultTheme: "nature" }
     });
     ble.chars.status.emit("Idle");
-    await waitUntil(() => state.connected && !state.statusOnlyConnection && !state.remoteInitializing, "status-only hydration");
+    await waitUntil(() => ble.writes.config.length === 2, "clock refresh after streaming");
     assertVisible(els.readyView, [els.openingView, els.streamingView, els.settingsView]);
     assert.strictEqual(els.volumeValue.textContent, "31%");
     assert.strictEqual(els.themeCurrent.textContent, "Nature");
-    assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime"]);
-    assert.deepStrictEqual(ble.notifications, ["status", "configResponse", "volume", "killswitch", "theme", "notice", "battery"]);
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime", "syncTime"]);
+    assert.deepStrictEqual(ble.notifications, ["status", "configResponse", ...CONFIG_ATTRIBUTES, "volume", "killswitch", "theme", "notice", "battery"]);
   `],
   ["remote playback buttons write command values", String.raw`
     const ble = await connectWithFakeBle();
@@ -1064,10 +1547,9 @@ const tests = [
     assert(els.settingsThemeList.children.length >= 2, "settings themes should render");
     assert(els.settingsSongList.children.length >= 1, "settings songs should render");
     assert.strictEqual(els.settingsSaveButton.disabled, true);
-    assertJsonEqual(payloadsWithoutIds(ble.writes.config).slice(-3), [
-      { op: "getConfig" },
-      { op: "scanThemes", page: 0 },
-      { op: "scanSongs", theme: "lullabies", page: 0 }
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config).slice(-2), [
+      { op: "scanThemes", cursor: 0 },
+      { op: "scanSongs", theme: "lullabies", cursor: 0 }
     ]);
   `],
   ["settings are cached for the session and not re-scanned on reopen", String.raw`
@@ -1075,13 +1557,13 @@ const tests = [
     await els.openSettingsButton.click();
     await waitForSettingsLoaded();
     const scansAfterFirstOpen = payloadsWithoutIds(ble.writes.config)
-      .filter((p) => p.op === "scanThemes" || p.op === "scanSongs" || p.op === "getConfig").length;
+      .filter((p) => p.op === "scanThemes" || p.op === "scanSongs").length;
     await els.settingsBackButton.click();
     await els.openSettingsButton.click();
     assert.strictEqual(state.settings.loading, false);
     assertVisible(els.settingsView, [els.openingView, els.readyView, els.streamingView]);
     const scansAfterReopen = payloadsWithoutIds(ble.writes.config)
-      .filter((p) => p.op === "scanThemes" || p.op === "scanSongs" || p.op === "getConfig").length;
+      .filter((p) => p.op === "scanThemes" || p.op === "scanSongs").length;
     assert.strictEqual(scansAfterReopen, scansAfterFirstOpen, "reopening settings must not re-scan");
     assert(els.settingsSongList.children.length >= 1, "cached songs should still render");
   `],
@@ -1205,11 +1687,19 @@ const tests = [
 ];
 
 if (require.main === module) (async () => {
-  for (const [name, source] of tests) {
-    await runInApp(source);
-    console.log(`ok - ${name}`);
+  const selected = tests.filter(([name]) => !process.env.TEST_FILTER || new RegExp(process.env.TEST_FILTER).test(name));
+  let failures = 0;
+  for (const [name, source] of selected) {
+    try {
+      await runInApp(source);
+      console.log(`ok - ${name}`);
+    } catch (error) {
+      failures += 1;
+      console.error(`FAIL - ${name}`, error);
+    }
   }
-  console.log(`parent app UI tests passed (${tests.length})`);
+  if (failures) throw new Error(`${failures} of ${selected.length} app tests failed`);
+  console.log(`parent app UI tests passed (${selected.length})`);
 })().catch((error) => {
   console.error(error);
   process.exit(1);

@@ -1,7 +1,19 @@
 #include "BLEParentService.h"
 
+namespace {
+esp_gatt_if_t configGattsIf = ESP_GATT_IF_NONE;
+}
+
 void BLEParentService::begin(const String& deviceName) {
     BLEDevice::init(deviceName.c_str());
+    // Arduino BLE exposes no small-payload notify overload. Capture this
+    // server's interface so invalidations fit even the minimum ATT MTU (23).
+    BLEDevice::setCustomGattsHandler([](esp_gatts_cb_event_t event, esp_gatt_if_t interface,
+                                       esp_ble_gatts_cb_param_t* param) {
+        if (event == ESP_GATTS_REG_EVT && param->reg.status == ESP_GATT_OK) {
+            configGattsIf = interface;
+        }
+    });
     esp_err_t mtuResult = BLEDevice::setMTU(185);
     if (mtuResult != ESP_OK) {
         Serial.printf("[BLE] MTU request failed: %d\n", mtuResult);
@@ -10,10 +22,10 @@ void BLEParentService::begin(const String& deviceName) {
     _server = BLEDevice::createServer();
     _server->setCallbacks(new ServerCB(this));
 
-    // Ten characteristics plus descriptors need more than the Arduino BLE
-    // Arduino BLE default of 15 handles. Under-allocating here can boot fine
+    // Fifteen characteristics plus descriptors need more than the Arduino BLE
+    // default of 15 handles. Under-allocating here can boot fine
     // and then crash Bluedroid when a central connects.
-    BLEService* svc = _server->createService(BLEUUID(BLE_SERVICE_UUID), 48);
+    BLEService* svc = _server->createService(BLEUUID(BLE_SERVICE_UUID), 64);
 
     // --- Volume characteristic (read/write/notify) -------------------------
     _volChar = svc->createCharacteristic(
@@ -74,6 +86,15 @@ void BLEParentService::begin(const String& deviceName) {
         BLECharacteristic::PROPERTY_NOTIFY);
     _configResponseChar->addDescriptor(new BLE2902());
     _configResponseChar->setValue("{\"id\":0,\"ok\":true}");
+
+    const char* configUuids[] = { BLE_CONFIG_GENERAL_UUID, BLE_CONFIG_SLEEP_UUID,
+        BLE_CONFIG_BEDTIME_UUID, BLE_CONFIG_RUNTIME_UUID, BLE_CATALOG_NOTICE_UUID };
+    for (size_t i = 0; i < BLE_CONFIG_ATTRIBUTE_COUNT; ++i) {
+        _configAttributes[i] = svc->createCharacteristic(configUuids[i],
+            BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
+        _configAttributes[i]->addDescriptor(new BLE2902());
+        _configAttributes[i]->setValue("{}");
+    }
 
     // --- Notice channel ---------------------------------------------------
     // Device-to-app notices (errors / warnings). The app reacts to
@@ -147,8 +168,32 @@ void BLEParentService::updateThemes(const String& themesJson) {
 void BLEParentService::updateConfigResponse(const String& responseJson) {
     if (_configResponseChar) {
         _configResponseChar->setValue(responseJson.c_str());
-        if (_connected) _configResponseChar->notify();
+        notifyChanged(_configResponseChar);
     }
+}
+
+void BLEParentService::notifyChanged(BLECharacteristic* characteristic) {
+    if (!_connected || configGattsIf == ESP_GATT_IF_NONE) return;
+    auto* descriptor = static_cast<BLE2902*>(characteristic->getDescriptorByUUID("2902"));
+    if (!descriptor || !descriptor->getNotifications()) return;
+    uint8_t changed = 1;
+    // Keep the full readable value intact; a notification is an invalidation,
+    // not JSON. The client serializes subsequent GATT reads, including blobs.
+    const esp_err_t result = esp_ble_gatts_send_indicate(configGattsIf, _server->getConnId(),
+        characteristic->getHandle(), sizeof(changed), &changed, false);
+    if (result != ESP_OK) Serial.printf("[BLE] Config change notification failed: %d\n", result);
+}
+
+void BLEParentService::updateConfigAttribute(size_t index, const String& value) {
+    if (index >= BLE_CONFIG_ATTRIBUTE_COUNT || !_configAttributes[index]) return;
+    if (value.length() > BLE_CONFIG_MAX_BYTES) {
+        Serial.printf("[BLE] Config attribute %u exceeds 512 bytes\n", unsigned(index));
+        return;
+    }
+    auto* characteristic = _configAttributes[index];
+    if (characteristic->getValue() == value.c_str()) return;
+    characteristic->setValue(value.c_str());
+    notifyChanged(characteristic);
 }
 
 void BLEParentService::updateBatteryState(uint8_t state) {

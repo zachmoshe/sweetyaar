@@ -76,6 +76,12 @@ struct CachedTheme {
 // Call once at boot after SD.begin().
 void buildCatalog();
 bool catalogReady();
+bool validThemeId(const String& id);
+bool themeEntryFits(const CachedTheme& theme);
+bool songEntryFits(const CachedTheme& theme, const CachedSong& song);
+void validateCatalog();
+String catalogWarning();
+String utf8Prefix(const String& value, size_t maxBytes);
 
 // All themes, in display order: song themes sorted by id, then Animals last.
 int themeCount();
@@ -104,9 +110,9 @@ WavInfo inspectWav(File& entry);
 String formatWavDetails(const WavInfo& info);
 
 ThemeStats scanThemeStats(const String& themeId, bool validateWavs = true);
-String buildThemesPageJson(uint32_t requestId, int page, int pageSize);
+String buildThemesPageJson(uint32_t requestId, int cursor, int maxBytes);
 String buildSongsPageJson(uint32_t requestId, const String& themeId,
-                          int page, int pageSize);
+                          int cursor, int maxBytes);
 
 bool updateSdConfig(uint8_t defaultVolumePct, const String& defaultTheme,
                     bool sleepEnabled, uint32_t sleepNormalIdleSec,

@@ -92,6 +92,47 @@ deep sleep. Settings saves preserve the current-session volume and theme.
 Bedtime cap changes still take effect immediately using the current requested
 volume; unrelated saves preserve manual Bedtime choices.
 
+### Configuration transport
+
+Update commands (`setConfig`, `setTheme`, `setSong`, `syncTime`, and
+`setBedtimeMode`) return only `{id, ok: true, op}` after processing, or
+`{id, ok: false, error}`. There is no full-config reply or `getConfig` command.
+Config state is exposed through five required read/notify characteristics:
+
+| UUID suffix | App name | Read value (JSON) |
+| --- | --- | --- |
+| `789B` | `configGeneral` | Device name, startup volume/theme, SD availability, settings-file error if present. |
+| `789C` | `configSleep` | Enabled flag and the three idle timeouts. |
+| `789D` | `configBedtime` | Enabled flag, start/end times, theme, volume cap. |
+| `789E` | `configRuntime` | Loop, active theme, clock sample, Bedtime active/automatic/override state, effective volume/theme. |
+| `789F` | `catalogNotice` | Boot catalog warning, or an empty message. Stored only in RAM. |
+
+All UUIDs share `a1b2c3d4-e5f6-7890-abcd-ef123456` before that suffix.
+Each JSON value is at most 512 UTF-8 bytes. Config attributes and
+`configResponse` notify with a **one-byte change signal**, leaving their full
+readable values intact. Clients must read the characteristic after a signal;
+the signal is not JSON. This works with the minimum ATT MTU as well as larger
+negotiated MTUs. The app ignores value-change events caused by its own reads
+([Chrome's read-event example](https://googlechrome.github.io/samples/web-bluetooth/read-characteristic-value-changed.html)),
+preventing repeated reads from triggering each other. Firmware publishes changed runtime state at schedule boundaries
+and manual-override expiry, even when the resulting active flag stays the same.
+
+Catalog requests use `scanThemes` or `scanSongs`, starting with `cursor: 0`.
+Responses contain `cursor`, `nextCursor`, `hasMore`, and the corresponding rows.
+Follow `nextCursor` until `hasMore` is false; there is no fixed number of rows or
+pages. Firmware greedily fills each response up to 512 bytes, including JSON
+syntax and escaped strings. Commands must fit the 383-byte receive buffer.
+
+At boot, catalog validation rejects entries that cannot fit a single scan row
+or their update command, reserving space for the largest numeric fields and
+flags. A theme ID must also fit the 63-byte live-theme buffer and at most 126
+JSON string bytes. Device names permit 32 UTF-8 bytes and at most 64 escaped
+bytes. Display-name and song-filename limits depend on their actual encoded
+response envelope, rather than a fixed character count. Rejected entries are
+excluded from playback and scans. Serial logs identify every rejected entry;
+the app receives a bounded warning with the first shortened name and a count.
+Oversized theme references in `config.json` fall back to firmware defaults.
+
 Most content settings are saved in `/config.json` or the relevant theme's
 `metadata.json` on the SD card. The Bluetooth device name is different: it is
 stored in the ESP32's non-volatile storage so replacing the card does not rename
@@ -461,14 +502,18 @@ Run this after deploying firmware or a parent-app change involving Bluetooth.
    BLE contract changes, incrementing `CACHE_VERSION` in `app/public/sw.js`.
    Reload the app online so it loads the deployed version.
 2. Connect from Chrome or Edge. Verify the theme selector, clock/Bedtime state,
-   Settings load and content scans. Settings use only `configCommand`
+   Settings load and content scans. Commands use `configCommand`
    (`a1b2c3d4-e5f6-7890-abcd-ef1234567897`) and `configResponse`
-   (`a1b2c3d4-e5f6-7890-abcd-ef1234567898`). Both are required for remote
-   controls. `themes` always contains the theme array; `command` accepts only
+   (`a1b2c3d4-e5f6-7890-abcd-ef1234567898`). Both and the five config state
+   attributes (`789B`–`789F`) are required. Confirm subscriptions before saving,
+   clock sync, and Bedtime toggles. `themes` contains the theme array; `command` accepts only
    one-byte playback commands. There is no older-GATT transport fallback.
 3. Disconnect and reconnect **without rebooting the toy**. Verify that the theme
    selector still contains the same choices after clock synchronization and a
    Settings visit. Confirm a song plays, stop works, and no reboot occurs.
+   Also leave the app connected across a Bedtime boundary: the mode and volume
+   cap should update without a settings command. Confirm that changes still
+   arrive after Classic Bluetooth streaming ends.
 4. Check Classic Bluetooth audio on the intended hardware: confirm audio routing,
    `Audio state: STARTED` in the serial log, and playback without a crash/reboot.
 

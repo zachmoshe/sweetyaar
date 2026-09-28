@@ -24,6 +24,11 @@ public:
     std::size_t length() const { return _value.length(); }
     bool isEmpty() const { return _value.empty(); }
     void reserve(std::size_t size) { _value.reserve(size); }
+    std::size_t write(uint8_t value) { _value += static_cast<char>(value); return 1; }
+    std::size_t write(const uint8_t* value, std::size_t size) {
+        _value.append(reinterpret_cast<const char*>(value), size);
+        return size;
+    }
     char operator[](std::size_t index) const { return _value[index]; }
     bool endsWith(const char* suffix) const {
         const std::string text(suffix);
@@ -36,6 +41,8 @@ public:
     template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
     String& operator+=(T value) { _value += std::to_string(value); return *this; }
     String operator+(const char* suffix) const { return String(_value + suffix); }
+    String operator+(const String& suffix) const { return String(_value + suffix._value); }
+    friend String operator+(const char* prefix, const String& suffix) { return String(prefix) + suffix; }
     String substring(std::size_t begin, std::size_t end) const {
         return _value.substr(begin, end - begin);
     }

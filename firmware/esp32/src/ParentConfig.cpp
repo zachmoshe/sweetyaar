@@ -77,8 +77,10 @@ bool ParentConfig::load() {
     _defaultVolumePct = static_cast<uint8_t>(vol);
 
     const char* theme = doc["defaultTheme"] | DEFAULT_THEME;
-    if (theme && theme[0] != '\0') {
+    if (theme && theme[0] != '\0' && ContentCatalog::validThemeId(String(theme))) {
         _defaultTheme = theme;
+    } else if (theme && theme[0] != '\0') {
+        Serial.printf("[Config] Ignoring oversized defaultTheme: %s\n", theme);
     }
 
     if (doc["disabledThemes"].is<JsonArray>()) {
@@ -108,8 +110,10 @@ bool ParentConfig::load() {
         _bedtimeEndMinutes = readTimeMinutes(
             bedtime, "endTime", DEFAULT_BEDTIME_END_MINUTES);
         const char* bedtimeTheme = bedtime["theme"] | DEFAULT_BEDTIME_THEME;
-        if (bedtimeTheme && bedtimeTheme[0] != '\0') {
+        if (bedtimeTheme && bedtimeTheme[0] != '\0' && ContentCatalog::validThemeId(String(bedtimeTheme))) {
             _bedtimeTheme = bedtimeTheme;
+        } else if (bedtimeTheme && bedtimeTheme[0] != '\0') {
+            Serial.printf("[Config] Ignoring oversized bedtime theme: %s\n", bedtimeTheme);
         }
         _bedtimeVolumeCapPct = readPercent(
             bedtime, "volumeCapPct", DEFAULT_BEDTIME_VOLUME_CAP_PCT);

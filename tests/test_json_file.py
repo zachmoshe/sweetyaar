@@ -6,6 +6,7 @@ import shutil
 import pytest
 
 from helpers import run_checked
+from test_catalog_pagination import production_function
 
 
 def test_json_file_save_and_load_failures(repo_root: pathlib.Path, tmp_path: pathlib.Path) -> None:
@@ -23,6 +24,11 @@ def test_json_file_save_and_load_failures(repo_root: pathlib.Path, tmp_path: pat
         pytest.skip("Run make build to install the pinned ArduinoJson dependency.")
 
     exe = tmp_path / "json_file_native_test"
+    catalog = (repo_root / "firmware/esp32/src/ContentCatalog.cpp").read_text()
+    limits = tmp_path / "config_limits.cpp"
+    limits.write_text('#include "ContentCatalog.h"\nnamespace ContentCatalog {\n' +
+                      production_function(catalog, "jsonEscape") + "\n" +
+                      production_function(catalog, "validThemeId") + "\n}\n")
     run_checked([
         compiler, "-std=c++17", "-Wall", "-Wextra",
         "-I", repo_root / "tests/json_file_stubs",
@@ -31,6 +37,7 @@ def test_json_file_save_and_load_failures(repo_root: pathlib.Path, tmp_path: pat
         "-I", json_include,
         repo_root / "firmware/esp32/src/JsonFile.cpp",
         repo_root / "firmware/esp32/src/ParentConfig.cpp",
+        limits,
         repo_root / "tests/json_file_native_test.cpp",
         "-o", exe,
     ])

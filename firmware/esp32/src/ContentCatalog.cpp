@@ -353,7 +353,9 @@ String formatWavDetails(const WavInfo& info) {
 // ---------------------------------------------------------------------------
 namespace {
 
-std::vector<CachedTheme> g_themes;  // song themes sorted by id, Animals last
+std::vector<CachedTheme> g_themes;
+unsigned g_oversizedEntries = 0;
+String g_firstOversizedEntry;  // song themes sorted by id, Animals last
 bool g_catalogReady = false;
 
 void sortSongsByName(std::vector<CachedSong>& songs) {
@@ -417,6 +419,8 @@ CachedTheme* mutableFindTheme(const String& themeId) {
 void buildCatalog() {
     uint32_t startMs = millis();
     g_themes.clear();
+    g_oversizedEntries = 0;
+    g_firstOversizedEntry = "";
     g_catalogReady = false;
 
     JsonDocument config = readJsonFile(SD_CONFIG_FILE);
@@ -461,6 +465,7 @@ void buildCatalog() {
     loadThemeContents(animals, String(ANIMALS_PATH));
     g_themes.push_back(std::move(animals));
 
+    validateCatalog();
     g_catalogReady = true;
 
     int totalSongs = 0;
@@ -515,48 +520,29 @@ ThemeStats scanThemeStats(const String& themeId, bool /*validateWavs*/) {
     return stats;
 }
 
-String buildThemesPageJson(uint32_t requestId, int page, int pageSize) {
-    if (page < 0) page = 0;
-    if (pageSize <= 0) pageSize = BLE_CONFIG_THEME_PAGE_SIZE;
-
-    int count = themeCount();  // song themes + the reserved Animals row
-    int start = page * pageSize;
-    int end = start + pageSize;
-
+// Cursor is a row offset, so each page can use the available byte budget.
+String scanPageHeader(uint32_t requestId, const char* op, int cursor) {
     String json = "{\"id\":";
     json += requestId;
-    json += ",\"ok\":true,\"op\":\"scanThemes\",\"page\":";
-    json += page;
-    json += ",\"hasMore\":";
-    json += (end < count) ? "true" : "false";
-    json += ",\"themes\":[";
-
-    for (int i = start; i < count && i < end; i++) {
-        ThemeStats stats = scanThemeStats(themeAt(i).id, false);
-        appendThemeRow(json, stats);
-    }
-
-    json += "]}";
+    json += ",\"ok\":true,\"op\":\"";
+    json += op;
+    json += "\",\"cursor\":";
+    json += cursor;
     return json;
 }
 
-String buildSongsPageJson(uint32_t requestId, const String& themeId,
-                          int page, int pageSize) {
-    if (page < 0) page = 0;
-    if (pageSize <= 0) pageSize = BLE_CONFIG_SONG_PAGE_SIZE;
+String scanPageTail(int nextCursor, bool hasMore) {
+    String json = "],\"nextCursor\":";
+    json += nextCursor;
+    json += ",\"hasMore\":";
+    json += hasMore ? "true}" : "false}";
+    return json;
+}
 
-    ThemeStats stats = scanThemeStats(themeId, false);
-    const CachedTheme* theme = findTheme(themeId);
-    int fileCount = theme ? static_cast<int>(theme->songs.size()) : 0;
-    int start = page * pageSize;
-    int end = start + pageSize;
-
-    String json = "{\"id\":";
-    json += requestId;
-    json += ",\"ok\":true,\"op\":\"scanSongs\",\"theme\":\"";
-    json += jsonEscape(themeId);
-    json += "\",\"name\":\"";
-    json += jsonEscape(stats.name);
+String songPageHeader(uint32_t requestId, int cursor, const ThemeStats& stats) {
+    String json = scanPageHeader(requestId, "scanSongs", cursor);
+    json += ",\"theme\":\"" + jsonEscape(stats.id);
+    json += "\",\"name\":\"" + jsonEscape(stats.name);
     json += "\",\"themeEnabled\":";
     json += stats.enabled ? "true" : "false";
     json += ",\"disabledByUser\":";
@@ -565,25 +551,143 @@ String buildSongsPageJson(uint32_t requestId, const String& themeId,
     json += stats.shuffle ? "true" : "false";
     json += ",\"errors\":";
     json += stats.errorSongs;
-    json += ",\"page\":";
-    json += page;
     json += ",\"songs\":[";
-
-    int limit = end < fileCount ? end : fileCount;
-    for (int i = start; i < limit; i++) {
-        const CachedSong& s = theme->songs[i];
-        WavInfo wav;
-        wav.supported = s.supported;
-        wav.sizeBytes = s.sizeBytes;
-        wav.durationMs = s.durationMs;
-        wav.error = s.error;
-        appendSongRow(json, s.file, wav, !s.disabled);
-    }
-
-    json += "],\"hasMore\":";
-    json += (end < fileCount) ? "true" : "false";
-    json += "}";
     return json;
+}
+
+String scanSizeError(uint32_t requestId) {
+    String json = "{\"id\":";
+    json += requestId;
+    json += ",\"ok\":false,\"error\":\"Catalog entry exceeds BLE response limit\"}";
+    return json;
+}
+
+String buildThemesPageJson(uint32_t requestId, int cursor, int maxBytes) {
+    if (cursor < 0) cursor = 0;
+    if (maxBytes <= 0 || maxBytes > int(BLE_CONFIG_MAX_BYTES)) maxBytes = BLE_CONFIG_MAX_BYTES;
+    const int count = themeCount();
+    String json = scanPageHeader(requestId, "scanThemes", cursor) + ",\"themes\":[";
+    int next = cursor;
+    for (; next < count; ++next) {
+        String candidate = json;
+        appendThemeRow(candidate, scanThemeStats(themeAt(next).id, false));
+        if (candidate.length() + scanPageTail(next + 1, next + 1 < count).length() > size_t(maxBytes)) break;
+        json = candidate;
+    }
+    if (next == cursor && next < count) return scanSizeError(requestId);
+    return json + scanPageTail(next, next < count);
+}
+
+String buildSongsPageJson(uint32_t requestId, const String& themeId,
+                          int cursor, int maxBytes) {
+    if (cursor < 0) cursor = 0;
+    if (maxBytes <= 0 || maxBytes > int(BLE_CONFIG_MAX_BYTES)) maxBytes = BLE_CONFIG_MAX_BYTES;
+    const CachedTheme* theme = findTheme(themeId);
+    if (!theme) return scanSizeError(requestId);
+    const int count = static_cast<int>(theme->songs.size());
+    String json = songPageHeader(requestId, cursor, scanThemeStats(themeId, false));
+    int next = cursor;
+    for (; next < count; ++next) {
+        const CachedSong& song = theme->songs[next];
+        WavInfo wav;
+        wav.supported = song.supported;
+        wav.sizeBytes = song.sizeBytes;
+        wav.durationMs = song.durationMs;
+        wav.error = song.error;
+        String candidate = json;
+        appendSongRow(candidate, song.file, wav, !song.disabled);
+        if (candidate.length() + scanPageTail(next + 1, next + 1 < count).length() > size_t(maxBytes)) break;
+        json = candidate;
+    }
+    if (next == cursor && next < count) return scanSizeError(requestId);
+    return json + scanPageTail(next, next < count);
+}
+
+bool validThemeId(const String& id) {
+    // Also fits the live-theme write buffer and both theme fields in runtime.
+    return id.length() <= 63 && jsonEscape(id).length() <= 126;
+}
+
+ThemeStats worstCaseStats(const CachedTheme& theme) {
+    ThemeStats stats;
+    stats.id = theme.id;
+    stats.name = theme.name;
+    stats.totalSongs = stats.enabledValidSongs = stats.errorSongs = 2147483647;
+    // false is the longer JSON boolean, including otherwise immutable flags.
+    stats.enabled = stats.disabledByUser = stats.shuffle = stats.special = false;
+    stats.canDisable = stats.canSetDefault = false;
+    return stats;
+}
+
+bool themeEntryFits(const CachedTheme& theme) {
+    if (!validThemeId(theme.id)) return false;
+    String json = scanPageHeader(UINT32_MAX, "scanThemes", 2147483647) + ",\"themes\":[";
+    appendThemeRow(json, worstCaseStats(theme));
+    json += scanPageTail(2147483647, false);
+    // Leave space for at least the shortest usable song entry in this theme.
+    CachedSong shortest;
+    shortest.file = "a.wav";
+    shortest.supported = true;
+    return json.length() <= BLE_CONFIG_MAX_BYTES && songEntryFits(theme, shortest);
+}
+
+bool songEntryFits(const CachedTheme& theme, const CachedSong& song) {
+    String json = songPageHeader(UINT32_MAX, 2147483647, worstCaseStats(theme));
+    WavInfo wav;
+    wav.supported = song.supported;
+    wav.sizeBytes = wav.durationMs = UINT32_MAX;
+    wav.error = song.error;
+    appendSongRow(json, song.file, wav, false);
+    json += scanPageTail(2147483647, false);
+    // The same filename must also fit a setSong command, including escaping.
+    String command = "{\"id\":4294967295,\"op\":\"setSong\",\"theme\":\"" +
+        jsonEscape(theme.id) + "\",\"file\":\"" + jsonEscape(song.file) + "\",\"enabled\":false}";
+    return json.length() <= BLE_CONFIG_MAX_BYTES && command.length() <= BLE_CONFIG_COMMAND_MAX_BYTES;
+}
+
+String utf8Prefix(const String& value, size_t maxBytes) {
+    if (value.length() <= maxBytes) return value;
+    size_t end = maxBytes;
+    while (end > 0 && (static_cast<uint8_t>(value[end]) & 0xc0) == 0x80) --end;
+    return value.substring(0, end) + "…";
+}
+
+void recordOversizedEntry(const String& kind, const String& name) {
+    ++g_oversizedEntries;
+    Serial.printf("[Catalog] Ignoring oversized %s: %s (%u UTF-8 bytes, %u JSON bytes). "
+                  "Must fit a 512-byte scan response and 383-byte update command; "
+                  "theme IDs also have a 63-byte limit. Shorten the name and reboot.\n",
+                  kind.c_str(), name.c_str(), unsigned(name.length()), unsigned(jsonEscape(name).length()));
+    if (g_firstOversizedEntry.isEmpty()) {
+        g_firstOversizedEntry = kind + " " + utf8Prefix(name, 36);
+    }
+}
+
+void validateCatalog() {
+    for (auto theme = g_themes.begin(); theme != g_themes.end();) {
+        if (!themeEntryFits(*theme)) {
+            recordOversizedEntry("theme", validThemeId(theme->id) ? theme->name : theme->id);
+            theme = g_themes.erase(theme);
+            continue;
+        }
+        for (auto song = theme->songs.begin(); song != theme->songs.end();) {
+            if (!songEntryFits(*theme, *song)) {
+                recordOversizedEntry("song", theme->id + "/" + song->file);
+                song = theme->songs.erase(song);
+            } else {
+                ++song;
+            }
+        }
+        ++theme;
+    }
+}
+
+String catalogWarning() {
+    if (!g_oversizedEntries) return "";
+    String message = "Ignored ";
+    message += g_oversizedEntries;
+    message += " oversized entries; first: " + g_firstOversizedEntry;
+    return message + ". Shorten names on the SD card. Full details in the boot log.";
 }
 
 bool updateSdConfig(uint8_t defaultVolumePct, const String& defaultTheme,

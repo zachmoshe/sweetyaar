@@ -2630,7 +2630,12 @@
       configCommand: "a1b2c3d4-e5f6-7890-abcd-ef1234567897",
       configResponse: "a1b2c3d4-e5f6-7890-abcd-ef1234567898",
       notice: "a1b2c3d4-e5f6-7890-abcd-ef1234567899",
-      battery: "a1b2c3d4-e5f6-7890-abcd-ef123456789a"
+      battery: "a1b2c3d4-e5f6-7890-abcd-ef123456789a",
+      configGeneral: "a1b2c3d4-e5f6-7890-abcd-ef123456789b",
+      configSleep: "a1b2c3d4-e5f6-7890-abcd-ef123456789c",
+      configBedtime: "a1b2c3d4-e5f6-7890-abcd-ef123456789d",
+      configRuntime: "a1b2c3d4-e5f6-7890-abcd-ef123456789e",
+      catalogNotice: "a1b2c3d4-e5f6-7890-abcd-ef123456789f"
     };
 
     const els = {
@@ -2735,7 +2740,6 @@
       chars: {},
       deviceName: "SweetYaar",
       status: "Disconnected",
-      statusOnlyConnection: false,
       remoteInitializing: false,
       volume: 75,
       theme: "",
@@ -2746,6 +2750,7 @@
       notice: null,
       noticeTimer: null,
       configResponseSubscribed: false,
+      configValues: {},
       configNotifyResolve: null,
       bedtime: {
         enabled: true,
@@ -3260,12 +3265,23 @@
       }
     }
 
+    // Queue individual GATT operations, not entire requests: a command waiter
+    // must leave the queue available for its reply and state notifications.
+    let gattQueue = Promise.resolve();
+    function gattOperation(operation) {
+      const result = gattQueue.then(operation);
+      gattQueue = result.catch(() => {});
+      return result;
+    }
+
+    function readCharacteristic(characteristic) {
+      return gattOperation(() => characteristic.readValue());
+    }
+
     async function writeCharacteristic(characteristic, value) {
-      if (characteristic.writeValueWithResponse) {
-        await characteristic.writeValueWithResponse(value);
-      } else {
-        await characteristic.writeValue(value);
-      }
+      return gattOperation(() => characteristic.writeValueWithResponse
+        ? characteristic.writeValueWithResponse(value)
+        : characteristic.writeValue(value));
     }
 
     async function writeUint8(name, value) {
@@ -3280,7 +3296,14 @@
       return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
-    async function configRequest(payload) {
+    let configRequestQueue = Promise.resolve();
+    function configRequest(payload) {
+      const result = configRequestQueue.then(() => performConfigRequest(payload));
+      configRequestQueue = result.catch(() => {});
+      return result;
+    }
+
+    async function performConfigRequest(payload) {
       if (!state.chars.configCommand || !state.chars.configResponse) {
         const wrapped = new Error("Please upgrade device firmware.");
         wrapped.userMessage = "Please upgrade device firmware.";
@@ -3290,6 +3313,7 @@
 
       const id = state.requestId + 1;
       state.requestId = id;
+      const responseCharacteristic = state.chars.configResponse;
       // When the response characteristic is subscribed we wake on its notify
       // (near-instant) instead of polling on a fixed timer; the poll interval
       // below is only a fallback if a notification is missed.
@@ -3297,34 +3321,66 @@
       // Arm the notification waiter before writing. The ESP32 may publish the
       // response before writeValueWithResponse() settles in the browser.
       let responseWait = notifyDriven ? waitForConfigResponse(1000) : null;
-      await writeText("configCommand", JSON.stringify({ id, ...payload }));
-
-      const deadline = Date.now() + 15000;
-      while (Date.now() < deadline) {
-        await (responseWait || waitForConfigResponse(notifyDriven ? 1000 : 80));
-        responseWait = null;
-        const value = await state.chars.configResponse.readValue();
-        const text = readText(value);
-        let parsed = null;
-        try {
-          parsed = JSON.parse(text || "{}");
-        } catch (error) {
-          parsed = null;
-        }
-
-        if (parsed && parsed.id === id) {
-          if (!parsed.ok) {
-            const error = new Error(parsed.error || "The toy rejected the settings command.");
-            // Firmware rejections describe a settings problem, not a failed
-            // Bluetooth connection. Keep the message visible in Settings.
-            error.userMessage = error.message;
-            throw error;
-          }
-          return parsed;
-        }
+      const command = JSON.stringify({ id, ...payload });
+      if (textEncoder.encode(command).length > 383) {
+        const error = new Error("A settings name is too long. Shorten it and try again.");
+        error.userMessage = error.message;
+        throw error;
       }
+      const startedAt = Date.now();
+      const label = `[SweetYaar BLE] #${id} ${payload.op}`;
+      const fields = Object.keys(payload).filter((key) => key !== "op");
+      let phase = "writing command";
+      let responseReads = 0;
+      let lastReply = null;
+      console.info(`${label} start; fields=${fields.join(",") || "none"}`);
+      try {
+        await writeText("configCommand", command);
+        console.info(`${label} write completed in ${Date.now() - startedAt} ms`);
 
-      throw new Error("The toy did not answer the settings command.");
+        const deadline = Date.now() + 15000;
+        while (Date.now() < deadline) {
+          phase = "waiting for reply";
+          await (responseWait || waitForConfigResponse(notifyDriven ? 1000 : 80));
+          responseWait = null;
+          if (state.chars.configResponse !== responseCharacteristic) throw new Error("GATT Server is disconnected");
+          phase = "reading reply";
+          const value = await readCharacteristic(responseCharacteristic);
+          responseReads += 1;
+          const text = readText(value);
+          let parsed = null;
+          try {
+            parsed = JSON.parse(text || "{}");
+          } catch (error) {
+            parsed = null;
+          }
+          lastReply = parsed && typeof parsed === "object"
+            ? { id: parsed.id, op: parsed.op, ok: parsed.ok, error: parsed.error, bytes: value.byteLength }
+            : { invalidReply: true, bytes: value.byteLength };
+
+          if (parsed && parsed.id === id) {
+            console.info(`${label} reply after ${Date.now() - startedAt} ms: ${JSON.stringify(lastReply)}`);
+            if (!parsed.ok) {
+              phase = "firmware rejection";
+              const error = new Error(parsed.error || "The toy rejected the settings command.");
+              // Firmware rejections describe a settings problem, not a failed
+              // Bluetooth connection. Keep the message visible in Settings.
+              error.userMessage = error.message;
+              throw error;
+            }
+            return parsed;
+          }
+        }
+
+        phase = "reply timeout";
+        const error = new Error("The toy did not answer the settings command.");
+        error.userMessage = "The toy did not reply in time. Please try again.";
+        throw error;
+      } catch (error) {
+        console.error(`${label} failed: ${JSON.stringify({ phase, elapsedMs: Date.now() - startedAt,
+          responseReads, lastReply, connected: !!state.device?.gatt?.connected })}`, error);
+        throw error;
+      }
     }
 
     // Resolve as soon as the config response characteristic notifies (response
@@ -3366,24 +3422,15 @@
 
     async function refreshDeviceClock({ renderAfter = true } = {}) {
       try {
-        applyConfigResponse(await syncLocalTime());
-        state.configError = null;
+        await syncLocalTime(); // Completion acknowledgment carries no state.
         return true;
-      } catch (syncError) {
-        state.configError = syncError;
-        console.error("[SweetYaar technical error]", syncError.technicalMessage || syncError);
-        try {
-          applyConfigResponse(await configRequest({ op: "getConfig" }));
-          return true;
-        } catch (error) {
-          state.configError = error;
-          console.error("[SweetYaar technical error]", error.technicalMessage || error);
-          return false;
-        }
+      } catch (error) {
+        // Clock status comes from configRuntime. A sync failure must not turn
+        // otherwise valid saved settings into a config-file error.
+        console.error("[SweetYaar technical error]", error);
+        return false;
       } finally {
-        if (renderAfter) {
-          render();
-        }
+        if (renderAfter) render();
       }
     }
 
@@ -3447,31 +3494,90 @@
       };
     }
 
-    function applyConfigResponse(config) {
-      const deviceName = `${config.deviceName || displayDeviceName()}`.trim() || "SweetYaar";
-      const defaultTheme = `${config.defaultTheme || ""}`.trim();
-      const sleep = normalizeSleepConfig(config.sleep);
-      const bedtime = normalizeBedtimeConfig(config.bedtime);
-      state.deviceName = deviceName;
-      state.settings.deviceName = deviceName;
-      state.settings.defaultVolumePct = clampVolume(config.defaultVolumePct);
-      state.settings.defaultTheme = defaultTheme;
-      state.settings.sleepEnabled = sleep.enabled;
-      state.settings.sleepNormalIdleSec = sleep.normalIdleSec;
-      state.settings.sleepVibrationWakeIdleSec = sleep.vibrationWakeIdleSec;
-      state.settings.sleepBleIdleSec = sleep.bleIdleSec;
-      bedtime.currentTimeReceivedAtMs = Date.now();
-      state.bedtime = bedtime;
-      state.settings.bedtimeEnabled = bedtime.enabled;
-      state.settings.bedtimeStartTime = bedtime.startTime;
-      state.settings.bedtimeEndTime = bedtime.endTime;
-      state.settings.bedtimeTheme = bedtime.theme;
-      state.settings.bedtimeVolumeCapPct = bedtime.volumeCapPct;
-      if (Object.prototype.hasOwnProperty.call(config, "loop")) {
-        state.loop = !!config.loop;
+    const CONFIG_ATTRIBUTES = ["configGeneral", "configSleep", "configBedtime",
+      "configRuntime", "catalogNotice"];
+    const CONFIG_SETTINGS_ATTRIBUTES = ["configGeneral", "configSleep", "configBedtime"];
+
+    function applySavedSettingsToDraft(values = state.configValues) {
+      for (const name of CONFIG_SETTINGS_ATTRIBUTES) {
+        if (values[name]) applyConfigAttribute(name, values[name], true);
       }
-      if (config.activeTheme) {
-        state.theme = `${config.activeTheme}`;
+    }
+
+    function applyConfigAttribute(name, config, replaceDraft = false) {
+      const previous = state.configValues[name];
+      state.configValues[name] = config;
+      const updateDraft = replaceDraft || (!state.settings.dirty && !state.busy);
+      if (name === "configGeneral") {
+        state.deviceName = config.deviceName || "SweetYaar";
+        state.configError = config.error ? Object.assign(new Error(config.error),
+          { userMessage: config.error }) : null;
+        if (updateDraft) {
+          state.settings.deviceName = state.deviceName;
+          state.settings.defaultVolumePct = clampVolume(config.defaultVolumePct);
+          state.settings.defaultTheme = config.defaultTheme || "";
+        }
+      } else if (name === "configSleep" && updateDraft) {
+        const sleep = normalizeSleepConfig(config);
+        Object.assign(state.settings, { sleepEnabled: sleep.enabled,
+          sleepNormalIdleSec: sleep.normalIdleSec,
+          sleepVibrationWakeIdleSec: sleep.vibrationWakeIdleSec, sleepBleIdleSec: sleep.bleIdleSec });
+      } else if (name === "configBedtime") {
+        // Saved settings and live runtime are independent; a schedule update
+        // must not reset active/override/clock fields to normalization defaults.
+        const bedtime = normalizeBedtimeConfig({ ...state.bedtime, ...config });
+        for (const key of ["enabled", "startTime", "endTime", "theme", "volumeCapPct"]) {
+          state.bedtime[key] = bedtime[key];
+        }
+        if (updateDraft) {
+          Object.assign(state.settings, { bedtimeEnabled: bedtime.enabled,
+            bedtimeStartTime: bedtime.startTime, bedtimeEndTime: bedtime.endTime,
+            bedtimeTheme: bedtime.theme, bedtimeVolumeCapPct: bedtime.volumeCapPct });
+        }
+      } else if (name === "configRuntime") {
+        const bedtime = normalizeBedtimeConfig({ ...state.bedtime, ...config });
+        // Reading the same stored clock sample must not restart its elapsed
+        // timer (for example when opening Settings ten minutes after sync).
+        bedtime.currentTimeReceivedAtMs = previous &&
+          previous.currentSecondOfDay === config.currentSecondOfDay && previous.timeKnown === config.timeKnown
+          ? state.bedtime.currentTimeReceivedAtMs : Date.now();
+        state.bedtime = bedtime;
+        state.loop = !!config.loop;
+        if (config.activeTheme) state.theme = config.activeTheme;
+      } else if (name === "catalogNotice" && config.message && config.message !== previous?.message) {
+        showNotice("error", config.message);
+      }
+      if (updateDraft && !state.settings.dirty && !state.busy) resetPendingSettingsChanges();
+    }
+
+    async function readConfigAttribute(name, replaceDraft = false) {
+      const characteristic = state.chars[name];
+      const value = await readCharacteristic(characteristic);
+      // Ignore work left over from a disconnected/replaced GATT connection.
+      if (state.chars[name] !== characteristic) return;
+      applyConfigAttribute(name, JSON.parse(readText(value)), replaceDraft);
+    }
+
+    async function refreshConfigAttributes({ replaceDraft = false } = {}) {
+      for (const name of CONFIG_ATTRIBUTES) await readConfigAttribute(name, replaceDraft);
+    }
+
+    async function subscribeToConfigAttributes() {
+      for (const name of CONFIG_ATTRIBUTES) {
+        const characteristic = state.chars[name];
+        await subscribe(name, (event) => {
+          // Notification is a one-byte invalidation, never a JSON fragment.
+          // readValue() also fires characteristicvaluechanged; ignore its JSON
+          // value here so a read doesn't trigger an endless read/notify loop.
+          const signal = event.target.value;
+          if (signal.byteLength !== 1 || signal.getUint8(0) !== 1) return;
+          void readConfigAttribute(name).then(() => render()).catch((error) => {
+            if (state.chars[name] !== characteristic) return;
+            state.configError = error;
+            state.message = "Could not refresh settings. Reconnect to the toy.";
+            render();
+          });
+        });
       }
     }
 
@@ -3511,10 +3617,15 @@
 
     async function fetchThemeScan() {
       const themes = [];
-      for (let page = 0; page < 80; page += 1) {
-        const response = await configRequest({ op: "scanThemes", page });
+      let cursor = 0;
+      while (true) {
+        const response = await configRequest({ op: "scanThemes", cursor });
         themes.push(...normalizeThemes(response.themes));
         if (!response.hasMore) break;
+        if (!Number.isSafeInteger(response.nextCursor) || response.nextCursor <= cursor) {
+          throw new Error("The toy returned a scan page without progress.");
+        }
+        cursor = response.nextCursor;
       }
       return sortSettingsThemes(applyPendingThemeChanges(themes));
     }
@@ -3536,10 +3647,15 @@
     async function fetchSongScan(themeId) {
       const songs = [];
       if (!themeId) return songs;
-      for (let page = 0; page < 300; page += 1) {
-        const response = await configRequest({ op: "scanSongs", theme: themeId, page });
+      let cursor = 0;
+      while (true) {
+        const response = await configRequest({ op: "scanSongs", theme: themeId, cursor });
         songs.push(...normalizeSongs(response.songs));
         if (!response.hasMore) break;
+        if (!Number.isSafeInteger(response.nextCursor) || response.nextCursor <= cursor) {
+          throw new Error("The toy returned a scan page without progress.");
+        }
+        cursor = response.nextCursor;
       }
       return applyPendingSongChanges(themeId, songs);
     }
@@ -3565,15 +3681,15 @@
 
       const loadStartedAt = Date.now();
       try {
-        const config = await configRequest({ op: "getConfig" });
-        applyConfigResponse(config);
+        if (state.configError) throw state.configError;
+        applySavedSettingsToDraft();
         state.settings.pendingThemeChanges = {};
         state.settings.pendingSongChanges = {};
         state.settings.defaultThemeOpen = false;
         state.settings.bedtimeThemeOpen = false;
         state.settings.selectedThemeId = state.settings.selectedThemeId ||
-          config.activeTheme ||
-          config.defaultTheme ||
+          state.theme ||
+          state.settings.defaultTheme ||
           "";
         await reloadSettingsTables();
         if (!state.settings.selectedThemeId && state.settings.themes.length > 0) {
@@ -3624,6 +3740,47 @@
       } finally {
         state.settings.loading = false;
         render();
+      }
+    }
+
+    function packSettingsUpdates(patches) {
+      const commands = [];
+      let command = { op: "setConfig" };
+      for (const { op, ...patch } of patches) {
+        const next = { ...command, ...patch };
+        // Reserve the largest request ID; each command must fit even when
+        // another queued request is assigned an ID before this save runs.
+        if (textEncoder.encode(JSON.stringify({ id: Number.MAX_SAFE_INTEGER, ...next })).length > 383) {
+          if (textEncoder.encode(JSON.stringify({ id: Number.MAX_SAFE_INTEGER, op, ...patch })).length > 383) {
+            const error = new Error("A settings name is too long. Shorten it and try again.");
+            error.userMessage = error.message;
+            throw error;
+          }
+          commands.push(command);
+          command = { op: "setConfig", ...patch };
+        } else {
+          command = next;
+        }
+      }
+      if (Object.keys(command).length > 1) commands.push(command);
+      return commands;
+    }
+
+    function acknowledgeSettingsUpdate(payload) {
+      const fields = { ...payload };
+      for (const [key, value] of Object.entries(payload.sleep || {})) {
+        const field = { enabled: "sleepEnabled", normalIdleSec: "sleepNormalIdleSec",
+          vibrationWakeIdleSec: "sleepVibrationWakeIdleSec", bleIdleSec: "sleepBleIdleSec" }[key];
+        fields[field] = value;
+      }
+      for (const [key, value] of Object.entries(payload.bedtime || {})) {
+        fields[`bedtime${key[0].toUpperCase()}${key.slice(1)}`] = value;
+      }
+      for (const [key, value] of Object.entries(fields)) {
+        const original = `original${key[0].toUpperCase()}${key.slice(1)}`;
+        if (Object.prototype.hasOwnProperty.call(state.settings, original)) {
+          state.settings[original] = value;
+        }
       }
     }
 
@@ -3708,14 +3865,15 @@
       state.settings.bedtimeEndTime = bedtimeEndTime;
       state.settings.bedtimeTheme = bedtimeTheme;
       state.settings.bedtimeVolumeCapPct = bedtimeVolumeCapPct;
+      const configBeforeSave = { ...state.configValues };
       state.busy = true;
       state.settings.message = "Saving settings...";
       render();
 
       try {
-        for (const payload of configPayloads) {
-          const response = await configRequest(payload);
-          applyConfigResponse(response);
+        for (const payload of packSettingsUpdates(configPayloads)) {
+          await configRequest(payload);
+          acknowledgeSettingsUpdate(payload);
         }
 
         for (const [themeId, patch] of Object.entries(state.settings.pendingThemeChanges)) {
@@ -3730,18 +3888,26 @@
           if (typeof payload.enabled === "boolean" || typeof payload.shuffle === "boolean") {
             await configRequest(payload);
           }
+          delete state.settings.pendingThemeChanges[themeId];
         }
 
         for (const [themeId, songs] of Object.entries(state.settings.pendingSongChanges)) {
           for (const [file, enabled] of Object.entries(songs)) {
             await configRequest({ op: "setSong", theme: themeId, file, enabled });
+            delete state.settings.pendingSongChanges[themeId][file];
           }
+          delete state.settings.pendingSongChanges[themeId];
         }
 
-        await reloadSettingsTables();
-        if (state.settings.selectedThemeId) {
-          state.settings.songsByTheme[state.settings.selectedThemeId] = state.settings.songs;
-        }
+        // Save completes on the ACKs. Theme/song edits already update the
+        // session cache; neither config verification nor a catalog scan belongs
+        // here. Reconcile only notifications received while the draft was busy.
+        applySavedSettingsToDraft(Object.fromEntries(CONFIG_SETTINGS_ATTRIBUTES
+          .filter((name) => state.configValues[name] !== configBeforeSave[name])
+          .map((name) => [name, state.configValues[name]])));
+        state.themes = state.settings.themes
+          .filter((theme) => theme.enabled && theme.canSetDefault !== false)
+          .map((theme) => ({ id: theme.id, name: theme.name || theme.id }));
         resetPendingSettingsChanges();
         state.settings.dirty = false;
         state.settings.message = "Settings saved.";
@@ -3835,8 +4001,7 @@
       state.busy = true;
       render();
       try {
-        const response = await configRequest({ op: "setBedtimeMode", active: targetActive });
-        applyConfigResponse(response);
+        await configRequest({ op: "setBedtimeMode", active: targetActive });
         state.message = "";
       } catch (error) {
         state.message = describeError(error);
@@ -4334,7 +4499,7 @@
     }
 
     async function readInitialCharacteristic(name) {
-      return state.chars[name].readValue();
+      return readCharacteristic(state.chars[name]);
     }
 
     async function readInitialValues() {
@@ -4357,16 +4522,26 @@
       const subscribeStatus = options.subscribeStatus !== false;
       // Make config requests notification-driven before the first request.
       await subscribeToConfigResponse();
-      await readInitialValues();
-      await refreshDeviceClock({ renderAfter: false });
+      await subscribeToConfigAttributes();
       await subscribeToNotifications({ subscribeStatus });
-      state.statusOnlyConnection = false;
+      await readInitialValues();
+      // Read the initial snapshot once per connection. Subsequent updates
+      // arrive through the subscribed attributes, independently of command ACKs.
+      await refreshConfigAttributes();
+      await refreshDeviceClock({ renderAfter: false });
     }
 
+    const subscriptions = new Map();
     async function subscribe(name, handler) {
       const characteristic = state.chars[name];
-      characteristic.addEventListener("characteristicvaluechanged", handler);
-      await characteristic.startNotifications();
+      const previous = subscriptions.get(name);
+      if (previous) previous.characteristic.removeEventListener("characteristicvaluechanged", previous.listener);
+      const listener = (event) => {
+        if (state.chars[name] === characteristic) handler(event);
+      };
+      subscriptions.set(name, { characteristic, listener });
+      characteristic.addEventListener("characteristicvaluechanged", listener);
+      await gattOperation(() => characteristic.startNotifications());
     }
 
     function handleStatusUpdate(status) {
@@ -4381,12 +4556,8 @@
       }
       if (wasBtConnected && !isBtConnected()) {
         state.message = "";
-        if (state.statusOnlyConnection) {
-          finishStatusOnlyConnection();
-          return;
-        }
         render();
-        refreshDeviceClock();
+        if (!state.remoteInitializing) refreshDeviceClock();
         return;
       }
       render();
@@ -4492,6 +4663,8 @@
         configCommand: await getCharacteristic(service, "configCommand"),
         configResponse: await getCharacteristic(service, "configResponse")
       };
+      for (const name of CONFIG_ATTRIBUTES) state.chars[name] = await getCharacteristic(service, name);
+      state.configValues = {};
       state.configError = null;
       state.chars.notice = await getOptionalCharacteristic(service, "notice");
       state.chars.battery = await getOptionalCharacteristic(service, "battery");
@@ -4523,7 +4696,6 @@
         state.configError = null;
         state.configResponseSubscribed = false;
         state.configNotifyResolve = null;
-        state.statusOnlyConnection = false;
         state.remoteInitializing = false;
         state.status = "Disconnected";
         state.message = message;
@@ -4537,11 +4709,6 @@
       state.message = "Loading controls...";
       render();
       void initializeRemoteConnection(server, knownService);
-    }
-
-    function finishStatusOnlyConnection() {
-      if (!state.statusOnlyConnection || state.busy || !state.server) return;
-      beginRemoteInitialization(state.server);
     }
 
     async function registerServiceWorker() {
@@ -4628,19 +4795,8 @@
         const statusChar = await getCharacteristic(service, "status");
         state.chars = { status: statusChar };
         await subscribeToStatusNotifications();
-        const statusValue = await statusChar.readValue();
+        const statusValue = await readCharacteristic(statusChar);
         state.status = readText(statusValue) || "Idle";
-
-        if (isBtConnected()) {
-          state.statusOnlyConnection = true;
-          state.connected = true;
-          state.view = "remote";
-          state.message = "";
-          console.info(`[SweetYaar] Streaming screen ready in ${Date.now() - connectionStartedAt} ms`);
-          return;
-        }
-
-        state.statusOnlyConnection = false;
         state.connected = true;
         state.view = "remote";
         state.busy = false;
@@ -4658,7 +4814,6 @@
         state.chars = {};
         state.configError = null;
         state.remoteInitializing = false;
-        state.statusOnlyConnection = false;
         state.status = "Disconnected";
         state.message = message;
       } finally {
@@ -4673,12 +4828,17 @@
         return;
       }
       state.connected = false;
+      for (const { characteristic, listener } of subscriptions.values()) {
+        characteristic.removeEventListener("characteristicvaluechanged", listener);
+      }
+      subscriptions.clear();
+      if (state.configNotifyResolve) state.configNotifyResolve();
+      state.configValues = {};
       state.server = null;
       state.chars = {};
       state.view = "remote";
       state.configError = null;
       state.remoteInitializing = false;
-      state.statusOnlyConnection = false;
       state.status = "Disconnected";
       state.killswitch = false;
       state.loop = false;
