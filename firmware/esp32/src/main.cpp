@@ -543,8 +543,10 @@ void pollBleConnectionState() {
 // setupBedtimeClock()
 // ---------------------------------------------------------------------------
 void setupBedtimeClock(esp_sleep_wakeup_cause_t wakeCause) {
+    // Both vibration and charger wake retain the RTC clock across deep sleep.
     bedtimeClockReliable =
-        wakeCause == ESP_SLEEP_WAKEUP_EXT0 &&
+        (wakeCause == ESP_SLEEP_WAKEUP_EXT0 ||
+         wakeCause == ESP_SLEEP_WAKEUP_EXT1) &&
         rtcBedtimeClockMagic == RTC_BEDTIME_CLOCK_MAGIC;
     if (bedtimeClockReliable) {
         bedtimeTzOffsetMin = rtcBedtimeTzOffsetMin;

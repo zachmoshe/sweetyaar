@@ -319,7 +319,10 @@ does not affect Classic Bluetooth audio.
 The ESP32 does not know the local wall-clock time after a cold boot, so the
 parent app sends the current time and timezone when it connects. Once the clock
 is known, the firmware enters and leaves Bedtime mode at the configured
-boundaries. A parent may also override the current Daytime or Bedtime state
+boundaries. The synchronized clock and timezone are retained through deep sleep
+after either vibration (EXT0) or charger-power (EXT1) wake, provided the retained
+clock-valid marker is present. A cold boot still requires time synchronization.
+A parent may also override the current Daytime or Bedtime state
 until the next automatic boundary or until the device reboots.
 
 If the configured bedtime theme is missing, disabled, or empty, local songs use
