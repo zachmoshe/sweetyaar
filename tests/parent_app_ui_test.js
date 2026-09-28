@@ -230,8 +230,8 @@ function createContext() {
   };
 }
 
-async function runInApp(testSource) {
-  const context = createContext();
+async function runInApp(testSource, bindings = {}) {
+  const context = Object.assign(createContext(), bindings);
   const source = `${appScript}\n${appTestHelpers}\n(async () => {\n${testSource}\n})()`;
   return vm.runInNewContext(source, context, { filename: "app/public/index.html" });
 }
@@ -1204,7 +1204,7 @@ const tests = [
   `],
 ];
 
-(async () => {
+if (require.main === module) (async () => {
   for (const [name, source] of tests) {
     await runInApp(source);
     console.log(`ok - ${name}`);
@@ -1214,3 +1214,5 @@ const tests = [
   console.error(error);
   process.exit(1);
 });
+
+module.exports = { runInApp };

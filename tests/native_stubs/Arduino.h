@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <type_traits>
 
 #include "freertos/queue.h"
 
@@ -22,6 +23,18 @@ public:
     const char* c_str() const { return _value.c_str(); }
     std::size_t length() const { return _value.length(); }
     bool isEmpty() const { return _value.empty(); }
+    void reserve(std::size_t size) { _value.reserve(size); }
+    char operator[](std::size_t index) const { return _value[index]; }
+    bool endsWith(const char* suffix) const {
+        const std::string text(suffix);
+        return _value.size() >= text.size() &&
+            _value.compare(_value.size() - text.size(), text.size(), text) == 0;
+    }
+    String& operator+=(const String& value) { _value += value._value; return *this; }
+    String& operator+=(const char* value) { _value += value; return *this; }
+    String& operator+=(char value) { _value += value; return *this; }
+    template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
+    String& operator+=(T value) { _value += std::to_string(value); return *this; }
     String operator+(const char* suffix) const { return String(_value + suffix); }
     String substring(std::size_t begin, std::size_t end) const {
         return _value.substr(begin, end - begin);
