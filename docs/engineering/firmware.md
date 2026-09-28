@@ -254,6 +254,11 @@ owns the stream volume; the toy's local volume setting only affects WAV files
 from the SD card. When the source disconnects, the firmware returns to idle and
 opens the speaker for a new connection after a short cleanup period.
 
+Leaving Bluetooth mode mutes the amplifier and restores the shared audio output
+to 44.1 kHz, stereo, 16-bit PCM before local playback resumes, including a return
+through Quiet time. This prevents a 48 kHz Bluetooth session from speeding up
+the SD card's 44.1 kHz WAV files. The sample-rate update retains the audio buffers.
+
 BLE and Classic Bluetooth share the ESP32 radio and can run at the same time.
 The app can still report that Bluetooth streaming is active, but local playback
 controls remain unavailable until the A2DP session ends.

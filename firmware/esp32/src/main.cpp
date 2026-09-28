@@ -1939,6 +1939,14 @@ void handleStateEntry(State prev, State next) {
     markActivity("state change");
     updateStatusSignalsForState(next);
 
+    if (prev == State::BT_STREAMING && next != State::BT_STREAMING) {
+        // A2DP can leave the shared output at 48 kHz. Every accepted local WAV
+        // uses this fixed format; restore it while muted before local playback,
+        // including when disconnect returns through Quiet time.
+        setAmpMuted(true);
+        i2sOut.setAudioInfo(AudioInfo(SAMPLE_RATE, CHANNELS, BITS_PER_SAMPLE));
+    }
+
     // Stop WAV on any exit from PLAYING states
     bool exitedWav = (prev == State::PLAYING_SONG || prev == State::PLAYING_ANIMAL) &&
                      (next != State::PLAYING_SONG && next != State::PLAYING_ANIMAL);
