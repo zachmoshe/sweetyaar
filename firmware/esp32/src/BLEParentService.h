@@ -188,18 +188,12 @@ private:
         explicit CommandCB(BLEParentService* owner) : _owner(owner) {}
         void onWrite(BLECharacteristic* c) override {
             std::string value = c->getValue();
-            if (value.empty()) return;
+            if (value.size() != 1) return;
+            const uint8_t command = static_cast<uint8_t>(value[0]);
+            if (command < 1 || command > 5) return;
             portENTER_CRITICAL(&_owner->_mux);
-            char first = value[0];
-            if (first == '{') {
-                size_t n = value.copy(_owner->_pendingConfigCommand,
-                                      sizeof(_owner->_pendingConfigCommand) - 1);
-                _owner->_pendingConfigCommand[n] = '\0';
-                _owner->_newConfigCommand = true;
-            } else {
-                _owner->_pendingCommand = static_cast<uint8_t>(first);
-                _owner->_newCommand = true;
-            }
+            _owner->_pendingCommand = command;
+            _owner->_newCommand = true;
             portEXIT_CRITICAL(&_owner->_mux);
         }
     private:

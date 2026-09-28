@@ -2767,7 +2767,6 @@
       message: "",
       requestId: 0,
       suppressNextDisconnectMessage: false,
-      configAvailable: false,
       configError: null,
       installPromptEvent: null,
       installDismissed: false,
@@ -3282,9 +3281,7 @@
     }
 
     async function configRequest(payload) {
-      const useDirectConfig = state.configAvailable && state.chars.configCommand && state.chars.configResponse;
-      const useLegacyConfig = !useDirectConfig && state.chars.command && state.chars.themes;
-      if (!useDirectConfig && !useLegacyConfig) {
+      if (!state.chars.configCommand || !state.chars.configResponse) {
         const wrapped = new Error("Please upgrade device firmware.");
         wrapped.userMessage = "Please upgrade device firmware.";
         wrapped.technicalMessage = "Config BLE characteristics are not available in this connection.";
@@ -3296,18 +3293,17 @@
       // When the response characteristic is subscribed we wake on its notify
       // (near-instant) instead of polling on a fixed timer; the poll interval
       // below is only a fallback if a notification is missed.
-      const notifyDriven = useDirectConfig && state.configResponseSubscribed;
-      const responseName = useDirectConfig ? "configResponse" : "themes";
+      const notifyDriven = state.configResponseSubscribed;
       // Arm the notification waiter before writing. The ESP32 may publish the
       // response before writeValueWithResponse() settles in the browser.
       let responseWait = notifyDriven ? waitForConfigResponse(1000) : null;
-      await writeText(useDirectConfig ? "configCommand" : "command", JSON.stringify({ id, ...payload }));
+      await writeText("configCommand", JSON.stringify({ id, ...payload }));
 
       const deadline = Date.now() + 15000;
       while (Date.now() < deadline) {
         await (responseWait || waitForConfigResponse(notifyDriven ? 1000 : 80));
         responseWait = null;
-        const value = await state.chars[responseName].readValue();
+        const value = await state.chars.configResponse.readValue();
         const text = readText(value);
         let parsed = null;
         try {
@@ -4360,7 +4356,6 @@
     async function completeRemoteInitialization(options = {}) {
       const subscribeStatus = options.subscribeStatus !== false;
       // Make config requests notification-driven before the first request.
-      // Older cached GATT tables continue to use the polling fallback.
       await subscribeToConfigResponse();
       await readInitialValues();
       await refreshDeviceClock({ renderAfter: false });
@@ -4493,21 +4488,11 @@
         theme: await getCharacteristic(service, "theme"),
         status: statusChar,
         themes: await getCharacteristic(service, "themes"),
-        command: await getCharacteristic(service, "command")
+        command: await getCharacteristic(service, "command"),
+        configCommand: await getCharacteristic(service, "configCommand"),
+        configResponse: await getCharacteristic(service, "configResponse")
       };
-      state.configAvailable = false;
       state.configError = null;
-      try {
-        state.chars.configCommand = await getCharacteristic(service, "configCommand");
-        state.chars.configResponse = await getCharacteristic(service, "configResponse");
-        state.configAvailable = true;
-      } catch (error) {
-        state.configError = error;
-        console.info(
-          "[SweetYaar BLE] Dedicated config characteristics unavailable; using legacy config transport.",
-          error.technicalMessage || error
-        );
-      }
       state.chars.notice = await getOptionalCharacteristic(service, "notice");
       state.chars.battery = await getOptionalCharacteristic(service, "battery");
     }
@@ -4535,7 +4520,6 @@
         state.device = null;
         state.server = null;
         state.chars = {};
-        state.configAvailable = false;
         state.configError = null;
         state.configResponseSubscribed = false;
         state.configNotifyResolve = null;
@@ -4672,7 +4656,6 @@
         state.device = null;
         state.server = null;
         state.chars = {};
-        state.configAvailable = false;
         state.configError = null;
         state.remoteInitializing = false;
         state.statusOnlyConnection = false;
@@ -4693,7 +4676,6 @@
       state.server = null;
       state.chars = {};
       state.view = "remote";
-      state.configAvailable = false;
       state.configError = null;
       state.remoteInitializing = false;
       state.statusOnlyConnection = false;

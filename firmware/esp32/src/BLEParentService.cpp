@@ -149,12 +149,6 @@ void BLEParentService::updateConfigResponse(const String& responseJson) {
         _configResponseChar->setValue(responseJson.c_str());
         if (_connected) _configResponseChar->notify();
     }
-    // Legacy/cache-safe config transport: command writes JSON, themes read
-    // returns the response. This keeps config usable when CoreBluetooth caches
-    // the old six-characteristic GATT table and cannot see configResponse yet.
-    if (_themesChar) {
-        _themesChar->setValue(responseJson.c_str());
-    }
 }
 
 void BLEParentService::updateBatteryState(uint8_t state) {

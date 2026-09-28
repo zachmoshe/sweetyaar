@@ -15,6 +15,9 @@ If the venv is active, `pytest` is equivalent.
 - `helpers.py`: subprocess helpers and PlatformIO discovery.
 - `test_firmware_config.py`: static checks for checked-in SD-card templates and app-owned config defaults.
 - `test_firmware_build.py`: no-device firmware build checks through PlatformIO.
+- `test_ble_transport.py`: executes production BLE response methods and the
+  playback callback on the host; config replies must preserve the theme list,
+  and playback commands must not accept JSON settings requests.
 - `test_json_file.py`: runs the real JSON save/load code against a fake SD card
   with injected open, short-write, flush-truncation, removal, and rename failures.
   Uses the pinned ArduinoJson headers installed by `make build`.

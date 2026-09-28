@@ -492,25 +492,14 @@ function makeBleHarness(options = {}) {
     battery: new FakeCharacteristic("battery", options.battery ?? 1, readHooks)
   };
 
-  function isJsonConfigWrite(value) {
-    return textFromValue(value).trimStart().startsWith("{");
-  }
-
   chars.command.write = (value) => {
-    if (isJsonConfigWrite(value)) {
-      const payload = JSON.parse(textFromValue(value));
-      writes.config.push(payload);
-      response = configResponse(payload);
-      chars.configResponse.value = JSON.stringify(response);
-      chars.themes.value = JSON.stringify(response);
-      publishConfigResponse(chars.configResponse);
-    } else {
-      const command = value[0];
-      writes.command.push(command);
-      if (command === 4) config.loop = true;
-      if (command === 2 || command === 3 || command === 5) config.loop = false;
-      chars.command.value = value;
-    }
+    assert.strictEqual(value.length, 1, "command only accepts one-byte playback commands");
+    const command = value[0];
+    assert(command >= 1 && command <= 5);
+    writes.command.push(command);
+    if (command === 4) config.loop = true;
+    if (command === 2 || command === 3 || command === 5) config.loop = false;
+    chars.command.value = value;
   };
   chars.configCommand.write = (value) => {
     const payload = JSON.parse(textFromValue(value));
@@ -760,16 +749,41 @@ const tests = [
     assert.strictEqual(els.themeOptions.children.length, 0);
     assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime"]);
   `],
-  ["connect synchronizes time through legacy config transport", String.raw`
+  ["connect requires both dedicated config characteristics", String.raw`
+    for (const name of ["configCommand", "configResponse"]) {
+      const ble = await connectWithFakeBle({ missingCharacteristics: [name] });
+      assert.strictEqual(state.connected, false);
+      assert.strictEqual(ble.device.gatt.connected, false);
+      assertVisible(els.openingView, [els.readyView, els.streamingView, els.settingsView]);
+      assert.strictEqual(els.openingMessage.textContent, "Please upgrade device firmware.");
+      assert.strictEqual(ble.writes.config.length, 0);
+      assert.strictEqual(ble.writes.command.length, 0);
+    }
+  `],
+  ["reconnect retains theme choices after clock sync and config requests", String.raw`
     const ble = await connectWithFakeBle({
-      missingCharacteristics: ["configCommand", "configResponse"],
       theme: "nature",
       config: { activeTheme: "nature", defaultTheme: "nature" }
     });
+    const themes = ble.chars.themes.value;
+    await configRequest({ op: "getConfig" });
+    assert.strictEqual(ble.chars.themes.value, themes);
+    assert.strictEqual(ble.writes.command.length, 0);
+
+    ble.device.gatt.disconnect();
+    ble.device.listeners.gattserverdisconnected();
+    assert.strictEqual(state.connected, false);
+    assert.strictEqual(els.connectButton.disabled, false);
+    await els.connectButton.click();
+    await waitUntil(() => !state.remoteInitializing, "reconnect initialization");
+
     assert.strictEqual(state.connected, true);
-    assert.strictEqual(state.configAvailable, false);
+    assert.strictEqual(ble.requestCount, 2);
+    assertJsonEqual(state.themes, JSON.parse(themes));
+    assert.strictEqual(els.themeTrigger.disabled, false);
+    assert.strictEqual(els.themeOptions.children.length, 2);
     assert.strictEqual(els.themeCurrent.textContent, "Nature");
-    assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime"]);
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime", "getConfig", "syncTime"]);
   `],
   ["initial BLE reads are serialized for Android Chrome", String.raw`
     const ble = await connectWithFakeBle({ trackConcurrentReads: true });

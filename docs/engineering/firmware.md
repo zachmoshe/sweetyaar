@@ -452,6 +452,57 @@ make build PIO_ENV=sweetyaar-generic
 make flash PIO_ENV=sweetyaar-generic
 ```
 
+### BLE deployment checklist
+
+Run this after deploying firmware or a parent-app change involving Bluetooth.
+`make flash` prints a reminder after a successful upload.
+
+1. Disconnect the parent app before flashing. Deploy the matching app when the
+   BLE contract changes, incrementing `CACHE_VERSION` in `app/public/sw.js`.
+   Reload the app online so it loads the deployed version.
+2. Connect from Chrome or Edge. Verify the theme selector, clock/Bedtime state,
+   Settings load and content scans. Settings use only `configCommand`
+   (`a1b2c3d4-e5f6-7890-abcd-ef1234567897`) and `configResponse`
+   (`a1b2c3d4-e5f6-7890-abcd-ef1234567898`). Both are required for remote
+   controls. `themes` always contains the theme array; `command` accepts only
+   one-byte playback commands. There is no older-GATT transport fallback.
+3. Disconnect and reconnect **without rebooting the toy**. Verify that the theme
+   selector still contains the same choices after clock synchronization and a
+   Settings visit. Confirm a song plays, stop works, and no reboot occurs.
+4. Check Classic Bluetooth audio on the intended hardware: confirm audio routing,
+   `Audio state: STARTED` in the serial log, and playback without a crash/reboot.
+
+#### macOS recovery when characteristics are missing
+
+Use this during deployment when the GATT table has changed or the app reports
+missing characteristics despite the correct firmware being installed. Routine
+flashes with an unchanged GATT table do not require forgetting the device.
+
+1. Disconnect the app and close its tabs or installed-app window. Power the toy
+   off while removing its remembered connection.
+2. Open **System Settings → Bluetooth**, Control-click the toy's saved entry and
+   choose **Forget** (or **Forget This Device**, depending on macOS). Use the name
+   under which it was paired, which may still be `SweetYaar Remote` after a rename.
+   If it has no saved entry, skip this step. Apple documents device removal in
+   [Connect a Bluetooth device with your Mac](https://support.apple.com/guide/mac-help/connect-a-bluetooth-device-blth1004/mac).
+3. Power the toy on, reopen the current app and select it again in the Bluetooth
+   chooser. Pair it again in macOS when testing Classic Bluetooth audio.
+4. If the same characteristics are still missing, try turning the Mac's Bluetooth
+   off and on, then reconnect; restart the Mac if that does not help. Toggling
+   Bluetooth temporarily disconnects other Bluetooth peripherals.
+5. Repeat the deployment checks above. Treat successful discovery of both config
+   characteristics and a successful Settings request as the verification, not
+   completion of the reset steps alone.
+
+These are recovery steps, not a guaranteed per-device GATT-cache flush: Apple's
+Forget documentation does not promise one. Removing a browser's Bluetooth
+permission or updating the app's service-worker cache also does not establish
+that CoreBluetooth rediscovered the device's services. For future GATT schema
+changes, validate the standard **Service Changed** indication on macOS; Apple
+recommends it for accessories that support GATT caching
+([Core Bluetooth, WWDC 2017, slide 88](https://devstreaming-cdn.apple.com/videos/wwdc/2017/712jqzhsxoww3zn/712/712_whats_new_in_core_bluetooth.pdf)).
+This checklist does not claim that the current firmware sends that indication.
+
 ## Testing changes
 
 The regression suite is intentionally broader than a firmware compile. It

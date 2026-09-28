@@ -306,6 +306,13 @@ Actions as its publishing source. Relative paths in the manifest and service
 worker allow the same files to run from the Pages project path, the custom HTTPS
 domain, or a local server rooted at `app/public/`.
 
+For Bluetooth changes, deploy matching firmware and app versions and complete
+the [BLE deployment checklist](firmware.md#ble-deployment-checklist), including
+a reconnect without rebooting the toy. Settings require the dedicated config
+characteristics; the app does not route settings through playback commands or
+read settings replies from the theme list. The checklist also covers macOS
+Forget/reconnect recovery when an old GATT table hides required characteristics.
+
 ## Testing changes
 
 The app tests execute the real JavaScript embedded in `app/public/index.html`
