@@ -77,6 +77,25 @@ int main() {
         assert(!SD.exists(path.c_str()));  // explicitly accepted replacement gap
         assert(FakeSD::files.at(path + ".tmp") == expected);
         assert(FakeSD::readCalls == 0);
+
+        // Playback holds a WAV open throughout a settings read/save/reload.
+        // The temporary write and size verification must reuse the other slot.
+        prepare(path);
+        FakeSD::maxOpenFiles = SD_MAX_OPEN_FILES;
+        FakeSD::files["/playing.wav"] = "PCM";
+        File playing = SD.open("/playing.wav");
+        assert(playing);
+        JsonDocument settings = ContentCatalog::readJsonFile(path.c_str());
+        assert(settings["defaultVolumePct"] == 75);
+        settings["defaultVolumePct"] = 42;
+        assert(ContentCatalog::writeJsonFile(path.c_str(), settings));
+        JsonDocument saved = ContentCatalog::readJsonFile(path.c_str());
+        assert(saved["defaultVolumePct"] == 42);
+        assert(FakeSD::peakOpenFiles == 2);
+        assert(FakeSD::openFiles == 1);
+        assert(playing.read() == 'P');
+        playing.close();
+        assert(FakeSD::openFiles == 0);
     }
 
     ParentConfig config;

@@ -20,7 +20,11 @@ If the venv is active, `pytest` is equivalent.
   and playback commands must not accept JSON settings requests.
 - `test_json_file.py`: runs the real JSON save/load code against a fake SD card
   with injected open, short-write, flush-truncation, removal, and rename failures.
+  Checks read/save/reload with a WAV handle held open under the two-file limit.
   Uses the pinned ArduinoJson headers installed by `make build`.
+- `test_config_reply_memory.py`: denies ArduinoJson pool allocations while
+  executing the production acknowledgment and config-state serializers; checks
+  complete values and correct escaping for all five state groups.
 - `test_state_machine.py`: pytest wrapper that compiles and runs native C++ state-machine tests.
 - `state_machine_native_test.cpp`: host-side C++ behavior tests for the real `firmware/esp32/src/StateMachine.cpp`.
 - `native_stubs/`: tiny Arduino/FreeRTOS headers used only by native host tests.
@@ -87,11 +91,10 @@ invalid content, and wide numeric fields. Expected rows are checked field by
 field, with no missing or duplicate entries. The app receives the actual C++
 serializer output; only request IDs are rebound to its connection's requests.
 
-The packing tests intentionally fail until pagination uses the byte budget:
+The packing tests enforce pagination's byte budget:
 adjacent pages must not fit together in one response envelope, and a nonfinal
-page must not have room for the next entry. The app traversal cases with 81
-themes and 601 songs also expose its current fixed page-count limits. These
-are ordinary failing acceptance tests, not skipped or expected-failure markers.
+page must not have room for the next entry. App traversal cases with 81 themes
+and 601 songs check that scanning reaches the end without fixed page-count limits.
 This host bridge does not exercise the BLE radio, negotiated MTU or OS cache.
 
 ```bash

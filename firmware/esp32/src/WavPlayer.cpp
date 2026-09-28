@@ -8,7 +8,7 @@ WavPlayer::WavPlayer(VolumeStream& output) : _output(output) {}
 // ---------------------------------------------------------------------------
 bool WavPlayer::begin() {
     SPI.begin(PIN_SD_SCK, PIN_SD_MISO, PIN_SD_MOSI, PIN_SD_CS);
-    if (!SD.begin(PIN_SD_CS, SPI, SD_SPI_FREQUENCY_HZ)) {
+    if (!SD.begin(PIN_SD_CS, SPI, SD_SPI_FREQUENCY_HZ, "/sd", SD_MAX_OPEN_FILES)) {
         Serial.println("[WavPlayer] SD init failed");
         return false;
     }

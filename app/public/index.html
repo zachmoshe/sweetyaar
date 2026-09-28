@@ -3327,60 +3327,42 @@
         error.userMessage = error.message;
         throw error;
       }
-      const startedAt = Date.now();
-      const label = `[SweetYaar BLE] #${id} ${payload.op}`;
-      const fields = Object.keys(payload).filter((key) => key !== "op");
-      let phase = "writing command";
-      let responseReads = 0;
-      let lastReply = null;
-      console.info(`${label} start; fields=${fields.join(",") || "none"}`);
-      try {
-        await writeText("configCommand", command);
-        console.info(`${label} write completed in ${Date.now() - startedAt} ms`);
+      await writeText("configCommand", command);
 
-        const deadline = Date.now() + 15000;
-        while (Date.now() < deadline) {
-          phase = "waiting for reply";
-          await (responseWait || waitForConfigResponse(notifyDriven ? 1000 : 80));
-          responseWait = null;
-          if (state.chars.configResponse !== responseCharacteristic) throw new Error("GATT Server is disconnected");
-          phase = "reading reply";
-          const value = await readCharacteristic(responseCharacteristic);
-          responseReads += 1;
-          const text = readText(value);
-          let parsed = null;
-          try {
-            parsed = JSON.parse(text || "{}");
-          } catch (error) {
-            parsed = null;
-          }
-          lastReply = parsed && typeof parsed === "object"
-            ? { id: parsed.id, op: parsed.op, ok: parsed.ok, error: parsed.error, bytes: value.byteLength }
-            : { invalidReply: true, bytes: value.byteLength };
-
-          if (parsed && parsed.id === id) {
-            console.info(`${label} reply after ${Date.now() - startedAt} ms: ${JSON.stringify(lastReply)}`);
-            if (!parsed.ok) {
-              phase = "firmware rejection";
-              const error = new Error(parsed.error || "The toy rejected the settings command.");
-              // Firmware rejections describe a settings problem, not a failed
-              // Bluetooth connection. Keep the message visible in Settings.
-              error.userMessage = error.message;
-              throw error;
-            }
-            return parsed;
-          }
+      const deadline = Date.now() + 15000;
+      while (Date.now() < deadline) {
+        await (responseWait || waitForConfigResponse(notifyDriven ? 1000 : 80));
+        responseWait = null;
+        if (state.chars.configResponse !== responseCharacteristic) throw new Error("GATT Server is disconnected");
+        const value = await readCharacteristic(responseCharacteristic);
+        const text = readText(value);
+        let parsed = null;
+        try {
+          parsed = JSON.parse(text || "{}");
+        } catch (error) {
+          parsed = null;
+        }
+        if (!parsed || !Number.isSafeInteger(parsed.id) || typeof parsed.ok !== "boolean") {
+          const error = new Error("The toy returned an invalid settings reply.");
+          error.userMessage = "The toy returned an invalid reply. Please try again.";
+          throw error;
         }
 
-        phase = "reply timeout";
-        const error = new Error("The toy did not answer the settings command.");
-        error.userMessage = "The toy did not reply in time. Please try again.";
-        throw error;
-      } catch (error) {
-        console.error(`${label} failed: ${JSON.stringify({ phase, elapsedMs: Date.now() - startedAt,
-          responseReads, lastReply, connected: !!state.device?.gatt?.connected })}`, error);
-        throw error;
+        if (parsed.id === id) {
+          if (!parsed.ok) {
+            const error = new Error(parsed.error || "The toy rejected the settings command.");
+            // Firmware rejections describe a settings problem, not a failed
+            // Bluetooth connection. Keep the message visible in Settings.
+            error.userMessage = error.message;
+            throw error;
+          }
+          return parsed;
+        }
       }
+
+      const error = new Error("The toy did not answer the settings command.");
+      error.userMessage = "The toy did not reply in time. Please try again.";
+      throw error;
     }
 
     // Resolve as soon as the config response characteristic notifies (response
@@ -3679,7 +3661,6 @@
       state.settings.message = "Scanning SD card...";
       render();
 
-      const loadStartedAt = Date.now();
       try {
         if (state.configError) throw state.configError;
         applySavedSettingsToDraft();
@@ -3704,7 +3685,6 @@
           state.settings.songsByTheme[state.settings.selectedThemeId] = state.settings.songs;
         }
         state.settings.sessionScanned = true;
-        console.info(`[SweetYaar] Settings loaded in ${Date.now() - loadStartedAt} ms`);
       } catch (error) {
         state.settings.message = describeError(error);
       } finally {
@@ -4671,7 +4651,6 @@
     }
 
     async function initializeRemoteConnection(server, knownService = null) {
-      const startedAt = Date.now();
       try {
         const service = knownService || await server.getPrimaryService(UUIDS.service);
         if (state.server !== server) return;
@@ -4680,7 +4659,6 @@
         if (state.server !== server) return;
         state.remoteInitializing = false;
         state.message = "";
-        console.info(`[SweetYaar] Remote controls ready in ${Date.now() - startedAt} ms`);
         render();
       } catch (error) {
         if (state.server !== server) return;
@@ -4772,7 +4750,6 @@
         state.device = device;
         device.addEventListener("gattserverdisconnected", onDisconnected);
 
-        const connectionStartedAt = Date.now();
         const server = await device.gatt.connect();
         let service;
         try {
@@ -4801,7 +4778,6 @@
         state.view = "remote";
         state.busy = false;
         beginRemoteInitialization(server, service);
-        console.info(`[SweetYaar] Remote screen ready in ${Date.now() - connectionStartedAt} ms`);
       } catch (error) {
         const message = describeError(error);
         if (state.device?.gatt?.connected) {

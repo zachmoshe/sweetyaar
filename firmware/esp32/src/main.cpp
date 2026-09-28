@@ -1103,10 +1103,9 @@ void pollBluetoothReopen() {
 
     btReopenPending = false;
 
-    // After a BT session the Bluedroid A2DP stack leaks ~160 KB that is never
-    // freed. If the remaining heap is below a safe floor, a future BLE notify
-    // will malloc-fail inside Bluedroid and call abort().  Restart cleanly
-    // instead of crashing with a garbage stack trace.
+    // Low remaining heap can make later Bluedroid allocations fail and abort.
+    // This recovery runs after disconnect; connection-time headroom must also
+    // be measured. A low reading alone does not establish a memory leak.
     uint32_t freeNow = ESP.getFreeHeap();
     const uint32_t SAFE_HEAP_FLOOR = 20000;
     if (freeNow < SAFE_HEAP_FLOOR) {
@@ -1388,6 +1387,9 @@ void handleBleConfigCommand(const String& commandJson) {
             bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Theme id is too long."));
             return;
         }
+        // Every requested value has been copied above. Release the input JSON
+        // pool before SD/NVS operations and publishing the result share the heap.
+        doc.clear();
         if (sdReady) {
             if (!ContentCatalog::updateSdConfig(
                     nextVolume, nextDefaultTheme, nextSleepEnabled,
@@ -1422,9 +1424,11 @@ void handleBleConfigCommand(const String& commandJson) {
         // A changed cap takes effect even if Bedtime remains active, without
         // replacing the parent's requested volume with the startup default.
         applyEffectiveVolume("settings update");
-        nvs.setBtName(nextName);
-        currentDeviceName = nextName;
-        applyDeviceName(nextName);
+        if (nextName != currentDeviceName) {
+            nvs.setBtName(nextName);
+            currentDeviceName = nextName;
+            applyDeviceName(nextName);
+        }
         publishBleValues();
         bleService.updateConfigResponse(buildConfigOkResponse(requestId, op));
         return;
@@ -1749,43 +1753,73 @@ void applyPendingBtNameIfPossible() {
 // Readable config groups (published separately from command acknowledgments)
 // ---------------------------------------------------------------------------
 String buildConfigAttribute(size_t index) {
-    JsonDocument doc;
+    // Serialize the bounded wire format directly. A temporary JsonDocument
+    // needs an extra allocation pool even for a tiny object; if that allocation
+    // fails, ArduinoJson silently serializes {} or a partial object. The radio
+    // and audio stacks share this heap, so outbound config must avoid that pool.
+    String output;
+    output.reserve(BLE_CONFIG_MAX_BYTES);
     if (index == 0) {
-        doc["deviceName"] = currentDeviceName;
-        doc["defaultVolumePct"] = parentConfig.defaultVolumePct();
-        doc["defaultTheme"] = parentConfig.defaultTheme();
-        doc["sdReady"] = sdReady;
+        output += "{\"deviceName\":\"";
+        output += ContentCatalog::jsonEscape(currentDeviceName);
+        output += "\",\"defaultVolumePct\":";
+        output += parentConfig.defaultVolumePct();
+        output += ",\"defaultTheme\":\"";
+        output += ContentCatalog::jsonEscape(parentConfig.defaultTheme());
+        output += "\",\"sdReady\":";
+        output += sdReady ? "true" : "false";
         if (sdReady && !parentConfig.loaded()) {
-            doc["error"] = "Settings file is missing or invalid. Restore config.json on the SD card and restart the toy.";
+            output += ",\"error\":\"Settings file is missing or invalid. Restore config.json on the SD card and restart the toy.\"";
         }
     } else if (index == 1) {
-        doc["enabled"] = parentConfig.sleepEnabled();
-        doc["normalIdleSec"] = parentConfig.sleepNormalIdleMs() / 1000UL;
-        doc["vibrationWakeIdleSec"] = parentConfig.sleepVibrationWakeIdleMs() / 1000UL;
-        doc["bleIdleSec"] = parentConfig.sleepBleIdleMs() / 1000UL;
+        output += "{\"enabled\":";
+        output += parentConfig.sleepEnabled() ? "true" : "false";
+        output += ",\"normalIdleSec\":";
+        output += parentConfig.sleepNormalIdleMs() / 1000UL;
+        output += ",\"vibrationWakeIdleSec\":";
+        output += parentConfig.sleepVibrationWakeIdleMs() / 1000UL;
+        output += ",\"bleIdleSec\":";
+        output += parentConfig.sleepBleIdleMs() / 1000UL;
     } else if (index == 2) {
-        doc["enabled"] = parentConfig.bedtimeEnabled();
-        doc["startTime"] = bedtimeTimeString(parentConfig.bedtimeStartMinutes());
-        doc["endTime"] = bedtimeTimeString(parentConfig.bedtimeEndMinutes());
-        doc["theme"] = parentConfig.bedtimeTheme();
-        doc["volumeCapPct"] = parentConfig.bedtimeVolumeCapPct();
+        output += "{\"enabled\":";
+        output += parentConfig.bedtimeEnabled() ? "true" : "false";
+        output += ",\"startTime\":\"";
+        output += bedtimeTimeString(parentConfig.bedtimeStartMinutes());
+        output += "\",\"endTime\":\"";
+        output += bedtimeTimeString(parentConfig.bedtimeEndMinutes());
+        output += "\",\"theme\":\"";
+        output += ContentCatalog::jsonEscape(parentConfig.bedtimeTheme());
+        output += "\",\"volumeCapPct\":";
+        output += parentConfig.bedtimeVolumeCapPct();
     } else if (index == 3) {
-        doc["loop"] = sm.loopMode();
-        doc["activeTheme"] = activeTheme;
-        doc["timeKnown"] = bedtimeTimeKnown();
-        doc["currentTime"] = bedtimeCurrentTimeString();
-        doc["currentSecondOfDay"] = bedtimeTimeKnown()
+        output += "{\"loop\":";
+        output += sm.loopMode() ? "true" : "false";
+        output += ",\"activeTheme\":\"";
+        output += ContentCatalog::jsonEscape(activeTheme);
+        output += "\",\"timeKnown\":";
+        output += bedtimeTimeKnown() ? "true" : "false";
+        output += ",\"currentTime\":\"";
+        output += bedtimeCurrentTimeString();
+        output += "\",\"currentSecondOfDay\":";
+        output += bedtimeTimeKnown()
             ? static_cast<int32_t>(bedtimeLocalSecondOfDay()) : -1;
-        doc["active"] = bedtimeRuntimeActive();
-        doc["autoActive"] = bedtimeAutomaticActive();
-        doc["override"] = bedtimeOverrideName();
-        doc["effectiveVolumePct"] = effectiveVolumePct();
-        doc["effectiveTheme"] = bedtimeEffectiveSongTheme();
+        output += ",\"active\":";
+        output += bedtimeRuntimeActive() ? "true" : "false";
+        output += ",\"autoActive\":";
+        output += bedtimeAutomaticActive() ? "true" : "false";
+        output += ",\"override\":\"";
+        output += bedtimeOverrideName();
+        output += "\",\"effectiveVolumePct\":";
+        output += effectiveVolumePct();
+        output += ",\"effectiveTheme\":\"";
+        output += ContentCatalog::jsonEscape(bedtimeEffectiveSongTheme());
+        output += "\"";
     } else {
-        doc["message"] = ContentCatalog::catalogWarning();
+        output += "{\"message\":\"";
+        output += ContentCatalog::jsonEscape(ContentCatalog::catalogWarning());
+        output += "\"";
     }
-    String output;
-    serializeJson(doc, output);
+    output += "}";
     return output;
 }
 
@@ -1797,22 +1831,24 @@ void publishConfigAttributes() {
 }
 
 String buildConfigOkResponse(uint32_t requestId, const String& op) {
-    JsonDocument doc;
-    doc["id"] = requestId;
-    doc["ok"] = true;
-    doc["op"] = op;
     String output;
-    serializeJson(doc, output);
+    output.reserve(48 + op.length());
+    output += "{\"id\":";
+    output += requestId;
+    output += ",\"ok\":true,\"op\":\"";
+    output += ContentCatalog::jsonEscape(op);
+    output += "\"}";
     return output;
 }
 
 String buildConfigErrorResponse(uint32_t requestId, const String& message) {
-    JsonDocument doc;
-    doc["id"] = requestId;
-    doc["ok"] = false;
-    doc["error"] = message;
     String output;
-    serializeJson(doc, output);
+    output.reserve(48 + message.length());
+    output += "{\"id\":";
+    output += requestId;
+    output += ",\"ok\":false,\"error\":\"";
+    output += ContentCatalog::jsonEscape(message);
+    output += "\"}";
     return output;
 }
 

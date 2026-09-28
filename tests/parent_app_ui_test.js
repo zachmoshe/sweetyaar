@@ -766,7 +766,7 @@ const tests = [
     await saveSettings();
     assert.strictEqual(ble.writes.config.length, commandsBefore + 1, "An acknowledged edit is no longer dirty");
   `],
-  ["a settings timeout reports the missing reply and logs request identity without extra reads", String.raw`
+  ["a settings timeout reports the missing reply without extra reads", String.raw`
     const options = { synchronousConfigNotify: true };
     const ble = await connectWithFakeBle(options);
     await openSettings();
@@ -793,15 +793,8 @@ const tests = [
     assert.strictEqual(state.settings.originalDefaultVolumePct, 75);
     assert.strictEqual(ble.writes.config.length, commandsBefore + 1);
     assertJsonEqual(ble.reads, ["configResponse"]);
-    const trace = __consoleOutput.map((entry) => entry[1]).join("\n");
-    assert(trace.includes('#' + (previousId + 1) + ' setConfig start; fields=defaultVolumePct'));
-    assert(trace.includes("write completed"));
-    assert(trace.includes('"phase":"reply timeout"'));
-    assert(trace.includes('"responseReads":1'));
-    assert(trace.includes('"lastReply":{"id":' + previousId));
-    assert(trace.includes('"connected":true'));
   `],
-  ["settings diagnostics distinguish a rejected SD save from a failed Bluetooth write", String.raw`
+  ["a rejected SD save and a failed Bluetooth write preserve the pending settings", String.raw`
     const ble = await connectWithFakeBle({ synchronousConfigNotify: true });
     await openSettings();
     await waitForSettingsLoaded();
@@ -813,18 +806,41 @@ const tests = [
     };
     await saveSettings();
     assert.strictEqual(state.settings.message, "SD write failed");
-    assert(__consoleOutput.some((entry) => String(entry[1]).includes('"phase":"firmware rejection"') &&
-      String(entry[1]).includes('"error":"SD write failed"')));
     assert.strictEqual(state.settings.originalDefaultVolumePct, 75);
     const transportError = new Error("GATT operation failed for unknown reason.");
     transportError.name = "NetworkError";
     ble.chars.configCommand.write = () => { throw transportError; };
     await saveSettings();
-    assert(__consoleOutput.some((entry) => String(entry[1]).includes('"phase":"writing command"') && entry[2] === transportError));
+    assert(__consoleOutput.some((entry) => entry[2] === transportError));
     assert.strictEqual(state.settings.dirty, true);
     ble.chars.configCommand.write = write;
     await saveSettings();
     assert.strictEqual(state.settings.message, "Settings saved.");
+    assert.strictEqual(state.settings.originalDefaultVolumePct, 37);
+  `],
+  ["an empty firmware reply fails immediately without losing the pending save", String.raw`
+    const options = { synchronousConfigNotify: true };
+    const ble = await connectWithFakeBle(options);
+    await openSettings();
+    await waitForSettingsLoaded();
+    options.dropConfigNotifications = true;
+    await els.settingsDeviceName.input("Pending name");
+    await els.settingsVolumeRange.input("37");
+    const write = ble.chars.configCommand.write.bind(ble.chars.configCommand);
+    ble.chars.configCommand.write = () => ble.chars.configResponse.emit("{}");
+    const started = Date.now();
+    ble.reads.length = 0;
+    await saveSettings();
+    assert(Date.now() - started < 500, "An invalid reply must not spend 15 seconds polling the same data");
+    assert.strictEqual(state.settings.message, "The toy returned an invalid reply. Please try again.");
+    assert.strictEqual(state.settings.dirty, true);
+    assert.strictEqual(state.settings.originalDeviceName, "SweetYaar");
+    assert.strictEqual(state.settings.originalDefaultVolumePct, 75);
+    assertJsonEqual(ble.reads, ["configResponse"]);
+    ble.chars.configCommand.write = write;
+    await saveSettings();
+    assert.strictEqual(state.settings.message, "Settings saved.");
+    assert.strictEqual(state.settings.originalDeviceName, "Pending name");
     assert.strictEqual(state.settings.originalDefaultVolumePct, 37);
   `],
   ["every single settings field sends only its changed value and reads only its ACK", String.raw`

@@ -80,7 +80,7 @@ def settings_runtime_exe(repo_root: pathlib.Path, tmp_path_factory) -> pathlib.P
 @pytest.mark.parametrize("scenario", [
     "defaults", "unrelated", "bedtime_cap", "bedtime_theme", "bedtime_schedule",
     "bedtime_disabled", "unchanged_bedtime", "failed_save", "boot_defaults",
-    "name_limits", "missing_sd", "group_limits",
+    "name_limits", "name_updates", "missing_sd", "group_limits",
 ])
 def test_settings_preserve_runtime(settings_runtime_exe: pathlib.Path, scenario: str) -> None:
     result = run_checked([settings_runtime_exe, scenario])

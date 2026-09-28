@@ -68,6 +68,13 @@ in-memory catalog used by playback and the parent app. Files added or removed
 manually are therefore picked up after a restart; changes made through the app
 also update the live catalog.
 
+The SD mount permits two simultaneous regular files: one for WAV playback and
+one for settings operations, which open their read, write, and verification files
+sequentially. This saves about 12 KB of reserved FatFs cache compared with the
+library's five-file default, leaving more heap for Bluetooth connection setup
+without reducing audio buffering. See the
+[Bluetooth heap investigation](bt-heap-investigation.md) for measurements.
+
 The checked-in [SD-card template](../../content/sd-card-template/README.txt) contains a
 complete example card with the supported layout and configuration schema. If
 the card or configuration is missing, Bluetooth speaker mode still starts and
@@ -106,6 +113,15 @@ Config state is exposed through five required read/notify characteristics:
 | `789D` | `configBedtime` | Enabled flag, start/end times, theme, volume cap. |
 | `789E` | `configRuntime` | Loop, active theme, clock sample, Bedtime active/automatic/override state, effective volume/theme. |
 | `789F` | `catalogNotice` | Boot catalog warning, or an empty message. Stored only in RAM. |
+
+Replies and config-state values are serialized directly, without a temporary
+ArduinoJson document. Allocation failure in such a document can otherwise yield
+`{}` or partial JSON while Bluetooth and audio compete for heap. Fault-injection
+tests cover both successful/error replies and all five state groups. Settings
+commands release their parsed document before persistence; an unchanged device
+name does not rewrite NVS or restart advertising. The browser rejects replies
+without an integer request ID and boolean result immediately instead of polling
+the invalid value until timeout.
 
 All UUIDs share `a1b2c3d4-e5f6-7890-abcd-ef123456` before that suffix.
 Each JSON value is at most 512 UTF-8 bytes. Config attributes and

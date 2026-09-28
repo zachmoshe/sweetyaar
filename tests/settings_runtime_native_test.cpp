@@ -30,7 +30,9 @@ struct {
     bool loopMode() const { return false; }
 } sm;
 struct { void setVolume(float) {} } volumeOut;
-struct { void setBtName(const String&) {} } nvs;
+unsigned nameWrites = 0;
+unsigned nameApplications = 0;
+struct { void setBtName(const String&) { ++nameWrites; } } nvs;
 enum class StatusSignal { Error };
 struct { void setSignal(StatusSignal, bool) {} } statusLed;
 struct {
@@ -50,7 +52,7 @@ struct {
 void publishConfigAttributes();
 void pollBedtimeMode();
 void refreshThemeList() {}
-void applyDeviceName(const String&) {}
+void applyDeviceName(const String&) { ++nameApplications; }
 void publishBleValues() { publishConfigAttributes(); }
 bool clockKnown = true;
 uint32_t localSecond = 12 * 3600;
@@ -105,6 +107,18 @@ int main(int argc, char** argv) {
     assert(argc == 2);
     const std::string scenario = argv[1];
     prepare();
+
+    if (scenario == "name_updates") {
+        save(R"({"defaultVolumePct":37})");
+        save(R"({"deviceName":"SweetYaar"})");
+        assert(nameWrites == 0 && nameApplications == 0);
+        save(R"({"deviceName":"New name"})");
+        assert(nameWrites == 1 && nameApplications == 1);
+        save(R"({"deviceName":"New name","defaultVolumePct":38})");
+        assert(nameWrites == 1 && nameApplications == 1);
+        std::cout << "settings runtime test passed\n";
+        return 0;
+    }
 
     if (scenario == "bridge") {
         clockKnown = false;

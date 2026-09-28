@@ -31,6 +31,9 @@ static constexpr int PIN_SD_MISO    = 19;
 static constexpr int PIN_SD_MOSI    = 23;
 static constexpr int PIN_SD_CS      = 5;
 static constexpr uint32_t SD_SPI_FREQUENCY_HZ = 20000000;
+// FatFs reserves about 4 KB per file slot even when no file is open. Playback
+// holds one WAV; settings read/write/check files sequentially in the other slot.
+static constexpr uint8_t SD_MAX_OPEN_FILES = 2;
 
 // --- Buttons (active LOW, internal pull-up) ---------------------------------
 static constexpr int PIN_BTN1       = 32;  // Button 1: Songs
