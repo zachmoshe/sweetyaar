@@ -7,6 +7,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/portmacro.h>
 #include "Config.h"
+#include "ChargerStatus.h"
 
 // ---------------------------------------------------------------------------
 // BLEParentService — GATT server for parent controls
@@ -23,6 +24,7 @@
 //   configResp (JSON string, read/notify)   — settings/scan response
 //   battery    (uint8, read/notify)          — 0=unknown, 1=good, 2=medium,
 //                                              3=low, 4=charging
+//   charger    (6 bytes, read/notify)        — versioned activity/conditions/events
 //
 // Callbacks fire in a BLE stack task; they set thread-safe flags that the
 // main loop reads via the pollXxx() methods.
@@ -55,6 +57,7 @@ public:
     // JSON values are read in full; notifications only signal a changed value.
     void updateConfigAttribute(size_t index, const String& value);
     void updateBatteryState(uint8_t state);
+    void updateChargerStatus(const ChargerStatus::Snapshot& snapshot);
     void updateDeviceName(const String& deviceName);
 
     // Push a one-shot notice for the app to display. |noticeJson| is the full
@@ -98,6 +101,9 @@ private:
     BLECharacteristic* _configResponseChar = nullptr;
     BLECharacteristic* _noticeChar = nullptr;
     BLECharacteristic* _batteryChar = nullptr;
+    BLECharacteristic* _chargerChar = nullptr;
+    uint8_t _lastChargerValue[ChargerStatus::ENCODED_SIZE] = {};
+    bool _hasChargerValue = false;
     BLECharacteristic* _configAttributes[BLE_CONFIG_ATTRIBUTE_COUNT] = {};
     void notifyChanged(BLECharacteristic* characteristic);
 

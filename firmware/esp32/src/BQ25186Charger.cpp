@@ -23,6 +23,10 @@ constexpr uint8_t REG_SYS_REG = 0x0A;
 constexpr uint8_t REG_TS_CONTROL = 0x0B;
 constexpr uint8_t REG_MASK_ID = 0x0C;
 
+// STAT1 contributes VIN OVP, battery UVLO, temperature zone, and the safety
+// timer indication. Reserved and TS/MR pushbutton event bits are not state.
+constexpr uint8_t STAT1_STATE_MASK = 0xDC;
+
 // Production policy, encoded directly from the BQ25186 register map:
 // 4.20 V cell, 1.00 A charge, 10% termination, 4.5 V VINDPM, 100 C IC
 // thermal regulation, 3 A battery OCP, 3.0 V BUVLO, 1.05 A input limit,
@@ -66,12 +70,46 @@ constexpr RegisterSetting CONFIGURATION[] = {
 
 const char* chargeStateName(uint8_t chargeState) {
     switch (chargeState) {
-        case 0: return "not charging";
-        case 1: return "constant current";
-        case 2: return "constant voltage";
-        case 3: return "done/host disabled";
-        default: return "unknown";
+        case 0: return "NOT_CHARGING";
+        case 1: return "CHARGING_CONSTANT_CURRENT";
+        case 2: return "CHARGING_CONSTANT_VOLTAGE";
+        case 3: return "DONE_OR_HOST_DISABLED";
+        default: return "UNKNOWN";
     }
+}
+
+const char* temperatureStateName(uint8_t temperatureState) {
+    switch (temperatureState) {
+        case 0: return "NORMAL";
+        case 1: return "HOT_OR_COLD_CHARGING_SUSPENDED";
+        case 2: return "COOL_REDUCED_CURRENT";
+        case 3: return "WARM_REDUCED_VOLTAGE";
+        default: return "UNKNOWN";
+    }
+}
+
+const char* activeStateName(bool active) {
+    return active ? "ACTIVE" : "INACTIVE";
+}
+
+void logEvents(uint8_t flags, const char* timestamp) {
+    if (flags == 0) {
+        return;
+    }
+    // FLAG0 is read-to-clear event evidence, not a live-state snapshot. Keep
+    // it visible separately: a transient may be over before STAT is read and
+    // BAT_OCP has no equivalent live bit. A persistent fault can reassert flags,
+    // so another line is not necessarily another distinct physical event.
+    Serial.printf("[Charger events] time=%s%s%s%s%s%s%s%s%s\n",
+                  timestamp,
+                  (flags & 0x80U) ? " TS_FAULT" : "",
+                  (flags & 0x40U) ? " ILIM_ACTIVE_FLAG" : "",
+                  (flags & 0x20U) ? " VDPPM_ACTIVE_FLAG" : "",
+                  (flags & 0x10U) ? " VINDPM_ACTIVE_FLAG" : "",
+                  (flags & 0x08U) ? " THERMREG_ACTIVE_FLAG" : "",
+                  (flags & 0x04U) ? " VIN_OVP_FAULT_FLAG" : "",
+                  (flags & 0x02U) ? " BUVLO_FAULT_FLAG" : "",
+                  (flags & 0x01U) ? " BAT_OCP_FAULT" : "");
 }
 
 }  // namespace
@@ -82,7 +120,8 @@ void IRAM_ATTR BQ25186Charger::interruptHandler() {
     _interruptPending = true;
 }
 
-bool BQ25186Charger::begin() {
+bool BQ25186Charger::begin(LocalTimeReader readLocalTime) {
+    _readLocalTime = readLocalTime;
     setChargeEnabled(false);
     // GPIO34 may have been owned by EXT1 during the preceding deep sleep.
     rtc_gpio_deinit(static_cast<gpio_num_t>(PIN_CHARGER_PG));
@@ -117,6 +156,7 @@ bool BQ25186Charger::begin() {
     _healthy = true;
     _lastVerifyMs = millis();
     setChargeEnabled(_inputPresent);
+    logStatusChange();
     Serial.printf("[Charger] Configuration verified; charging %s\n",
                   _inputPresent ? "enabled" : "waiting for input");
     return true;
@@ -151,6 +191,64 @@ void BQ25186Charger::poll() {
     // The NPN consumes base current while asserted. It is needed only when an
     // external input is valid; /CE is deliberately left disabled otherwise.
     setChargeEnabled(_inputPresent);
+    logStatusChange();
+}
+
+ChargerStatus::State BQ25186Charger::status() const {
+    ChargerStatus::Inputs inputs;
+    inputs.valid = _healthy && _hasLastState;
+    inputs.inputPresent = _inputPresent;
+    inputs.hostChargeEnabled = _chargeEnabled;
+    inputs.sampledAfterEnableChange = _sampledAfterEnableChange;
+    inputs.phase = static_cast<ChargerStatus::ChargePhase>((_lastStat0 >> 5U) & 0x03U);
+    return ChargerStatus::evaluate(inputs);
+}
+
+void BQ25186Charger::formatLogTime(char (&timestamp)[20]) const {
+    tm localTime{};
+    if (_readLocalTime && _readLocalTime(localTime) &&
+        strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", &localTime)) {
+        return;
+    }
+    snprintf(timestamp, sizeof(timestamp), "UNKNOWN");
+}
+
+void BQ25186Charger::logStatusChange() {
+    ChargerStatus::State current = status();
+    if (!_hasLoggedStatus || current != _lastLoggedStatus) {
+        char timestamp[20];
+        formatLogTime(timestamp);
+        Serial.printf("[Charger status] time=%s STATUS=%s\n",
+                      timestamp,
+                      ChargerStatus::name(current));
+        _hasLoggedStatus = true;
+        _lastLoggedStatus = current;
+    }
+}
+
+ChargerStatus::Snapshot BQ25186Charger::snapshot() const {
+    using namespace ChargerStatus;
+    Snapshot result;
+    result.available = true;
+    result.valid = _healthy && _hasLastState;
+    result.state = status();
+    if (!result.valid) {
+        result.conditions = SupervisionFailure;
+        return result;
+    }
+    if (_lastFlags & 0x01U) result.reportedEvents |= BatteryOvercurrent;
+    const uint8_t temperature = (_lastStat1 >> 3U) & 3U;
+    if (temperature == 1U) result.conditions |= TemperatureOutOfRange;
+    if (temperature >= 2U) result.conditions |= TemperatureReduced;
+    if (_lastStat0 & 0x80U) result.conditions |= TemperatureSensor;
+    if (_lastStat0 & 0x10U) result.conditions |= InputCurrentLimit;
+    if (_lastStat0 & 0x08U) result.conditions |= SystemVoltageLimit;
+    if (_lastStat0 & 0x04U) result.conditions |= InputVoltageLimit;
+    if (_lastStat0 & 0x02U) result.conditions |= ThermalRegulation;
+    if (_lastStat1 & 0x80U) result.conditions |= InputOvervoltage;
+    if (_lastStat1 & 0x40U) result.conditions |= BatteryUndervoltage;
+    if (_lastStat1 & 0x04U) result.conditions |= SafetyTimerExpired;
+    return result;
 }
 
 bool BQ25186Charger::prepareForDeepSleep() {
@@ -166,6 +264,7 @@ bool BQ25186Charger::prepareForDeepSleep() {
         return false;
     }
     if (_inputPresent) {
+        logStatusChange();
         Serial.println("[Charger] External input appeared; keeping system awake");
         return false;
     }
@@ -177,6 +276,7 @@ bool BQ25186Charger::prepareForDeepSleep() {
     }
 
     setChargeEnabled(false);
+    logStatusChange();
     Serial.println("[Charger] Configuration verified; charging and host watchdog disabled for deep sleep");
     return true;
 }
@@ -275,24 +375,58 @@ bool BQ25186Charger::readStatus() {
     _charging = chargeState == 1U || chargeState == 2U;
     _inputPresent = (stat0 & 0x01U) != 0;
     int8_t pgLevel = digitalRead(PIN_CHARGER_PG) == LOW ? 0 : 1;
+    uint8_t stat1State = stat1 & STAT1_STATE_MASK;
+    char timestamp[20];
+    formatLogTime(timestamp);
 
-    if (stat0 != _lastStat0 || stat1 != _lastStat1 || flags != 0 ||
-        pgLevel != _lastPgLevel) {
-        Serial.printf("[Charger] STAT0=0x%02X STAT1=0x%02X FLAG0=0x%02X "
-                      "PG=%s charge=%s TS=%u\n",
-                      stat0, stat1, flags,
-                      pgLevel == 0 ? "valid-input" : "no-input",
-                      chargeStateName(chargeState),
-                      static_cast<unsigned>((stat1 >> 3U) & 0x03U));
+    if (!_hasLastState || stat0 != _lastStat0 || stat1 != _lastStat1 ||
+        flags != _lastFlags || pgLevel != _lastPgLevel) {
+        Serial.printf("[Charger registers] time=%s STAT0=0x%02X STAT1=0x%02X "
+                      "FLAG0=0x%02X PG=%s\n",
+                      timestamp, stat0, stat1, flags,
+                      pgLevel == 0 ? "VALID_INPUT" : "NO_VALID_INPUT");
     }
 
+    if (!_hasLastState || stat0 != _lastStat0 ||
+        stat1State != (_lastStat1 & STAT1_STATE_MASK) ||
+        pgLevel != _lastPgLevel) {
+        Serial.printf("[Charger state] time=%s CHARGE_STATUS=%s TEMP_STATUS=%s "
+                      "TS_OPEN_STAT=%s VIN_OVP_STAT=%s BUVLO_STAT=%s "
+                      "SAFETY_TMR_FAULT_FLAG=%s VIN_PGOOD_STAT=%s "
+                      "ILIM_ACTIVE_STAT=%s VDPPM_ACTIVE_STAT=%s "
+                      "VINDPM_ACTIVE_STAT=%s THERMREG_ACTIVE_STAT=%s PG=%s\n",
+                      timestamp,
+                      chargeStateName(chargeState),
+                      temperatureStateName((stat1 >> 3U) & 0x03U),
+                      activeStateName(stat0 & 0x80U),
+                      activeStateName(stat1 & 0x80U),
+                      activeStateName(stat1 & 0x40U),
+                      // TI labels this bit RC but says the safety-timer fault
+                      // needs a CE/charge-enable/input toggle to clear. Report
+                      // the observed indication; do not infer recovery from 0.
+                      (stat1 & 0x04U) ? "DETECTED" : "NOT_REPORTED",
+                      _inputPresent ? "VALID_INPUT" : "NO_VALID_INPUT",
+                      activeStateName(stat0 & 0x10U),
+                      activeStateName(stat0 & 0x08U),
+                      activeStateName(stat0 & 0x04U),
+                      activeStateName(stat0 & 0x02U),
+                      pgLevel == 0 ? "VALID_INPUT" : "NO_VALID_INPUT");
+    }
+
+    logEvents(flags, timestamp);
+    _hasLastState = true;
     _lastStat0 = stat0;
     _lastStat1 = stat1;
+    _lastFlags = flags;
     _lastPgLevel = pgLevel;
+    _sampledAfterEnableChange = true;
     return true;
 }
 
 void BQ25186Charger::setChargeEnabled(bool enabled) {
+    if (enabled != _chargeEnabled) {
+        _sampledAfterEnableChange = false;
+    }
     if (!_chargeEnabled) {
         pinMode(PIN_CHARGER_ENABLE, OUTPUT);
     }
@@ -305,5 +439,8 @@ void BQ25186Charger::failClosed(const char* reason) {
     _healthy = false;
     _charging = false;
     _inputPresent = false;
+    // The next successful read establishes a fresh snapshot after the gap.
+    _hasLastState = false;
     Serial.printf("[Charger] Disabled: %s\n", reason);
+    logStatusChange();
 }

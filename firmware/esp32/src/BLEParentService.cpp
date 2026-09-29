@@ -22,7 +22,7 @@ void BLEParentService::begin(const String& deviceName) {
     _server = BLEDevice::createServer();
     _server->setCallbacks(new ServerCB(this));
 
-    // Fifteen characteristics plus descriptors need more than the Arduino BLE
+    // Sixteen characteristics plus descriptors need more than the Arduino BLE
     // default of 15 handles. Under-allocating here can boot fine
     // and then crash Bluedroid when a central connects.
     BLEService* svc = _server->createService(BLEUUID(BLE_SERVICE_UUID), 64);
@@ -116,6 +116,12 @@ void BLEParentService::begin(const String& deviceName) {
     uint8_t initialBatteryState = 0;
     _batteryChar->setValue(&initialBatteryState, 1);
 
+    _chargerChar = svc->createCharacteristic(
+        BLE_CHARGER_UUID,
+        BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
+    _chargerChar->addDescriptor(new BLE2902());
+    updateChargerStatus(ChargerStatus::Snapshot{});
+
     svc->start();
 
     BLEAdvertising* adv = BLEDevice::getAdvertising();
@@ -207,6 +213,18 @@ void BLEParentService::updateNotice(const String& noticeJson) {
     if (!_noticeChar) return;
     _noticeChar->setValue(noticeJson.c_str());
     if (_connected) _noticeChar->notify();
+}
+
+void BLEParentService::updateChargerStatus(const ChargerStatus::Snapshot& snapshot) {
+    if (!_chargerChar) return;
+    uint8_t bytes[ChargerStatus::ENCODED_SIZE];
+    ChargerStatus::encode(snapshot, bytes);
+    if (_hasChargerValue && memcmp(bytes, _lastChargerValue, sizeof(bytes)) == 0) return;
+    memcpy(_lastChargerValue, bytes, sizeof(bytes));
+    _hasChargerValue = true;
+    _chargerChar->setValue(bytes, sizeof(bytes));
+    // The entire snapshot fits in the minimum ATT notification payload (20 B).
+    if (_connected) _chargerChar->notify();
 }
 
 void BLEParentService::updateDeviceName(const String& deviceName) {

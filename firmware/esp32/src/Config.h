@@ -223,6 +223,7 @@ static constexpr char BLE_CONFIG_COMMAND_UUID[]  = "A1B2C3D4-E5F6-7890-ABCD-EF12
 static constexpr char BLE_CONFIG_RESPONSE_UUID[] = "A1B2C3D4-E5F6-7890-ABCD-EF1234567898";
 static constexpr char BLE_NOTICE_UUID[]          = "A1B2C3D4-E5F6-7890-ABCD-EF1234567899";
 static constexpr char BLE_BATTERY_UUID[]         = "A1B2C3D4-E5F6-7890-ABCD-EF123456789A";
+static constexpr char BLE_CHARGER_UUID[]         = "A1B2C3D4-E5F6-7890-ABCD-EF12345678A0";
 static constexpr size_t BLE_THEMES_MAX_BYTES = 512;
 static constexpr int BLE_MAX_THEMES = 16;
 static constexpr size_t BLE_CONFIG_MAX_BYTES = 512;

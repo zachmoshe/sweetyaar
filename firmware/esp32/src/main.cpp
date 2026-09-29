@@ -134,6 +134,7 @@ void playAnimal();
 void playNextAnimal();
 void setupBedtimeClock(esp_sleep_wakeup_cause_t wakeCause);
 void syncBedtimeClock(time_t epochSec, int16_t tzOffsetMin);
+bool readLocalLogTime(tm& localTime);
 void pollBedtimeMode();
 bool bedtimeTimeKnown();
 bool bedtimeLocalMinute(uint16_t& minuteOut);
@@ -312,7 +313,7 @@ void setup() {
     // The production /CE circuit remains fail-closed until every BQ25186
     // setting has been written and read back. The generic fixture has no
     // charger and compiles this path out through its board flag.
-    if (HAS_BQ25186 && !charger.begin()) {
+    if (HAS_BQ25186 && !charger.begin(readLocalLogTime)) {
         statusLed.setSignal(StatusSignal::Error, true);
     }
 
@@ -406,6 +407,15 @@ void loop() {
             btSettleBlePublishPending = true;
         } else {
             bleService.updateBatteryState(batteryMonitor.encodedState());
+        }
+    }
+
+    // Charger diagnostics are independent of the coarse battery level.
+    if (ENABLE_BLE_PARENT_SERVICE) {
+        if (btLinkConnected && millis() - btConnectedAtMs < BT_SETTLE_MS) {
+            btSettleBlePublishPending = true;
+        } else {
+            bleService.updateChargerStatus(HAS_BQ25186 ? charger.snapshot() : ChargerStatus::Snapshot{});
         }
     }
 
@@ -590,6 +600,15 @@ bool bedtimeTimeKnown() {
         return false;
     }
     return time(nullptr) >= 946684800;  // 2000-01-01; filters out unset RTC.
+}
+
+// Reuse the app-synchronized clock and retained local offset for serial logs.
+bool readLocalLogTime(tm& localTime) {
+    if (!bedtimeTimeKnown()) {
+        return false;
+    }
+    time_t localEpoch = time(nullptr) + static_cast<time_t>(bedtimeTzOffsetMin) * 60;
+    return gmtime_r(&localEpoch, &localTime) != nullptr;
 }
 
 // ---------------------------------------------------------------------------
@@ -1563,6 +1582,7 @@ void publishBleValues() {
     bleService.updateTheme(activeTheme);
     bleService.updateStatus(bleStatusForState(state));
     bleService.updateBatteryState(batteryMonitor.encodedState());
+    bleService.updateChargerStatus(HAS_BQ25186 ? charger.snapshot() : ChargerStatus::Snapshot{});
     publishConfigAttributes();
     lastBleStatusPublishMs = millis();
 }

@@ -235,6 +235,106 @@ I2C. Firmware remains awake while valid charger input is present. For
 battery-only deep sleep it disables charging and the BQ25186 host watchdog;
 wake performs a fresh full configuration and verification.
 
+`ChargerStatus` is a separate interpretation layer above register decoding. It
+combines the reported charge phase with verified communication, valid input
+power, and the firmware's `/CE` command. `BQ25186Charger::status()` exposes the
+result; `[Charger status] time=<local date and time> STATUS=<value>` is
+printed initially and when the interpreted value changes.
+
+| Interpreted status | Meaning |
+|---|---|
+| `UNKNOWN` | No valid observation, or waiting for a read after enabling charging. |
+| `NO_INPUT` | The latest valid observation reports no usable external power. |
+| `DISABLED` | External power is valid, but firmware has commanded charging off. |
+| `NOT_CHARGING` | Charging is enabled and the chip reports that it is not charging. |
+| `CHARGING` | Charging is enabled and the chip reports either CC or CV charging. |
+| `FINISHED` | Charging is enabled and a subsequent read reports charge completion. |
+
+Every `/CE` transition invalidates the sampled charge phase for interpretation
+until another successful read. This prevents the `DONE_OR_HOST_DISABLED` value
+read during startup or configuration recovery from becoming `FINISHED` merely
+because firmware enables charging afterwards. Confirmation comes through the
+normal interrupt/periodic read path. Failed reads produce `UNKNOWN`; removing
+input produces `NO_INPUT`, including when the chip still reports the combined
+done/disabled value. `FINISHED` describes the completed charge cycle, not a
+measured state-of-charge percentage, and is not latched across recharge.
+Charging activity is separate from simultaneous faults and limiting conditions.
+`BQ25186Charger::snapshot()` combines them for the app; the detailed field logs
+below retain the raw decoded observations.
+
+The read/notify charger characteristic
+`a1b2c3d4-e5f6-7890-abcd-ef12345678a0` carries a complete six-byte snapshot:
+
+| Byte | Meaning |
+|---|---|
+| 0 | Format version, currently `1`. |
+| 1 | Activity: `0` unknown, `1` no input, `2` disabled, `3` not charging, `4` charging, `5` finished. |
+| 2 | Bit 0: charger hardware available; bit 1: observations valid. |
+| 3–4 | Little-endian condition mask, using `ChargerStatus::Condition`. |
+| 5 | Reported-event mask: bit 0 reflects `BAT_OCP_FAULT` in the latest successful register read. |
+
+Condition bits 0–10 are temperature out of range, temperature-reduced charging,
+open temperature sensor, input-current limiting, system-voltage limiting,
+input-voltage limiting, thermal regulation, input overvoltage, battery
+undervoltage, safety-timer expiration, and supervision failure, respectively.
+Activity and conditions are independent, so several limits may be shown together.
+Failed supervision invalidates the observations and sets only supervision failure.
+The battery-overcurrent message and safety-timer warning follow the latest sampled
+bits: a reported 1 shows the condition and a reported 0 removes it. Firmware does
+not latch either indication across reads or infer whether the hardware recovered.
+The snapshot stays unchanged between successful reads; sampling is periodic and
+interrupt-driven. Earlier events remain available in the serial log.
+
+Firmware updates the readable snapshot even while disconnected and notifies only
+when its bytes change, respecting the existing Classic-Bluetooth settle interval.
+The whole value fits the minimum ATT notification payload. The app subscribes,
+then reads once, and applies subsequent notifications directly. Manual Refresh
+reads the latest firmware snapshot; it does not trigger an extra I2C transaction.
+The generic board reports `[1, 0, 0, 0, 0, 0]` (unavailable).
+
+Charger status, register, decoded-state, and event logs use local timestamps in
+`YYYY-MM-DD HH:MM:SS` format, using the clock and timezone offset synchronized
+by the parent app (also retained through deep sleep). Before synchronization
+on a cold boot, they print `time=UNKNOWN`.
+
+Serial prints `[Charger registers] time=<local date and time> STAT0=0x.. STAT1=0x.. FLAG0=0x.. PG=...`
+on the first complete successful read, when any of the three full register bytes
+or the physical `/PG` input changes, and after recovery from a failed read.
+The hexadecimal bytes preserve every bit, including reserved/wake bits and
+`FLAG0` transitions back to zero. Incomplete reads do not print a register snapshot.
+
+Serial also prints a complete `[Charger state] time=<local date and time> ...`
+snapshot on the first successful read, whenever a reported field changes, and
+on recovery after a failed read. Identical periodic or interrupt-triggered
+reads do not repeat these snapshots. Each decoded snapshot contains `CHARGE_STATUS`, `TEMP_STATUS`,
+`TS_OPEN_STAT`, `VIN_OVP_STAT`, `BUVLO_STAT`, `SAFETY_TMR_FAULT_FLAG`,
+`VIN_PGOOD_STAT`, `ILIM_ACTIVE_STAT`, `VDPPM_ACTIVE_STAT`,
+`VINDPM_ACTIVE_STAT`, `THERMREG_ACTIVE_STAT`, and the physical `/PG` input.
+The charging values are `NOT_CHARGING`, `CHARGING_CONSTANT_CURRENT`,
+`CHARGING_CONSTANT_VOLTAGE`, and `DONE_OR_HOST_DISABLED`. Temperature values
+are `NORMAL`, `HOT_OR_COLD_CHARGING_SUSPENDED`, `COOL_REDUCED_CURRENT`, and
+`WARM_REDUCED_VOLTAGE`. The combined values preserve what the chip can actually
+distinguish. Limiting/fault status uses `ACTIVE`/`INACTIVE`; input power uses
+`VALID_INPUT`/`NO_VALID_INPUT`. These names describe the sampled register values,
+not a measured battery temperature.
+
+`FLAG0` changes appear in the raw register log without triggering the decoded
+state log. Nonzero flags also produce a separate `[Charger events]` line listing
+`TS_FAULT`, `ILIM_ACTIVE_FLAG`, `VDPPM_ACTIVE_FLAG`, `VINDPM_ACTIVE_FLAG`,
+`THERMREG_ACTIVE_FLAG`, `VIN_OVP_FAULT_FLAG`, `BUVLO_FAULT_FLAG`, and/or
+`BAT_OCP_FAULT`. This preserves evidence of short events that may have ended
+before the live status read, including battery overcurrent, which has no
+separate live status bit. Reasserted flags do not necessarily mean a new event.
+Reserved and unused TS/MR wake flags do not trigger state logs. The safety-timer
+indication in `STAT1` remains visible as `DETECTED`/`NOT_REPORTED`: TI marks it
+read-to-clear, but clearing the charging fault requires a `/CE`, charge-enable,
+or input-power toggle. Reading zero is not proof that charging recovered.
+See the [BQ25186 datasheet, sections 6.3.8.7 and 6.5.1.1–6.5.1.3](https://www.ti.com/lit/ds/symlink/bq25186.pdf).
+Timestamps represent successful sampling time, not the exact instant of a
+hardware transition; interrupt handling and periodic reads cannot reconstruct
+every rapid fluctuation. The app shows the interpreted activity and conditions
+alongside the separate coarse battery-level characteristic.
+
 Two independent hang detectors protect this flow. The ESP32 task watchdog
 registers Arduino `loop()` on CPU1 alongside the already watched CPU0 idle task;
 the current ESP-IDF configuration uses a five-second timeout. While awake, the
@@ -465,6 +565,7 @@ The high-level components are:
 | `firmware/esp32/src/BedtimeMode.*`      | Pure rules for daily windows and manual overrides.                                       |
 | `firmware/esp32/src/PeripheralPower.*`  | Power-gating behavior during boot and deep sleep.                                        |
 | `firmware/esp32/src/BQ25186Charger.*`   | Fail-closed charger setup, direct I2C read-back, periodic verification, status, and watchdog handling. |
+| `firmware/esp32/src/ChargerStatus.*`   | Interprets charge phase, host enable, input power, and observation validity into a usable charging status. |
 | `firmware/esp32/src/BatteryMonitor.*`   | Coarse ADC battery bands plus the charger-reported `CHARGING` override.                   |
 | `firmware/esp32/src/StatusLed.*` and `StatusLedPolicy.*` | Semantic status priority, blink timing, brightness limiting, and the single addressable-LED/RMT owner. |
 | `firmware/esp32/src/Config.h`           | Pin assignments, BLE identifiers, and firmware fallback values.                          |

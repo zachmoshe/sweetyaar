@@ -30,10 +30,12 @@ If the venv is active, `pytest` is equivalent.
   executing the production acknowledgment and config-state serializers; checks
   complete values and correct escaping for all five state groups.
 - `test_state_machine.py`: pytest wrapper that compiles and runs native C++ state-machine tests.
+- `test_charger_status.py`: tests the pure charger status interpretation and the real charger driver against scripted I2C/GPIO inputs, including completion versus host disable, stale samples after enable changes, separate event logs, polling/interrupts, read failure/recovery, simultaneous app conditions, latest-read timeout and overcurrent indications, and binary snapshot encoding.
 - `state_machine_native_test.cpp`: host-side C++ behavior tests for the real `firmware/esp32/src/StateMachine.cpp`.
 - `native_stubs/`: tiny Arduino/FreeRTOS headers used only by native host tests.
 - `test_parent_app.py`: pytest wrapper for the parent-app UI regression runner.
 - `parent_app_ui_test.js`: fake DOM plus fake Web Bluetooth/GATT tests for `app/public/index.html`.
+  Charger cases cover battery navigation, live activity/condition strings, warning/error border priority independent of battery level, all condition severities, malformed/failed reads and refresh recovery, unavailable diagnostics, and stale callbacks after disconnect. `test_ble_transport.py` also checks the complete six-byte notification and change-only publishing.
 - `test_catalog_pagination.py`: compiles the production catalog serializers and
   checks page size, complete traversal, packing efficiency, and consumption by
   the real app's scan functions. `catalog_scan_native_test.cpp` supplies the RAM

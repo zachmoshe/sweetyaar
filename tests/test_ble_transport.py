@@ -8,6 +8,74 @@ from helpers import run_checked
 from test_catalog_pagination import production_function
 
 
+def test_charger_snapshot_fits_notification_and_only_publishes_changes(repo_root, tmp_path):
+    compiler = shutil.which("c++")
+    if not compiler:
+        pytest.skip("A C++ compiler is required for BLE transport tests.")
+    src = repo_root / "firmware/esp32/src"
+    source = (src / "BLEParentService.cpp").read_text()
+    program = tmp_path / "charger_ble.cpp"
+    program.write_text(r'''
+#include <cassert>
+#include <cstring>
+#include <vector>
+#include "ChargerStatus.h"
+struct BLECharacteristic {
+    std::vector<uint8_t> value;
+    int notifications = 0;
+    void setValue(uint8_t* bytes, size_t length) { value.assign(bytes, bytes + length); }
+    void notify() { ++notifications; }
+};
+struct BLEParentService {
+    BLECharacteristic* _chargerChar = nullptr;
+    bool _connected = false;
+    bool _hasChargerValue = false;
+    uint8_t _lastChargerValue[ChargerStatus::ENCODED_SIZE] = {};
+    void updateChargerStatus(const ChargerStatus::Snapshot&);
+};
+''' + production_function(source, "BLEParentService::updateChargerStatus") + r'''
+int main() {
+    BLEParentService ble;
+    BLECharacteristic characteristic;
+    ble.updateChargerStatus({}); // safe before begin()
+    ble._chargerChar = &characteristic;
+    ble.updateChargerStatus({});
+    assert(characteristic.value == std::vector<uint8_t>({1, 0, 0, 0, 0, 0}));
+    assert(characteristic.notifications == 0);
+    ble._connected = true;
+    ble.updateChargerStatus({});
+    assert(characteristic.notifications == 0);
+    ChargerStatus::Snapshot snapshot;
+    snapshot.available = snapshot.valid = true;
+    snapshot.state = ChargerStatus::State::Charging;
+    snapshot.conditions = ChargerStatus::ThermalRegulation | ChargerStatus::InputVoltageLimit;
+    ble.updateChargerStatus(snapshot);
+    assert(characteristic.value == std::vector<uint8_t>({1, 4, 3, 0x60, 0, 0}));
+    assert(characteristic.notifications == 1 && characteristic.value.size() <= 20);
+    ble.updateChargerStatus(snapshot);
+    assert(characteristic.notifications == 1);
+    snapshot.conditions = ChargerStatus::InputVoltageLimit;
+    ble.updateChargerStatus(snapshot);
+    assert(characteristic.notifications == 2); // activity unchanged, warning cleared
+    snapshot.reportedEvents = ChargerStatus::BatteryOvercurrent;
+    ble.updateChargerStatus(snapshot);
+    assert(characteristic.notifications == 3 && characteristic.value[5] == 1);
+    snapshot.reportedEvents = 0;
+    ble.updateChargerStatus(snapshot);
+    assert(characteristic.notifications == 4 && characteristic.value[5] == 0);
+    assert(characteristic.value[1] == 4); // clearing the event alone is published
+    ble._connected = false;
+    snapshot.state = ChargerStatus::State::Finished;
+    ble.updateChargerStatus(snapshot);
+    assert(characteristic.notifications == 4 && characteristic.value[1] == 5);
+}
+''')
+    executable = tmp_path / "charger_ble"
+    run_checked([compiler, "-std=c++17", "-Wall", "-Wextra", "-I", src,
+                 program, src / "ChargerStatus.cpp", "-o", executable])
+    run_checked([executable])
+
+
 def test_config_transport_preserves_themes(repo_root, tmp_path):
     compiler = shutil.which("c++")
     if not compiler:

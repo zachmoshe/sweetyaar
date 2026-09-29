@@ -85,6 +85,45 @@ the **Used as a speaker** screen. Local playback, theme, volume, loop, and Quiet
 time controls remain unavailable until that audio connection ends. Stream
 volume belongs to the phone, tablet, or computer sending the audio.
 
+## Battery and charging diagnostics
+
+Press the battery icon on the Ready screen to open **Battery & charging**.
+This read-only debugging screen shows the human charge status, followed by
+errors (when present), warnings, and details. It updates as firmware reports
+changes; **Refresh** rereads its latest snapshot and **Back** returns to the remote.
+There is no UI debounce, so brief limits can appear and disappear during testing.
+
+The battery fill keeps its level color. Its border is orange while any warning
+is present and red while any error is present; errors take precedence. With no
+alerts the border is neutral. Details alone do not change the border.
+
+| Group | Conditions shown |
+|---|---|
+| Errors | ESP32-to-charger communication/configuration failure; reported battery overcurrent. |
+| Warnings | Battery temperature outside the charging range, possible temperature-sensor fault or very low battery (`TS_OPEN_STAT`), charger thermal regulation (`THERMREG_ACTIVE_STAT`), input overvoltage, battery undervoltage, safety-timer expiration. |
+| Details | Temperature-reduced charging, input-current limiting, system-voltage limiting, input-voltage limiting (`VINDPM_ACTIVE_STAT`). |
+
+Charge-status labels are **Unknown**, **No external power**, **Charging disabled**,
+**Not charging**, **Charging**, and **Charging finished**. Finished describes the
+charger's completed cycle, not a measured percentage. Warnings and details can
+coexist with any activity. Battery overcurrent follows the latest sampled
+`BAT_OCP_FAULT` value. A 1 shows the error; the next successful read reporting 0
+removes it and the red border, unless another charger error is present. The
+safety-timer warning likewise follows its latest sampled bit. Neither requires
+an app-side acknowledgement or a restart to clear from the display.
+
+App-to-device BLE read, decoding, or notification-subscription failures appear
+in a separate app connection-error banner. They do not become charger errors or
+change the battery border. A failed read clears the stale snapshot and hides
+the charge-status card until another valid reading arrives; a failed notification
+subscription still allows manual Refresh. ESP32-to-charger supervision failure
+remains **Unknown** plus a charger error, with charging disabled by firmware.
+
+The charger characteristic is optional. Older firmware or a generic prototype
+without the charger shows **Unavailable**, with no false assertion that there
+are no warnings. Unsupported diagnostics do not prevent normal remote controls.
+See [Firmware](firmware.md#charger-supervision) for the binary snapshot format.
+
 ## Settings and content
 
 The Settings screen reads the toy's saved configuration and its SD-card content
@@ -217,8 +256,8 @@ or build step. Its production files are:
 | `app/public/assets/` | Browser-ready artwork, control icons, favicons, and install icons. |
 | `app/public/CNAME` | The custom domain published with the Pages artifact. |
 
-The interface has four states: the opening connection screen, the Ready remote,
-the Bluetooth-streaming status screen, and Settings. `index.html` owns the
+The interface has five screens: the opening connection screen, the Ready remote,
+the Bluetooth-streaming status screen, Settings, and Battery & charging. `index.html` owns the
 transitions between them and communicates with the BLE service implemented by
 `firmware/esp32/src/BLEParentService.*`. It first reads the live characteristics used for
 volume, theme, Quiet time, status, battery state, and commands, then uses the

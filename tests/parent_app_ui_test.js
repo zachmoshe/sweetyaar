@@ -33,13 +33,13 @@ class FakeClassList {
     return enabled;
   }
 
-  add(name) {
-    this.values.add(name);
+  add(...names) {
+    for (const name of names) this.values.add(name);
     this.owner._className = [...this.values].join(" ");
   }
 
-  remove(name) {
-    this.values.delete(name);
+  remove(...names) {
+    for (const name of names) this.values.delete(name);
     this.owner._className = [...this.values].join(" ");
   }
 
@@ -335,7 +335,8 @@ class FakeCharacteristic {
 
   emit(value) {
     this.value = value;
-    const data = typeof value === "number" ? uint8View(value) : textView(String(value));
+    const data = typeof value === "number" ? uint8View(value)
+      : value instanceof DataView ? value : textView(String(value));
     for (const listener of this.listeners.characteristicvaluechanged || []) {
       listener({ target: { value: data } });
     }
@@ -500,7 +501,8 @@ function makeBleHarness(options = {}) {
     configCommand: new FakeCharacteristic("configCommand", "{}", readHooks),
     configResponse: new FakeCharacteristic("configResponse", JSON.stringify(response), readHooks),
     notice: new FakeCharacteristic("notice", "{}", readHooks),
-    battery: new FakeCharacteristic("battery", options.battery ?? 1, readHooks)
+    battery: new FakeCharacteristic("battery", options.battery ?? 1, readHooks),
+    charger: new FakeCharacteristic("charger", bytesView(options.charger ?? [1, 4, 3, 0, 0, 0]), readHooks)
   };
 
   function configValues() {
@@ -673,6 +675,161 @@ async function waitForSettingsLoaded() {
 `;
 
 const tests = [
+  ["battery opens live diagnostics with warning priority and independent level color", String.raw`
+    const ble = await connectWithFakeBle({ battery: 1, charger: [1, 4, 3, 0x60, 0, 0] });
+    assert(ble.notifications.includes("charger"));
+    assert(ble.reads.includes("charger"));
+    assert(els.batteryIndicator.classList.contains("good"));
+    assert(els.batteryIndicator.classList.contains("charger-warning"));
+    assert(!els.batteryIndicator.classList.contains("charger-error"));
+    await els.batteryIndicator.click();
+    assertVisible(els.chargerView, [els.readyView, els.settingsView, els.streamingView, els.openingView]);
+    assert.strictEqual(els.chargerStatusText.textContent, "Charging");
+    assert.strictEqual(els.chargerWarnings.children[0].textContent, "Charging reduced because the charger is hot.");
+    assert.strictEqual(els.chargerDetails.children[0].textContent, "Power-supply voltage is dropping.");
+    ble.reads.length = 0;
+    ble.chars.charger.emit(bytesView([1, 4, 3, 0x60, 0, 1]));
+    assert.strictEqual(els.chargerErrors.children[0].textContent, "Battery overcurrent detected.");
+    assert.strictEqual(els.chargerErrors.children[0].children.length, 0);
+    assert(els.batteryIndicator.classList.contains("charger-error"));
+    assert(!els.batteryIndicator.classList.contains("charger-warning"));
+    assert(els.batteryIndicator.classList.contains("good"));
+    assert.strictEqual(els.chargerWarningsSection.hidden, false);
+    assert.strictEqual(els.chargerDetailsSection.hidden, false);
+    assertJsonEqual(ble.reads, []); // no extra GATT work per notification
+    // Clear overcurrent without changing the charge activity or other conditions.
+    ble.chars.charger.emit(bytesView([1, 4, 3, 0x60, 0, 0]));
+    assert.strictEqual(els.chargerStatusText.textContent, "Charging");
+    assert.strictEqual(els.chargerErrorsSection.hidden, true);
+    assert(!els.batteryIndicator.classList.contains("charger-error"));
+    assert(els.batteryIndicator.classList.contains("charger-warning"));
+    ble.chars.charger.emit(bytesView([1, 5, 3, 0, 0, 0]));
+    assert.strictEqual(els.chargerStatusText.textContent, "Charging finished");
+    assert.strictEqual(els.chargerErrorsSection.hidden, true);
+    assert.strictEqual(els.chargerNoWarnings.hidden, false);
+    assert(!els.batteryIndicator.classList.contains("charger-error"));
+    assert(!els.batteryIndicator.classList.contains("charger-warning"));
+    await els.chargerBackButton.click();
+    assertVisible(els.readyView, [els.chargerView]);
+  `],
+  ["every charger activity and condition has a human description and severity", String.raw`
+    const ble = await connectWithFakeBle();
+    const names = ["Unknown", "No external power", "Charging disabled", "Not charging", "Charging", "Charging finished"];
+    for (let activity = 0; activity < names.length; activity++) {
+      ble.chars.charger.emit(bytesView([1, activity, 3, 0, 0, 0]));
+      assert.strictEqual(els.chargerStatusText.textContent, names[activity]);
+    }
+    const warningBits = [0, 2, 6, 7, 8, 9];
+    const detailBits = [1, 3, 4, 5];
+    for (let bit = 0; bit <= 10; bit++) {
+      const mask = 1 << bit;
+      ble.chars.charger.emit(bytesView([1, bit === 10 ? 0 : 4, bit === 10 ? 1 : 3, mask & 255, mask >> 8, 0]));
+      assert.strictEqual(els.chargerWarnings.children.length, warningBits.includes(bit) ? 1 : 0);
+      assert.strictEqual(els.chargerDetails.children.length, detailBits.includes(bit) ? 1 : 0);
+      assert.strictEqual(els.chargerErrors.children.length, bit === 10 ? 1 : 0);
+      assert.strictEqual(els.batteryIndicator.classList.contains("charger-warning"), warningBits.includes(bit));
+    }
+    ble.chars.charger.emit(bytesView([1, 4, 3, 0xff, 3, 0]));
+    assert.strictEqual(els.chargerWarnings.children.length, 6);
+    assert.strictEqual(els.chargerDetails.children.length, 4);
+  `],
+  ["charger reads fail visibly without disconnecting controls and Refresh recovers", String.raw`
+    const ble = await connectWithFakeBle();
+    ble.chars.charger.readValue = async () => { throw new Error("read failed"); };
+    await els.chargerRefreshButton.click();
+    assert(state.connected);
+    assert.strictEqual(state.charger, null);
+    assert(!els.batteryIndicator.classList.contains("charger-error"));
+    assert.strictEqual(els.appConnectionError.hidden, false);
+    assert.strictEqual(els.appConnectionErrorMessage.textContent, "Could not read charger status.");
+    assert.strictEqual(els.chargerErrorsSection.hidden, true);
+    assert.strictEqual(els.chargerWarningsSection.hidden, true);
+    assert.strictEqual(els.chargerStatusCard.hidden, true);
+    ble.chars.charger.readValue = async () => bytesView([1, 4, 3, 0x20, 0, 0]);
+    await els.chargerRefreshButton.click();
+    assert.strictEqual(els.chargerStatusText.textContent, "Charging");
+    assert.strictEqual(els.chargerStatusCard.hidden, false);
+    assert.strictEqual(els.appConnectionError.hidden, true);
+    assert.strictEqual(els.chargerErrorsSection.hidden, true);
+    assert.strictEqual(els.chargerDetails.children.length, 1);
+    assert(!els.batteryIndicator.classList.contains("charger-error"));
+  `],
+  ["malformed charger notifications discard stale state and recover on valid input", String.raw`
+    const ble = await connectWithFakeBle();
+    for (const bytes of [[1], [2,4,3,0,0,0], [1,6,3,0,0,0], [1,4,2,0,0,0], [1,0,3,0,8,0], [1,0,0,1,0,0], [1,4,3,0,0,2]]) {
+      ble.chars.charger.emit(bytesView(bytes));
+      assert.strictEqual(state.charger, null);
+      assert.strictEqual(els.chargerStatusCard.hidden, true);
+      assert.strictEqual(els.appConnectionError.hidden, false);
+      assert.strictEqual(els.chargerErrorsSection.hidden, true);
+      assert(!els.batteryIndicator.classList.contains("charger-error"));
+      ble.chars.charger.emit(bytesView([1, 4, 3, 0, 0, 0]));
+      assert.strictEqual(state.chargerTransportError, "");
+      assert.strictEqual(els.appConnectionError.hidden, true);
+      assert.strictEqual(els.chargerStatusCard.hidden, false);
+      assert(!els.batteryIndicator.classList.contains("charger-error"));
+    }
+  `],
+  ["failed charger notification subscription preserves controls and manual readings", String.raw`
+    const ble = makeBleHarness({ charger: [1, 4, 3, 0x40, 0, 0] });
+    ble.chars.charger.startNotifications = async () => { throw new Error("notify unavailable"); };
+    await els.connectButton.click();
+    await waitUntil(() => !state.remoteInitializing, "remote initialization");
+    assert(state.connected && state.charger.valid);
+    assert.strictEqual(state.chargerSubscribed, false);
+    assert(!els.batteryIndicator.classList.contains("charger-error"));
+    assert(els.batteryIndicator.classList.contains("charger-warning"));
+    assert.strictEqual(els.chargerErrorsSection.hidden, true);
+    assert.strictEqual(els.chargerStatusCard.hidden, false);
+    assert.strictEqual(els.appConnectionError.hidden, false);
+    assert.strictEqual(els.appConnectionErrorMessage.textContent, "Live charger updates are unavailable.");
+    ble.chars.charger.value = bytesView([1, 5, 3, 0, 0, 0]);
+    await els.chargerRefreshButton.click();
+    assert.strictEqual(els.chargerStatusText.textContent, "Charging finished");
+    assert(!els.batteryIndicator.classList.contains("charger-warning"));
+    assert(els.chargerUpdateNote.textContent.includes("Refresh"));
+    onDisconnected();
+    assert.strictEqual(els.appConnectionError.hidden, true);
+  `],
+  ["charger supervision failures remain device errors rather than app connection errors", String.raw`
+    const ble = await connectWithFakeBle({ charger: [1, 0, 1, 0, 4, 0] });
+    assert.strictEqual(els.appConnectionError.hidden, true);
+    assert.strictEqual(els.chargerStatusCard.hidden, false);
+    assert.strictEqual(els.chargerStatusText.textContent, "Unknown");
+    assert.strictEqual(els.chargerErrors.children[0].textContent, "Charger communication or configuration failed. Charging is disabled.");
+    assert(els.batteryIndicator.classList.contains("charger-error"));
+    ble.chars.charger.emit(bytesView([1, 4, 3, 0, 0, 0]));
+    assert.strictEqual(els.chargerErrorsSection.hidden, true);
+    assert(!els.batteryIndicator.classList.contains("charger-error"));
+  `],
+  ["old firmware and generic boards report diagnostics unavailable without false assurance", String.raw`
+    for (const options of [{ missingCharacteristics: ["charger"] }, { charger: [1, 0, 0, 0, 0, 0] }]) {
+      await connectWithFakeBle(options);
+      assert(state.connected);
+      await els.batteryIndicator.click();
+      assert.strictEqual(els.chargerStatusText.textContent, "Unavailable");
+      assert.strictEqual(els.chargerWarningsSection.hidden, true);
+      assert.strictEqual(els.chargerDetailsSection.hidden, true);
+      assert(!els.batteryIndicator.classList.contains("charger-error"));
+      onDisconnected();
+    }
+  `],
+  ["disconnect prevents a pending charger read or old notification leaking into reconnect", String.raw`
+    const ble = await connectWithFakeBle();
+    let finishRead;
+    ble.chars.charger.readValue = () => new Promise((resolve) => { finishRead = resolve; });
+    const pending = readChargerStatus();
+    await waitUntil(() => !!finishRead, "charger read starts");
+    onDisconnected();
+    assert.strictEqual(state.charger, null);
+    assert.strictEqual(els.chargerView.hidden, true);
+    finishRead(bytesView([1, 4, 3, 0xff, 3, 1]));
+    await pending;
+    await connectWithFakeBle({ charger: [1, 1, 3, 0, 0, 0] });
+    ble.chars.charger.emit(bytesView([1, 4, 3, 0xff, 3, 1]));
+    assert.strictEqual(els.chargerStatusText.textContent, "No external power");
+    assert.strictEqual(els.chargerErrorsSection.hidden, true);
+  `],
   ["config subscriptions precede every update and replies are acknowledgments", String.raw`
     const ble = await connectWithFakeBle({ synchronousConfigNotify: true, trackConcurrentReads: true });
     await toggleBedtimeMode();
@@ -1335,7 +1492,7 @@ const tests = [
     assert.strictEqual(els.volumeValue.textContent, "31%");
     assert.strictEqual(els.themeCurrent.textContent, "Nature");
     assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime", "syncTime"]);
-    assert.deepStrictEqual(ble.notifications, ["status", "configResponse", ...CONFIG_ATTRIBUTES, "volume", "killswitch", "theme", "notice", "battery"]);
+    assert.deepStrictEqual(ble.notifications, ["status", "configResponse", ...CONFIG_ATTRIBUTES, "volume", "killswitch", "theme", "notice", "battery", "charger"]);
   `],
   ["remote playback buttons write command values", String.raw`
     const ble = await connectWithFakeBle();
