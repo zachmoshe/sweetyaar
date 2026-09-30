@@ -317,9 +317,9 @@ void setup() {
         statusLed.setSignal(StatusSignal::Error, true);
     }
 
-    // Battery initialization deliberately happens after the high-current boot
-    // work. Five readings over roughly 500 ms seed an immediate coarse state;
-    // later readings extend the rolling window at 30-second intervals.
+    // Configure battery sensing after the high-current boot work. poll() takes
+    // five readings at least 100 ms apart without delaying setup or the loop;
+    // BLE initially reports Unknown, then publishes the completed coarse state.
     batteryMonitor.begin(HAS_BQ25186 && charger.charging());
 
     // BLE parent service — shares the controller already started by A2DP.

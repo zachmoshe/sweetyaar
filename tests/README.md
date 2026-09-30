@@ -15,6 +15,9 @@ If the venv is active, `pytest` is equivalent.
 - `helpers.py`: subprocess helpers and PlatformIO discovery.
 - `test_firmware_config.py`: static checks for checked-in SD-card templates and app-owned config defaults.
 - `test_firmware_build.py`: no-device firmware build checks through PlatformIO.
+- `test_battery_monitor.py`: runs the real battery monitor with a fake clock and
+  ADC; checks nonblocking startup, delayed polls, seed weighting, invalid-reading
+  recovery, charging notifications, timer wraparound, and reinitialization.
 - `test_audio_handoff.py`: runs the production state-entry handler with the
   installed WAV decoder and volume stream. Checks repeated 48/44.1 kHz Bluetooth
   sessions restore the local format while muted, including return via Quiet time

@@ -190,12 +190,16 @@ or a percentage. It publishes only one coarse state:
 | 3 | `LOW` | Charge now; playback may soon stop as the protected battery or charger power path reaches cutoff. |
 | 4 | `CHARGING` | BQ25186 `STAT0.CHG_STAT` reports constant-current or constant-voltage charging; this temporarily overrides the voltage band. |
 
-Battery initialization runs after the higher-current boot work. Five samples
-100 ms apart are averaged into one seed observation, so the initial state is
-available after about half a second rather than after a full rolling window.
-One new sample is then added every 30 seconds; the window grows to ten samples,
-or about five minutes, and stays at that size. The seed counts once rather than
-five times.
+Battery sensing is configured after the higher-current boot work. `begin()`
+returns without waiting or reading the ADC; `poll()` takes the first reading
+on the first loop iteration and four more at least 100 ms apart. Each call takes
+at most one reading, so buttons, BLE, and playback continue between samples.
+BLE initially reports `UNKNOWN`. If all five readings are valid, their mean
+seeds the rolling window and the new state is published through the normal
+change notification. Otherwise the state remains `UNKNOWN` until a valid
+periodic reading. One new sample is added every 30 seconds after the final
+startup reading; the window grows to ten samples, or about five minutes, and
+stays at that size. The startup mean counts once rather than five times.
 
 The state uses 100 mV hysteresis: `GOOD` falls to `MEDIUM` at 3.40 V and returns
 at 3.50 V; `MEDIUM` falls to `LOW` at 3.10 V and returns at 3.20 V. Voltage

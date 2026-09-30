@@ -19,8 +19,8 @@ static_assert(static_cast<uint8_t>(BatteryState::Charging) == 4, "BLE battery en
 
 class BatteryMonitor {
 public:
-    // Call after the rest of boot initialization has settled. This blocks for
-    // roughly 500 ms while five ADC readings seed the first published state.
+    // Configure after the high-current boot work; returns without sampling.
+    // State stays Unknown until poll() completes the five startup readings.
     void begin(bool charging);
 
     // Call from loop(). Returns true only when the public battery state changes.
@@ -44,7 +44,10 @@ private:
     uint8_t _nextSample = 0;
     bool _charging = false;
     bool _hasValidVoltage = false;
-    uint32_t _lastPeriodicSampleMs = 0;
+    uint32_t _bootTotalMv = 0;
+    uint8_t _bootSamplesTaken = 0;
+    uint8_t _validBootSamples = 0;
+    uint32_t _lastSampleMs = 0;
 };
 
 const char* batteryStateName(BatteryState state);

@@ -25,41 +25,46 @@ void BatteryMonitor::begin(bool charging) {
     pinMode(PIN_BATTERY_ADC, INPUT);
     analogSetPinAttenuation(PIN_BATTERY_ADC, ADC_2_5db);
 
-    uint32_t bootTotalMv = 0;
-    uint8_t validBootSamples = 0;
-    for (uint8_t i = 0; i < BATTERY_BOOT_SAMPLE_COUNT; ++i) {
-        uint16_t batteryMv = readBatteryMillivolts();
-        if (batteryMv != 0) {
-            bootTotalMv += batteryMv;
-            ++validBootSamples;
-        }
-        delay(BATTERY_BOOT_SAMPLE_INTERVAL_MS);
-    }
-
-    // The five closely-spaced readings are one seed observation. Storing their
-    // mean once prevents boot from outweighing the later 30-second samples.
-    if (validBootSamples == BATTERY_BOOT_SAMPLE_COUNT) {
-        addVoltageSample(static_cast<uint16_t>(
-            (bootTotalMv + validBootSamples / 2U) / validBootSamples));
-    } else {
-        Serial.printf("[Battery] Initial ADC invalid (%u/%u valid)\n",
-                      validBootSamples, BATTERY_BOOT_SAMPLE_COUNT);
-    }
-
+    _state = BatteryState::Unknown;
+    _voltageState = BatteryState::Unknown;
+    _sampleCount = 0;
+    _nextSample = 0;
+    _hasValidVoltage = false;
+    _bootTotalMv = 0;
+    _bootSamplesTaken = 0;
+    _validBootSamples = 0;
+    _lastSampleMs = millis();
     updateChargerState(charging);
-    updatePublicState();
-    _lastPeriodicSampleMs = millis();
-    Serial.printf("[Battery] Initial state=%s\n", batteryStateName(_state));
 }
 
 bool BatteryMonitor::poll(bool charging) {
     BatteryState previous = _state;
-    updateChargerState(charging);
-
     uint32_t now = millis();
-    if (now - _lastPeriodicSampleMs >= BATTERY_SAMPLE_INTERVAL_MS) {
-        // Preserve a stable cadence even if one main-loop iteration is late.
-        _lastPeriodicSampleMs = now;
+    if (_bootSamplesTaken < BATTERY_BOOT_SAMPLE_COUNT) {
+        // Start on the first loop iteration. Never catch up missed intervals
+        // with a burst: each call reads at most once, at least 100 ms apart.
+        if (_bootSamplesTaken == 0 ||
+            now - _lastSampleMs >= BATTERY_BOOT_SAMPLE_INTERVAL_MS) {
+            _lastSampleMs = now;
+            uint16_t batteryMv = readBatteryMillivolts();
+            ++_bootSamplesTaken;
+            if (batteryMv != 0) {
+                _bootTotalMv += batteryMv;
+                ++_validBootSamples;
+            }
+            if (_bootSamplesTaken == BATTERY_BOOT_SAMPLE_COUNT) {
+                // Store the mean once so boot does not outweigh later samples.
+                if (_validBootSamples == BATTERY_BOOT_SAMPLE_COUNT) {
+                    addVoltageSample(static_cast<uint16_t>(
+                        (_bootTotalMv + _validBootSamples / 2U) / _validBootSamples));
+                } else {
+                    Serial.printf("[Battery] Initial ADC invalid (%u/%u valid)\n",
+                                  _validBootSamples, BATTERY_BOOT_SAMPLE_COUNT);
+                }
+            }
+        }
+    } else if (now - _lastSampleMs >= BATTERY_SAMPLE_INTERVAL_MS) {
+        _lastSampleMs = now;
         uint16_t batteryMv = readBatteryMillivolts();
         if (batteryMv != 0) {
             addVoltageSample(batteryMv);
@@ -68,6 +73,9 @@ bool BatteryMonitor::poll(bool charging) {
         }
     }
 
+    // Apply charging after sampling so the first valid reading can publish
+    // CHARGING immediately, including recovery from invalid startup readings.
+    updateChargerState(charging);
     updatePublicState();
     if (_state != previous) {
         Serial.printf("[Battery] State %s -> %s\n",
