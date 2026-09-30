@@ -12,6 +12,11 @@ This document is the hardware source of truth. The pin definitions in
 parent controls. Unresolved production choices are called out in highlighted
 **TBD** blocks so they are not lost inside otherwise authoritative prose.
 
+Review the current KiCad schematic and PCB for the electrical implementation.
+Files under `hardware/mainboard/production/` are older manufacturing exports;
+they do not supersede the editable design and must be regenerated for a new
+fabrication run.
+
 ## System overview
 
 The ESP32 owns every digital interface. It reads content from the SD card over
@@ -306,10 +311,11 @@ held in BQ25186 registers and checked by firmware. The selected Semitec
 conductor. The charger
 biases `TS/MR` while an input source is present; there is no intended thermistor
 current path in battery-only sleep, but final-board leakage at this pin remains
-part of the sleep-current audit. Never leave `BAT_TEMP` open: an open input is
-interpreted as a temperature fault and prevents normal charging. A fixed 10 kΩ
-substitute would defeat real cell-temperature protection and is not a
-production option.
+part of the sleep-current audit. In normal use, never leave `BAT_TEMP` open: an
+open input is interpreted as a temperature fault and prevents normal charging.
+The board also retains a deliberate 10 kΩ debug bypass through `JP3` and
+`R_TH1`; leave `JP3` open for normal use with the cell-mounted thermistor. See
+the battery section for the bypass wiring and exceptional-use policy.
 
 > [!WARNING]
 > **TBD — Close the deep-sleep design budget:** Obtain or measure the
@@ -544,8 +550,9 @@ capacity may vary without changing the PCB design.
 | Charge current | **1 A production default**, programmed and read back over I2C. There is no `ISET` resistor or current-selection jumper. |
 | Charger input-current limit | **1.05 A production default**, programmed and read back over I2C. There is no `ILIM/VSET` resistor ladder or `JP_ILIM`. |
 | USB charger requirement | Require a 5 V USB-C charger that advertises at least 1.5 A on CC. The 1.05 A programmed limit stays below that advertised capability. The two 5.1 kΩ CC pull-downs identify the board as a sink but do not decode the source's current advertisement. |
-| Battery connector | Use a four-position 2.5 mm-pitch JST-XH-family connector carrying `BAT+`, `BAT−`, `BAT_TEMP`, and `TS_RETURN`. Choose and clearly mark the physical pin order during schematic/layout review. |
-| Battery thermistor | Fit an insulated **Semitec 103AT-2** 10 kΩ NTC (10 kΩ at 25°C, B25/85 = 3435 K) firmly against the cell wrapper. Connect it only between `BAT_TEMP` and `TS_RETURN`; `BAT_TEMP` reaches BQ25186 `TS/MR`, while `TS_RETURN` returns independently to charger GND beside the IC. The fourth conductor is a Kelvin return: separating it from the current-carrying `BAT−` wire prevents harness voltage drop and load noise from shifting the small TS threshold voltage. Do not join `TS_RETURN` to `BAT−` at the holder. Never leave `BAT_TEMP` open. |
+| Battery connector | Use a **five-position** 2.5 mm-pitch JST-XH-family connector (`J_BATT1`, `JST_XH_B5B-XH-A_1x05_P2.50mm_Vertical`). Pin order is **1: GND / `BAT−`, 2: `BAT+`, 3: `TS_RETURN`, 4: `BAT_TEMP`, 5: unused / unconnected**. The harness has four conductors in a five-position housing; leave cavity 5 empty. The distinct position count reduces confusion with the four-position button connector while retaining the same connector family for ordering. |
+| Battery thermistor | Fit an insulated **Semitec 103AT-2** 10 kΩ NTC (10 kΩ at 25°C, B25/85 = 3435 K) firmly against the cell wrapper. Give it **two dedicated wires**, one to `BAT_TEMP` and one to `TS_RETURN`. `BAT_TEMP` reaches BQ25186 `TS/MR`; `TS_RETURN` returns independently to charger GND beside the IC. This Kelvin return avoids current-carrying `BAT−` harness voltage drop and noise at the small TS threshold voltage. Do not join either thermistor lead to `BAT−` at the holder or in the harness. In normal use, connect the thermistor and leave bypass `JP3` open. |
+| Thermistor debug bypass | Retain the existing normally-open `JP3` and 10 kΩ `R_TH1` on the board so debugging or a deliberate exceptional override can substitute a fixed resistance without reprinting the PCB. This disables real battery-temperature measurement; it is **not the normal-use configuration**. |
 | Cell-temperature policy | Program **0°C COLD and 45°C HOT hard charging cutoffs** to match the Fenix range, and disable the intermediate COOL/WARM derating zones. The cell PCM does not enforce this normal charging-temperature range; the external charger must do it. |
 | Hard-off policy | The SPST switch disconnects `SYS` from both regulators. `/CE` is also pulled HIGH when the ESP32 is unpowered, so USB/AUX cannot charge the battery while the device is hard-off. |
 
@@ -555,6 +562,15 @@ require a 5 V source advertising at least 1.5 A. VINDPM can reduce current when
 VBUS sags, but it does not make an arbitrary weak source compliant. System load
 still has priority over battery charging, so the actual charge current may be
 less than the 1 A target.
+
+The battery uses five positions because accidentally interchanging its harness
+with the button harness can short the battery or apply cell voltage to ESP32
+signals. Keeping JST-XH throughout simplifies component and crimp ordering;
+the extra, electrically unused battery position distinguishes this connection.
+Use the matching five-position header and housing, and verify the numbered pin
+order before connecting the cell. The current PCB already has this footprint
+and an unconnected pad 5; the saved schematic still has the earlier four-pin
+symbol/footprint and needs to be synchronized, including its ordering entry.
 
 #### BQ25186 pin migration and control
 
@@ -623,11 +639,32 @@ The 103AT-2 is the 10 kΩ/B25/85=3435 K profile used by TI's BQ25186 temperature
 thresholds. Firmware selects the hard 0°C and 45°C thresholds recommended for
 the reference Fenix battery and disables the optional intermediate zones.
 Validate actual suspend and recovery temperatures on the complete holder,
-including thermistor tolerance, sensor contact, and thermal lag. A fixed 10 kΩ
-substitute defeats cell-temperature protection and is not a production option.
+including thermistor tolerance, sensor contact, and thermal lag. Normal use
+always includes the thermistor attached to the cell, with `JP3` open.
+
+The existing board intentionally retains `JP3` and `R_TH1` rather than requiring
+a PCB reprint to remove the bypass. For debugging, or a deliberate exceptional
+decision to disable temperature measurement, closing `JP3` connects the fixed
+10 kΩ `R_TH1` between `BAT_TEMP` and `TS_RETURN`. With the thermistor disconnected,
+this represents approximately 25°C regardless of actual cell temperature, so
+the charger cannot enforce the cell's real hot/cold limits. Leaving the
+thermistor connected would put it in parallel with `R_TH1` and produce an
+incorrect reading, rather than a fixed-temperature substitute. Restore the
+cell-mounted thermistor and open `JP3` for normal use. The bypass is a retained
+debug/override facility, not a planned normal operating mode.
 See the [BQ25186 datasheet](https://www.ti.com/lit/ds/symlink/bq25186.pdf),
 [TI thermistor-selection note](https://www.ti.com/lit/an/spva059/spva059.pdf),
 and [Semitec 103AT family data](https://www.semitec-global.com/products/thermistor_at/).
+
+The charger spreads heat through its soldered exposed pad, two 0.2 mm-drill
+thermal vias in that pad, nearby GND stitching, and both large 35 µm inner GND
+planes. This is the intended thermal path. At 5 V input, 3 V battery voltage,
+and 1 A charge current, charger dissipation is approximately 2 W before current
+limiting. Copper area alone does not determine the temperature rise: heat must
+also leave the enclosed board. Confirm sustained charging current, thermal
+regulation, and cell/enclosure temperatures in the assembled doll; the configured
+100°C regulation threshold is an IC-junction threshold, not a cell-temperature
+limit.
 
 The PCB must accept charging power from either the onboard USB-C receptacle or
 an unpopulated, two-wire connection to a complete off-board power module located
@@ -903,8 +940,9 @@ converter dissipates about 0.17 W at 300 mA, 0.28 W at 500 mA, and 0.56 W at
 enclosure.
 
 > [!WARNING]
-> **Battery-temperature validation:** Temperature sensing and the four-wire
-> connector are fixed decisions for the ARB-L18-3500 reference design. Verify
+> **Battery-temperature validation:** Normal operation uses the cell-mounted
+> thermistor and a four-wire harness in the five-position battery connector,
+> with `JP3` open. These are fixed decisions for the reference design. Verify
 > charge suspend and recovery on the assembled holder. The insulated sensor must
 > remain in firm thermal contact with the removable cell without compromising its
 > wrapper or requiring soldering to the cell. Any substitute cell must be
@@ -963,16 +1001,29 @@ confused with the toy's operating current.
 ### PCB electrical interfaces and programming
 
 The production PCB is **four layers**. A two-layer implementation is not being
-pursued. Its outline and component placement are intentionally deferred until
-the electronics enclosure is designed. Electrically, the PCB must include:
+pursued. The current KiCad PCB contains its outline, placement, and routing;
+mechanical fit is checked against the enclosure design.
+
+Use **2.5 mm-pitch JST-XH-family connectors for all removable off-board wire
+harnesses** to simplify component ordering and use a common crimp/contact
+family. The project owner will assemble the final unit, so this intentionally
+accepts shared connector types for the two-pin speaker, hard-off switch, and
+optional auxiliary-power connections. Label these connections and check the
+pinout during assembly. The battery is the specific exception in position
+count: five positions with the last unused, versus four for the buttons,
+because a battery/button mix-up has much greater electrical consequences.
+USB, the microSD socket, and the programming contact pads retain their own
+interfaces.
+
+Electrically, the PCB must include:
 
 | Interface | Current requirement or decision |
 |---|---|
 | USB and auxiliary charging | The mainboard USB-C connector is power-only and is required for charging. Also provide unpopulated two-wire 5 V and GND auxiliary-input pads/footprint for a complete off-board source mounted elsewhere inside the device, such as a regulated wireless-charging receiver or power-only USB-C daughterboard. The PCBA vendor fits neither an auxiliary connector nor cable; it is added during device assembly when that option is used. `D2` remains populated on the mainboard. Firmware download and live serial logs use the separate USB-powered debugger through `J_PROG1`. |
 | Storage | Fit a replaceable bare microSD socket on `3V3_PERIPH_SW`, entirely inside the electronics enclosure. Changing the card requires opening the enclosure. Place the socket with insertion/removal clearance on the opened PCB, not at an enclosure edge or external opening. |
-| Battery | Use a protected removable 18650 in a holder. Connect its short harness through a four-position 2.5 mm-pitch JST-XH-family connector carrying `BAT+`, `BAT−`, `BAT_TEMP`, and `TS_RETURN`. Fit the insulated Semitec 103AT-2 between `BAT_TEMP` and `TS_RETURN` at the cell. Route `TS_RETURN` separately to charger GND; do not join it to the current-carrying `BAT−` conductor at the holder. |
-| Speaker | Use one keyed two-pin connector and a short stranded-wire harness. It must support either 4 Ω or 8 Ω speakers and must not be interchangeable with the battery connector. |
-| Song and animal buttons | Use one four-pin PCB connector arranged as `BTN_SONG`, GND, `BTN_ANIMAL`, GND. The two ground contacts join on the PCB, allowing four ordinary single-wire crimps and two independent two-wire button branches without a harness splice. |
+| Battery | Use a protected removable 18650 in a holder and a five-position JST-XH connector: 1 GND / `BAT−`, 2 `BAT+`, 3 `TS_RETURN`, 4 `BAT_TEMP`, 5 unused. Fit the insulated Semitec 103AT-2 against the cell with two dedicated wires to `BAT_TEMP` and `TS_RETURN`; do not join its return to the current-carrying `BAT−` conductor at the holder. Leave debug bypass `JP3` open in normal use. |
+| Speaker | Use one keyed two-pin JST-XH connector and a short stranded-wire harness. It must support either 4 Ω or 8 Ω speakers; the battery uses a distinct five-position connector. |
+| Song and animal buttons | Use one four-pin JST-XH PCB connector arranged as `BTN_SONG`, GND, `BTN_ANIMAL`, GND. The two ground contacts join on the PCB, allowing four ordinary single-wire crimps and two independent two-wire button branches without a harness splice. |
 | Main power | Fit a physical latching **SPST pushbutton switch** on the enclosure as an exceptional safety/service control; deep sleep is normal. The complete switch body—not merely a remote actuator—mounts on the enclosure. Place it in series between BQ25186 `SYS` and the regulator inputs; leave `BAT+` permanently connected to BQ25186 `BAT`. Connect the switch to the PCB with two conductors and a two-pin connector. The switch and every harness contact must carry the validated current with margin. |
 | Vibration wake | The normally-closed vibration switch is soldered directly onto the PCB. Exact part and footprint remain schematic/BOM selections; its physical orientation follows enclosure design. |
 | Indicators | Route BQ25186 `/PG` and `/INT` to ESP32 GPIO34/GPIO35; charger configuration and detailed status use I2C on GPIO16/GPIO17. Target one WS2812B-V6 (C52917433, 5050 SMD) on `5V_PERIPH_SW`, with 100 nF local decoupling and GPIO2 driving DIN through a series data resistor, without the old NPN/5 V pull-up. Verify direct-drive voltage margin, footprint, 24-bit GRB order and timing; preserve or test-pad `DOUT` for a future daisy-chained indicator. |
@@ -1054,13 +1105,14 @@ back into the target. The UART directions cross normally: CH340C pin 3 `RXD`
 receives target `UART_TXD`, and pin 2 `TXD` drives target `UART_RXD`.
 
 The debugger routes CH340C pin 13 `DTR#` and pin 14 `RTS#` through Espressif's
-two-transistor automatic-download circuit to target `EN` and BOOT. SW1 is the
-generic board's MS-22D28-G020 DPDT slide switch (C963205), using the matching
-`SweetYaar:SW-SMD_MS-22D28-G020` footprint as a two-pole disconnect. Pins 1–2
-connect `ESP_EN` to `TARGET_EN`, and pins 4–5 connect BOOT to `TARGET_BOOT`;
-pins 3 and 6 are unused. These two selected contact pairs close together in
-one position and open together in the serial-only position. UART TX/RX remain
-connected. The target retains the recommended 10 kΩ/1 µF `ESP_EN` network and
+two-transistor automatic-download circuit to target `EN` and BOOT. **Solder
+jumpers are the chosen disconnect mechanism.** `JP1` connects `ESP_EN` to
+`TARGET_EN`, and `JP2` connects BOOT to `TARGET_BOOT`. Both use
+`Jumper:SolderJumper-2_P1.3mm_Bridged_RoundedPad1.0x1.5mm` and are normally
+bridged for automatic firmware download. Open both solder bridges for
+serial-only operation without debugger-driven reset/boot control; bridge both
+again to restore automatic download. UART TX/RX remain connected in either
+configuration. The target retains the recommended 10 kΩ/1 µF `ESP_EN` network and
 10 kΩ GPIO0 pull-up. Reserve GPIO0 for automatic download control and do not
 attach another production peripheral to it.
 
@@ -1160,8 +1212,11 @@ Current enclosure requirements and open mechanical work are:
   the cell, and protect it from crushing, puncture, sharp edges, and tool-free
   child access. Retain the insulated 103AT-2 sensor against the cell wrapper so
   it follows cell temperature without obstructing removal. Protect and
-  strain-relieve both thermistor leads; join its low side to `BAT−` in the
-  holder harness, never by soldering to or exposing the bare cell can.
+  strain-relieve both dedicated thermistor wires, connecting them to `BAT_TEMP`
+  and `TS_RETURN` through battery-connector pins 4 and 3 respectively. Do not
+  join the thermistor return to battery `BAT−`/GND in the holder or harness;
+  its GND connection is at the charger through `TS_RETURN`. Never solder to or
+  expose the bare cell can. Leave `JP3` open for normal use.
 - Speaker impedance may be 4 Ω or 8 Ω per doll. Select its power rating and
   acoustic chamber for that installation; separate the front and rear sound
   paths, provide sufficient grille opening through the real fabric/padding, and
