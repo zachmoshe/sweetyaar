@@ -758,7 +758,7 @@ revision adds no SPI or I2S signal-isolation components.
 |---|---|
 | External USB-powered debugger ↔ ESP32 on `3V3_AON` | Rev A uses direct UART connections and the two-transistor EN/BOOT circuit without power-off isolation. This is accepted only under the operating rule that the debugger and target are both powered whenever the six-pin cable is attached. Disconnect the cable before removing either supply. The debugger never powers the target through `3V3_REF`. |
 | `3V3_AON` ↔ `3V3_PERIPH_SW` | Every SD pull-up belongs to the switched rail. Retain GPIO5 as the native VSPI `CS`. Firmware ends SPI, disables internal pulls, and makes the SPI pins inputs before driving `PERIPH_PWR_EN` LOW; on wake it enables the rail, waits for it to settle, and then reconfigures SPI. No SPI isolation buffer is planned. |
-| `3V3_AON` ↔ `5V_PERIPH_SW` | Production GPIO21 connects to `SD_MODE` only through 634 kΩ. GPIO2 drives WS2812B-V6 DIN through the 301 Ω `R_LED_DIN1`, without an NPN or 5 V pull-up; validate direct-drive logic-HIGH margin. Firmware establishes both inactive GPIO levels before enabling the rail. Before power-off it sends an LED-off frame, mutes the amplifier, ends I2S, disables the rail, and only then releases GPIO2. No I2S or LED isolation buffer is planned. |
+| `3V3_AON` ↔ `5V_PERIPH_SW` | Production GPIO21 connects to `SD_MODE` only through 634 kΩ. GPIO2 drives WS2812B-V6 DIN through the 330 Ω `R_LED_DIN1`, without an NPN or 5 V pull-up; validate direct-drive logic-HIGH margin. Firmware establishes both inactive GPIO levels before enabling the rail. Before power-off it sends an LED-off frame, mutes the amplifier, ends I2S, disables the rail, and only then releases GPIO2. No I2S or LED isolation buffer is planned. |
 | `5V_INPUT` ↔ `5V_PERIPH_SW` | These are different 5 V domains and must never be tied together. The switched peripheral boost output must provide true load disconnect and must not feed the external-input or charger path. |
 | Charger control and status | Connect `SDA`/`SCL` to GPIO16/GPIO17 and `/PG`/`/INT` to GPIO34/GPIO35, each with a 10 kΩ pull-up to `3V3_AON`. Connect GPIO4 through the NPN stage to `/CE`. Include leakage in the sleep audit; do not add direct charger-status LEDs. |
 | `BAT` ↔ GPIO36 battery measurement | Feed the 634 kΩ / 200 kΩ divider through a second AP2281-3WG-7 whose `EN` is `PERIPH_PWR_EN`; implement the 200 kΩ lower leg as two series 100 kΩ resistors. This prevents `BAT` from driving the ADC while the ESP32 is unpowered and disconnects the divider in deep sleep. Do not measure `SYS` as a substitute. |
@@ -832,10 +832,10 @@ assembly. Do not connect its 5 V data output to an ESP32 input. Firmware current
 drives only the onboard pixel; enabling another status indicator requires code
 changes, not just increasing the pixel count (additional pixels are kept black).
 
-Current direct-data connection (`R_LED_DIN1`: 301 Ω, 0603, LCSC C25192):
+Current direct-data connection (`R_LED_DIN1`: 330 Ω, 0603, LCSC C23138):
 
 ```text
-GPIO2 ----------- 301 Ω ----------- LED1 DIN
+GPIO2 ----------- 330 Ω ----------- LED1 DIN
 
 5V_PERIPH_SW ---------------------- LED1 VDD
 GND ------------------------------- LED1 GND
@@ -891,7 +891,8 @@ RMT owns the pin. Before sleep it sends a black frame while the LED is powered,
 disables the 5 V regulator, and then makes GPIO2 an input to avoid driving HIGH
 into the unpowered LED. The rail's output capacitors discharge through
 the remaining load; firmware does not wait for or measure a zero-volt rail.
-The amplifier is muted before regulator disable. GPIO16 and GPIO17 are now free.
+The amplifier is muted before regulator disable. GPIO16 and GPIO17 carry the
+BQ25186 charger's I2C SDA and SCL signals, respectively.
 
 The original DevKit's discrete GPIO2 LED is not a functional substitute for
 this circuit. For the current direct GPIO2-to-`DIN` RGBW bench wiring, use
@@ -1089,7 +1090,7 @@ or reset pull-up is needed.
 CH340C pins 16/4. `C1` decouples the USB ESD device. Both 100 nF capacitors use
 the mainboard's 50 V X7R 0603 C14663. All debugger resistors are 0603, 1%:
 `R_CC1/R_CC2` are 5.1 kΩ C23186, `R_DTR1/R_RTS1` are 10 kΩ C25804, and the
-green indicator's `R1` is 301 Ω C25192. These are all existing mainboard parts.
+green indicator's `R1` is 330 Ω C23138. These are all existing mainboard parts.
 
 The six programming contacts are **bare surface pads on 2.54 mm centers**,
 using `SweetYaar:DebuggerPad_1x06_P2.54mm`. There are no through-holes and no
@@ -1100,7 +1101,7 @@ solder mask but have no `F.Paste` apertures, so the assembly stencil does not
 deposit solder paste on them. Contacts 1–6 are
 `3V3_REF`, GND, target GPIO1/`UART_TXD`, target GPIO3/`UART_RXD`, `ESP_EN`, and
 GPIO0/BOOT. `3V3_REF` is sense-only: on the debugger it powers only the green
-KT-0805G indicator LED (C2297, 0805) through 301 Ω and must never be driven
+KT-0805G indicator LED (C2297, 0805) through 330 Ω and must never be driven
 back into the target. The UART directions cross normally: CH340C pin 3 `RXD`
 receives target `UART_TXD`, and pin 2 `TXD` drives target `UART_RXD`.
 
@@ -1130,8 +1131,8 @@ removing either supply. CH340C specifies about 4 mA typical, 12 mA maximum
 operating current in its 3.3 V configuration, supplied from debugger USB through
 the regulator. Its RXD includes an internal pull-up, so do not describe all
 static input current as leakage-only. The target-reference LED additionally
-draws roughly `(3.3 V - LED_VF) / 301 Ω` from the target, approximately
-0.7–2.3 mA using the LED's listed 2.6–3.1 V forward-voltage range; actual current
+draws roughly `(3.3 V - LED_VF) / 330 Ω` from the target, approximately
+0.6–2.1 mA using the LED's listed 2.6–3.1 V forward-voltage range; actual current
 and brightness depend on its low-current forward characteristic.
 
 If this operating rule is broken, the direct output-to-unpowered-input current

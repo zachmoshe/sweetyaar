@@ -110,13 +110,14 @@ before deep sleep; see
 [`docs/engineering/hardware.md`](docs/engineering/hardware.md) for the AP2281-3WG-7 SD switch, 5 V amp
 boost, required common ground, and shared-enable pulldown.
 
-The production status indicator is a single 5 mm addressable RGB or RGBW LED on
-`5V_PERIPH_SW`. GPIO2 drives it through a 10 kΩ/MMBT3904 open-collector level
-shifter with a 4.7 kΩ pull-up; firmware uses inverted RMT output so normal LED
-data reaches `DIN`. The production LED protocol is selected by
-`SWEETYAAR_STATUS_LED_RGBW` once the production part is finalized. The
-`sweetyaar-generic` environment records the complete current bench setup: a
-directly wired 32-bit RGBW/SK6812-style LED with non-inverted data and GRBW
-channel order. GPIO16 and GPIO17 are consequently free. A controller-wide
-brightness setting scales every available color channel and currently defaults
-to 50% pending enclosure testing.
+The production status indicator is a single **WS2812B-V6 (LCSC C52917433)**,
+a 5050 SMD addressable RGB LED on `5V_PERIPH_SW`. GPIO2 drives `DIN` directly
+through the 330 Ω `R_LED_DIN1` series resistor (LCSC C23138); the LED interface
+has no MMBT3904 stage or 5 V pull-up. The `sweetyaar` environment explicitly
+selects non-inverted RMT output (`SWEETYAAR_STATUS_LED_DATA_INVERTED=0`) and
+24-bit GRB data (`SWEETYAAR_STATUS_LED_RGBW=0`,
+`SWEETYAAR_STATUS_LED_COLOR_ORDER_GRB=1`). The `sweetyaar-generic` environment
+retains the directly wired 32-bit RGBW/SK6812-style bench LED with non-inverted
+data and GRBW channel order. GPIO16 and GPIO17 carry BQ25186 charger I2C SDA
+and SCL, respectively. A controller-wide brightness setting scales every
+available color channel and currently defaults to 50% pending enclosure testing.

@@ -373,11 +373,12 @@ also uses non-inverted direct drive, but retains its existing RGBW/GRBW bench LE
 and timings. Inversion remains configurable for other hardware.
 
 These production settings require the revised direct-DIN schematic, not the old
-WS2812D/MMBT3904 circuit. The schematic now connects GPIO2 through 301 Ω to DIN. Verify
-logic-HIGH margin and the waveform on the assembled board: configuring polarity
-and timing does not validate the electrical connection. Only the onboard pixel
-receives status colors; an additional LED on `J_LED_EXT1` requires code changes,
-because increasing the pixel count alone leaves additional pixels black.
+WS2812D/MMBT3904 circuit. GPIO2 connects to DIN through the 330 Ω `R_LED_DIN1`
+series resistor (LCSC C23138). Verify logic-HIGH margin and the waveform on the
+assembled board: configuring polarity and timing does not validate the electrical
+connection. Only the onboard pixel receives status colors; an additional LED on
+`J_LED_EXT1` requires code changes, because increasing the pixel count alone
+leaves additional pixels black.
 
 `SWEETYAAR_STATUS_LED_RGBW` selects the pixel width, independently of timing. Leave it
 at `0` for a 24-bit WS2812-style RGB device, or set it to `1` for a 32-bit
