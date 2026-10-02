@@ -143,8 +143,15 @@ void StatusLed::service(uint32_t nowMs) {
         return;
     }
 
-    const StatusLedPattern selected =
-        selectStatusLedPattern(_signals.load(std::memory_order_relaxed));
+    uint32_t signals = _signals.load(std::memory_order_relaxed);
+    const uint32_t resetBit = statusSignalBit(StatusSignal::PairingReset);
+    if ((signals & resetBit) && _mode == StatusLedMode::PairingReset &&
+        nowMs - _phaseStartedMs >=
+            statusLedModeDefinition(StatusLedMode::PairingReset).pattern.onMs) {
+        // Consume the one-shot flash request; no reset state remains afterward.
+        signals = _signals.fetch_and(~resetBit, std::memory_order_relaxed) & ~resetBit;
+    }
+    const StatusLedPattern selected = selectStatusLedPattern(signals);
 
     if (selected.mode != _mode) {
         _mode = selected.mode;

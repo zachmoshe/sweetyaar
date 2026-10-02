@@ -20,7 +20,8 @@ public:
     void begin();
 
     // Thread-safe semantic input. Patterns and physical LED assignment stay
-    // private to this controller.
+    // private to this controller. Set PairingReset once per reset action;
+    // service() clears that one-shot signal after its flash.
     void setSignal(StatusSignal signal, bool active);
 
     // Global cap applied equally to every available color channel. A change

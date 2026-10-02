@@ -19,7 +19,10 @@ Wi-Fi setup, native-app package, or application server. See
 
 ## Connecting to the toy
 
-The toy must be powered on and nearby. Open the app in a browser with Web
+The toy must be powered on and nearby. For a new phone, hold both toy buttons for
+three seconds to open pairing for 60 seconds. Pairing is closed at boot; an
+approved phone can reconnect without the gesture. Audio-speaker pairing and
+app pairing enroll separately. Open the app in a browser with Web
 Bluetooth support, press **Connect to SweetYaar**, and select the toy in the
 browser's device chooser. The current interface directs parents to Chrome or
 Edge on desktop or Android when Web Bluetooth is unavailable.
@@ -30,7 +33,23 @@ Web Bluetooth requires a secure origin. The deployed HTTPS site and
 with the site's origin, so moving the app to a different domain requires the
 parent to grant access again.
 
-After connecting, the app reads and subscribes to playback status first, then
+After connecting, the app checks the device's connection-access diagnostic when
+available. An unapproved device sees **Device not approved. Hold both buttons
+for 3 seconds to open pairing mode, then reconnect.** Authentication finishes
+before any controls load. While the diagnostic is pending, the app makes one
+encrypted status read to trigger Android bonding; an unencrypted diagnostic
+poll alone may not open Android's pairing dialog. It then rechecks the device's
+approval, even if that protected read succeeded. Rejected connections never
+make this probe, and no controls or subscriptions load until access is ready.
+Firmware waits for this client operation instead of issuing its own security
+request on connection, avoiding competing triggers for Android's pairing UI.
+Authentication failures direct the user to check the Bluetooth pairing request,
+instead of assuming the physical pairing window was closed.
+Older firmware without this diagnostic retains the
+previous connection flow; generic connection failures include a pairing hint
+without claiming that missing approval is the confirmed cause.
+
+The app then reads and subscribes to playback status and
 opens the appropriate Ready or Bluetooth-streaming screen. Ready-screen controls
 stay briefly disabled while the remaining characteristics, current values, and
 notifications load in the background. The app also sends the phone or
@@ -59,6 +78,13 @@ connection.
 If the toy disconnects, restarts, or enters deep sleep, the app returns to its
 opening screen and the parent must reconnect. Installing the app does not
 remove the browser's Bluetooth permission or connection requirements.
+
+The last approved BLE phone to connect takes control. The previous app receives
+a takeover notice and returns to the opening screen with **Someone else took
+control.** It does not reconnect automatically; pressing Connect again explicitly
+requests control. The same rule applies during the full 60-second pairing window,
+when new phones can also enroll. Classic audio remains with its current source
+until that source disconnects manually.
 
 ## The parent remote
 
@@ -268,7 +294,15 @@ The app subscribes to firmware notifications rather than assuming every write
 succeeded. Older firmware without the optional notice characteristic can still
 connect. The battery characteristic is also optional for compatibility; without
 it the icon is gray and reports an unknown state. Firmware missing the required
-service or control characteristics is reported as needing an upgrade.
+service or control characteristics on a working connection is reported as needing
+an upgrade. A connection lost or refused during discovery is not treated as a
+missing-service diagnosis.
+
+The notice characteristic uses confirmed indications in the current firmware.
+`{"type":"takeover"}` fits the minimum BLE packet size and preserves its message
+through the following disconnect or an interrupted command. Other notices retain
+their existing severity and message fields. Deploy matching firmware and app
+versions; clear a stale GATT cache if the notice subscription fails after upgrade.
 
 Settings-command failures display the error returned by the toy. A missing or
 invalid `/config.json` is reported in Settings with instructions to restore the

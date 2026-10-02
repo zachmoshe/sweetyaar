@@ -47,7 +47,7 @@ public:
     // Start BLE advertising; call after NVS is ready
     void begin(const String& deviceName);
 
-    // Push current values to all subscribed clients
+    // Push current values to the subscribed, authenticated controller.
     void updateVolume(uint8_t volumePct);
     void updateKillswitch(bool active);
     void updateTheme(const String& theme);
@@ -65,9 +65,6 @@ public:
     // notify; the device decides the wording and severity.
     void updateNotice(const String& noticeJson);
 
-    // Non-destructive peek: returns true if a new volume value has arrived
-    bool hasVolumeChange() const { return _newVolume; }
-
     // Poll for new BLE-requested volume; returns true and fills |out| once per event
     bool pollVolumeChange(uint8_t& out);
 
@@ -83,11 +80,13 @@ public:
     // Poll for JSON config command from the app
     bool pollConfigCommand(String& out);
 
-    // True if at least one BLE central is connected
+    // True only when an authenticated controller owns this remote.
     bool isConnected() const;
+    bool hasLinks();
 
-    // Call from main loop to safely restart advertising after a disconnect
-    void pollAdvertising();
+    // Maintain takeover delivery and advertising from the main loop.
+    void pollAdvertising(bool canNotify = true);
+    void disconnectAll();
 
 private:
     BLEServer*         _server   = nullptr;
@@ -102,10 +101,75 @@ private:
     BLECharacteristic* _noticeChar = nullptr;
     BLECharacteristic* _batteryChar = nullptr;
     BLECharacteristic* _chargerChar = nullptr;
+    BLECharacteristic* _accessChar = nullptr;
     uint8_t _lastChargerValue[ChargerStatus::ENCODED_SIZE] = {};
     bool _hasChargerValue = false;
     BLECharacteristic* _configAttributes[BLE_CONFIG_ATTRIBUTE_COUNT] = {};
     void notifyChanged(BLECharacteristic* characteristic);
+    void notifyOwner(BLECharacteristic* characteristic, bool invalidation = false);
+    void handleGap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t* param);
+    bool filterGatt(esp_gatts_cb_event_t event, esp_gatt_if_t interface,
+                    esp_ble_gatts_cb_param_t* param);
+    void connected(esp_ble_gatts_cb_param_t* param);
+    void disconnected(uint16_t connection, uint16_t reason = 0);
+    void disconnectPeer(uint16_t connection);
+    void clearPending(); // caller holds _mux
+    static constexpr uint16_t NO_CONNECTION = 0xffff;
+    // Public, per-connection diagnostic; it never authorizes control access.
+    enum class AccessState : uint8_t {
+        PairingRequired = 0, Authenticating = 1, Ready = 2,
+        AuthenticationFailed = 3, TakenOver = 4
+    };
+    static const char* accessStateName(AccessState state);
+    static constexpr uint32_t REJECTION_GRACE_MS = 10000;
+    struct Peer {
+        uint16_t id = NO_CONNECTION;
+        uint8_t address[6] = {};
+        uint8_t identity[6] = {};
+        uint32_t connectedAt = 0;
+        uint32_t sequence = 0;
+        uint32_t retiredAt = 0;
+        uint32_t subscriptions = 0;
+        uint32_t rejectedAt = 0;
+        AccessState rejectionReason = AccessState::AuthenticationFailed;
+        bool known = false;
+        bool authenticated = false;
+        bool newKeys = false;
+        bool reject = false;
+        bool retiring = false;
+        bool noticeSent = false;
+        bool noticeConfirmed = false;
+        bool disconnectRequested = false;
+    };
+    Peer _peers[3];
+    // GAP security can finish before Arduino delivers GATTS CONNECT (macOS
+    // bonded reconnects do this). Keep only outcome metadata, never key bytes.
+    struct EarlySecurity {
+        uint8_t address[6] = {};
+        uint32_t observedAt = 0;
+        bool used = false;
+        bool newKeys = false;
+        bool keysOutsidePairing = false;
+        bool hasAuth = false;
+        bool success = false;
+        uint8_t failReason = 0;
+        uint8_t authMode = 0;
+    };
+    EarlySecurity _earlySecurity[3];
+    EarlySecurity* earlySecurity(const uint8_t* address, bool create = false);
+    uint32_t _connectionSequence = 0;
+    volatile uint16_t _ownerId = NO_CONNECTION;
+    uint16_t _preparedOwner = NO_CONNECTION;
+    uint16_t _preparedHandle = 0;
+    uint16_t _preparedLength = 0;
+    uint8_t _preparedValue[512] = {};
+    BLECharacteristic* _securedChars[16] = {};
+    Peer* peer(uint16_t id);
+    Peer* peerByAddress(const uint8_t* address);
+    int characteristicIndex(uint16_t handle, bool descriptor = false);
+    esp_gap_ble_cb_t _originalGap = nullptr;
+    esp_gatts_cb_t _originalGatt = nullptr;
+    static BLEParentService* _instance;
 
     // Pending events set by BLE callbacks, consumed by poll methods
     volatile bool    _newVolume     = false;
@@ -123,7 +187,6 @@ private:
     volatile bool    _newConfigCommand = false;
     char             _pendingConfigCommand[384] = {0};
 
-    volatile bool    _connected = false;
     volatile bool    _restartAdvPending = false;
     portMUX_TYPE     _mux = portMUX_INITIALIZER_UNLOCKED;
 
@@ -131,14 +194,11 @@ private:
     class ServerCB : public BLEServerCallbacks {
     public:
         explicit ServerCB(BLEParentService* owner) : _owner(owner) {}
-        void onConnect(BLEServer*) override {
-            _owner->_connected = true;
-            Serial.println("[BLE] Client connected");
+        void onConnect(BLEServer*, esp_ble_gatts_cb_param_t* param) override {
+            _owner->connected(param);
         }
-        void onDisconnect(BLEServer*) override {
-            _owner->_connected = false;
-            _owner->_restartAdvPending = true;  // defer out of BT stack callback
-            Serial.println("[BLE] Client disconnected");
+        void onDisconnect(BLEServer*, esp_ble_gatts_cb_param_t* param) override {
+            _owner->disconnected(param->disconnect.conn_id, param->disconnect.reason);
         }
     private:
         BLEParentService* _owner;

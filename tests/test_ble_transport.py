@@ -28,10 +28,11 @@ struct BLECharacteristic {
 };
 struct BLEParentService {
     BLECharacteristic* _chargerChar = nullptr;
-    bool _connected = false;
+    bool hasController = false;
     bool _hasChargerValue = false;
     uint8_t _lastChargerValue[ChargerStatus::ENCODED_SIZE] = {};
     void updateChargerStatus(const ChargerStatus::Snapshot&);
+    void notifyOwner(BLECharacteristic* c) { if (hasController) c->notify(); }
 };
 ''' + production_function(source, "BLEParentService::updateChargerStatus") + r'''
 int main() {
@@ -42,7 +43,7 @@ int main() {
     ble.updateChargerStatus({});
     assert(characteristic.value == std::vector<uint8_t>({1, 0, 0, 0, 0, 0}));
     assert(characteristic.notifications == 0);
-    ble._connected = true;
+    ble.hasController = true;
     ble.updateChargerStatus({});
     assert(characteristic.notifications == 0);
     ChargerStatus::Snapshot snapshot;
@@ -64,7 +65,7 @@ int main() {
     ble.updateChargerStatus(snapshot);
     assert(characteristic.notifications == 4 && characteristic.value[5] == 0);
     assert(characteristic.value[1] == 4); // clearing the event alone is published
-    ble._connected = false;
+    ble.hasController = false;
     snapshot.state = ChargerStatus::State::Finished;
     ble.updateChargerStatus(snapshot);
     assert(characteristic.notifications == 4 && characteristic.value[1] == 5);
@@ -114,13 +115,13 @@ class BLEParentService {
 public:
     BLECharacteristic* _themesChar = nullptr;
     BLECharacteristic* _configResponseChar = nullptr;
-    bool _connected = false;
+    bool hasController = false;
     int _mux = 0;
     uint8_t _pendingCommand = 0;
     bool _newCommand = false;
     char _pendingConfigCommand[384] = {};
     bool _newConfigCommand = false;
-    void notifyChanged(BLECharacteristic* c) { if (_connected) c->notify(); }
+    void notifyChanged(BLECharacteristic* c) { if (hasController) c->notify(); }
     void updateThemes(const String&);
     void updateConfigResponse(const String&);
 ''' + command_callback + "\n};\n" + "\n".join(methods) + r'''
@@ -132,7 +133,7 @@ int main() {
     const std::string catalog = R"([{"id":"lullabies","name":"Lullabies"}])";
     ble.updateThemes(catalog);
     for (bool connected : {false, true}) {
-        ble._connected = connected;
+        ble.hasController = connected;
         const int before = response.notifications;
         for (const char* reply : {R"({"id":1,"ok":true,"op":"syncTime"})",
                                  R"({"id":2,"ok":true,"op":"scanThemes"})"}) {
@@ -209,7 +210,13 @@ int esp_ble_gatts_send_indicate(int interface, uint16_t connection, uint16_t han
 class BLEParentService {
 public:
     BLEServer* _server = &server;
-    bool _connected = true;
+    bool hasController = true;
+    void notifyOwner(BLECharacteristic* c, bool invalidation) {
+        assert(invalidation);
+        if (!hasController || !descriptor.subscribed) return;
+        uint8_t changed = 1;
+        esp_ble_gatts_send_indicate(configGattsIf, 12, c->getHandle(), 1, &changed, false);
+    }
     BLECharacteristic* _configAttributes[BLE_CONFIG_ATTRIBUTE_COUNT] = {};
     void notifyChanged(BLECharacteristic* characteristic);
     void updateConfigAttribute(size_t index, const String& value);
@@ -231,7 +238,7 @@ int main() {
     ble.updateConfigAttribute(0, "unsubscribed");
     assert(notifications == 1 && characteristic.getValue() == "unsubscribed");
     descriptor.subscribed = true;
-    ble._connected = false;
+    ble.hasController = false;
     ble.updateConfigAttribute(0, "disconnected");
     assert(notifications == 1 && characteristic.getValue() == "disconnected");
 }

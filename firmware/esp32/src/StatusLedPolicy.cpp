@@ -8,6 +8,12 @@ bool hasSignal(uint32_t signals, StatusSignal signal) {
 
 StatusLedModeDefinition statusLedModeDefinition(StatusLedMode mode) {
     switch (mode) {
+        case StatusLedMode::Pairing:
+            return {"pairing window open", "blue",
+                    {StatusLedMode::Pairing, LedColors::BLUE, 200, 200}};
+        case StatusLedMode::PairingReset:
+            return {"Bluetooth approvals cleared", "red",
+                    {StatusLedMode::PairingReset, LedColors::RED, 250, 0}};
         case StatusLedMode::Initializing:
             return {"initialization", "yellow",
                     {StatusLedMode::Initializing, LedColors::YELLOW, 0, 0}};
@@ -37,10 +43,18 @@ StatusLedModeDefinition statusLedModeDefinition(StatusLedMode mode) {
 }
 
 StatusLedPattern selectStatusLedPattern(uint32_t signals) {
+    if (hasSignal(signals, StatusSignal::PairingReset)) {
+        return statusLedModeDefinition(StatusLedMode::PairingReset).pattern;
+    }
     // Initialization deliberately masks faults until initialization finishes;
     // a latched Error signal then becomes visible immediately.
     if (hasSignal(signals, StatusSignal::Initializing)) {
         return statusLedModeDefinition(StatusLedMode::Initializing).pattern;
+    }
+    if (hasSignal(signals, StatusSignal::Pairing)) {
+        // The full enrollment window must remain visible even during audio
+        // and after either transport connects.
+        return statusLedModeDefinition(StatusLedMode::Pairing).pattern;
     }
     if (hasSignal(signals, StatusSignal::Error)) {
         return statusLedModeDefinition(StatusLedMode::Error).pattern;
@@ -48,6 +62,8 @@ StatusLedPattern selectStatusLedPattern(uint32_t signals) {
     if (hasSignal(signals, StatusSignal::BluetoothPlaying)) {
         return statusLedModeDefinition(StatusLedMode::BluetoothPlaying).pattern;
     }
+    // BLE remote ownership does not change the toy's operational mode/color.
+    // Only a Classic audio connection uses the normal blue BT indication.
     if (hasSignal(signals, StatusSignal::BluetoothConnected)) {
         return statusLedModeDefinition(StatusLedMode::BluetoothConnected).pattern;
     }

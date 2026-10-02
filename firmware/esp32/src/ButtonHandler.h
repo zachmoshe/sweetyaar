@@ -15,7 +15,7 @@
 //   if (btn.wasBtn1Pressed())  { ... }
 //   if (btn.wasBtn2Pressed())  { ... }
 //   if (btn.wasBothPressed())  { ... }
-//   if (btn.isBothHeld(3000))  { ... }  // held ≥ 3 s
+//   // PairingPolicy times holds using isBothHeld() and areBothReleased().
 // ---------------------------------------------------------------------------
 
 class ButtonHandler {
@@ -31,23 +31,20 @@ public:
     // Consume events: each returns true once per physical press, then resets
     bool wasBtn1Pressed();   // Button 1 short press (not a simultaneous press)
     bool wasBtn2Pressed();   // Button 2 short press (not a simultaneous press)
-    bool wasBothPressed();   // Both buttons pressed simultaneously
+    bool wasBothPressed();   // Both buttons down; once until both are released
 
     // Drop any pending/latched press events without changing physical state.
     void discardEvents();
 
     // True while both buttons are physically held; does NOT consume the event.
     bool isBothHeld() const;
-
-    // How long (ms) both buttons have been held continuously (0 if not both held)
-    uint32_t bothHeldDurationMs() const;
+    bool areBothReleased() const { return !_b1.debounced && !_b2.debounced; }
 
 private:
     // Per-button state
     struct BtnState {
         bool     raw        = false;  // current raw reading (LOW = pressed)
         bool     debounced  = false;  // stable debounced state
-        bool     lastDebounced = false;
         uint32_t lastChangeMs = 0;    // time of last raw change
         uint32_t pressedAtMs  = 0;    // time debounced press was detected
         bool     pendingEvent = false;
@@ -60,13 +57,8 @@ private:
     bool _evt2      = false;
     bool _evtBoth   = false;
 
-    // For simultaneous-press detection
-    uint32_t _b1PressedAtMs = 0;   // time btn1 last became pressed
-    uint32_t _b2PressedAtMs = 0;   // time btn2 last became pressed
+    // Suppress individual/repeated events until both buttons are released.
+    bool _bothPressActive = false;
 
-    // Both-held tracking
-    bool     _bothCurrentlyHeld = false;
-    uint32_t _bothHeldSinceMs   = 0;
-
-    void updateOne(BtnState& b, int pin);
+    void updateOne(BtnState& b, int pin, uint32_t now);
 };

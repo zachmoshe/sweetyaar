@@ -17,7 +17,7 @@ PYTHON ?= $(VENV_DIR)/bin/python
 PIO ?= $(VENV_DIR)/bin/pio
 UV ?= uv
 
-.PHONY: help setup app build flash monitor flash-monitor clean test test-app test-firmware check-python check-pio
+.PHONY: help setup app build flash monitor flash-monitor clean test test-unit test-device test-app test-firmware check-python check-pio
 
 help: ## Show the available project commands.
 	@printf 'SweetYaar project commands\n\n'
@@ -55,11 +55,20 @@ clean: check-pio ## Remove generated PlatformIO build output.
 test: check-python ## Run the complete pytest suite.
 	cd "$(ROOT_DIR)" && "$(PYTHON)" -m pytest
 
+test-unit: check-python ## Run host tests only; never flash or connect to hardware.
+	cd "$(ROOT_DIR)" && "$(PYTHON)" -m pytest -m "not firmware"
+
+test-device: check-pio ## Approved device test; requires DEVICE_TEST_APPROVED=1, PIO_ENV and SERIAL_PORT.
+	@test "$(DEVICE_TEST_APPROVED)" = 1 || { printf 'Get explicit user approval for this hardware test, then set DEVICE_TEST_APPROVED=1.\n' >&2; exit 1; }
+	@test "$(origin PIO_ENV)" = 'command line' -o "$(origin PIO_ENV)" = environment || { printf 'Set PIO_ENV explicitly to match the connected board.\n' >&2; exit 1; }
+	@test -n "$(SERIAL_PORT)" || { printf 'Set SERIAL_PORT to the connected toy.\n' >&2; exit 1; }
+	"$(PYTHON)" "$(ROOT_DIR)/tools/device_test.py" --approved --pio-env "$(PIO_ENV)" --port "$(SERIAL_PORT)" $(DEVICE_TEST_ARGS)
+
 test-app: check-python ## Run the parent-app and PWA regression tests.
 	cd "$(ROOT_DIR)" && "$(PYTHON)" -m pytest tests/test_parent_app.py tests/test_parent_app_pwa.py
 
 test-firmware: check-python ## Run firmware configuration, native-code, and build tests.
-	cd "$(ROOT_DIR)" && "$(PYTHON)" -m pytest tests/test_firmware_config.py tests/test_battery_monitor.py tests/test_charger_status.py tests/test_ble_transport.py tests/test_state_machine.py tests/test_settings_runtime.py tests/test_firmware_build.py
+	cd "$(ROOT_DIR)" && "$(PYTHON)" -m pytest tests/test_firmware_config.py tests/test_battery_monitor.py tests/test_charger_status.py tests/test_ble_transport.py tests/test_bluetooth_access.py tests/test_state_machine.py tests/test_settings_runtime.py tests/test_firmware_build.py
 
 check-python:
 	@test -x "$(PYTHON)" || { printf 'Python environment not found at %s. Run make setup first.\n' '$(PYTHON)' >&2; exit 1; }

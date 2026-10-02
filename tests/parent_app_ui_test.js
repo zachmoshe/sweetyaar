@@ -504,6 +504,7 @@ function makeBleHarness(options = {}) {
     battery: new FakeCharacteristic("battery", options.battery ?? 1, readHooks),
     charger: new FakeCharacteristic("charger", bytesView(options.charger ?? [1, 4, 3, 0, 0, 0]), readHooks)
   };
+  if (options.accessState !== undefined) chars.access = new FakeCharacteristic("access", options.accessState, readHooks);
 
   function configValues() {
     const { enabled, startTime, endTime, theme, volumeCapPct, ...runtime } = config.bedtime;
@@ -592,6 +593,13 @@ function makeBleHarness(options = {}) {
   };
   const server = {
     async getPrimaryService(uuid) {
+      if (options.serviceError) {
+        if (options.disconnectDuringDiscovery) {
+          device.gatt.connected = false;
+          device.listeners.gattserverdisconnected?.({ target: device });
+        }
+        throw options.serviceError;
+      }
       if (options.missingService) {
         const error = new Error("missing service");
         error.name = "NotFoundError";
@@ -601,6 +609,7 @@ function makeBleHarness(options = {}) {
       return service;
     },
     async getPrimaryServices() {
+      if (options.serviceListError) throw options.serviceListError;
       return [];
     }
   };
@@ -1277,7 +1286,7 @@ const tests = [
     assertVisible(els.openingView, [els.readyView, els.streamingView, els.settingsView]);
     assert.strictEqual(els.connectButton.disabled, false);
     assert.strictEqual(els.connectButtonLabel.textContent, "Connect to SweetYaar");
-    assert.strictEqual(els.openingMessage.textContent, "Connect to play songs and animal sounds, set the volume, and more.");
+    assert.strictEqual(els.openingMessage.textContent, "New phone? Hold both buttons on the toy for 3 seconds, then connect.");
     assert.strictEqual(els.brandName.textContent, "SweetYaar");
   `],
   ["connect success shows ready remote", String.raw`
@@ -1460,6 +1469,100 @@ const tests = [
     assertVisible(els.openingView, [els.readyView, els.streamingView, els.settingsView]);
     assert.strictEqual(els.openingMessage.textContent, "Please upgrade device firmware.");
   `],
+  ["unapproved device gets the physical pairing instruction before any controls load", String.raw`
+    const ble = await connectWithFakeBle({ accessState: 0 });
+    assert.strictEqual(state.connected, false);
+    assert.strictEqual(ble.device.gatt.connected, false);
+    assert.strictEqual(els.openingMessage.textContent, PAIRING_REQUIRED_MESSAGE);
+    assert.deepStrictEqual(ble.reads, ["access"]);
+    assert.deepStrictEqual(ble.notifications, []);
+    assert.strictEqual(ble.writes.config.length, 0);
+    onDisconnected({ target: ble.device });
+    assert.strictEqual(els.openingMessage.textContent, PAIRING_REQUIRED_MESSAGE);
+  `],
+  ["authenticated approved device connects without requesting pairing mode", String.raw`
+    const ble = await connectWithFakeBle({ accessState: 2 });
+    assert.strictEqual(state.connected, true);
+    assert.strictEqual(ble.reads[0], "access");
+    assert.strictEqual(state.disconnectReason, "");
+  `],
+  ["authentication must finish before the app accesses controls", String.raw`
+    const ble = makeBleHarness({ accessState: 1 });
+    const connection = connect();
+    await waitUntil(() => ble.reads.includes("access"), "access handshake");
+    assert.strictEqual(state.connected, false);
+    assert.deepStrictEqual(ble.notifications, []);
+    ble.chars.access.value = 2;
+    await connection;
+    await waitUntil(() => !state.remoteInitializing, "remote initialization");
+    assert.strictEqual(state.connected, true);
+  `],
+  ["failed authentication is not reported as missing firmware", String.raw`
+    await connectWithFakeBle({ accessState: 3 });
+    assert.strictEqual(state.connected, false);
+    assert.strictEqual(els.openingMessage.textContent, "Couldn't authenticate. Reconnect and check for a Bluetooth pairing request.");
+  `],
+  ["Android authentication requests an encrypted read before waiting for approval", String.raw`
+    const ble = makeBleHarness({ accessState: 1, trackConcurrentReads: true });
+    const originalRead = ble.chars.status.readValue.bind(ble.chars.status);
+    let pairingReads = 0;
+    ble.chars.status.readValue = async () => {
+      if (ble.chars.access.value === 1) {
+        pairingReads++;
+        assert.strictEqual(state.connected, false);
+        assert.deepStrictEqual(ble.notifications, []);
+        assert.strictEqual(ble.writes.config.length, 0);
+        ble.chars.access.value = 2; // Android bonds only after this protected read.
+      }
+      return originalRead();
+    };
+    await connect();
+    await waitUntil(() => !state.remoteInitializing, "remote initialization");
+    assert.strictEqual(pairingReads, 1);
+    assert.deepStrictEqual(ble.reads.slice(0, 3), ["access", "status", "access"]);
+    assert.strictEqual(state.connected, true);
+    assert.strictEqual(ble.maxConcurrentReads, 1);
+  `],
+  ["successful protected read alone cannot bypass pending or rejected approval", String.raw`
+    const ble = makeBleHarness({ accessState: 1 });
+    const connection = connect();
+    await waitUntil(() => ble.reads.filter(name => name === "access").length >= 3, "pending access recheck");
+    assert.strictEqual(ble.reads.filter(name => name === "status").length, 1);
+    assert.strictEqual(state.connected, false);
+    assert.strictEqual(ble.writes.config.length, 0);
+    assert.deepStrictEqual(ble.notifications, []);
+    ble.chars.access.value = 0; // window closed while pending
+    await connection;
+    assert.strictEqual(state.connected, false);
+    assert.strictEqual(els.openingMessage.textContent, PAIRING_REQUIRED_MESSAGE);
+  `],
+  ["rejected protected read keeps authentication closed without repeated pairing probes", String.raw`
+    const ble = makeBleHarness({ accessState: 1 });
+    let probes = 0;
+    ble.chars.status.readValue = async () => {
+      probes++;
+      ble.chars.access.value = 3;
+      throw new Error("Insufficient encryption");
+    };
+    await connect();
+    assert.strictEqual(probes, 1);
+    assert.strictEqual(state.connected, false);
+    assert.strictEqual(ble.writes.config.length, 0);
+    assert.strictEqual(els.openingMessage.textContent, "Couldn't authenticate. Reconnect and check for a Bluetooth pairing request.");
+  `],
+  ["service-discovery rejection and disconnect retain a pairing hint", String.raw`
+    for (const name of ["NetworkError", "NotFoundError"]) {
+      await connectWithFakeBle({ serviceError: Object.assign(new Error("GATT Server is disconnected"), { name }), disconnectDuringDiscovery: true });
+      assert.strictEqual(state.connected, false);
+      assert.strictEqual(els.openingMessage.textContent, CONNECTION_PAIRING_HINT);
+    }
+    await connectWithFakeBle({ serviceError: Object.assign(new Error("GATT operation failed"), { name: "NetworkError" }) });
+    assert.strictEqual(els.openingMessage.textContent, CONNECTION_PAIRING_HINT);
+    await connectWithFakeBle({ missingService: true, serviceListError: Object.assign(new Error("GATT Server is disconnected"), { name: "NetworkError" }) });
+    assert.strictEqual(els.openingMessage.textContent, CONNECTION_PAIRING_HINT);
+    await connectWithFakeBle({ serviceError: Object.assign(new Error("Insufficient authentication"), { name: "NetworkError" }) });
+    assert.strictEqual(els.openingMessage.textContent, PAIRING_REQUIRED_MESSAGE);
+  `],
   ["BT streaming status shows streaming screen and disables remote", String.raw`
     const ble = await connectWithFakeBle();
     ble.chars.status.emit("BT connected");
@@ -1492,7 +1595,7 @@ const tests = [
     assert.strictEqual(els.volumeValue.textContent, "31%");
     assert.strictEqual(els.themeCurrent.textContent, "Nature");
     assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime", "syncTime"]);
-    assert.deepStrictEqual(ble.notifications, ["status", "configResponse", ...CONFIG_ATTRIBUTES, "volume", "killswitch", "theme", "notice", "battery", "charger"]);
+    assert.deepStrictEqual(ble.notifications, ["status", "notice", "configResponse", ...CONFIG_ATTRIBUTES, "volume", "killswitch", "theme", "battery", "charger"]);
   `],
   ["remote playback buttons write command values", String.raw`
     const ble = await connectWithFakeBle();
@@ -1668,6 +1771,69 @@ const tests = [
     assert.strictEqual(els.noticeBanner.hidden, false);
     assert.strictEqual(els.noticeBanner.classList.contains("warn"), true);
     assert.notStrictEqual(state.noticeTimer, null);
+  `],
+  ["BLE takeover shows its reason after disconnect without stealing control back", String.raw`
+    const ble = await connectWithFakeBle();
+    const requests = ble.requestCount;
+    ble.chars.notice.emit(JSON.stringify({ type: "takeover" }));
+    assert.strictEqual(state.connected, false);
+    assert.strictEqual(ble.device.gatt.connected, false);
+    assert.strictEqual(state.message, "Someone else took control.");
+    assert.strictEqual(els.openingMessage.textContent, "Someone else took control.");
+    assert.strictEqual(els.connectButton.disabled, false);
+    onDisconnected({ target: ble.device }); // delayed device disconnect event
+    assert.strictEqual(state.message, "Someone else took control.");
+    await safeWrite(async () => { throw new Error("GATT Server is disconnected"); });
+    assert.strictEqual(state.message, "Someone else took control.");
+    assert.strictEqual(ble.requestCount, requests);
+    await connect();
+    await waitUntil(() => !state.remoteInitializing, "remote initialization");
+    assert.strictEqual(state.connected, true);
+    assert.strictEqual(state.disconnectReason, "");
+  `],
+  ["disconnect event from an older phone cannot clear a new session", String.raw`
+    await connectWithFakeBle();
+    onDisconnected({ target: { id: "old-device" } });
+    assert.strictEqual(state.connected, true);
+  `],
+  ["failed connection does not suppress the next session's disconnect", String.raw`
+    for (const options of [{ accessState: 0 }, { missingCharacteristics: ["volume"] }]) {
+      for (const synchronous of [false, true]) {
+        const failed = makeBleHarness(options);
+        const deliverOldDisconnect = () => failed.device.listeners.gattserverdisconnected({ target: failed.device });
+        failed.device.gatt.disconnect = function () {
+          this.connected = false;
+          if (synchronous) deliverOldDisconnect();
+        };
+        await connect();
+        await waitUntil(() => !state.remoteInitializing, "failed initialization cleanup");
+        assert.strictEqual(state.connected, false);
+        const reason = options.accessState === 0 ? PAIRING_REQUIRED_MESSAGE : "Please upgrade device firmware.";
+        assert.strictEqual(state.message, reason);
+        if (!synchronous) deliverOldDisconnect();
+        assert.strictEqual(state.message, reason);
+
+        const approved = await connectWithFakeBle({ accessState: 2 });
+        assert.strictEqual(state.connected, true);
+        deliverOldDisconnect();
+        assert.strictEqual(state.connected, true);
+        approved.device.gatt.disconnect();
+        approved.device.listeners.gattserverdisconnected({ target: approved.device });
+        assert.strictEqual(state.connected, false);
+        assertVisible(els.openingView, [els.readyView, els.streamingView, els.settingsView]);
+        assert.strictEqual(state.message, "Remote disconnected.");
+        assert.strictEqual(subscriptions.size, 0);
+      }
+    }
+  `],
+  ["failed initialization removes subscriptions immediately", String.raw`
+    const ble = await connectWithFakeBle({ missingCharacteristics: ["volume"] });
+    assert.strictEqual(state.connected, false);
+    assert.strictEqual(subscriptions.size, 0);
+    assert.strictEqual(state.configNotifyResolve, null);
+    ble.chars.status.emit("BT connected");
+    assert.strictEqual(state.status, "Disconnected");
+    assert.strictEqual(state.message, "Please upgrade device firmware.");
   `],
   ["malformed notice payload is ignored", String.raw`
     const ble = await connectWithFakeBle();

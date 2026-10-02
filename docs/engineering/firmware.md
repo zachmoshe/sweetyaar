@@ -8,8 +8,8 @@ rebuilding the firmware.
 
 The same device can also work as a Bluetooth speaker. A separate parent mobile
 app connects over Bluetooth Low Energy (BLE) to control local playback and
-change settings. The buttons on the doll are limited to playing and stopping
-audio. Volume, theme selection, looping, content settings, Bedtime mode, and
+change settings. The buttons on the doll control playback and Bluetooth pairing.
+Volume, theme selection, looping, content settings, Bedtime mode, and
 sleep settings are adjusted through the parent app.
 
 This document explains what the firmware does and how its main pieces fit
@@ -27,6 +27,17 @@ The two buttons deliberately have a small, predictable set of actions:
 | Press the animal button                | Play one animal sound. Press it again while an animal sound is playing to move to the next sound.    |
 | Press the other button during playback | Switch immediately between song and animal playback.                                                 |
 | Press both buttons together            | Stop local playback.                                                                                 |
+| Hold both buttons for 3 seconds        | Open Bluetooth pairing for 60 seconds. |
+| Continue the same hold to 10 seconds   | Forget all Bluetooth approvals, disconnect both transports, flash red once, then restore the current state's indicator. |
+
+Physical presses are debounced for 50 ms. A single held button waits another
+250 ms for the second button before starting playback; releasing a short tap
+resolves it sooner. When both buttons are down, pending individual actions are
+canceled and Stop fires once. If the second press comes after the grace period,
+the first action may already have started, but both buttons still stop it.
+Both buttons must be released before another two-button action can fire.
+The 3-second pairing and 10-second reset timers start when the second button
+becomes stably pressed, not when the first button is pressed.
 
 
 Songs are grouped into themes, such as lullabies or holiday songs, so the toy
@@ -346,9 +357,121 @@ BQ25186 40-second host watchdog requires continuing I2C traffic and power-cycles
 `SYS` if traffic stops. The charger watchdog is disabled only immediately before
 intentional deep sleep, after a final direct read-back.
 
+## Bluetooth pairing and remote ownership
+
+Boot and wake start with pairing closed. Previously approved phones can reconnect
+while the toy is awake; a new phone needs the physical three-second gesture.
+Fresh Classic and BLE pairing requests require an open window even from a
+previously bonded address; saved-key authentication on an ordinary reconnect
+does not require that grant. This
+admission policy does not guarantee bond preservation against unsolicited
+re-pairing: the bundled Bluetooth stack can clear keys before or during rejection.
+The window lasts a full 60 seconds from opening, even if audio and BLE both
+connect. A connection neither closes nor extends it. The LED blinks blue at
+200 ms on / 200 ms off throughout the window, even while Classic audio plays or
+BLE is connected. This is faster than playback's 500 ms on / 500 ms off. When
+the window closes, the indicator returns to the current operating state. BLE
+remote connections alone do not change the light: local idle/playback remain
+green, and Quiet time remains purple. Normal blue indicates Classic audio.
+
+The ten-second gesture is measured from the start of the same hold. It cancels
+the window, deletes the stack bonds, and disconnects both
+transports. The indicator flashes red for 250 ms and then resumes the current
+state's pattern, normally green idle. Quiet time, playback, and errors remain
+visible afterward, even if both buttons are still held. Both buttons must be
+released before another hold can begin: holding continuously for 13 seconds
+only performs the reset once.
+These gestures also work during Classic audio and Quiet time. The toy stays
+awake while pairing is open or both buttons are held.
+
+Classic audio and BLE use their respective Bluetooth bond stores as the sole
+persistent source of trust; there are no separate application approval lists.
+This ESP32 stack does not automatically enroll one transport by pairing the other: enroll the
+phone once through its Bluetooth audio settings and once through the parent
+app, during the same window or separate windows. Bonds survive reboot and
+SD-card changes; their capacity and replacement are managed by the stack.
+After a reset, the phone may also need to forget the old pairing before enrolling
+again. On upgrade from the approval-list firmware, only bonds with matching
+legacy approvals are retained; an older firmware with no approval metadata
+requires enrollment again. The legacy lists are deleted after migration.
+
+Both transports use Just Works (no displayed/typed number). The phone may still
+ask the parent to tap Pair. Classic's private ESP-IDF 4.4.7 adapter sets
+pairability on the Bluetooth task and intercepts `BTA_DmConfirm`, including
+Bluedroid's automatic Just Works confirmation. It refuses fresh pairing outside
+the window. A2DP requires successful stack authentication; bond-address membership
+alone never proves possession of a key. Pairing finishing after the deadline is
+rejected and its new bond removed. The adapter is guarded against SDK upgrades;
+revalidate its private ABI and linker wrapping before changing the SDK.
+
+Reset persists a pending-deletion marker before disconnecting. Access remains
+disabled until both transports have disconnected and bond-store snapshots confirm
+deletion. Removal is retried, and a reboot resumes an unfinished reset. This
+marker stores no device identities or keys. Migration uses the same closed-access
+period. A storage failure leaves access disabled and is logged.
+
+BLE keeps advertising while a controller is connected. The most recently
+connected phone that successfully authenticates becomes the controller. An
+unapproved phone can enroll only during the window; afterward only approved,
+bonded phones can take over. The previous controller immediately loses command
+access, receives the notice `{"type":"takeover"}`, and is disconnected after
+indication confirmation and a short delivery grace, or a bounded fallback delay.
+The app displays **Someone else took control.** and does not automatically
+reconnect. BLE private addresses are resolved through saved bond identities so
+an approved phone remains recognizable when its address rotates. Enrollment and
+handoff briefly use multiple BLE links, then release the displaced connection.
+
+The authorization checks run before GATT reads, writes, and subscriptions reach
+Arduino BLE. Notifications target the current controller, and pending commands
+and prepared writes are discarded when ownership changes. Bluetooth bonding
+supplies remembered keys; the button-controlled window authorizes new enrollment.
+
+The public read-only `access` characteristic (`...78A1`) returns one byte for
+the requesting connection: `0` pairing required, `1` authentication pending,
+`2` authenticated controller, `3` authentication failed, or `4` taken over.
+It exposes no settings or control data. Rejected peers have up to ten seconds
+to read the reason before firmware disconnects them; the app reads it before
+accessing controls and disconnects immediately after displaying a refusal.
+All other application characteristics remain protected throughout that grace.
+While authentication is pending, the app makes one encrypted status read to
+initiate client-side bonding/encryption. Firmware does not also send a
+peripheral Security Request on connection; competing initiators can cause
+duplicate Android pairing dialogs. Approval still requires AUTH_CMPL and the
+normal enrollment policy. An encrypted request that reaches the application
+before approval receives insufficient authorization (0x08), not a request
+to repeat authentication (0x05).
+The app waits for pending authentication, supports older firmware without this
+diagnostic, and never translates a generic discovery failure into proof that
+the firmware needs upgrading.
+
+Connection diagnostics are always printed to serial. `t=` is milliseconds since
+boot, `peer=` is the Bluetooth address, and BLE `conn=` identifies that link.
+`65535` in an owner/connection field means none or unmatched. The principal events
+are:
+
+| Log event | What it establishes |
+|---|---|
+| `[BLE] CONNECT` | A BLE link reached the device; includes bond presence, window state, and initial decision. |
+| `[BLE] SECURITY_REQUEST` | A peer security request arrived; `result=0x0` means the response API accepted the operation, not that authentication finished. |
+| `[BLE] AUTH` | Authentication completed; includes stack success, raw failure code, negotiated mode, and the admission decision. |
+| `[Access] Bonds ready` | Bond migration or reset completed; lists Classic/BLE bond counts. |
+| `[BT] JUST_WORKS_REQUEST` | The SDK requested fresh pairing; records the pairing-window decision without keys or codes. |
+| `[BLE] CONTROL` | The authenticated connection and selected controller. |
+| `[BLE] AUTH_TIMEOUT` / `DISCONNECT` | Authentication exceeded its deadline/window, or a link ended; includes timing or the disconnect reason. |
+| `[BT] ACL_CONNECT` / `PAIRING_REQUEST` / `AUTH_COMPLETE` | Classic link arrival, pairing decision, and authentication result. |
+| `[BT] A2DP_CONNECTION` / `A2DP_REJECT` | Audio-profile connection progress or approval rejection. |
+| `[BT] SCAN_MODE` | Whether Classic accepts connections and permits discovery/pairing. |
+| `[BLE] ADVERTISING ... failed` | BLE advertising could not start/stop; includes the stack status. |
+
+No keys or passcodes are printed. Attribute reads/writes, key-exchange steps,
+and successful advertising callbacks are not logged. Requests rejected by the
+phone or controller before a link/security callback reaches the application
+cannot produce an application connection log; absence of `CONNECT`/`ACL_CONNECT`
+alone does not identify the cause on the phone.
+
 ## Bluetooth speaker mode
 
-SweetYaar advertises as a Classic Bluetooth A2DP speaker, so a phone, tablet,
+During pairing, SweetYaar is discoverable as a Classic Bluetooth A2DP speaker, so a phone, tablet,
 or computer can send it ordinary system audio. Connecting an A2DP source stops
 any local WAV playback and gives the stream exclusive use of the speaker.
 
@@ -356,7 +479,10 @@ While the A2DP connection is active, physical-button playback and parent-app
 playback controls are ignored rather than saved for later. The streaming device
 owns the stream volume; the toy's local volume setting only affects WAV files
 from the SD card. When the source disconnects, the firmware returns to idle and
-opens the speaker for a new connection after a short cleanup period.
+accepts another approved source after a short cleanup period (or a new source
+if pairing is still open). There is one Classic audio connection at a time.
+Opening pairing does not interrupt it: disconnect the current audio source on
+its phone before connecting another.
 
 Leaving Bluetooth mode mutes the amplifier and restores the shared audio output
 to 44.1 kHz, stereo, 16-bit PCM before local playback resumes, including a return
@@ -448,7 +574,10 @@ the main loop remains the only LED hardware owner.
 | Ready/idle | Green, 1 s on / 1 s off. |
 | Local song or animal playback | Green, 0.5 s on / 0.5 s off. |
 | Classic Bluetooth connected but not playing | Blue, 1 s on / 1 s off. |
+| BLE controller connected without Classic audio | Keep the normal local idle/playback or Quiet time pattern. |
 | Classic Bluetooth audio started | Blue, 0.5 s on / 0.5 s off. |
+| Pairing window open, including during BT playback or BLE control | Blue, 0.2 s on / 0.2 s off throughout the window. |
+| Bluetooth approvals cleared | Red once for 250 ms, then restore the current state's pattern. |
 | Quiet time | Purple, 1 s on / 0.25 s off. |
 | Persistent error after initialization | Red, 0.25 s on / 0.25 s off; currently set for SD initialization/removal failures and other persistent `error` notices. |
 | Deep sleep | Off and unpowered. |
@@ -465,11 +594,15 @@ subsystems initialize:
 [LED]   BT audio playing: blue 500ms on / 500ms off
 [LED]   Quiet time: purple 1000ms on / 250ms off
 [LED]   persistent error: red 250ms on / 250ms off
+[LED]   pairing window open: blue 200ms on / 200ms off
+[LED]   Bluetooth approvals cleared: red once for 250ms, then current state
 [LED]   deep sleep/off: off
 ```
 
 Initialization intentionally outranks errors so boot stays yellow. Once boot
-clears `Initializing`, a latched error outranks every operational state;
+clears `Initializing`, pairing feedback outranks playback, connections, and errors, and a latched error
+outranks other operational states. Reset feedback has highest priority for its
+single 250 ms flash, then normal state indication resumes;
 active Bluetooth audio outranks an idle Bluetooth connection, which in turn
 outranks Quiet time, local playback, and ready. Adding a second
 indicator later means setting `SWEETYAAR_STATUS_LED_PIXEL_COUNT`, wiring LED1
@@ -561,6 +694,10 @@ The high-level components are:
 | `firmware/esp32/src/main.cpp`           | Boot sequence and coordination between every subsystem.                                  |
 | `firmware/esp32/src/StateMachine.*`     | Playback ownership, mode changes, looping, and the Quiet time timer.                     |
 | `firmware/esp32/src/ButtonHandler.*`    | Debouncing the two buttons and recognizing a simultaneous press.                         |
+| `firmware/esp32/src/PairingPolicy.h` | Three/ten-second gestures, release rearming, and the 60-second window. |
+| `firmware/esp32/src/BluetoothAccess.*` and `BleIdentity.h` | Bond lookup, private-address resolution, one-time legacy migration, and durable reset. |
+| `firmware/esp32/src/ClassicBluetooth.*` | Classic Just Works pairing gate and transient authenticated-link state. |
+| `firmware/esp32/src/ApprovedA2DPSink.h` | Classic pairing admission, discoverability, and approved audio sessions. |
 | `firmware/esp32/src/WavPlayer.*`        | Streaming and decoding SD-card WAV files to the I2S audio output.                        |
 | `firmware/esp32/src/ContentCatalog.*`   | Scanning themes and tracks, validating content, and applying content-management changes. |
 | `firmware/esp32/src/BLEParentService.*` | BLE characteristics used by the parent app for controls, status, and configuration.      |
@@ -628,7 +765,8 @@ Run this after deploying firmware or a parent-app change involving Bluetooth.
 1. Disconnect the parent app before flashing. Deploy the matching app when the
    BLE contract changes, incrementing `CACHE_VERSION` in `app/public/sw.js`.
    Reload the app online so it loads the deployed version.
-2. Connect from Chrome or Edge. Verify the theme selector, clock/Bedtime state,
+2. Hold both buttons for three seconds to enroll a new phone, then connect from
+   Chrome or Edge. Verify the theme selector, clock/Bedtime state,
    Settings load and content scans. Commands use `configCommand`
    (`a1b2c3d4-e5f6-7890-abcd-ef1234567897`) and `configResponse`
    (`a1b2c3d4-e5f6-7890-abcd-ef1234567898`). Both and the five config state
@@ -643,6 +781,30 @@ Run this after deploying firmware or a parent-app change involving Bluetooth.
    arrive after Classic Bluetooth streaming ends.
 4. Check Classic Bluetooth audio on the intended hardware: confirm audio routing,
    `Audio state: STARTED` in the serial log, and playback without a crash/reboot.
+5. Verify a new phone cannot enroll after boot or after the 60-second deadline.
+   The matching app should show **Device not approved** and the three-second
+   pairing instruction, without loading controls or asking for a firmware upgrade.
+   Enroll audio and BLE during one window; neither success should close it.
+   Confirm approved devices reconnect after the deadline and after reboot,
+   including a BLE phone using a changed private address.
+6. With BLE phone A controlling, connect B and then C. Each authenticated arrival
+   takes over; the old app shows **Someone else took control.**, disables controls,
+   and does not reconnect itself. A failed or unapproved attempt must leave the
+   existing controller working. Repeat during Classic audio; playback should
+   remain stable and app playback controls should stay disabled.
+7. Keep Classic source A connected while opening pairing: B must wait until A
+   disconnects manually. The blue blink must immediately speed up to 200 ms
+   on / 200 ms off and remain fast for the full window. Then check B can connect
+   in the remaining window. At timeout it must return to the normal playback or
+   connected cadence. For each attempted connection inspect `CONNECT`/`ACL_CONNECT`,
+   authentication results, and the approval decision before diagnosing an app failure.
+8. Hold both buttons continuously for 13 seconds. Expect pairing at three seconds,
+   a single red flash at ten, both links disconnected and approvals erased, then
+   the current state indication (normally green idle) after 250 ms, and no
+   reopening at thirteen. Verify Quiet time and errors also remain visible after
+   the flash. Releasing only one button must not rearm; release
+   both before trying another three-second hold. Confirm old phones require
+   enrollment again, including after a reboot.
 
 #### macOS recovery when characteristics are missing
 
@@ -657,7 +819,7 @@ flashes with an unchanged GATT table do not require forgetting the device.
    under which it was paired, which may still be `SweetYaar Remote` after a rename.
    If it has no saved entry, skip this step. Apple documents device removal in
    [Connect a Bluetooth device with your Mac](https://support.apple.com/guide/mac-help/connect-a-bluetooth-device-blth1004/mac).
-3. Power the toy on, reopen the current app and select it again in the Bluetooth
+3. Power the toy on, hold both buttons for three seconds, reopen the current app and select it again in the Bluetooth
    chooser. Pair it again in macOS when testing Classic Bluetooth audio.
 4. If the same characteristics are still missing, try turning the Mac's Bluetooth
    off and on, then reconnect; restart the Mac if that does not help. Toggling

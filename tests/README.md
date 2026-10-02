@@ -1,5 +1,73 @@
 # SweetYaar Test Suite Map
 
+## Two test layers
+
+1. `make test-unit` runs host logic/UI tests with simulated GPIO, time, radio
+   and storage. It never flashes or connects to a toy. `make test-firmware`
+   additionally compiles both environments, still without hardware.
+2. `make test-device` runs on the real ESP32 after explicit user approval for
+   that session. Confirm the board variant, close the serial monitor, and run
+   from macOS Terminal with Bluetooth permission. Upload is explicit (`--flash`).
+
+The device runner needs Python packages `bleak` and `pyserial`, command-line
+tools `blueutil` and `SwitchAudioSource`, and Xcode command-line tools (Swift).
+`device_tone.swift` sends a quiet five-second tone directly to the toy without
+changing the Mac's default output. Flashing preserves NVS.
+
+Example for the generic prototype (verify the board/port and obtain approval
+before setting the flag):
+
+```bash
+make test-device DEVICE_TEST_APPROVED=1 PIO_ENV=sweetyaar-generic \
+  SERIAL_PORT=/dev/cu.usbserial-14320 \
+  DEVICE_TEST_ARGS='--flash --scenario boot --expected-access 0'
+```
+
+Subsequent scenarios change `DEVICE_TEST_ARGS` and omit `--flash`. The boot
+scenario resets the toy; if this Mac is already approved, use
+`--expected-access 2`. Test rejection after the physical approval-reset flow.
+
+| Scenario | Real checks / required action |
+| --- | --- |
+| `boot` | Boot ready, pairing closed; BLE rejection and blocked protected read, or approved access if expected. |
+| `ble-pair` | User holds both buttons for 3 seconds; Mac enrolls, waits for closure, reconnects outside the window, reboots and verifies approval persistence. |
+| `ble-reconnect` | Three approved BLE connections and protected status/volume reads without rebooting or opening pairing. |
+| `external-pair` | Serial-only observer: user opens pairing and connects a tablet/phone. Verifies successful BLE authentication and 60-second closure without a Mac BLE connection. |
+| `external-classic` | Serial-only observer: user opens pairing and freshly pairs a phone through Bluetooth audio settings. Requires the Just Works gate, successful authentication, A2DP connection and 60-second closure. User verifies there is no comparison code. |
+| `external-classic-reconnect` | After that window closes, user disconnects/reconnects the same phone. Requires A2DP with pairing closed and no fresh pairing grant; verifies the new Just Works bond. A serial-induced reboot is also accepted as the session boundary. |
+| `external-takeover` | Serial-only observer: after reboot, two saved phone/tablet devices connect in sequence without opening pairing. Requires saved-key authentication, the second taking control while the first remains connected, and retirement of the first connection. The user confirms the app notice. |
+| `classic-denied --classic-address <boot-log-address>` | Reboots with no Classic approvals, checks admission is closed and a real Mac connection attempt fails. |
+| `classic --classic-address <boot-log-address>` | Physical pairing window; Classic pair/connect, concurrent BLE, ignored local volume changes in BT mode, routed audio plus firmware STARTED, timeout and Classic reconnect. |
+| `classic --already-paired --classic-address <boot-log-address>` | Reboot, connect using saved approval with pairing closed, concurrent BLE, audio and another Classic reconnect. No button press needed. |
+| `takeover` | A second approved phone/tablet connects while Mac owns BLE. Mac must receive the takeover indication and disconnect, then take control back. |
+| `reset` | User holds both buttons continuously for 13 seconds. Approvals clear without another window opening, BLE is denied, and revocation survives reboot. This deliberately clears the toy's saved pairings. |
+
+Each invocation writes `report.json` and `serial.log` under
+`tools/bt_smoke_logs/<timestamp>/`; save stdout as `runner.log` too. Reports
+identify the scenario, board, built binary hash, BLE identity and individual
+results. Retain the upload log: the built hash alone does not prove flashing.
+Report failures and untested flows as well as passes.
+
+The [2026-10-02 hardware record](../docs/engineering/pairing-hardware-validation.md)
+lists the observed failures, fixes, passes and remaining checks from this session.
+
+Use `takeover --pair-second` to enroll a new second device: the test waits for
+the physical pairing gesture before its connection, then verifies the original
+window still closes at 60 seconds. Repeat `takeover` afterward to test the
+approved second device outside pairing mode.
+
+If macOS reports `Peer removed pairing information`, forget only this toy in
+System Settings > Bluetooth before testing fresh enrollment. In the October
+2026 run, `blueutil --unpair` did not clear the stale BLE pairing; forgetting it
+in Settings did. After a deliberate toy approval reset, refusal of the old Mac
+bond is expected and is reported separately from the public GATT rejection.
+
+LED appearance, button feel, audible sound quality and tablet/browser messages
+need human observation. Classic contention needs a second audio source. Two
+programs on one Mac share a central identity and cannot substitute for two
+devices. Exact millisecond GPIO tests require an external button-driving fixture;
+host timing tests do not prove those timings on the hardware.
+
 All automated regression tests are collected by pytest from this directory.
 Run the full suite from the repo root or any worktree with:
 
@@ -33,6 +101,34 @@ If the venv is active, `pytest` is equivalent.
   executing the production acknowledgment and config-state serializers; checks
   complete values and correct escaping for all five state groups.
 - `test_state_machine.py`: pytest wrapper that compiles and runs native C++ state-machine tests.
+- `button_handler_native_test.cpp`: drives the real GPIO/debounce handler and
+  pairing policy with staggered presses in either order (through the 250 ms
+  boundary), single and rapid taps, late second presses, partial releases,
+  contact bounce, timer wraparound, and ignored playback during BT/Quiet time.
+- `test_bluetooth_access.py`: runs the real pairing timer, one-shot reset LED,
+  bond migration/reset, Classic audio admission, BLE authorization/takeover, and
+  public per-connection rejection diagnostic against host-side radio stubs.
+  Includes the macOS hardware regression where GAP authentication completes
+  before GATTS CONNECT, plus failed/expired outcomes and early key exchanges.
+  Fresh-pairing grants are tested for known and unknown peers, before and after
+  CONNECT, with the window open or closed, including already-rejected links.
+  Saved-key reconnect remains covered separately from fresh pairing.
+  The Classic adapter test exercises the SDK's direct Just Works confirmation
+  path with the window closed/open, a known address without its saved key, late
+  authentication, and blocked audio before authentication or during reset.
+  Bond-store tests execute production migration and reset with asynchronous
+  deletion, failing reads/removals/storage writes, a reboot mid-reset, and BLE
+  identity addresses. Enrollment persists only stack bonds, with no second list.
+  The real LED scheduler is tested for a single reset flash followed by the
+  current idle/playback/Quiet time/error pattern, without re-flashing on a
+  continued hold, including timer wraparound and a later separate reset.
+  It also verifies that the flash request is cleared while the current state's
+  signals remain intact; no completed-reset LED state is retained.
+  The UI runner covers pairing instructions before controls load, pending and
+  failed authentication, takeover notices, and discovery-error classification.
+  Failed connections clean up subscriptions immediately; synchronous or delayed
+  disconnect events cannot suppress a later session's disconnect or overwrite
+  its state. Device-picker cancellation stays distinct from discovery failures.
 - `test_charger_status.py`: tests the pure charger status interpretation and the real charger driver against scripted I2C/GPIO inputs, including completion versus host disable, stale samples after enable changes, separate event logs, polling/interrupts, read failure/recovery, simultaneous app conditions, latest-read timeout and overcurrent indications, and binary snapshot encoding.
 - `state_machine_native_test.cpp`: host-side C++ behavior tests for the real `firmware/esp32/src/StateMachine.cpp`.
 - `native_stubs/`: tiny Arduino/FreeRTOS headers used only by native host tests.

@@ -91,5 +91,9 @@ inline uint32_t millis() {
 
 static constexpr int HIGH = 1;
 static constexpr int LOW = 0;
+static constexpr int INPUT_PULLUP = 2;
+
+void pinMode(int pin, int mode);
+int digitalRead(int pin);
 
 inline void digitalWrite(int, int) {}

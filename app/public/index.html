@@ -2143,7 +2143,7 @@
           </div>
           <div class="status-copy">
             <h1 style="color: var(--ink)">Remote not connected</h1>
-            <p id="openingMessage">Connect to play songs and animal sounds, set the volume, and more.</p>
+            <p id="openingMessage">New phone? Hold both buttons on the toy for 3 seconds, then connect.</p>
           </div>
         </article>
 
@@ -2702,6 +2702,7 @@
       notice: "a1b2c3d4-e5f6-7890-abcd-ef1234567899",
       battery: "a1b2c3d4-e5f6-7890-abcd-ef123456789a",
       charger: "a1b2c3d4-e5f6-7890-abcd-ef12345678a0",
+      access: "a1b2c3d4-e5f6-7890-abcd-ef12345678a1",
       configGeneral: "a1b2c3d4-e5f6-7890-abcd-ef123456789b",
       configSleep: "a1b2c3d4-e5f6-7890-abcd-ef123456789c",
       configBedtime: "a1b2c3d4-e5f6-7890-abcd-ef123456789d",
@@ -2842,6 +2843,7 @@
       chargerReading: false,
       notice: null,
       noticeTimer: null,
+      disconnectReason: "",
       configResponseSubscribed: false,
       configValues: {},
       configNotifyResolve: null,
@@ -2864,7 +2866,6 @@
       themeOpen: false,
       message: "",
       requestId: 0,
-      suppressNextDisconnectMessage: false,
       configError: null,
       installPromptEvent: null,
       installDismissed: false,
@@ -4465,7 +4466,7 @@
       els.connectButton.setAttribute("aria-busy", state.busy ? "true" : "false");
       els.connectButtonLabel.textContent = state.busy ? "Connecting..." : `Connect to ${displayDeviceName()}`;
       els.openingMessage.textContent =
-        state.message || "Connect to play songs and animal sounds, set the volume, and more.";
+        state.message || "New phone? Hold both buttons on the toy for 3 seconds, then connect.";
 
       const readyStatusText = readyStatus();
       const readyMessageText = readyMessage();
@@ -4723,7 +4724,7 @@
       try {
         return await service.getCharacteristic(UUIDS[name]);
       } catch (error) {
-        if (error?.name === "NotFoundError") {
+        if (error?.name === "NotFoundError" && state.device?.gatt?.connected) {
           const wrapped = new Error("Please upgrade device firmware.");
           wrapped.userMessage = "Please upgrade device firmware.";
           wrapped.technicalMessage =
@@ -4807,6 +4808,69 @@
     }
 
     const NOTICE_AUTO_DISMISS_MS = 6000;
+    const TAKEOVER_MESSAGE = "Someone else took control.";
+    const PAIRING_REQUIRED_MESSAGE = "Device not approved. Hold both buttons for 3 seconds to open pairing mode, then reconnect.";
+    const CONNECTION_PAIRING_HINT = "Couldn't connect. If this is a new device, hold both buttons for 3 seconds to open pairing mode.";
+
+    function connectionMessageError(message) {
+      const error = new Error(message);
+      error.userMessage = message;
+      return error;
+    }
+
+    async function checkConnectionAccess(service, device) {
+      let access;
+      try {
+        access = await service.getCharacteristic(UUIDS.access);
+      } catch (error) {
+        // Old firmware has no access diagnostic. A broken connection is not
+        // evidence that a characteristic is missing, so preserve that error.
+        if (error?.name === "NotFoundError" && device.gatt.connected) return;
+        throw error;
+      }
+      const deadline = Date.now() + 30000;
+      let pairingReadStarted = false;
+      while (state.device === device && device.gatt.connected) {
+        const value = await readCharacteristic(access);
+        if (value.byteLength !== 1) throw connectionMessageError("Couldn't check device access. Please reconnect.");
+        const accessState = value.getUint8(0);
+        if (accessState === 0) throw connectionMessageError(PAIRING_REQUIRED_MESSAGE);
+        if (accessState === 2) return;
+        if (accessState === 3) throw connectionMessageError("Couldn't authenticate. Reconnect and check for a Bluetooth pairing request.");
+        if (accessState === 4) throw connectionMessageError(TAKEOVER_MESSAGE);
+        if (accessState !== 1 || Date.now() >= deadline) {
+          throw connectionMessageError("Pairing did not finish. Reconnect and check for a Bluetooth pairing request.");
+        }
+        if (!pairingReadStarted) {
+          // Android may defer bonding until an encrypted GATT access asks for
+          // it. Polling only the public diagnostic can otherwise deadlock.
+          // This read cannot authorize controls: always recheck access after
+          // it, and never attempt it when the device reports pairing-required.
+          pairingReadStarted = true;
+          try {
+            const status = await service.getCharacteristic(UUIDS.status);
+            await readCharacteristic(status);
+          } catch {
+            // Pending authorization can reject this trigger read. The public
+            // access state below reports the actual authentication outcome.
+          }
+          continue;
+        }
+        await delay(150);
+      }
+      throw connectionMessageError(CONNECTION_PAIRING_HINT);
+    }
+
+    function describeConnectionError(error) {
+      console.error("[SweetYaar connection error]", error?.technicalMessage || error);
+      if (error?.userMessage) return error.userMessage;
+      if (/insufficient (authentication|authorization|encryption)|not (paired|bonded|authorized)/i.test(error?.message || "")) {
+        return PAIRING_REQUIRED_MESSAGE;
+      }
+      // Browsers may expose a refused link only as a generic discovery or
+      // disconnect error. Offer the pairing step without inventing a diagnosis.
+      return CONNECTION_PAIRING_HINT;
+    }
 
     // The device owns the message and severity; the app only displays it.
     // "error" stays until dismissed; anything else auto-dismisses.
@@ -4844,6 +4908,11 @@
       } catch (error) {
         return;
       }
+      if (parsed?.type === "takeover") {
+        // Do not reconnect automatically: that would steal control back.
+        disconnectWithReason(TAKEOVER_MESSAGE);
+        return;
+      }
       if (parsed?.type === "loop" && typeof parsed.active === "boolean") {
         state.loop = parsed.active;
         render();
@@ -4856,6 +4925,7 @@
 
     async function subscribeToNoticeNotifications() {
       if (!state.chars.notice) return;
+      if (subscriptions.get("notice")?.characteristic === state.chars.notice) return;
       await subscribe("notice", (event) => {
         handleNotice(readText(event.target.value));
       });
@@ -4905,6 +4975,8 @@
       state.configValues = {};
       state.configError = null;
       state.chars.notice = await getOptionalCharacteristic(service, "notice");
+      // Receive takeover notices before loading values and syncing settings.
+      await subscribeToNoticeNotifications();
       state.chars.battery = await getOptionalCharacteristic(service, "battery");
       state.charger = null;
       state.chargerTransportError = "";
@@ -4925,22 +4997,7 @@
         render();
       } catch (error) {
         if (state.server !== server) return;
-        const message = describeError(error);
-        if (state.device?.gatt?.connected) {
-          state.suppressNextDisconnectMessage = true;
-          state.device.gatt.disconnect();
-        }
-        state.connected = false;
-        state.device = null;
-        state.server = null;
-        state.chars = {};
-        state.configError = null;
-        state.configResponseSubscribed = false;
-        state.configNotifyResolve = null;
-        state.remoteInitializing = false;
-        state.status = "Disconnected";
-        state.message = message;
-        render();
+        disconnectWithReason(describeConnectionError(error));
       }
     }
 
@@ -5002,13 +5059,23 @@
         return;
       }
 
+      state.disconnectReason = "";
+      state.device = null;
       state.busy = true;
       setMessage("Connecting...");
 
       try {
-        const device = await navigator.bluetooth.requestDevice({
-          filters: [{ services: [UUIDS.service] }]
-        });
+        let device;
+        try {
+          device = await navigator.bluetooth.requestDevice({
+            filters: [{ services: [UUIDS.service] }]
+          });
+        } catch (error) {
+          if (error?.name === "NotFoundError") {
+            throw connectionMessageError(`${displayDeviceName()} was not selected.`);
+          }
+          throw error;
+        }
         setDeviceNameFromBluetooth(device);
         state.device = device;
         device.addEventListener("gattserverdisconnected", onDisconnected);
@@ -5018,55 +5085,56 @@
         try {
           service = await server.getPrimaryService(UUIDS.service);
         } catch (error) {
+          if (!device.gatt.connected || (error?.name !== "NotFoundError" &&
+              !/No Services matching UUID/i.test(error?.message || ""))) throw error;
           try {
             const services = await server.getPrimaryServices();
             console.warn("[SweetYaar BLE] Service not found; available:", services.map((service) => service.uuid));
           } catch (listError) {
             console.warn("[SweetYaar BLE] Could not list primary services", listError);
+            throw listError;
           }
+          if (!device.gatt.connected) throw error;
           const wrapped = new Error("Please upgrade device firmware.");
           wrapped.userMessage = "Please upgrade device firmware.";
           wrapped.technicalMessage =
-            `Missing BLE service ${UUIDS.service}. The browser may be seeing old firmware or stale GATT cache.`;
+            `Missing BLE service ${UUIDS.service}. The browser may be seeing old firmware or stale GATT cache. ${error.message || ""}`;
           throw wrapped;
         }
 
         state.server = server;
+        await checkConnectionAccess(service, device);
         const statusChar = await getCharacteristic(service, "status");
         state.chars = { status: statusChar };
         await subscribeToStatusNotifications();
         const statusValue = await readCharacteristic(statusChar);
+        if (state.device !== device || state.disconnectReason) return;
         state.status = readText(statusValue) || "Idle";
         state.connected = true;
         state.view = "remote";
         state.busy = false;
         beginRemoteInitialization(server, service);
       } catch (error) {
-        const message = describeError(error);
-        if (state.device?.gatt?.connected) {
-          state.suppressNextDisconnectMessage = true;
-          state.device.gatt.disconnect();
-        }
-        state.connected = false;
-        state.device = null;
-        state.server = null;
-        state.chars = {};
-        state.configError = null;
-        state.remoteInitializing = false;
-        state.status = "Disconnected";
-        state.message = message;
+        disconnectWithReason(state.disconnectReason || describeConnectionError(error));
       } finally {
         state.busy = false;
         render();
       }
     }
 
-    function onDisconnected() {
-      if (state.suppressNextDisconnectMessage) {
-        state.suppressNextDisconnectMessage = false;
-        return;
-      }
+    function disconnectWithReason(message) {
+      state.disconnectReason = message;
+      const device = state.device;
+      // Clean up immediately; the browser may deliver its event later.
+      onDisconnected();
+      if (device?.gatt?.connected) device.gatt.disconnect();
+    }
+
+    function onDisconnected(event) {
+      if (event?.target && event.target !== state.device) return;
+      state.device = null;
       state.connected = false;
+      state.busy = false;
       for (const { characteristic, listener } of subscriptions.values()) {
         characteristic.removeEventListener("characteristicvaluechanged", listener);
       }
@@ -5098,7 +5166,7 @@
       // fresh scan next time Settings opens.
       state.settings.sessionScanned = false;
       state.settings.songsByTheme = {};
-      state.message = "Remote disconnected.";
+      state.message = state.disconnectReason || "Remote disconnected.";
       render();
     }
 
@@ -5108,10 +5176,10 @@
       render();
       try {
         await action();
-        state.message = successMessage || "";
+        state.message = state.disconnectReason || successMessage || "";
       } catch (error) {
         if (onError) onError();
-        state.message = describeError(error);
+        state.message = state.disconnectReason || describeError(error);
       } finally {
         state.busy = false;
         render();

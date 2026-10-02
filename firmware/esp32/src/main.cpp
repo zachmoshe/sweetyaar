@@ -17,7 +17,8 @@
 
 // --- Project modules ---
 #include "Config.h"
-#include "LowLatencyA2DPSinkQueued.h"
+#include "ApprovedA2DPSink.h"
+#include "PairingPolicy.h"
 #include "NVSConfig.h"
 #include "ParentConfig.h"
 #include "ContentCatalog.h"
@@ -43,6 +44,7 @@ StateMachine    sm;
 BatteryMonitor  batteryMonitor;
 BQ25186Charger  charger;
 SleepEntryCheck sleepEntryCheck;
+PairingPolicy pairingPolicy;
 
 // Audio pipeline:
 //   BT A2DP: A2DP sink -> I2SStream -> MAX98357A
@@ -50,7 +52,7 @@ SleepEntryCheck sleepEntryCheck;
 I2SStream       i2sOut;
 VolumeStream    volumeOut;
 WavPlayer       wavPlayer(volumeOut);
-BluetoothA2DPSink* btSink = nullptr;
+ApprovedA2DPSink* btSink = nullptr;
 
 // Track previous state to detect transitions in the main loop
 State prevState = State::IDLE;
@@ -114,6 +116,7 @@ void printBluetoothAddress(const char* label);
 void scheduleBluetoothReopen(const char* reason);
 void reopenBluetoothForPairing(const char* reason);
 void pollBluetoothReopen();
+void pollBluetoothPairing();
 void applyVolume(uint8_t pct);
 void applyEffectiveVolume(const char* reason);
 uint8_t effectiveVolumePct();
@@ -265,6 +268,7 @@ void setup() {
 
     // Device-local NVS config
     nvs.begin();
+    bluetoothAccess.begin();
     currentDeviceName = nvs.getBtName();
     if (currentDeviceName.length() > 32 || ContentCatalog::jsonEscape(currentDeviceName).length() > 64) {
         Serial.printf("[Config] Ignoring oversized device name: %s\n", currentDeviceName.c_str());
@@ -332,6 +336,9 @@ void setup() {
         Serial.println("[BLE] Parent service disabled for A2DP audio test");
     }
 
+    if (bluetoothAccess.poll(ClassicBluetooth::hasLinks() ||
+            (ENABLE_BLE_PARENT_SERVICE && bleService.hasLinks()))) btSink->refreshAccess();
+
     updateStatusSignalsForState(sm.currentState());
     statusLed.setSignal(StatusSignal::Initializing, false);
     statusLed.service(millis());
@@ -354,9 +361,10 @@ void loop() {
 
     // 1. Poll buttons
     buttons.update();
+    pollBluetoothPairing(); // pairing/reset gestures also work during BT audio
 
     // 2. Post button events to state machine.
-    //    BT_STREAMING and KILLSWITCH: buttons fully ignored.
+    //    BT_STREAMING and KILLSWITCH: playback presses are ignored.
     //    Same-category presses while WAV is playing advance immediately.
     State cur = sm.currentState();
     if (cur == State::BT_STREAMING || cur == State::KILLSWITCH) {
@@ -459,9 +467,14 @@ void loop() {
     wavPlayer.loop();
 
     // 8. Re-open BT after a short disconnect cooldown.
+    if (bluetoothAccess.poll(ClassicBluetooth::hasLinks() ||
+            (ENABLE_BLE_PARENT_SERVICE && bleService.hasLinks())) && btSink && !btReopenPending)
+        btSink->refreshAccess();
     pollBluetoothReopen();
     applyPendingBtNameIfPossible();
-    if (ENABLE_BLE_PARENT_SERVICE) bleService.pollAdvertising();
+    if (ENABLE_BLE_PARENT_SERVICE) {
+        bleService.pollAdvertising(!btLinkConnected || millis() - btConnectedAtMs >= BT_SETTLE_MS);
+    }
     statusLed.service(millis());
     pollIdleSleep();
 
@@ -871,6 +884,7 @@ bool stateAllowsIdleSleep(State state) {
 // canEnterIdleSleep()
 // ---------------------------------------------------------------------------
 bool canEnterIdleSleep() {
+    if (pairingPolicy.open() || buttons.isBothHeld()) return false;
     if (!parentConfig.sleepEnabled()) {
         return false;
     }
@@ -1038,7 +1052,10 @@ void resetI2SOutput(const char* owner) {
     cfg.pin_bck         = HW_I2S_BCLK;
     cfg.pin_ws          = HW_I2S_WS;
     cfg.pin_data        = HW_I2S_DOUT;
-    cfg.buffer_count    = 12;
+    // Each 512-frame stereo DMA buffer uses 2 KB. Twelve consumed 24 KB
+    // beside the A2DP queue and left too little heap for an encrypted BLE
+    // connection while Classic was connected. Six retain ~70 ms at 44.1 kHz.
+    cfg.buffer_count    = 6;
     cfg.buffer_size     = 512;
     i2sOut.begin(cfg);
     Serial.printf("[I2S] Reset for %s\n", owner);
@@ -1048,7 +1065,7 @@ void resetI2SOutput(const char* owner) {
 // setupBT()
 // ---------------------------------------------------------------------------
 void setupBT(const String& deviceName) {
-    auto* sink = new LowLatencyA2DPSinkQueued(i2sOut);
+    auto* sink = new ApprovedA2DPSink(i2sOut);
     sink->set_default_bt_mode(ENABLE_BLE_PARENT_SERVICE ? ESP_BT_MODE_BTDM
                                                         : ESP_BT_MODE_CLASSIC_BT);
     sink->set_i2s_ringbuffer_size(BT_A2DP_RINGBUFFER_BYTES);
@@ -1059,6 +1076,9 @@ void setupBT(const String& deviceName) {
     sink->set_on_audio_state_changed(btAudioStateChanged);
     sink->set_sample_rate_callback(btSampleRateChanged);
     sink->set_auto_reconnect(false, 0);
+    // No display or keyboard: Just Works. ClassicBluetooth gates the SDK's
+    // automatic confirmation before fresh keys can be negotiated.
+    sink->activate_pin_code(false);
     sink->reserveAudioQueue();
     sink->start(deviceName.c_str());
     printBluetoothAddress("Classic BT");
@@ -1076,7 +1096,6 @@ void scheduleBluetoothReopen(const char* reason) {
         return;
     }
 
-    btSink->set_discoverability(ESP_BT_NON_DISCOVERABLE);
     btSink->set_connectable(false);
     btReopenPending = true;
     btReopenAtMs = millis() + BT_REOPEN_DELAY_MS;
@@ -1096,13 +1115,35 @@ void reopenBluetoothForPairing(const char* reason) {
     }
 
     btSink->set_auto_reconnect(false, 0);
-    btSink->clean_last_connection();
-    btSink->set_discoverability(ESP_BT_GENERAL_DISCOVERABLE);
-    btSink->set_connectable(true);
-    Serial.printf("[BT] Open for new connections (%s, free=%u largest=%u)\n",
+    btSink->refreshAccess();
+    Serial.printf("[BT] Accepting approved connections (%s, free=%u largest=%u)\n",
                   reason,
                   heap_caps_get_free_size(MALLOC_CAP_8BIT),
                   heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+}
+
+void pollBluetoothPairing() {
+    const uint32_t now = millis();
+    const auto action = pairingPolicy.update(now, buttons.isBothHeld(), buttons.areBothReleased());
+    if (action == PairingPolicy::Action::Open) {
+        bluetoothAccess.openPairing(now);
+        if (btSink && !btReopenPending) btSink->refreshAccess();
+        markActivity("pairing opened");
+        Serial.println("[Pairing] Open for 60 seconds (audio and BLE enroll separately)");
+    } else if (action == PairingPolicy::Action::Close) {
+        bluetoothAccess.closePairing();
+        if (btSink && !btReopenPending) btSink->refreshAccess();
+        Serial.println("[Pairing] Closed; bonded phones may reconnect");
+    } else if (action == PairingPolicy::Action::Forget) {
+        const bool persisted = bluetoothAccess.forgetBonds();
+        if (ENABLE_BLE_PARENT_SERVICE) bleService.disconnectAll();
+        if (btSink) btSink->revokeSession();
+        statusLed.setSignal(StatusSignal::PairingReset, true);
+        markActivity("Bluetooth bonds reset");
+        if (!persisted) statusLed.setSignal(StatusSignal::Error, true);
+        Serial.println(persisted ? "[Pairing] Clearing all bonds" : "[Pairing] Bond reset storage error; access disabled");
+    }
+    statusLed.setSignal(StatusSignal::Pairing, bluetoothAccess.pairingOpen());
 }
 
 // ---------------------------------------------------------------------------
@@ -2039,6 +2080,8 @@ void printStatusLedModeLegend() {
         StatusLedMode::BluetoothPlaying,
         StatusLedMode::Killswitch,
         StatusLedMode::Error,
+        StatusLedMode::Pairing,
+        StatusLedMode::PairingReset,
         StatusLedMode::Off,
     };
 
@@ -2046,7 +2089,9 @@ void printStatusLedModeLegend() {
     for (StatusLedMode mode : MODES) {
         const StatusLedModeDefinition definition = statusLedModeDefinition(mode);
         const StatusLedPattern& pattern = definition.pattern;
-        if (mode == StatusLedMode::Off) {
+        if (mode == StatusLedMode::PairingReset) {
+            Serial.println("[LED]   Bluetooth approvals cleared: red once for 250ms, then current state");
+        } else if (mode == StatusLedMode::Off) {
             Serial.printf("[LED]   %s: %s\n",
                           definition.condition, definition.colorName);
         } else if (pattern.onMs == 0 || pattern.offMs == 0) {

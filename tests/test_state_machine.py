@@ -8,6 +8,23 @@ import pytest
 from helpers import run_checked
 
 
+def test_button_chords_and_pairing_holds(repo_root: pathlib.Path, tmp_path: pathlib.Path) -> None:
+    compiler = shutil.which("c++") or shutil.which("g++") or shutil.which("clang++")
+    if not compiler:
+        pytest.skip("No C++ compiler found for native button regression test.")
+
+    exe = tmp_path / "button_handler_native_test"
+    run_checked([
+        compiler, "-std=c++17", "-Wall", "-Wextra",
+        "-I", repo_root / "tests" / "native_stubs",
+        "-I", repo_root / "firmware" / "esp32" / "src",
+        repo_root / "firmware" / "esp32" / "src" / "ButtonHandler.cpp",
+        repo_root / "tests" / "button_handler_native_test.cpp",
+        "-o", exe,
+    ])
+    assert "button chord and pairing tests passed" in run_checked([exe]).stdout
+
+
 def test_state_machine_native_transitions(repo_root: pathlib.Path, tmp_path: pathlib.Path) -> None:
     compiler = shutil.which("c++") or shutil.which("g++") or shutil.which("clang++")
     if not compiler:

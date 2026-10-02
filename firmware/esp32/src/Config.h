@@ -164,7 +164,7 @@ static constexpr uint8_t STATUS_LED_MAX_BRIGHTNESS_PCT =
 // Timing constants
 // ---------------------------------------------------------------------------
 static constexpr uint32_t DEBOUNCE_MS          = 50;    // Button debounce window
-static constexpr uint32_t BOTH_PRESS_WINDOW_MS = 100;   // Max gap for "both pressed"
+static constexpr uint32_t BOTH_PRESS_WINDOW_MS = 250;   // Delay single presses to allow a two-button gesture
 static constexpr uint32_t KILLSWITCH_MS        = 10UL * 60UL * 1000UL;  // 10 minutes
 static constexpr bool     DEFAULT_SLEEP_ENABLED = true;
 static constexpr uint32_t SLEEP_NORMAL_IDLE_MS = 10UL * 60UL * 1000UL;
@@ -224,6 +224,7 @@ static constexpr char BLE_CONFIG_RESPONSE_UUID[] = "A1B2C3D4-E5F6-7890-ABCD-EF12
 static constexpr char BLE_NOTICE_UUID[]          = "A1B2C3D4-E5F6-7890-ABCD-EF1234567899";
 static constexpr char BLE_BATTERY_UUID[]         = "A1B2C3D4-E5F6-7890-ABCD-EF123456789A";
 static constexpr char BLE_CHARGER_UUID[]         = "A1B2C3D4-E5F6-7890-ABCD-EF12345678A0";
+static constexpr char BLE_ACCESS_UUID[]          = "A1B2C3D4-E5F6-7890-ABCD-EF12345678A1";
 static constexpr size_t BLE_THEMES_MAX_BYTES = 512;
 static constexpr int BLE_MAX_THEMES = 16;
 static constexpr size_t BLE_CONFIG_MAX_BYTES = 512;

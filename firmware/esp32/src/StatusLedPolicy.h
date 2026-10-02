@@ -19,8 +19,8 @@ static constexpr LedColor PURPLE = {255, 0, 255, 0};
 static constexpr LedColor WHITE  = {0, 0, 0, 255};
 }
 
-// These are facts reported by firmware components, not physical LED modes.
-// The controller resolves simultaneous signals by priority.
+// These are semantic inputs, not physical LED modes. The controller resolves
+// simultaneous signals by priority and consumes the one-shot PairingReset.
 enum class StatusSignal : uint8_t {
     Initializing = 0,
     Error,
@@ -29,6 +29,8 @@ enum class StatusSignal : uint8_t {
     LocalPlayback,
     Killswitch,
     Ready,
+    Pairing,
+    PairingReset, // One red flash requested by the approval-reset action.
 };
 
 constexpr uint32_t statusSignalBit(StatusSignal signal) {
@@ -44,6 +46,8 @@ enum class StatusLedMode : uint8_t {
     LocalPlayback,
     Killswitch,
     Ready,
+    Pairing,
+    PairingReset,
 };
 
 struct StatusLedPattern {
