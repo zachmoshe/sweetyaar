@@ -514,6 +514,11 @@ if pairing is still open). There is one Classic audio connection at a time.
 Opening pairing does not interrupt it: disconnect the current audio source on
 its phone before connecting another.
 
+The disconnect-to-idle cleanup pauses new connections for 1.5 seconds. Starting
+local playback or Quiet time during that cooldown does not cancel the pending
+reopen. At the deadline firmware restores the normal access policy in every
+state, while keeping low-heap restart recovery restricted to idle.
+
 Leaving Bluetooth mode mutes the amplifier and restores the shared audio output
 to 44.1 kHz, stereo, 16-bit PCM before local playback resumes, including a return
 through Quiet time. This prevents a 48 kHz Bluetooth session from speeding up

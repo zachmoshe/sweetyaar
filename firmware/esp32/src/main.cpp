@@ -1211,15 +1211,18 @@ void pollBluetoothReopen() {
     if (!btReopenPending) {
         return;
     }
-    if (sm.currentState() != State::IDLE) {
-        btReopenPending = false;
-        return;
-    }
     if ((int32_t)(millis() - btReopenAtMs) < 0) {
         return;
     }
 
     btReopenPending = false;
+    if (sm.currentState() != State::IDLE) {
+        // Local playback or Quiet time must not strand Classic connections
+        // after the cooldown. Restore access without the idle-only recovery;
+        // refreshAccess also keeps connections closed if a source is active.
+        if (btSink) btSink->refreshAccess();
+        return;
+    }
 
     // Low remaining heap can make later Bluedroid allocations fail and abort.
     // This recovery runs after disconnect; connection-time headroom must also

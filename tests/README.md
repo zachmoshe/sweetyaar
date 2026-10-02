@@ -90,6 +90,10 @@ If the venv is active, `pytest` is equivalent.
   installed WAV decoder and volume stream. Checks repeated 48/44.1 kHz Bluetooth
   sessions restore the local format while muted, including return via Quiet time
   and immediate song/animal playback.
+- `test_bluetooth_reopen.py`: runs the production Classic cooldown functions,
+  state machine and access refresh against a fake clock and radio. Checks idle
+  recovery, a song playing across the deadline, and an animal sound finishing
+  before it; approved reconnect must resume after the full 1.5-second delay.
 - `test_ble_transport.py`: executes production BLE response methods and the
   playback callback on the host; config replies must preserve the theme list,
   and playback commands must not accept JSON settings requests.
