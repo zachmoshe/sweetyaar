@@ -7646,6 +7646,12 @@
 		(uuid "7aa96513-1cbe-4496-8df0-69110bad7d87")
 	)
 	(junction
+		(at 289.56 125.73)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "7d3f8c32-5bb5-4eb1-a706-fb4879bb7c3a")
+	)
+	(junction
 		(at 144.78 72.39)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -8478,6 +8484,16 @@
 			(type default)
 		)
 		(uuid "5ca03566-6c7b-4e43-bd63-1010d43fc29c")
+	)
+	(wire
+		(pts
+			(xy 289.56 125.73) (xy 292.1 125.73)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "63dc8b06-84e7-4e61-b709-89fb61b4393e")
 	)
 	(wire
 		(pts
@@ -9838,6 +9854,16 @@
 			(justify left bottom)
 		)
 		(uuid "9c4258ca-7468-4fa5-b4d3-9144f7e6ba93")
+	)
+	(label "PERIPH_PWR_EN"
+		(at 279.4 125.73 270)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "9da3a956-0000-4ca2-8497-b6be8fbb55c0")
 	)
 	(label "5V_INPUT"
 		(at 152.4 72.39 0)
@@ -15166,6 +15192,99 @@
 			(project "sweetyaar-mainboard"
 				(path "/a2bc0001-0000-4000-8000-000000000001"
 					(reference "D1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 289.56 129.54 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "66a60db0-dd21-4bf6-8446-f31d08232d21")
+		(property "Reference" "R_MODE_PD1"
+			(at 292.1 128.2699 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "100k"
+			(at 291.338 131.572 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
+			(at 287.782 129.54 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 289.56 129.54 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 289.56 129.54 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C25803"
+			(at 289.56 129.54 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "001b00ab-84d8-49ab-a8e0-061bd088c5fe")
+		)
+		(pin "2"
+			(uuid "bebaea7a-dbfe-4f0f-89e0-467c1f398bf3")
+		)
+		(instances
+			(project "sweetyaar-mainboard"
+				(path "/a2bc0001-0000-4000-8000-000000000001"
+					(reference "R_MODE_PD1")
 					(unit 1)
 				)
 			)
@@ -26068,6 +26187,132 @@
 		)
 	)
 	(symbol
+		(lib_id "Jumper:SolderJumper_2_Open")
+		(at 284.48 125.73 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "c3321be0-3ecc-4e07-8f63-188f3e190c61")
+		(property "Reference" "JP4"
+			(at 284.48 119.38 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "SolderJumper_2_Open"
+			(at 284.48 121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm"
+			(at 284.48 125.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 284.48 133.35 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Solder Jumper, 2-pole, open"
+			(at 284.48 130.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "N/A"
+			(at 284.48 125.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "FT Rotation Offset" ""
+			(at 284.48 125.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Device" ""
+			(at 284.48 125.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Pins" ""
+			(at 284.48 125.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "7d75e5b6-4b2b-45aa-9374-c83252b8edb8")
+		)
+		(pin "1"
+			(uuid "f8c6bf25-5f14-4b81-8ea1-e01a2dc82977")
+		)
+		(instances
+			(project "sweetyaar-mainboard"
+				(path "/a2bc0001-0000-4000-8000-000000000001"
+					(reference "JP4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:Thermistor_NTC")
 		(at 256.54 124.46 180)
 		(unit 1)
@@ -26838,7 +27083,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 292.1 125.73 0)
+		(at 289.56 133.35 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -26848,7 +27093,7 @@
 		(dnp no)
 		(uuid "e66b90f0-2d8c-4200-bb8a-e29c958ceb5e")
 		(property "Reference" "#PWR071"
-			(at 292.1 125.73 0)
+			(at 289.56 133.35 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -26859,7 +27104,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 292.048 129.078 0)
+			(at 289.508 136.698 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -26869,7 +27114,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 292.1 125.73 0)
+			(at 289.56 133.35 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -26879,7 +27124,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 292.1 125.73 0)
+			(at 289.56 133.35 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -26889,7 +27134,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 292.1 125.73 0)
+			(at 289.56 133.35 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -27433,7 +27678,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Connector_JST:JST_XH_B5B-XH-A_1x05_P2.50mm_Vertical"
 			(at 208.28 134.62 0)
 			(hide yes)
 			(show_name no)

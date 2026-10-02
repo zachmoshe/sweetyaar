@@ -828,7 +828,7 @@
         "uuid": "a2bc0001-0000-4000-8000-000000000001"
       }
     ],
-    "used_designators": "D2",
+    "used_designators": "JP4,R_CHARGER_CE_PU2,D2",
     "variants": []
   },
   "sheets": [
