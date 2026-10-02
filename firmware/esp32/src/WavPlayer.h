@@ -1,17 +1,17 @@
 #pragma once
 #include <Arduino.h>
 #include <SD.h>
-#include <SPI.h>
 #include <ArduinoJson.h>
-#include "AudioTools.h"
+#include "AudioTools/CoreAudio/VolumeStream.h"
 #include "Config.h"
+#include "WavPcmOutput.h"
 
 // ---------------------------------------------------------------------------
 // WavPlayer — plays WAV files from SD card through a shared VolumeStream
 //
 // Design: we manage our own file list and open SD files directly.
-// A WAVDecoder is fed raw file bytes each loop(); decoded PCM flows into
-// the shared VolumeStream → I2SStream → MAX98357A.
+// Validated PCM is read in chunks from the WAV data section and flows into
+// WavPcmOutput (mono duplication/stereo passthrough) → VolumeStream → I2SStream.
 //
 // Two modes:
 //   Song mode   — sequential (or shuffled) WAV files from a theme folder
@@ -19,7 +19,7 @@
 //
 // Usage:
 //   WavPlayer player(volumeStream);
-//   player.begin();                    // after SD.begin()
+//   player.begin();                    // mounts SD; call after audio output setup
 //   player.startSong("lullabies");
 //   player.nextSong();
 //   player.startRandomAnimal();
@@ -47,7 +47,7 @@ public:
     // Advance to the next animal sound (stays in animal mode)
     void nextAnimal();
 
-    // Stop immediately and free resources
+    // Stop immediately, close the file, and reset partial PCM state
     void stop();
 
     // Best-effort runtime probe: true if the SD card is currently readable.
@@ -84,11 +84,8 @@ private:
     static constexpr int MAX_ANIMALS = 32;
 
     VolumeStream&       _output;
-    // Decode pipeline (WAVDecoder -> VolumeStream). Allocated once via
-    // ensureDecoder() and reused for every file; per-file state is reset with
-    // begin()/end() rather than reallocating, to avoid heap fragmentation.
-    WAVDecoder*         _wavDecoder = nullptr;
-    EncodedAudioOutput* _encodedOut = nullptr;
+    WavPcmOutput         _pcmOutput;
+    uint32_t            _remainingPcmBytes = 0;
     File                _sdFile;
     String              _currentPath;
 
@@ -113,7 +110,4 @@ private:
     bool openCurrentAnimal();
     bool openFile(const String& path);
     void teardown();
-
-    // Allocate the decode pipeline exactly once; returns false on alloc failure.
-    bool ensureDecoder();
 };

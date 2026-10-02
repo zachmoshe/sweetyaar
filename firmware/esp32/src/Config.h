@@ -10,6 +10,8 @@ static constexpr int HW_I2S_BCLK    = 26;  // Bit clock
 static constexpr int HW_I2S_WS      = 25;  // Word select / LRCK
 static constexpr int HW_I2S_DOUT    = 22;  // Data out to MAX98357A DIN
 static constexpr int PIN_AMP_MUTE   = 21;  // MAX98357A SD_MODE control
+static constexpr int I2S_DMA_BUFFER_COUNT = 6;
+static constexpr int I2S_DMA_BUFFER_FRAMES = 512;
 
 // The production PCB drives SD_MODE directly through 634 kOhm, so LOW mutes.
 // The generic board's MMBT3904 inverts that signal; its PlatformIO environment
@@ -184,7 +186,7 @@ static constexpr uint16_t BATTERY_LOW_TO_MEDIUM_MV = 3200;
 // Audio
 // ---------------------------------------------------------------------------
 static constexpr int     SAMPLE_RATE        = 44100;
-static constexpr int     CHANNELS           = 2;   // Stereo PCM; MAX98357A mixes to mono
+static constexpr int     CHANNELS           = 2;   // I2S output; mono WAV samples are duplicated
 static constexpr int     BITS_PER_SAMPLE    = 16;
 static constexpr uint8_t DEFAULT_VOLUME_PCT = 75;  // Static default; SD config may override
 static constexpr bool    DEFAULT_BEDTIME_ENABLED = true;

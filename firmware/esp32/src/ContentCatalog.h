@@ -15,6 +15,7 @@ struct WavInfo {
     uint16_t channels = 0;
     uint32_t sampleRate = 0;
     uint16_t bitsPerSample = 0;
+    uint32_t dataOffset = 0;
     uint32_t dataBytes = 0;
     uint32_t durationMs = 0;
     String error;
@@ -39,10 +40,10 @@ struct ThemeStats {
 //
 // The SD card is read exactly once, at boot, into these structures; every
 // other code path (playback file lists, BLE theme list, settings scans) is
-// served from RAM. Audio format is fixed (44.1 kHz / 16-bit / stereo), so the
-// per-song record only keeps what the settings UI shows — no sample
-// rate/channel/bit fields. Edits flip the cached flags in place; the SD is
-// re-read only on reboot, which is acceptable because the card is inaccessible
+// served from RAM. Audio is 44.1 kHz / 16-bit PCM, mono or stereo. The per-song
+// record keeps the duration calculated from the file's channel count, without
+// retaining format fields; playback re-reads the header. Edits flip flags in
+// place; the catalog is rebuilt only on reboot, because the card is inaccessible
 // while the toy is in use.
 // ---------------------------------------------------------------------------
 struct CachedSong {
@@ -50,7 +51,7 @@ struct CachedSong {
     String   error;            // diagnostic for the UI; empty when supported
     uint32_t sizeBytes = 0;
     uint32_t durationMs = 0;
-    bool     supported = false;  // playable: PCM 44.1 kHz / 16-bit / stereo
+    bool     supported = false;  // playable: PCM 44.1 kHz / 16-bit / mono or stereo
     bool     disabled  = false;  // parent-disabled via metadata.json
 };
 

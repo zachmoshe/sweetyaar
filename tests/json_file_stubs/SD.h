@@ -75,6 +75,15 @@ public:
         _position += available;
         return available;
     }
+    size_t read(uint8_t* data, size_t count) {
+        return readBytes(reinterpret_cast<char*>(data), count);
+    }
+    bool seek(size_t position) {
+        if (!_slot || position > FakeSD::files[_path].size()) return false;
+        _position = position;
+        return true;
+    }
+    size_t position() const { return _position; }
     void flush() {
         FakeSD::operations.push_back("flush:" + _path);
         if (_writable && FakeSD::truncateOnFlush && !FakeSD::files[_path].empty()) {

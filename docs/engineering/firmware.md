@@ -60,6 +60,16 @@ or animal sounds. Disabled or empty themes are not offered for playback.
 
 ## Content on the microSD card
 
+Startup-ready, persistent-error and pairing cues are stored separately in the
+firmware's read-only flash. Ready plays once after initialization; a startup
+fault plays Error instead. A first persistent runtime fault also plays Error
+once. Pairing plays when the physical gesture opens the window, then every
+15 seconds until the window closes or bonds are reset. The error cue
+can therefore play with no SD card. These cues use the effective local volume
+(including mute and the bedtime cap), briefly take over the speaker, and then
+return it to SD or Bluetooth audio. They do not disconnect Bluetooth or change
+its negotiated sample rate. See [system sound assets](../../firmware/esp32/assets/sounds/README.md).
+
 The card stores audio, content metadata, and configuration:
 
 
@@ -72,8 +82,14 @@ The card stores audio, content metadata, and configuration:
 | `/config.json`                 | Default volume and theme, Bedtime settings, and sleep settings.     |
 
 
-Audio must be uncompressed PCM WAV at 44.1 kHz, 16-bit, stereo. The firmware
-streams files from the card rather than loading a whole recording into memory.
+Audio must be uncompressed PCM WAV at 44.1 kHz, 16-bit, with one (mono) or two
+(stereo) channels. Mono is recommended for the single-speaker toy and halves
+PCM storage. The firmware duplicates each mono sample into both I2S channels;
+stereo samples pass through unchanged. The shared I2S output remains stereo for
+Bluetooth compatibility. Files are streamed from the card rather than loading
+a whole recording into memory. Playback reads the validated WAV data section
+directly, so RIFF headers and metadata are not sent to the speaker. The channel
+adapter uses a fixed 512-byte buffer without per-file decoder allocations.
 At boot it scans the content once, validates the WAV files, and builds an
 in-memory catalog used by playback and the parent app. Files added or removed
 manually are therefore picked up after a restart; changes made through the app
@@ -698,7 +714,9 @@ The high-level components are:
 | `firmware/esp32/src/BluetoothAccess.*` and `BleIdentity.h` | Bond lookup, private-address resolution, one-time legacy migration, and durable reset. |
 | `firmware/esp32/src/ClassicBluetooth.*` | Classic Just Works pairing gate and transient authenticated-link state. |
 | `firmware/esp32/src/ApprovedA2DPSink.h` | Classic pairing admission, discoverability, and approved audio sessions. |
-| `firmware/esp32/src/WavPlayer.*`        | Streaming and decoding SD-card WAV files to the I2S audio output.                        |
+| `firmware/esp32/src/WavPlayer.*`        | Streaming validated SD-card WAV PCM to the I2S audio output.                            |
+| `firmware/esp32/src/WavPcmOutput.h`     | Fixed-buffer mono duplication and stereo passthrough before volume control.             |
+| `firmware/esp32/src/SystemSoundOutput.*` and `SystemSoundAssets.cpp` | Embedded ready/error/pairing cues and synchronized speaker ownership. |
 | `firmware/esp32/src/ContentCatalog.*`   | Scanning themes and tracks, validating content, and applying content-management changes. |
 | `firmware/esp32/src/BLEParentService.*` | BLE characteristics used by the parent app for controls, status, and configuration.      |
 | `firmware/esp32/src/ParentConfig.*`     | Parent-editable settings loaded from `/config.json`.                                     |

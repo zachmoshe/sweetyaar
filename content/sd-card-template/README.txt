@@ -18,12 +18,28 @@ Audio format requirements:
   - WAV (PCM, uncompressed)
   - 44100 Hz sample rate
   - 16-bit depth
-  - Stereo / 2 channels
+  - Mono / 1 channel (recommended), or stereo / 2 channels
   - Files can be any size; the SD card is read in streaming chunks
 
 Recommended tools for converting audio:
-  - ffmpeg: ffmpeg -i input.mp3 -ar 44100 -ac 2 -sample_fmt s16 output.wav
+  - ffmpeg: ffmpeg -i input.mp3 -ar 44100 -ac 1 -c:a pcm_s16le output.wav
   - Audacity: Tracks > Mix > Mix Stereo Down, then Export > WAV > 44100 Hz, 16-bit PCM
+
+The template recordings are mono. The firmware duplicates each mono sample to
+both output channels; existing stereo recordings still work. Stereo-to-mono
+conversion averages the left and right samples, matching the amplifier's mix.
+Sample rate, timing, and filenames stay unchanged.
+
+To convert an existing folder while preserving its original recordings:
+  .venv/bin/python tools/convert_wavs_to_mono.py SOURCE_FOLDER DESTINATION_FOLDER
+The destination must be separate; existing WAV files are not overwritten.
+WAV recordings are local content ignored by Git. The conversion script and this
+folder's configuration/metadata are versioned; copy the converted WAVs with them
+when preparing a card.
+
+System cues (ready, error, pairing) belong in firmware/esp32/assets/sounds for
+future embedding in firmware flash. Do not put those cues on the SD card: an SD
+failure must not prevent the error cue from being available.
 
 config.json schema:
   {

@@ -26,6 +26,7 @@
 #include "PeripheralPower.h"
 #include "ButtonHandler.h"
 #include "WavPlayer.h"
+#include "SystemSoundOutput.h"
 #include "BLEParentService.h"
 #include "StateMachine.h"
 #include "StatusLed.h"
@@ -47,9 +48,10 @@ SleepEntryCheck sleepEntryCheck;
 PairingPolicy pairingPolicy;
 
 // Audio pipeline:
-//   BT A2DP: A2DP sink -> I2SStream -> MAX98357A
-//   WAV/SD:  WAV decoder -> VolumeStream -> I2SStream -> MAX98357A
+//   BT A2DP and volume-scaled SD PCM -> SystemSoundOutput -> I2S -> MAX98357A.
+//   SystemSoundOutput temporarily replaces either source with a flash cue.
 I2SStream       i2sOut;
+SystemSoundOutput systemAudio(i2sOut);
 VolumeStream    volumeOut;
 WavPlayer       wavPlayer(volumeOut);
 ApprovedA2DPSink* btSink = nullptr;
@@ -58,6 +60,8 @@ ApprovedA2DPSink* btSink = nullptr;
 State prevState = State::IDLE;
 bool prevLoopMode = false;
 bool sdReady = false;
+bool systemSoundsReady = false;
+bool systemErrorReported = false;
 String activeTheme = DEFAULT_THEME;
 String currentPlaybackTheme = DEFAULT_THEME;
 String currentDeviceName = DEFAULT_BT_NAME;
@@ -109,6 +113,10 @@ void setupWakeState();
 void setupLoopTaskWatchdog();
 void setupPeripheralPower();
 void setAmpMuted(bool muted);
+void playSystemSound(SystemSound sound);
+void reportSystemError();
+void serviceSystemSound();
+void finishSystemSoundStartup();
 void setupI2S();
 void resetI2SOutput(const char* owner);
 void setupBT(const String& deviceName);
@@ -297,10 +305,10 @@ void setup() {
     sdReady = wavPlayer.begin();
     if (!sdReady) {
         Serial.println("[WARN] SD init failed; WAV playback unavailable");
-        statusLed.setSignal(StatusSignal::Error, true);
+        reportSystemError();
     } else {
         if (!parentConfig.load()) {
-            statusLed.setSignal(StatusSignal::Error, true);
+            reportSystemError();
         }
         // Single SD pass: read the whole content catalog into RAM. Every later
         // theme/song lookup (playback, BLE theme list, settings scans) is served
@@ -318,7 +326,7 @@ void setup() {
     // setting has been written and read back. The generic fixture has no
     // charger and compiles this path out through its board flag.
     if (HAS_BQ25186 && !charger.begin(readLocalLogTime)) {
-        statusLed.setSignal(StatusSignal::Error, true);
+        reportSystemError();
     }
 
     // Configure battery sensing after the high-current boot work. poll() takes
@@ -348,6 +356,7 @@ void setup() {
     setupLoopTaskWatchdog();
 
     Serial.println("[Boot] Ready.");
+    finishSystemSoundStartup();
 }
 
 // ---------------------------------------------------------------------------
@@ -403,7 +412,7 @@ void loop() {
         charger.poll();
         if (!charger.healthy()) {
             // Latch the visible error; failClosed() has already disabled /CE.
-            statusLed.setSignal(StatusSignal::Error, true);
+            reportSystemError();
         }
     }
 
@@ -463,8 +472,10 @@ void loop() {
         lastBleStatusPublishMs = millis();
     }
 
-    // 7. Feed WAV data to I2S (must be called every loop when playing)
-    wavPlayer.loop();
+    // 7. A cue temporarily owns the speaker. Keep controls/Bluetooth serviced
+    // while pausing SD at its current sample, then resume after the cue drains.
+    if (systemAudio.active()) serviceSystemSound();
+    else wavPlayer.loop();
 
     // 8. Re-open BT after a short disconnect cooldown.
     if (bluetoothAccess.poll(ClassicBluetooth::hasLinks() ||
@@ -494,7 +505,7 @@ void setupLoopTaskWatchdog() {
     if (status != ESP_OK) {
         Serial.printf("[Watchdog] CPU1 loop task registration failed: %d\n",
                       static_cast<int>(status));
-        statusLed.setSignal(StatusSignal::Error, true);
+        reportSystemError();
         return;
     }
     Serial.printf("[Watchdog] CPU1 loop task armed (%ds)\n",
@@ -529,8 +540,44 @@ void setupPeripheralPower() {
 // setAmpMuted()
 // ---------------------------------------------------------------------------
 void setAmpMuted(bool muted) {
+    if (systemAudio.active()) muted = false;
     bool driveHigh = muted ? AMP_MUTE_ACTIVE_HIGH : !AMP_MUTE_ACTIVE_HIGH;
     digitalWrite(PIN_AMP_MUTE, driveHigh ? HIGH : LOW);
+}
+
+void playSystemSound(SystemSound sound) {
+    if (systemAudio.play(sound, systemSoundAsset(sound), effectiveVolumePct())) {
+        setAmpMuted(false);
+        markActivity("system sound");
+        Serial.printf("[Sound] Playing %s\n", systemSoundName(sound));
+    }
+}
+
+void reportSystemError() {
+    statusLed.setSignal(StatusSignal::Error, true);
+    if (systemErrorReported) return;
+    systemErrorReported = true;
+    // Coalesce startup faults into one error cue instead of ready. Runtime
+    // persistent errors also sound once, not on every charger/poll iteration.
+    if (systemSoundsReady) playSystemSound(SystemSound::Error);
+}
+
+void finishSystemSoundStartup() {
+    if (systemSoundsReady) return;
+    systemSoundsReady = true;
+    playSystemSound(systemErrorReported ? SystemSound::Error : SystemSound::Ready);
+}
+
+void serviceSystemSound() {
+    const auto result = systemAudio.service();
+    if (result == SystemSoundOutput::Result::Failed) {
+        Serial.println("[Sound] Audio output failed");
+        statusLed.setSignal(StatusSignal::Error, true);
+    }
+    if (result == SystemSoundOutput::Result::Finished || result == SystemSoundOutput::Result::Failed) {
+        const State state = sm.currentState();
+        setAmpMuted(!btLinkConnected && state != State::PLAYING_SONG && state != State::PLAYING_ANIMAL);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -884,6 +931,7 @@ bool stateAllowsIdleSleep(State state) {
 // canEnterIdleSleep()
 // ---------------------------------------------------------------------------
 bool canEnterIdleSleep() {
+    if (systemAudio.active()) return false;
     if (pairingPolicy.open() || buttons.isBothHeld()) return false;
     if (!parentConfig.sleepEnabled()) {
         return false;
@@ -928,6 +976,7 @@ void pollIdleSleep() {
 // preparePinsForPeripheralPowerOff()
 // ---------------------------------------------------------------------------
 void preparePinsForPeripheralPowerOff() {
+    systemAudio.cancel();
     setAmpMuted(true);
     if (i2sOut.isActive()) {
         i2sOut.end();
@@ -969,7 +1018,7 @@ void enterIdleDeepSleep() {
 
     if (HAS_BQ25186 && !charger.prepareForDeepSleep()) {
         if (!charger.healthy()) {
-            statusLed.setSignal(StatusSignal::Error, true);
+            reportSystemError();
         }
         lastActivityMs = millis();
         Serial.println("[Sleep] Aborted: charger could not be prepared safely");
@@ -1016,7 +1065,8 @@ void enterIdleDeepSleep() {
 // ---------------------------------------------------------------------------
 void setupI2S() {
     resetI2SOutput("init");
-    volumeOut.setOutput(static_cast<Print&>(i2sOut));
+    systemAudio.setAudioInfo(AudioInfo(SAMPLE_RATE, CHANNELS, BITS_PER_SAMPLE));
+    volumeOut.setOutput(static_cast<Print&>(systemAudio));
     volumeOut.begin(AudioInfo(SAMPLE_RATE, CHANNELS, BITS_PER_SAMPLE));
 }
 
@@ -1055,8 +1105,8 @@ void resetI2SOutput(const char* owner) {
     // Each 512-frame stereo DMA buffer uses 2 KB. Twelve consumed 24 KB
     // beside the A2DP queue and left too little heap for an encrypted BLE
     // connection while Classic was connected. Six retain ~70 ms at 44.1 kHz.
-    cfg.buffer_count    = 6;
-    cfg.buffer_size     = 512;
+    cfg.buffer_count    = I2S_DMA_BUFFER_COUNT;
+    cfg.buffer_size     = I2S_DMA_BUFFER_FRAMES;
     i2sOut.begin(cfg);
     Serial.printf("[I2S] Reset for %s\n", owner);
 }
@@ -1065,7 +1115,7 @@ void resetI2SOutput(const char* owner) {
 // setupBT()
 // ---------------------------------------------------------------------------
 void setupBT(const String& deviceName) {
-    auto* sink = new ApprovedA2DPSink(i2sOut);
+    auto* sink = new ApprovedA2DPSink(systemAudio);
     sink->set_default_bt_mode(ENABLE_BLE_PARENT_SERVICE ? ESP_BT_MODE_BTDM
                                                         : ESP_BT_MODE_CLASSIC_BT);
     sink->set_i2s_ringbuffer_size(BT_A2DP_RINGBUFFER_BYTES);
@@ -1123,6 +1173,8 @@ void reopenBluetoothForPairing(const char* reason) {
 }
 
 void pollBluetoothPairing() {
+    static constexpr uint32_t SOUND_INTERVAL_MS = 15000;
+    static uint32_t lastSoundAt = 0;
     const uint32_t now = millis();
     const auto action = pairingPolicy.update(now, buttons.isBothHeld(), buttons.areBothReleased());
     if (action == PairingPolicy::Action::Open) {
@@ -1140,10 +1192,16 @@ void pollBluetoothPairing() {
         if (btSink) btSink->revokeSession();
         statusLed.setSignal(StatusSignal::PairingReset, true);
         markActivity("Bluetooth bonds reset");
-        if (!persisted) statusLed.setSignal(StatusSignal::Error, true);
+        if (!persisted) reportSystemError();
         Serial.println(persisted ? "[Pairing] Clearing all bonds" : "[Pairing] Bond reset storage error; access disabled");
     }
-    statusLed.setSignal(StatusSignal::Pairing, bluetoothAccess.pairingOpen());
+    const bool pairingOpen = bluetoothAccess.pairingOpen();
+    if (pairingOpen && (action == PairingPolicy::Action::Open ||
+                        now - lastSoundAt >= SOUND_INTERVAL_MS)) {
+        lastSoundAt = now;
+        playSystemSound(SystemSound::Pairing);
+    }
+    statusLed.setSignal(StatusSignal::Pairing, pairingOpen);
 }
 
 // ---------------------------------------------------------------------------
@@ -1462,7 +1520,7 @@ void handleBleConfigCommand(const String& commandJson) {
                 return;
             }
             if (!parentConfig.load()) {
-                statusLed.setSignal(StatusSignal::Error, true);
+                reportSystemError();
                 publishConfigAttributes();
                 bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Could not reload saved settings."));
                 return;
@@ -1513,7 +1571,7 @@ void handleBleConfigCommand(const String& commandJson) {
             return;
         }
         if (!parentConfig.load()) {
-            statusLed.setSignal(StatusSignal::Error, true);
+            reportSystemError();
             publishConfigAttributes();
             bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Could not reload saved settings."));
             return;
@@ -1636,7 +1694,7 @@ void publishBleValues() {
 void sendNotice(const String& severity, const String& message) {
     Serial.printf("[Notice] %s: %s\n", severity.c_str(), message.c_str());
     if (severity == "error") {
-        statusLed.setSignal(StatusSignal::Error, true);
+        reportSystemError();
     }
     if (!ENABLE_BLE_PARENT_SERVICE) {
         return;
@@ -2005,7 +2063,7 @@ void handleStateEntry(State prev, State next) {
         // uses this fixed format; restore it while muted before local playback,
         // including when disconnect returns through Quiet time.
         setAmpMuted(true);
-        i2sOut.setAudioInfo(AudioInfo(SAMPLE_RATE, CHANNELS, BITS_PER_SAMPLE));
+        systemAudio.setAudioInfo(AudioInfo(SAMPLE_RATE, CHANNELS, BITS_PER_SAMPLE));
     }
 
     // Stop WAV on any exit from PLAYING states

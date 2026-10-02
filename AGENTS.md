@@ -114,6 +114,17 @@ Bluetooth, SD-card, or hardware workflows.
 
 ## Firmware Behavior Notes
 
+- Ready/error/pairing cues are embedded in application flash, independent of SD.
+  `SystemSoundOutput` serializes cue writes, regular audio writes and sample-rate
+  changes. Feed it from the main loop; pause SD feeding while a cue is active.
+  A2DP continues consuming packets during the cue, so music returns without a
+  stale backlog. Keep its DMA drain count in sync with the shared I2S constants.
+  Cues use effective local volume, including mute and bedtime caps. Persistent
+  startup errors replace Ready; runtime error notification is latched once per
+  boot. Pairing plays at window opening and every 15 seconds while open; closing
+  or resetting stops repeats. Revalidate cue playback during Classic audio and
+  without SD after changes.
+
 - BLE parent controls are for local toy mode only, not Classic BT streaming.
 - While A2DP/BT is connected:
   - Status should show BT connected.
@@ -121,6 +132,11 @@ Bluetooth, SD-card, or hardware workflows.
     be disabled or ignored.
   - BLE writes during BT mode should be ignored and current values re-notified.
 - Local volume controls WAV playback only; do not call A2DP volume APIs for it.
+- Local WAVs accept 44.1 kHz, 16-bit PCM with one or two channels. Keep the
+  shared I2S output stereo; WavPcmOutput duplicates mono samples and preserves
+  stereo frames before volume control. WavPlayer streams only the validated
+  PCM data range, without allocating a WAV decoder. Keep its 512-byte conversion
+  buffer fixed and verify mono/stereo transitions and BT-to-local handoff.
 - Playback button events during BT streaming should be ignored, not queued
   for later playback. The three-second pairing and ten-second approval-reset
   gestures remain available.

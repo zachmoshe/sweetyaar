@@ -293,6 +293,7 @@ WavInfo inspectWav(File& entry) {
             info.bitsPerSample = le16(fmt + 14);
             fmtFound = true;
         } else if (chunk[0] == 'd' && chunk[1] == 'a' && chunk[2] == 't' && chunk[3] == 'a') {
+            info.dataOffset = dataStart;
             info.dataBytes = chunkSize;
             dataFound = true;
         }
@@ -319,12 +320,16 @@ WavInfo inspectWav(File& entry) {
         info.error = String("Invalid sample rate: ") + info.sampleRate + " Hz";
         return info;
     }
-    if (info.channels != CHANNELS) {
+    if (info.channels != 1 && info.channels != 2) {
         info.error = String("Invalid channel count: ") + info.channels;
         return info;
     }
     if (info.bitsPerSample != BITS_PER_SAMPLE) {
         info.error = String("Invalid bit depth: ") + info.bitsPerSample + "-bit";
+        return info;
+    }
+    if (info.dataBytes % (info.channels * (BITS_PER_SAMPLE / 8)) != 0) {
+        info.error = "Incomplete PCM frame";
         return info;
     }
 

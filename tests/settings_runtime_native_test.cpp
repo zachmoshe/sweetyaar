@@ -35,6 +35,8 @@ unsigned nameApplications = 0;
 struct { void setBtName(const String&) { ++nameWrites; } } nvs;
 enum class StatusSignal { Error };
 struct { void setSignal(StatusSignal, bool) {} } statusLed;
+// Hardware feedback is exercised separately by the system-sound tests.
+void reportSystemError() { statusLed.setSignal(StatusSignal::Error, true); }
 struct {
     String response;
     std::array<String, BLE_CONFIG_ATTRIBUTE_COUNT> attributes;

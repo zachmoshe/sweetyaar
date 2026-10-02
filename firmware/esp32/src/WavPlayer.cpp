@@ -1,9 +1,10 @@
 #include "WavPlayer.h"
 #include "ContentCatalog.h"
+#include <SPI.h>
 
 
 // ---------------------------------------------------------------------------
-WavPlayer::WavPlayer(VolumeStream& output) : _output(output) {}
+WavPlayer::WavPlayer(VolumeStream& output) : _output(output), _pcmOutput(output) {}
 
 // ---------------------------------------------------------------------------
 bool WavPlayer::begin() {
@@ -14,23 +15,6 @@ bool WavPlayer::begin() {
     }
     Serial.printf("[WavPlayer] SD OK (SPI %lu MHz)\n",
                   static_cast<unsigned long>(SD_SPI_FREQUENCY_HZ / 1000000UL));
-    // Claim the decode pipeline up-front, before SD/WAV traffic fragments the
-    // heap (same rationale as reserving the BT audio queue early).
-    ensureDecoder();
-    return true;
-}
-
-// ---------------------------------------------------------------------------
-bool WavPlayer::ensureDecoder() {
-    if (_encodedOut != nullptr) {
-        return true;
-    }
-    _wavDecoder = new WAVDecoder();
-    _encodedOut = new EncodedAudioOutput(&_output, _wavDecoder);
-    if (_wavDecoder == nullptr || _encodedOut == nullptr) {
-        Serial.println("[WavPlayer] Decode pipeline allocation failed");
-        return false;
-    }
     return true;
 }
 
@@ -133,29 +117,31 @@ void WavPlayer::refreshSongList(const String& theme) {
 // loop() — feed up to CHUNK_BYTES of WAV data per call; detect end-of-file
 // ---------------------------------------------------------------------------
 void WavPlayer::loop() {
-    if (_idle || !_encodedOut || !_sdFile) return;
+    if (_idle || !_sdFile) return;
 
-    if (_sdFile.available()) {
+    if (_remainingPcmBytes > 0) {
         uint8_t buf[CHUNK_BYTES];
-        int n = _sdFile.read(buf, CHUNK_BYTES);
-        if (n > 0) {
-            _encodedOut->write(buf, n);
+        const size_t count = _remainingPcmBytes < sizeof(buf) ? _remainingPcmBytes : sizeof(buf);
+        const size_t n = _sdFile.read(buf, count);
+        if (n != count) {
+            Serial.println("[WavPlayer] Cannot read complete PCM block");
+            stop();
+            return;
+        }
+        _remainingPcmBytes -= n;
+        if (_pcmOutput.write(buf, n) != n) {
+            Serial.println("[WavPlayer] Audio output write failed");
+            stop();
         }
     } else {
-        // File exhausted
-        if (_animalMode) {
-            stop();
-            // Caller (StateMachine) detects isIdle() → WAV_FINISHED event
-        } else {
-            // One button press should play exactly one song. Advancing to the
-            // next song is an explicit button action handled by nextSong().
-            stop();
-        }
+        // One button press plays one file. StateMachine observes WAV_FINISHED;
+        // advancing to another song/animal is an explicit button action.
+        stop();
     }
 }
 
 // ---------------------------------------------------------------------------
-// Private: open an SD file and wire it through a fresh WAVDecoder
+// Private: inspect an SD WAV, then stream only its validated PCM data section
 // ---------------------------------------------------------------------------
 bool WavPlayer::openCurrentSong() {
     for (int attempts = 0; attempts < _songCount; attempts++) {
@@ -223,14 +209,14 @@ bool WavPlayer::openFile(const String& path) {
         return false;
     }
 
-    if (!ensureDecoder()) {
+    if (!_sdFile.seek(wavInfo.dataOffset)) {
+        Serial.printf("[WavPlayer] Cannot seek to WAV data: %s\n", path.c_str());
         _sdFile.close();
         _currentPath = "";
         return false;
     }
-    // Reuse the persistent decoder; begin() resets per-file state (the library
-    // requires begin() before each new WAV) so no reallocation is needed.
-    _encodedOut->begin();
+    _pcmOutput.setAudioInfo(AudioInfo(wavInfo.sampleRate, wavInfo.channels, wavInfo.bitsPerSample));
+    _remainingPcmBytes = wavInfo.dataBytes;
 
     _currentPath = path;
     Serial.printf("[WavPlayer] Playing: %s\n", path.c_str());
@@ -240,10 +226,8 @@ bool WavPlayer::openFile(const String& path) {
 // ---------------------------------------------------------------------------
 void WavPlayer::teardown() {
     if (_sdFile)     { _sdFile.close(); }
-    // Reset the decoder for the next file but keep it allocated for reuse.
-    // The pipeline is intentionally never freed (WavPlayer is a lifetime-long
-    // singleton); end() returns it to an inactive, ready-to-begin() state.
-    if (_encodedOut) { _encodedOut->end(); }
+    _remainingPcmBytes = 0;
+    _pcmOutput.reset();
     _currentPath = "";
 }
 
