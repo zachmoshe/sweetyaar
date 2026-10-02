@@ -1724,17 +1724,46 @@ const tests = [
     assert.strictEqual(els.readyStatusText.dir, "rtl");
     assert.strictEqual(els.readyStatusText.classList.contains("rtl-text"), true);
   `],
-  ["prettifyName derives friendly names with zero-padded number stripping", String.raw`
+  ["prettifyName strips track prefixes while preserving numbers in titles", String.raw`
     assert.strictEqual(prettifyName("twinkle_twinkle.wav"), "Twinkle Twinkle");
     assert.strictEqual(prettifyName("cow.wav"), "Cow");
-    assert.strictEqual(prettifyName("01_twinkle.wav"), "Twinkle");
-    assert.strictEqual(prettifyName("02 - lullaby.wav"), "Lullaby");
-    assert.strictEqual(prettifyName("3 little pigs.wav"), "3 Little Pigs");
-    assert.strictEqual(prettifyName("10.wav"), "10");
+    for (const [file, expected] of [
+      ["01_twinkle.wav", "Twinkle"],
+      ["01 Twinkle Twinkle.wav", "Twinkle Twinkle"],
+      ["01. Twinkle.wav", "Twinkle"],
+      ["02 - lullaby.wav", "Lullaby"],
+      ["001 ._- ) twinkle.wav", "Twinkle"],
+      ["1 - twinkle.wav", "Twinkle"],
+      ["3 little pigs.wav", "3 Little Pigs"],
+      ["3. Little Pigs.wav", "Little Pigs"],
+      ["3_little_pigs.wav", "Little Pigs"],
+      ["1_song.wav", "Song"],
+      ["13 Song.wav", "13 Song"],
+      ["13-song.wav", "Song"],
+      ["13 ._- ) song.wav", "Song"],
+      ["13)song.wav", "Song"],
+      ["0 song.wav", "0 Song"],
+      ["01Twinkle.wav", "01Twinkle"],
+      ["01 שיר_ערש.wav", "שיר ערש"],
+      ["3 שירים.wav", "3 שירים"],
+      ["3. שירים.wav", "שירים"]
+    ]) assert.strictEqual(prettifyName(file), expected, file);
     assert.strictEqual(prettifyName("שיר_ערש.wav"), "שיר ערש");
     assert.strictEqual(prettifyName("Lullaby (slow).WAV"), "Lullaby (slow)");
     assert.strictEqual(isRtlText("שיר"), true);
     assert.strictEqual(isRtlText("Twinkle"), false);
+  `],
+  ["prettifyName keeps numeric prefixes when no title follows", String.raw`
+    for (const [file, expected] of [
+      ["10.wav", "10"],
+      ["01.wav", "01"],
+      ["01 -", "01 -"],
+      ["01 - .wav", "01 -"],
+      ["13. .wav", "13."],
+      ["01__ .wav", "01"],
+      ["13 _-.) .wav", "13 -.)"],
+      ["01 - " + String.fromCharCode(0x200B) + ".wav", "01 -"]
+    ]) assert.strictEqual(prettifyName(file), expected, file);
   `],
   ["prettifyName strips reserved and invisible characters", String.raw`
     const zwsp = String.fromCharCode(0x200B), zwnj = String.fromCharCode(0x200C);

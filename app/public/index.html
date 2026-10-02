@@ -2971,9 +2971,16 @@
     // casing is only applied to cased scripts (Hebrew/Arabic/CJK are untouched).
     function prettifyName(file) {
       const raw = sanitizeName(file).trim();
-      let name = raw
-        .replace(/\.wav$/i, "")          // drop the extension
-        .replace(/^\d+[\s._\-)]+/, "")   // drop a numeric track prefix (01_, 1_, 02 -, ...)
+      let name = raw.replace(/\.wav$/i, "");
+      // Require a title after the complete separator run. Zero-padded track
+      // numbers allow spaces alone; other numbers require punctuation.
+      const prefix = name.match(/^(\d+)([\s._)-]+)(?=[^\s._)-])/);
+      if (prefix) {
+        const zeroPadded = prefix[1].length > 1 && prefix[1].startsWith("0");
+        const hasSeparator = /[._)-]/.test(prefix[2]);
+        if (zeroPadded || hasSeparator) name = name.slice(prefix[0].length);
+      }
+      name = name
         .replace(/_+/g, " ")             // underscores -> spaces
         .replace(/\s+/g, " ")            // collapse whitespace
         .trim();
