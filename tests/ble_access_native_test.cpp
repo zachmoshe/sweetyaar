@@ -1,7 +1,9 @@
 #include <cassert>
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -14,6 +16,8 @@ using esp_gatt_if_t = int;
 using esp_gatt_status_t = int;
 using esp_gatts_cb_event_t = int;
 using esp_gap_ble_cb_event_t = int;
+using esp_ble_sm_param_t = int;
+using esp_gatt_perm_t = int;
 using portMUX_TYPE = int;
 #define portMUX_INITIALIZER_UNLOCKED 0
 #define portENTER_CRITICAL(mux) ((void)(mux))
@@ -25,8 +29,17 @@ enum { ESP_OK, ESP_BT_STATUS_SUCCESS = 0, ESP_GATT_OK = 0, ESP_GATT_IF_NONE = -1
     ESP_GATT_INVALID_OFFSET, ESP_GATT_REQ_NOT_SUPPORTED, ESP_GATT_INVALID_ATTR_LEN, ESP_GATT_WRITE_NOT_PERMIT,
     ESP_GAP_BLE_SEC_REQ_EVT, ESP_GAP_BLE_KEY_EVT, ESP_GAP_BLE_AUTH_CMPL_EVT,
     ESP_GAP_BLE_ADV_START_COMPLETE_EVT, ESP_GAP_BLE_ADV_STOP_COMPLETE_EVT, ESP_GAP_BLE_PASSKEY_NOTIF_EVT,
-    ESP_LE_AUTH_BOND = 32, ESP_BLE_SEC_ENCRYPT_NO_MITM };
+    ESP_GATTS_REG_EVT, ESP_BLE_SEC_ENCRYPT_NO_MITM };
+enum { ESP_LE_AUTH_BOND = 1, ESP_LE_AUTH_REQ_SC_BOND = 9, ESP_IO_CAP_NONE = 3,
+    ESP_BLE_ONLY_ACCEPT_SPECIFIED_AUTH_ENABLE = 1,
+    ESP_BLE_ENC_KEY_MASK = 1, ESP_BLE_ID_KEY_MASK = 2,
+    ESP_GATT_PERM_READ = 1, ESP_GATT_PERM_READ_ENCRYPTED = 2,
+    ESP_GATT_PERM_WRITE_ENCRYPTED = 32 };
+enum { ESP_BLE_SM_AUTHEN_REQ_MODE, ESP_BLE_SM_ONLY_ACCEPT_SPECIFIED_SEC_AUTH,
+    ESP_BLE_SM_IOCAP_MODE, ESP_BLE_SM_MAX_KEY_SIZE, ESP_BLE_SM_MIN_KEY_SIZE,
+    ESP_BLE_SM_SET_INIT_KEY, ESP_BLE_SM_SET_RSP_KEY };
 struct esp_ble_gatts_cb_param_t {
+    struct { int status = ESP_OK; } reg;
     struct { uint16_t conn_id = 0, handle = 0; int status = ESP_OK; } conf;
     struct { uint16_t conn_id = 0, trans_id = 0, handle = 0, offset = 0; } read;
     struct { uint16_t conn_id = 0, trans_id = 0, handle = 0, len = 0, offset = 0;
@@ -48,10 +61,29 @@ struct esp_gatt_rsp_t {
 };
 using esp_gap_ble_cb_t = void(*)(int, esp_ble_gap_cb_param_t*);
 using esp_gatts_cb_t = void(*)(int, int, esp_ble_gatts_cb_param_t*);
+int callbackRegistrations = 0;
+esp_gap_ble_cb_t esp_ble_gap_get_callback() { return [](int, esp_ble_gap_cb_param_t*) {}; }
+esp_gatts_cb_t esp_ble_gatts_get_callback() { return [](int, int, esp_ble_gatts_cb_param_t*) {}; }
+int esp_ble_gap_register_callback(esp_gap_ble_cb_t) { ++callbackRegistrations; return ESP_OK; }
+int esp_ble_gatts_register_callback(esp_gatts_cb_t) { ++callbackRegistrations; return ESP_OK; }
+int securityFailureAt = -1;
+std::map<esp_ble_sm_param_t, uint8_t> securityParameters;
+int esp_ble_gap_set_security_param(esp_ble_sm_param_t param, void* value, uint8_t length) {
+    assert(length == 1);
+    const bool fail = int(securityParameters.size()) == securityFailureAt;
+    securityParameters[param] = *static_cast<uint8_t*>(value);
+    return fail ? -1 : ESP_OK;
+}
 uint32_t fakeMillis = 0;
 uint32_t millis() { return fakeMillis; }
-struct BLE2902 { uint16_t handle = 0; uint16_t getHandle() { return handle; } };
+struct BLE2902 {
+    uint16_t handle = 0;
+    uint16_t getHandle() { return handle; }
+    void setAccessPermissions(int) {}
+};
+struct BLECharacteristicCallbacks;
 struct BLECharacteristic {
+    enum { PROPERTY_READ = 1, PROPERTY_WRITE = 2, PROPERTY_NOTIFY = 4, PROPERTY_INDICATE = 8 };
     uint16_t handle = 0;
     BLE2902 cccd;
     std::string value;
@@ -60,19 +92,63 @@ struct BLECharacteristic {
     std::string getValue() { return value; }
     void setValue(const char* next) { value = next; }
     void setValue(uint8_t* next, size_t length) { value.assign(reinterpret_cast<char*>(next), length); }
+    void addDescriptor(BLE2902* descriptor) { delete descriptor; }
+    void setCallbacks(BLECharacteristicCallbacks*);
+    void setAccessPermissions(int) {}
 };
-struct BLECharacteristicCallbacks { virtual void onWrite(BLECharacteristic*) {} };
-struct BLEServer { std::vector<uint16_t> closed; void disconnect(uint16_t id) { closed.push_back(id); } };
+struct BLECharacteristicCallbacks {
+    virtual ~BLECharacteristicCallbacks() = default;
+    virtual void onWrite(BLECharacteristic*) {}
+};
+void BLECharacteristic::setCallbacks(BLECharacteristicCallbacks* callbacks) { delete callbacks; }
+struct BLEUUID { explicit BLEUUID(const char*) {} };
+struct BLEService {
+    std::array<BLECharacteristic, 17> characteristics;
+    size_t count = 0;
+    bool started = false;
+    BLECharacteristic* createCharacteristic(const char*, int) { return &characteristics.at(count++); }
+    void start() { started = true; }
+};
+struct BLEServerCallbacks;
+struct BLEServer {
+    std::vector<uint16_t> closed;
+    BLEService service;
+    void disconnect(uint16_t id) { closed.push_back(id); }
+    void setCallbacks(BLEServerCallbacks*);
+    BLEService* createService(BLEUUID, int) { return &service; }
+};
 struct BLEServerCallbacks {
+    virtual ~BLEServerCallbacks() = default;
     virtual void onConnect(BLEServer*, esp_ble_gatts_cb_param_t*) {}
     virtual void onDisconnect(BLEServer*, esp_ble_gatts_cb_param_t*) {}
 };
+void BLEServer::setCallbacks(BLEServerCallbacks* callbacks) { delete callbacks; }
+struct BLEAdvertising {
+    void addServiceUUID(const char*) {}
+    void setScanResponse(bool) {}
+    void setMinPreferred(int) {}
+    void setMaxPreferred(int) {}
+    void setMinInterval(int) {}
+    void setMaxInterval(int) {}
+};
 struct BLEDevice {
     static inline int starts = 0;
+    static inline int servers = 0;
+    static inline esp_gatts_cb_t customGatt = nullptr;
+    static void init(const char*) {}
+    static void setCustomGattsHandler(esp_gatts_cb_t callback) { customGatt = callback; }
+    static int setMTU(int) { return ESP_OK; }
+    static BLEServer* createServer() {
+        ++servers;
+        static BLEServer server;
+        esp_ble_gatts_cb_param_t registration;
+        customGatt(ESP_GATTS_REG_EVT, 7, &registration);
+        return &server;
+    }
+    static BLEAdvertising* getAdvertising() { static BLEAdvertising advertising; return &advertising; }
     static void startAdvertising() { ++starts; }
     static void stopAdvertising() {}
 };
-int configGattsIf = 7;
 int lastResponse = ESP_OK, encryptedRequests = 0;
 int lastAccess = -1;
 bool securityAccepted = false;
@@ -115,6 +191,36 @@ void dispatch(int event, int, esp_ble_gatts_cb_param_t* p) {
 }
 
 int main() {
+    // A rejected security setting must leave the remote unavailable, including
+    // after normal loop polling and a later device-name update.
+    for (int failure = 0; failure < 7; ++failure) {
+        securityParameters.clear();
+        securityFailureAt = failure;
+        BLEParentService failed;
+        assert(!failed.begin("SweetYaar"));
+        assert(securityParameters.size() == size_t(failure + 1));
+        assert(!failed._server && !failed.isConnected() && !failed.hasLinks());
+        failed.pollAdvertising();
+        failed.updateDeviceName("SweetYaar");
+        assert(BLEDevice::servers == 0 && BLEDevice::starts == 0);
+        assert(callbackRegistrations == 0);
+        assert(Serial.output.find("parent service disabled") != std::string::npos);
+    }
+    securityFailureAt = -1;
+    securityParameters.clear();
+    BLEParentService initialized;
+    assert(initialized.begin("SweetYaar"));
+    assert(securityParameters.at(ESP_BLE_SM_AUTHEN_REQ_MODE) == ESP_LE_AUTH_REQ_SC_BOND);
+    assert(securityParameters.at(ESP_BLE_SM_ONLY_ACCEPT_SPECIFIED_SEC_AUTH) == ESP_BLE_ONLY_ACCEPT_SPECIFIED_AUTH_ENABLE);
+    assert(securityParameters.at(ESP_BLE_SM_IOCAP_MODE) == ESP_IO_CAP_NONE);
+    assert(securityParameters.at(ESP_BLE_SM_MIN_KEY_SIZE) == 16);
+    assert(securityParameters.at(ESP_BLE_SM_MAX_KEY_SIZE) == 16);
+    assert(securityParameters.at(ESP_BLE_SM_SET_INIT_KEY) == (ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK));
+    assert(securityParameters.at(ESP_BLE_SM_SET_RSP_KEY) == (ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK));
+    assert(initialized._server->service.started && BLEDevice::servers == 1 && BLEDevice::starts == 1);
+    assert(callbackRegistrations == 2 && !initialized.isConnected());
+    Serial.output.clear();
+
     BLEParentService ble;
     BLEServer server;
     BLECharacteristic chars[16];

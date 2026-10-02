@@ -1,14 +1,36 @@
 #include "BLEParentService.h"
 #include "BluetoothAccess.h"
-#include <BLESecurity.h>
 
 namespace {
 esp_gatt_if_t configGattsIf = ESP_GATT_IF_NONE;
 }
 BLEParentService* BLEParentService::_instance = nullptr;
 
-void BLEParentService::begin(const String& deviceName) {
+bool BLEParentService::begin(const String& deviceName) {
     BLEDevice::init(deviceName.c_str());
+    // SC_BOND advertises support but permits legacy fallback unless strict
+    // acceptance is enabled. Set both key bounds; Arduino's setKeySize only
+    // sets the maximum, and its security setters discard API errors.
+    struct SecurityParam { esp_ble_sm_param_t type; uint8_t value; };
+    SecurityParam security[] = {
+        {ESP_BLE_SM_AUTHEN_REQ_MODE, ESP_LE_AUTH_REQ_SC_BOND},
+        {ESP_BLE_SM_ONLY_ACCEPT_SPECIFIED_SEC_AUTH, ESP_BLE_ONLY_ACCEPT_SPECIFIED_AUTH_ENABLE},
+        {ESP_BLE_SM_IOCAP_MODE, ESP_IO_CAP_NONE},
+        {ESP_BLE_SM_MAX_KEY_SIZE, 16},
+        {ESP_BLE_SM_MIN_KEY_SIZE, 16},
+        {ESP_BLE_SM_SET_INIT_KEY, ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK},
+        {ESP_BLE_SM_SET_RSP_KEY, ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK},
+    };
+    for (auto& param : security) {
+        const esp_err_t result = esp_ble_gap_set_security_param(param.type, &param.value, sizeof(param.value));
+        if (result != ESP_OK) {
+            Serial.printf("[BLE] Security configuration failed param=%u result=0x%X; parent service disabled\n",
+                unsigned(param.type), unsigned(result));
+            // Do not publish controls with a partially configured policy.
+            // Leave the shared Bluetooth controller running for Classic audio.
+            return false;
+        }
+    }
     _instance = this;
     // Filter before Arduino's handlers: its custom hooks run AFTER values and
     // CCCDs have already been changed, which is too late for access control.
@@ -22,11 +44,6 @@ void BLEParentService::begin(const String& deviceName) {
         if (_instance->filterGatt(event, interface, param))
             _instance->_originalGatt(event, interface, param);
     });
-    BLESecurity security;
-    security.setAuthenticationMode(ESP_LE_AUTH_REQ_SC_BOND);
-    security.setCapability(ESP_IO_CAP_NONE);
-    security.setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
-    security.setRespEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
     // Arduino BLE exposes no small-payload notify overload. Capture this
     // server's interface so invalidations fit even the minimum ATT MTU (23).
     BLEDevice::setCustomGattsHandler([](esp_gatts_cb_event_t event, esp_gatt_if_t interface,
@@ -178,6 +195,7 @@ void BLEParentService::begin(const String& deviceName) {
                   BLE_SERVICE_UUID,
                   BLE_CONFIG_COMMAND_UUID,
                   BLE_CONFIG_RESPONSE_UUID);
+    return true;
 }
 
 void BLEParentService::updateVolume(uint8_t volumePct) {

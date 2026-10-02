@@ -108,6 +108,10 @@ If the venv is active, `pytest` is equivalent.
 - `test_bluetooth_access.py`: runs the real pairing timer, one-shot reset LED,
   bond migration/reset, Classic audio admission, BLE authorization/takeover, and
   public per-connection rejection diagnostic against host-side radio stubs.
+  Executes BLE startup with strict Secure Connections and 16-byte key bounds;
+  failure of each security-setting call must leave the service unpublished and
+  advertising stopped, including after loop polling or a device-name update.
+  These checks verify configuration and failure handling, not on-air pairing.
   Includes the macOS hardware regression where GAP authentication completes
   before GATTS CONNECT, plus failed/expired outcomes and early key exchanges.
   Fresh-pairing grants are tested for known and unknown peers, before and after

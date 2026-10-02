@@ -336,7 +336,7 @@ void setup() {
 
     // BLE parent service — shares the controller already started by A2DP.
     if (ENABLE_BLE_PARENT_SERVICE) {
-        bleService.begin(currentDeviceName);
+        if (!bleService.begin(currentDeviceName)) reportSystemError();
         bleService.updateThemes(bleThemesJson);
         publishBleValues();
         pollBedtimeMode();

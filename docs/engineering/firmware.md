@@ -411,6 +411,20 @@ again. On upgrade from the approval-list firmware, only bonds with matching
 legacy approvals are retained; an older firmware with no approval metadata
 requires enrollment again. The legacy lists are deleted after migration.
 
+New BLE bonds require LE Secure Connections with a full 16-byte encryption key.
+Firmware enables strict security-mode acceptance and sets both minimum and
+maximum key sizes to 16; advertising SC support alone permits legacy fallback.
+If a security configuration API call fails, the parent service is not created
+or advertised and startup reports a system error. Classic audio remains available.
+This remains Just Works pairing and does not add a PIN or authenticated MITM
+protection. Legacy-only BLE clients cannot enroll.
+
+When upgrading from firmware that allowed legacy pairing or shorter keys,
+deliberately clear the toy's bonds once with the ten-second gesture, forget
+SweetYaar on the phones, and enroll again. The gesture clears both BLE and
+Classic bonds, so enroll each transport again. The new pairing settings do not
+upgrade existing saved keys; firmware does not automatically erase them.
+
 Both transports use Just Works (no displayed/typed number). The phone may still
 ask the parent to tap Pair. Classic's private ESP-IDF 4.4.7 adapter sets
 pairability on the Bluetooth task and intercepts `BTA_DmConfirm`, including
@@ -779,6 +793,13 @@ make flash PIO_ENV=sweetyaar-generic
 
 Run this after deploying firmware or a parent-app change involving Bluetooth.
 `make flash` prints a reminder after a successful upload.
+
+For the Secure Connections policy upgrade, perform the one-time bond reset
+described above during the approved hardware session. Check fresh enrollment
+and saved-key reconnect on Android and Mac, including during Classic playback.
+With a configurable BLE central, verify that legacy pairing and key sizes below
+16 bytes are rejected even while the physical pairing window is open. Record
+unavailable negative-test clients as untested; host tests do not exercise SMP.
 
 1. Disconnect the parent app before flashing. Deploy the matching app when the
    BLE contract changes, incrementing `CACHE_VERSION` in `app/public/sw.js`.

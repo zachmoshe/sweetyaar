@@ -32,11 +32,11 @@ def test_ble_authorization_and_takeover(repo_root, tmp_path):
     header = re.sub(r"^#(?:include|pragma).*\n", "", header, flags=re.MULTILINE)
     header = header.replace("private:", "public:")
     source = (src / "BLEParentService.cpp").read_text()
-    # Execute all production transport/security methods. Only begin() (GATT
-    # registration) and the radio/NVS boundaries are replaced by host stubs.
+    source = re.sub(r"^#include.*\n", "", source, flags=re.MULTILINE)
+    # Execute the complete service, including startup security configuration.
+    # Only the Arduino, radio and NVS boundaries are replaced by host stubs.
     (tmp_path / "ble_service_under_test.inc").write_text(
-        '#include "Config.h"\n' + header + "\n" +
-        source[source.index("void BLEParentService::updateVolume"):])
+        '#include "Config.h"\n' + header + "\n" + source)
     exe = tmp_path / "ble_access"
     run_checked([compiler, "-std=c++17", "-Wall", "-Wextra", "-I", src,
                  "-I", tmp_path, repo_root / "tests/ble_access_native_test.cpp",

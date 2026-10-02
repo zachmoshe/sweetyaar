@@ -44,8 +44,9 @@ class BLEParentService {
 public:
     BLEParentService() = default;
 
-    // Start BLE advertising; call after NVS is ready
-    void begin(const String& deviceName);
+    // Call once after NVS is ready. On security configuration failure, returns
+    // false without creating the GATT service or starting advertising.
+    bool begin(const String& deviceName);
 
     // Push current values to the subscribed, authenticated controller.
     void updateVolume(uint8_t volumePct);
