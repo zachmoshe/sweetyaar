@@ -828,7 +828,7 @@
         "uuid": "a2bc0001-0000-4000-8000-000000000001"
       }
     ],
-    "used_designators": "R_LED_DIN2-3,#PWR65,#PWR68,JP4,R_CHARGER_CE_PU2,D2-5",
+    "used_designators": "R_5V_EN_PD2,R_LED_DIN2-3,D2-5,#PWR32,#PWR65,#PWR68,JP4,R_CHARGER_CE_PU2",
     "variants": []
   },
   "sheets": [
