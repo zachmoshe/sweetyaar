@@ -7286,7 +7286,7 @@
 	)
 	(text "Programming Pins"
 		(exclude_from_sim no)
-		(at 84.582 160.02 0)
+		(at 86.36 173.736 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -7296,7 +7296,7 @@
 	)
 	(text "NOTICE: This MUST match the pins \nin the SweetYaarDebugger!"
 		(exclude_from_sim no)
-		(at 50.8 172.212 0)
+		(at 50.8 191.262 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -7544,6 +7544,12 @@
 		(uuid "1822a1f8-67a3-4d4f-9a59-8c04956c240e")
 	)
 	(junction
+		(at 48.26 153.67)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "1a506685-9078-4813-950e-9e4089fe8ed4")
+	)
+	(junction
 		(at 339.09 113.03)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -7572,12 +7578,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "295e535d-703a-4800-a151-4e5df8e8366f")
-	)
-	(junction
-		(at 57.15 135.89)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "2c7e1b99-69a6-4b9a-a01b-bca414ac4d80")
 	)
 	(junction
 		(at 217.17 116.84)
@@ -7626,6 +7626,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "72344aa1-a57b-4608-8019-ad9ae5f3ec62")
+	)
+	(junction
+		(at 48.26 146.05)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "729a8643-9bef-46a8-817a-4b9edfa393dd")
 	)
 	(junction
 		(at 229.87 99.06)
@@ -7736,6 +7742,12 @@
 		(uuid "b730b2b9-0b01-4182-90bb-7a28637a3b45")
 	)
 	(junction
+		(at 48.26 135.89)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "b9dadf4f-8dcc-4b49-8272-bb986bbe787a")
+	)
+	(junction
 		(at 189.23 165.1)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -7838,6 +7850,12 @@
 		(uuid "ed2d3398-8e4a-4507-b068-306b3d06324e")
 	)
 	(junction
+		(at 48.26 143.51)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "edcb40e4-876e-44f9-9b73-9e8d00e849e2")
+	)
+	(junction
 		(at 210.82 87.63)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -7934,6 +7952,16 @@
 			(type default)
 		)
 		(uuid "05febfaa-9b6a-4e88-972f-3680f5d72ac5")
+	)
+	(wire
+		(pts
+			(xy 41.91 143.51) (xy 48.26 143.51)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "06837003-793b-4778-9197-89fdb59bcf1d")
 	)
 	(wire
 		(pts
@@ -8094,6 +8122,16 @@
 			(type default)
 		)
 		(uuid "20b8ce56-94ec-4b6a-b348-d2b47388e076")
+	)
+	(wire
+		(pts
+			(xy 48.26 143.51) (xy 53.34 143.51)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2194b58c-819d-4e02-aef3-39cd9f2b91ee")
 	)
 	(wire
 		(pts
@@ -8307,6 +8345,16 @@
 	)
 	(wire
 		(pts
+			(xy 41.91 135.89) (xy 48.26 135.89)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3d1e79e0-bdcb-4e86-b60b-56341bb7b2dd")
+	)
+	(wire
+		(pts
 			(xy 356.87 223.52) (xy 389.89 223.52)
 		)
 		(stroke
@@ -8337,16 +8385,6 @@
 	)
 	(wire
 		(pts
-			(xy 41.91 130.81) (xy 57.15 130.81)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "46747f25-a03b-4c0b-9387-cae54618681b")
-	)
-	(wire
-		(pts
 			(xy 349.25 120.65) (xy 344.17 120.65)
 		)
 		(stroke
@@ -8354,6 +8392,16 @@
 			(type default)
 		)
 		(uuid "48812f20-1738-41da-9879-cc3aff55bca4")
+	)
+	(wire
+		(pts
+			(xy 41.91 135.89) (xy 41.91 140.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4933cc89-d9c6-447e-8649-1709a8b3d109")
 	)
 	(wire
 		(pts
@@ -8437,6 +8485,16 @@
 	)
 	(wire
 		(pts
+			(xy 41.91 153.67) (xy 48.26 153.67)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "513bd2fd-2d04-4c14-aea6-6c1d6d16917d")
+	)
+	(wire
+		(pts
 			(xy 339.09 113.03) (xy 349.25 113.03)
 		)
 		(stroke
@@ -8507,6 +8565,16 @@
 	)
 	(wire
 		(pts
+			(xy 48.26 135.89) (xy 52.07 135.89)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "64496cf8-a125-48aa-a2f0-226ba2d9d5bc")
+	)
+	(wire
+		(pts
 			(xy 283.21 167.64) (xy 290.83 167.64)
 		)
 		(stroke
@@ -8514,6 +8582,16 @@
 			(type default)
 		)
 		(uuid "64c05588-a30c-4d40-b379-9b84403b2e0c")
+	)
+	(wire
+		(pts
+			(xy 48.26 153.67) (xy 53.34 153.67)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6528d877-52fe-4925-8413-8ee204fdcbba")
 	)
 	(wire
 		(pts
@@ -8797,6 +8875,16 @@
 	)
 	(wire
 		(pts
+			(xy 69.85 153.67) (xy 60.96 153.67)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "92643b0b-ae22-4bb4-b191-93472e3bdc1b")
+	)
+	(wire
+		(pts
 			(xy 350.52 175.26) (xy 351.79 175.26)
 		)
 		(stroke
@@ -8817,13 +8905,13 @@
 	)
 	(wire
 		(pts
-			(xy 41.91 135.89) (xy 57.15 135.89)
+			(xy 48.26 146.05) (xy 52.07 146.05)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "99bbedee-b9e4-4666-848f-a73adc69abd9")
+		(uuid "990272bb-b15d-4d2a-a523-216096369707")
 	)
 	(wire
 		(pts
@@ -8877,6 +8965,16 @@
 	)
 	(wire
 		(pts
+			(xy 69.85 143.51) (xy 60.96 143.51)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a34a372f-3c55-4123-a23f-b3dd4e4f57f5")
+	)
+	(wire
+		(pts
 			(xy 370.84 85.09) (xy 370.84 88.9)
 		)
 		(stroke
@@ -8904,16 +9002,6 @@
 			(type default)
 		)
 		(uuid "a54a7801-ddc7-4e34-8e05-26717a42a09f")
-	)
-	(wire
-		(pts
-			(xy 57.15 135.89) (xy 57.15 142.24)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a65981cf-5fa7-44a1-8f55-aca22d5896c9")
 	)
 	(wire
 		(pts
@@ -9044,6 +9132,16 @@
 			(type default)
 		)
 		(uuid "b44cf5ba-1bf2-4c23-8e0a-05980356e48f")
+	)
+	(wire
+		(pts
+			(xy 41.91 146.05) (xy 48.26 146.05)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ba09aedf-539d-47e4-9df9-e8672342b21e")
 	)
 	(wire
 		(pts
@@ -9247,6 +9345,16 @@
 	)
 	(wire
 		(pts
+			(xy 41.91 148.59) (xy 41.91 153.67)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d1faf696-4ece-44b5-b097-1aab63fa9ae4")
+	)
+	(wire
+		(pts
 			(xy 344.17 120.65) (xy 344.17 127)
 		)
 		(stroke
@@ -9294,16 +9402,6 @@
 			(type default)
 		)
 		(uuid "da2e34e4-4d68-4a20-ad8a-ba4546e4a8e5")
-	)
-	(wire
-		(pts
-			(xy 57.15 130.81) (xy 57.15 135.89)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "da751e53-6588-4c44-a2ef-c8316c0cc58e")
 	)
 	(wire
 		(pts
@@ -9517,7 +9615,7 @@
 	)
 	(wire
 		(pts
-			(xy 57.15 163.83) (xy 41.91 163.83)
+			(xy 57.15 182.88) (xy 41.91 182.88)
 		)
 		(stroke
 			(width 0)
@@ -9626,7 +9724,7 @@
 		(uuid "19801229-7fd0-4e34-b65b-c2accb3b72cb")
 	)
 	(label "UART_TXD"
-		(at 41.91 161.29 0)
+		(at 41.91 180.34 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -9646,7 +9744,7 @@
 		(uuid "24b9c2cf-e45a-478a-8788-bbc73df9d3c6")
 	)
 	(label "BTN_SONG"
-		(at 41.91 138.43 0)
+		(at 69.85 153.67 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -9756,7 +9854,7 @@
 		(uuid "62049a48-cdfa-4e45-a1c4-53a19a590a50")
 	)
 	(label "BOOT"
-		(at 41.91 153.67 0)
+		(at 41.91 172.72 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -9816,7 +9914,7 @@
 		(uuid "84e8c4a6-f06d-4388-9741-8aec9db8717e")
 	)
 	(label "UART_RXD"
-		(at 41.91 158.75 0)
+		(at 41.91 177.8 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -10286,7 +10384,7 @@
 		(uuid "d0d4880e-da3c-4dd8-8577-e45e6ca4cddf")
 	)
 	(label "BTN_ANIMAL"
-		(at 41.91 133.35 0)
+		(at 69.85 143.51 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -10366,7 +10464,7 @@
 		(uuid "f29b5f40-034e-434d-96aa-297cdbcd0321")
 	)
 	(label "ESP_EN"
-		(at 41.91 156.21 0)
+		(at 41.91 175.26 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -10929,7 +11027,7 @@
 	)
 	(global_label "3V3_AON"
 		(shape input)
-		(at 41.91 166.37 0)
+		(at 41.91 185.42 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -10939,7 +11037,7 @@
 		)
 		(uuid "93b70d97-1801-449b-81cc-29f02ceb45f0")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 53.12 166.37 0)
+			(at 53.12 185.42 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13337,6 +13435,134 @@
 		)
 	)
 	(symbol
+		(lib_id "Device:D_Zener")
+		(at 48.26 149.86 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "34f24715-2ca7-4da4-99bf-211a0f239e42")
+		(property "Reference" "D3"
+			(at 50.8 148.5899 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "ESD441"
+			(at 45.72 149.8601 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "SweetYaar:Texas_DPY0002A_0.6x1mm_P0.65mm"
+			(at 48.26 149.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 48.26 149.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Zener diode"
+			(at 48.26 149.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C53161160"
+			(at 48.26 149.86 270)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "FT Rotation Offset" ""
+			(at 48.26 149.86 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Device" ""
+			(at 48.26 149.86 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Pins" ""
+			(at 48.26 149.86 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "86e53366-900b-411d-81a8-0c439f74e9df")
+		)
+		(pin "1"
+			(uuid "692bfe3f-e622-4ff3-90bd-0dc2044e3c19")
+		)
+		(instances
+			(project "sweetyaar-mainboard"
+				(path "/a2bc0001-0000-4000-8000-000000000001"
+					(reference "D3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 162.56 187.96 0)
 		(unit 1)
@@ -14446,7 +14672,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 57.15 142.24 0)
+		(at 52.07 146.05 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -14456,7 +14682,7 @@
 		(dnp no)
 		(uuid "55344aea-0dae-4825-a3a5-0178f725c670")
 		(property "Reference" "#PWR064"
-			(at 57.15 148.59 0)
+			(at 52.07 152.4 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14467,7 +14693,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 60.452 144.78 0)
+			(at 55.372 148.59 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -14477,7 +14703,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 57.15 142.24 0)
+			(at 52.07 146.05 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14488,7 +14714,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 57.15 142.24 0)
+			(at 52.07 146.05 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14499,7 +14725,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 57.15 142.24 0)
+			(at 52.07 146.05 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15480,6 +15706,130 @@
 		)
 	)
 	(symbol
+		(lib_id "Device:R")
+		(at 57.15 143.51 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "69b51534-93e2-47ca-a71e-80308059bf36")
+		(property "Reference" "R_BTN_ANIMAL1"
+			(at 54.61 142.24 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "330"
+			(at 58.674 145.796 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
+			(at 57.15 143.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C23138.pdf"
+			(at 57.15 143.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "330 Ohm, +/-1%, 100mW, 0603 thick film resistor"
+			(at 57.15 143.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C23138"
+			(at 57.15 143.51 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "FT Rotation Offset" ""
+			(at 57.15 143.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Device" ""
+			(at 57.15 143.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Pins" ""
+			(at 57.15 143.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "342cc30c-96c4-4f21-ab3c-fab74afaaebc")
+		)
+		(pin "2"
+			(uuid "ccbaccc2-ce18-418e-8e8c-cbe69b0ae553")
+		)
+		(instances
+			(project "sweetyaar-mainboard"
+				(path "/a2bc0001-0000-4000-8000-000000000001"
+					(reference "R_BTN_ANIMAL1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:PWR_FLAG")
 		(at 262.89 69.85 0)
 		(unit 1)
@@ -15873,6 +16223,83 @@
 			(project "sweetyaar-mainboard"
 				(path "/a2bc0001-0000-4000-8000-000000000001"
 					(reference "#PWR015")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 52.07 135.89 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "76aa852f-d480-4d5d-b3e9-5381a8aba604")
+		(property "Reference" "#PWR068"
+			(at 52.07 142.24 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 55.372 138.43 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 52.07 135.89 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 52.07 135.89 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 52.07 135.89 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "ccd25471-1b35-4b11-bb29-b7f3a2f69d56")
+		)
+		(instances
+			(project "sweetyaar-mainboard"
+				(path "/a2bc0001-0000-4000-8000-000000000001"
+					(reference "#PWR068")
 					(unit 1)
 				)
 			)
@@ -17411,6 +17838,134 @@
 		)
 	)
 	(symbol
+		(lib_id "Device:D_Zener")
+		(at 48.26 139.7 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "98fbceb4-8058-4fcd-ac6d-e805bd1a90e8")
+		(property "Reference" "D5"
+			(at 50.8 138.4299 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "ESD441"
+			(at 45.72 139.7001 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "SweetYaar:Texas_DPY0002A_0.6x1mm_P0.65mm"
+			(at 48.26 139.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 48.26 139.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Zener diode"
+			(at 48.26 139.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C53161160"
+			(at 48.26 139.7 270)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "FT Rotation Offset" ""
+			(at 48.26 139.7 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Device" ""
+			(at 48.26 139.7 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Pins" ""
+			(at 48.26 139.7 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "8741ba95-77f3-4d65-bbca-dbe48660f965")
+		)
+		(pin "1"
+			(uuid "9aa3ede7-535c-4242-8559-e6d58b3c7115")
+		)
+		(instances
+			(project "sweetyaar-mainboard"
+				(path "/a2bc0001-0000-4000-8000-000000000001"
+					(reference "D5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:C")
 		(at 149.86 76.2 0)
 		(unit 1)
@@ -17535,7 +18090,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 57.15 163.83 0)
+		(at 57.15 182.88 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -17545,7 +18100,7 @@
 		(dnp no)
 		(uuid "a0f92832-3b13-4de8-a31e-b8863faf7a2f")
 		(property "Reference" "#PWR060"
-			(at 57.15 170.18 0)
+			(at 57.15 189.23 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -17556,7 +18111,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 57.404 167.64 0)
+			(at 57.404 186.69 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -17566,7 +18121,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 57.15 163.83 0)
+			(at 57.15 182.88 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -17577,7 +18132,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 57.15 163.83 0)
+			(at 57.15 182.88 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -17588,7 +18143,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 57.15 163.83 0)
+			(at 57.15 182.88 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -17605,6 +18160,130 @@
 			(project "sweetyaar-mainboard"
 				(path "/a2bc0001-0000-4000-8000-000000000001"
 					(reference "#PWR060")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 57.15 153.67 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "a27adefb-916d-4dcd-8ed6-8e092e7cf909")
+		(property "Reference" "R_BTN_SONG1"
+			(at 54.61 152.4 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "330"
+			(at 58.674 155.956 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
+			(at 57.15 153.67 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C23138.pdf"
+			(at 57.15 153.67 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "330 Ohm, +/-1%, 100mW, 0603 thick film resistor"
+			(at 57.15 153.67 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C23138"
+			(at 57.15 153.67 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "FT Rotation Offset" ""
+			(at 57.15 153.67 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Device" ""
+			(at 57.15 153.67 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Pins" ""
+			(at 57.15 153.67 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "2c4a6bbd-f0fd-4606-b02f-1324a20df19b")
+		)
+		(pin "2"
+			(uuid "70989268-e3c6-48d9-bebb-dc921b5fdd5d")
+		)
+		(instances
+			(project "sweetyaar-mainboard"
+				(path "/a2bc0001-0000-4000-8000-000000000001"
+					(reference "R_BTN_SONG1")
 					(unit 1)
 				)
 			)
@@ -23289,7 +23968,7 @@
 	)
 	(symbol
 		(lib_id "Connector_Generic:Conn_01x04")
-		(at 36.83 135.89 180)
+		(at 36.83 146.05 180)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -23299,7 +23978,7 @@
 		(dnp yes)
 		(uuid "a2bc004b-0000-4000-8000-00000000004b")
 		(property "Reference" "J_BTN1"
-			(at 35.814 127.762 0)
+			(at 35.814 137.922 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -23309,7 +23988,7 @@
 			)
 		)
 		(property "Value" "BUTTONS"
-			(at 36.576 141.732 0)
+			(at 36.576 151.892 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -23320,7 +23999,7 @@
 			)
 		)
 		(property "Footprint" "Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical"
-			(at 36.83 135.89 0)
+			(at 36.83 146.05 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -23331,7 +24010,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 36.83 135.89 0)
+			(at 36.83 146.05 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -23342,7 +24021,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 36.83 135.89 0)
+			(at 36.83 146.05 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -23352,7 +24031,7 @@
 			)
 		)
 		(property "LCSC" "C144395"
-			(at 36.83 135.89 0)
+			(at 36.83 146.05 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -23363,7 +24042,7 @@
 			)
 		)
 		(property "FT Rotation Offset" ""
-			(at 36.83 135.89 0)
+			(at 36.83 146.05 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -23374,7 +24053,7 @@
 			)
 		)
 		(property "Sim.Device" ""
-			(at 36.83 135.89 0)
+			(at 36.83 146.05 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -23385,7 +24064,7 @@
 			)
 		)
 		(property "Sim.Pins" ""
-			(at 36.83 135.89 0)
+			(at 36.83 146.05 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -23418,7 +24097,7 @@
 	)
 	(symbol
 		(lib_id "Connector_Generic:Conn_01x06")
-		(at 36.83 161.29 180)
+		(at 36.83 180.34 180)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -23428,7 +24107,7 @@
 		(dnp no)
 		(uuid "a2bc0050-0000-4000-8000-000000000050")
 		(property "Reference" "J_PROG1"
-			(at 36.83 149.86 0)
+			(at 36.83 168.91 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -23438,7 +24117,7 @@
 			)
 		)
 		(property "Value" "PROG_HDR"
-			(at 37.338 149.606 0)
+			(at 37.338 168.656 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -23449,7 +24128,7 @@
 			)
 		)
 		(property "Footprint" "SweetYaar:DebuggerPad_1x06_P2.54mm"
-			(at 36.83 161.29 0)
+			(at 36.83 180.34 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -23460,7 +24139,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 36.83 161.29 0)
+			(at 36.83 180.34 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -23471,7 +24150,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 36.83 161.29 0)
+			(at 36.83 180.34 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -23481,7 +24160,7 @@
 			)
 		)
 		(property "LCSC" "N/A"
-			(at 36.83 161.29 0)
+			(at 36.83 180.34 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -23492,7 +24171,7 @@
 			)
 		)
 		(property "FT Rotation Offset" ""
-			(at 36.83 161.29 0)
+			(at 36.83 180.34 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -23503,7 +24182,7 @@
 			)
 		)
 		(property "Sim.Device" ""
-			(at 36.83 161.29 0)
+			(at 36.83 180.34 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -23514,7 +24193,7 @@
 			)
 		)
 		(property "Sim.Pins" ""
-			(at 36.83 161.29 0)
+			(at 36.83 180.34 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -23798,7 +24477,8 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 54.61 128.016 0)
+			(at 54.61 135.636 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
