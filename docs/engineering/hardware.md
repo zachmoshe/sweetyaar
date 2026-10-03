@@ -34,15 +34,15 @@ audio source - BT A2DP -->|                      |
 
 The production power system keeps the onboard USB charging input permanently connected,
 adds an optional auxiliary charging input from an off-board source located
-elsewhere inside the device, and generates three system rails. The TPS2116
+elsewhere inside the device, and generates three system rails. The TPS2121
 provides reverse-current isolation between the two positive supply paths; this
 is not galvanic isolation, and both sources share the mainboard ground.
 
 ```text
-USB_VBUS ---------------- TPS2116 VIN1 (priority) --+
-                                                     +---- TPS2116 VOUT ---- 5V_INPUT ---- BQ25186 IN
-off-board regulated 5 V -- AUX_5V_IN -- VIN2 -------+                                  |
-                                                                                        +-- I2C, /PG, /INT --> ESP32
+USB_VBUS ---------------- TPS2121 IN1 (priority) --+
+                                                   +---- OUT ---- 5V_INPUT ---- BQ25186 IN
+off-board regulated 5 V -- AUX_5V_IN -- IN2 -------+                              |
+                                                                                  +-- I2C, /PG, /INT --> ESP32
 
 protected 18650 Li-ion ------------------------------ BQ25186 BAT
            |
@@ -82,7 +82,7 @@ PCB.
 | 33 | `PIN_BTN2` | Input with internal pull-up | Animal button to GND | Active LOW. |
 | 27 | `PIN_VIB_WAKE` | Externally biased RTC input | Normally-closed vibration switch to GND | Resting LOW; movement opens the switch and wakes EXT0 on HIGH. |
 | 13 | `PIN_PERIPH_PWR_EN` | Output | `PERIPH_PWR_EN`: SD load-switch `EN`, battery-sense load-switch `EN`, and 5 V converter `EN` | HIGH while awake; RTC-held LOW during deep sleep. |
-| 4 | `PIN_CHARGER_ENABLE` | Output | Base resistor of the MMBT3904 that pulls BQ25186 `/CE` LOW | HIGH enables charging. GPIO4 defaults to an internal pulldown during and after reset; the external base pulldown and `/CE` pull-up keep charging disabled through boot and hard-off. |
+| 4 | `PIN_CHARGER_ENABLE` | Output | Base resistor of the MMBT3904 that pulls BQ25186 `/CE` LOW | HIGH enables charging. GPIO4 defaults to an internal pulldown during and after reset; the external base pulldown and `/CE` bias divider keep charging disabled through boot and hard-off. |
 | 16 | `PIN_CHARGER_SDA` | Bidirectional open-drain | BQ25186 `SDA` | 100 kHz I2C data; 10 kΩ pull-up to `3V3_AON`. |
 | 17 | `PIN_CHARGER_SCL` | Bidirectional open-drain | BQ25186 `SCL` | 100 kHz I2C clock; 10 kΩ pull-up to `3V3_AON`. |
 | 34 | `PIN_CHARGER_PG` | Input with external pull-up | BQ25186 `/PG/GPO` | LOW means valid external input; 10 kΩ pull-up to `3V3_AON`. Also wakes the ESP32 if charging power is attached during deep sleep. |
@@ -544,7 +544,7 @@ capacity may vary without changing the PCB design.
 | Capacity | May vary without changing the PCB, provided the substitute still meets the fixed electrical, protection, and mechanical requirements. |
 | Battery protection | The cell must include overcharge, over-discharge, over-current, and short-circuit protection. **Fit no additional fuse or resettable PTC in the current design.** Verify the complete holder, harness, connector, switch, and PCB under expected and fault-current conditions. |
 | Charger | [BQ25186DLHR](https://www.ti.com/product/BQ25186), I2C-controlled 1-cell Li-ion charger with power path. It was selected because firmware can set and verify the battery-temperature limits required by the cell rather than accepting the BQ25185's fixed 60°C HOT threshold. |
-| External-source mux | [TPS2116DRLR](https://www.ti.com/product/TPS2116), with USB `VBUS` on priority input `VIN1`, `AUX_5V_IN` on backup input `VIN2`, and `VOUT` feeding BQ25186 `IN`. It provides automatic priority selection, reverse-current blocking, and a 2.5 A path. |
+| External-source mux | [TPS2121RUXR](https://www.ti.com/product/TPS2121), with USB `VBUS` on priority input `IN1`, `AUX_5V_IN` on backup input `IN2`, and `OUT` feeding BQ25186 `IN`. The circuit sets USB priority at approximately 4.24 V, input overvoltage rejection at approximately 6.04 V, and a nominal 2.25 A mux current limit. |
 | Auxiliary-source requirement | `AUX_5V_IN` comes from a complete off-board power module mounted elsewhere inside the device, such as a regulated wireless-charging receiver. Require 5.0 V nominal and never more than 5.5 V at the mainboard input. The source and harness must continuously support the firmware-configured 1.05 A input limit with suitable margin. Connect only a regulated DC output, never a raw wireless-power coil or unregulated rectifier output. |
 | Use while charging | Supported. Power the device from `SYS`; the BQ25186 reduces charge current when the input or thermal limit is reached and allows the battery to supplement load peaks. |
 | Charge current | **1 A production default**, programmed and read back over I2C. There is no `ISET` resistor or current-selection jumper. |
@@ -591,11 +591,17 @@ it is not a schematic drop-in replacement for the analog-programmed BQ25185:
 | 10 | `IN` | `5V_INPUT`, unchanged. |
 | Exposed pad | GND | Solder to the local solid GND/thermal plane. |
 
-The 100 kΩ `/CE` pull-up goes to `5V_INPUT`, so lack of external power creates
-no battery-only pull-up current. An MMBT3904 has collector at `/CE`, emitter
-directly at GND, and base driven by GPIO4 through 10 kΩ with 100 kΩ from base
-to GND. GPIO4 HIGH enables charging. Its reset-default internal pulldown and
-the external base pulldown keep charging disabled through reset and boot; the
+The `/CE` bias is a divider: `R_CHARGER_CE_DIV1` is 100 kΩ from `5V_INPUT`
+to `CHARGER_CE_N`, and `R_CHARGER_CE_DIV2` is 91 kΩ from that node to GND.
+At 5 V input it holds `/CE` at approximately 2.38 V, above the BQ25186's
+1.0 V HIGH threshold, while reducing the voltage reaching this 5.5 V
+absolute-maximum pin during an input transient. This divider scales voltage;
+it is not a clamp. It draws no battery-only current when external power is
+absent. `Q1`, an MMBT3904, has collector at `/CE`, emitter directly at GND,
+and base driven by GPIO4 through the 10 kΩ `R_CHARGER_CE_BASE1`, with the
+100 kΩ `R_CHARGER_CE_PD1` from base to GND. GPIO4 HIGH enables charging.
+Its reset-default internal pulldown and the external base pulldown keep
+charging disabled through reset and boot; the
 external pulldown also keeps it disabled when the ESP32 is unpowered or the
 hard-off switch is open. Firmware drives GPIO4 LOW at the start of `setup()`
 and asserts it only after every safety register has been written and read back
@@ -671,9 +677,9 @@ an unpopulated, two-wire connection to a complete off-board power module located
 elsewhere inside the device:
 
 ```text
-USB_VBUS ---------------- TPS2116 VIN1 (priority) --+
-                                                     +---- TPS2116 VOUT ---- 5V_INPUT ---- BQ25186 IN
-off-board regulated 5 V -- AUX_5V_IN -- VIN2 -------+
+USB_VBUS ---------------- TPS2121 IN1 (priority) --+
+                                                   +---- OUT ---- 5V_INPUT ---- BQ25186 IN
+off-board regulated 5 V -- AUX_5V_IN -- IN2 -------+
 
 DEBUGGER_USB_VBUS ---- external debugger CH340C ---- J_PROG1 ---- ESP32 UART0/EN/BOOT
 ```
@@ -696,7 +702,7 @@ device assembly. Place `D2`, an
 with its cathode on `AUX_5V_IN` and its anode on GND. `D2` suppresses fast ESD
 and connection transients; it is not a regulator, sustained-overvoltage clamp,
 reverse-polarity protector, or substitute for the source-voltage requirement.
-A TPS2116 power mux prevents reverse current between the USB and auxiliary
+A TPS2121 power mux prevents reverse current between the USB and auxiliary
 sources and gives USB explicit priority. The onboard USB-C charging path
 remains fully functional whether or not an auxiliary module is installed.
 
@@ -711,42 +717,79 @@ do not put a diode or switch in the common-ground connection.
 
 | Boundary | Required schematic behavior |
 |---|---|
-| USB `VBUS` ↔ `AUX_5V_IN` | Never connect the two sources directly. Route them through the TPS2116 so USB-only, AUX-only, and simultaneous connection are all safe. USB must take precedence whenever both inputs are valid; do not combine or share their current. |
-| USB `VBUS` → `5V_INPUT` | This permanent path always reaches the charger input; actual charging additionally requires the switch-on, firmware-verified `/CE` permission. Isolation must prevent an auxiliary source from driving voltage out of the USB-C receptacle. |
+| USB `VBUS` ↔ `AUX_5V_IN` | Never connect the two sources directly. Route them through the TPS2121 for USB-only, AUX-only, and simultaneous connection. USB takes precedence when above its priority threshold and below its overvoltage threshold; do not combine or share source current. |
+| USB `VBUS` → `5V_INPUT` | This permanently wired mux input reaches the charger when selected and within the mux's voltage limits; actual charging additionally requires the switch-on, firmware-verified `/CE` permission. Isolation must prevent an auxiliary source from driving voltage out of the USB-C receptacle. |
 | `AUX_5V_IN` → `5V_INPUT` | This optional, power-only path receives regulated DC from an off-board module inside the device. It must prevent USB `VBUS` from driving backward into an absent or unpowered source module. The isolation circuit and mainboard ESD diode are required even though the connector is not populated by the PCBA vendor. |
 | `5V_INPUT` ↔ battery/`SYS` | Reach `BAT` and `SYS` only through the BQ25186 power path; do not add an external bypass around its input/battery reverse-current management. |
 
-Use a [TI TPS2116](https://www.ti.com/product/TPS2116), orderable as
-`TPS2116DRLR`, for this source selection. It accepts two 1.6–5.5 V inputs,
-carries up to 2.5 A, provides priority switching and reverse-current blocking,
-and has approximately 37 mΩ typical on-resistance at 5 V. Its 8-pin DRL
-SOT-5X3 package is 2.1 mm × 1.6 mm and is intended for assembly with solder
-paste and reflow rather than routine hand soldering.
+`U_MUX1` is a [TI TPS2121](https://www.ti.com/product/TPS2121), orderable as
+`TPS2121RUXR` (LCSC `C485916`). Its power inputs operate from 2.8–22 V,
+with a 24 V absolute maximum, providing headroom for hot-plug transients on
+the nominal 5 V sources. The device supports up to 4.5 A; this board programs
+a lower mux limit and keeps the BQ25186 input limit at 1.05 A. The RUX package
+is a 12-pin, 2.0 mm × 2.5 mm VQFN-HR, using KiCad footprint
+`Package_DFN_QFN:Texas_VQFN-HR-12_2x2.5mm_P0.5mm`.
 
 Wire the mux as follows:
 
-| TPS2116 pin | Connection and purpose |
+| TPS2121 pin | Connection and purpose |
 |---|---|
-| 1 `GND` | Common PCB ground. Do not isolate the source grounds. |
-| 2, 7 `VOUT` | Join both pins and connect them to `5V_INPUT`, then to BQ25186 `IN`. |
-| 3 `VIN1` | Protected mainboard USB `VBUS`; this is the priority source. The external debugger has its own USB supply and does not connect to this rail. |
-| 4 `PR1` | USB-valid detector: 300 kΩ from USB `VBUS` to `PR1` and 100 kΩ from `PR1` to GND, both 1%. The nominal switchover threshold is 4.0 V; including the TPS2116 reference and resistor tolerances it is approximately 3.6–4.4 V, so a valid 5 V USB source is always selected. |
-| 5 `MODE` | Connect directly to `VIN1`/USB `VBUS` to enable automatic priority mode. |
-| 6 `VIN2` | `AUX_5V_IN` after the local `D2` ESD shunt; this is selected only when USB is absent or below the `PR1` threshold. The off-board source must remain at or below 5.5 V. |
-| 8 `ST` | Optional open-drain source-status output. Leave unconnected in the first revision or expose only as a test pad; no ESP32 GPIO is allocated. |
+| 1, 8 `OUT` | Both connect to `5V_INPUT`, feeding BQ25186 `IN`. |
+| 2 `IN2` | `AUX_5V_IN`, with connector-side `D2` ESD protection. |
+| 3 `CP2` | GND. This circuit uses the internal-reference/input-voltage comparison modes. |
+| 4 `OV2` | AUX overvoltage divider: `R_MUX_OV_DIV3` = 470 kΩ from `AUX_5V_IN`, and `R_MUX_OV_DIV4` = 100 kΩ to GND. |
+| 5 `OV1` | USB overvoltage divider: `R_MUX_OV_DIV1` = 470 kΩ from `USB_VBUS`, and `R_MUX_OV_DIV2` = 100 kΩ to GND. |
+| 6 `PR1` | USB priority divider: `R_PR1_TOP1` = 300 kΩ from `USB_VBUS`, and `R_PR1_BOT1` = 100 kΩ to GND. |
+| 7 `IN1` | `USB_VBUS`, with connector-side `D1` ESD protection. The external debugger's USB supply remains separate. |
+| 9 `ST` | GND; source-status reporting is unused. TI permits grounding this output when unused. |
+| 10 `ILIM` / `ILM` | `R_MUX_ILIM1` and `R_MUX_ILIM2`, both 100 kΩ, in parallel to GND: 50 kΩ effective. |
+| 11 `SS` | `C_MUX_SS1`, 100 nF, 50 V, X7R to GND, sets soft start and input settling. |
+| 12 `GND` | Common PCB ground. |
 
-Place a 1 µF ceramic capacitor from each of `VIN1` and `VIN2` to GND close
-to the mux. Place at least 1 µF from `VOUT`/`5V_INPUT` to GND close to the
-mux and BQ25186; this capacitor also satisfies the charger's `IN` decoupling
-requirement when the two ICs are placed together. Use short, wide copper for
-`VIN1`, `VIN2`, `VOUT`, and GND. Normal source voltage must remain inside the
-TPS2116's 5.5 V recommended operating maximum. `D1` and `D2` reduce fast
-ESD/transient energy but do not make an out-of-range DC source acceptable.
+With the 1.06 V nominal reference, the fitted 1% divider resistors give a
+4.24 V rising USB-priority threshold (approximately 3.98–4.47 V including
+reference and resistor tolerances) and 6.04 V rising overvoltage thresholds
+on both inputs (approximately 5.66–6.37 V including tolerances). The 50 kΩ
+current-limit resistance gives approximately 2.25 A nominal using
+`I_LIMIT = 65.2 / R_kΩ^0.861`; it is not a precision 2.25 A ceiling or a
+replacement for the charger's 1.05 A input limit.
 
-With this wiring, valid USB selects `VIN1`; removing or badly sagging USB
-selects `VIN2`; and the break-before-make, reverse-blocking switches prevent the
-active source from driving the inactive connector or receiver. No firmware is
-involved in source selection.
+When USB priority is asserted and USB is not overvoltage, it supplies the
+output. Priority releases at approximately 4.16 V falling, due to hysteresis.
+With priority released, `CP2` grounded, and both inputs valid, the mux compares
+input voltages; releasing priority does not unconditionally force AUX selection.
+If only one input is valid, that input supplies the
+output; if neither is valid, the output is high impedance. Source selection
+and reverse-current blocking require no firmware. This wiring uses the
+100 µs typical switchover mode, rather than the 5 µs fast mode. Verify the
+voltage dip and BQ25186 battery handover under load.
+
+The fitted power bypass capacitors are all X7R, ±10%:
+
+| Reference | Connection | Value and placement |
+|---|---|---|
+| `C_MUX1` | `USB_VBUS` to GND | 1 µF, 25 V, 0603, beside mux `IN1`. |
+| `C_MUX2` | `AUX_5V_IN` to GND | 1 µF, 25 V, 0603, beside mux `IN2`. |
+| `C_MUX4` | `5V_INPUT` to GND | 1 µF, 25 V, 0603, beside mux `OUT`. |
+| `C_MUX3` | `5V_INPUT` to GND | 2.2 µF, 25 V, 0805, beside BQ25186 `IN`. |
+
+Keep both output-net capacitors: each provides local bypassing at its own IC.
+Use short, wide copper between the mux's power pins and their local capacitors,
+with nearby GND returns. The AUX feed crosses on the bottom layer through
+0.4 mm-drill vias; the capacitor-to-`IN2` connection remains on the top layer.
+At 1.05 A and 56 mΩ typical on-resistance, calculated mux conduction loss is
+approximately 62 mW. Power-pin copper also spreads heat; any added thermal
+vias at pins 1/8, 2, or 7 must connect to `5V_INPUT`, `AUX_5V_IN`, or
+`USB_VBUS`, respectively, not GND.
+
+The higher mux voltage rating and the OV dividers do not make the complete
+board a high-voltage input design. Keep both sources regulated to 5 V nominal
+and no more than 5.5 V in normal operation. `D1` and `D2` reduce fast ESD and
+connection transients; the mux rejects an overvoltage source but is not an
+instantaneous voltage clamp. Check hot-plug waveforms at the input, `5V_INPUT`,
+and the divided `/CE` node with the intended supplies and cables.
+See the [TPS2121 datasheet](https://www.ti.com/lit/ds/symlink/tps2121.pdf),
+especially the source-selection table, electrical limits, and layout guidance.
 
 #### Power-domain separation and sleep-current requirements
 
@@ -1157,11 +1200,13 @@ Programming-interface references: [ESP32 UART hardware guidance](https://docs.es
 and [CH340 datasheet](https://www.wch-ic.com/downloads/CH340DS1_PDF.html).
 Debugger regulator reference: [XC6206 datasheet](https://product.torexsemi.com/system/files/series/xc6206.pdf).
 
-The TPS2116 closes the USB-priority source-mux selection. During schematic and
-layout review, verify the divider threshold, both 1 µF input capacitors, the
-shared mux-output/BQ25186-input capacitor, 2.5 A current paths, connector-side
-protection, and the required absence of reverse current at both inactive
-inputs.
+The TPS2121 closes the USB-priority source-mux selection. During schematic and
+layout review, verify the priority and OV dividers, the parallel current-limit
+resistors, soft-start capacitor, both 1 µF input capacitors, separate local mux
+output and charger input capacitors, and the 100 kΩ / 91 kΩ `/CE` divider.
+Check power-path widths and vias against normal current and mux current-limit
+tolerance, connector-side protection, switchover behavior, and reverse current
+at both inactive inputs.
 
 #### Remaining electrical decisions and verification
 
@@ -1296,10 +1341,15 @@ connecting an 18650 cell or speaker. A practical order is:
    that the mainboard input remains at or below 5.5 V during startup and normal
    operation. The external debugger and its CH340C supply remain electrically
    separate from this power-path test.
-3. Connect USB and AUX together, verify that USB takes priority,
+3. Connect USB and AUX together, verify that nominal 5 V USB takes priority,
    and measure reverse current into both sources. Do not rely only on voltage.
-4. Verify `/CE` remains HIGH through reset and hard-off. With the switch on,
-   confirm firmware detects device ID `0x1`, reads back every configured
+   Capture hot-plug and source-removal waveforms at both inputs, `5V_INPUT`,
+   and `/CE`; verify switchover and battery handover under load. Check the
+   priority and OV thresholds with current-limited sources and a suitable load,
+   accounting for divider/reference tolerances and the input ESD diodes' limits.
+4. Verify `/CE` remains HIGH (approximately 2.38 V at 5 V input) through reset
+   and hard-off. With the switch on, confirm firmware detects device ID `0x1`,
+   reads back every configured
    register, then enables charging only while `/PG` indicates valid input.
 5. With the Semitec 103AT-2 installed against the cell wrapper, verify the
    BQ25186 suspends and resumes charging at the intended 45°C and 0°C limits.

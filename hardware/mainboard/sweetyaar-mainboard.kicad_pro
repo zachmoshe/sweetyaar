@@ -311,7 +311,12 @@
     "equivalence_files": []
   },
   "erc": {
-    "erc_exclusions": [],
+    "erc_exclusions": [
+      [
+        "pin_to_pin|1536700|990600|5e361780-84c2-4706-90c7-5d23a2e38fc5|2ce5bd52-aa65-440a-b176-90b1c503db45|/a2bc0001-0000-4000-8000-000000000001|/a2bc0001-0000-4000-8000-000000000001|/a2bc0001-0000-4000-8000-000000000001",
+        "TI permits grouning unused ST"
+      ]
+    ],
     "meta": {
       "version": 0
     },
@@ -828,7 +833,7 @@
         "uuid": "a2bc0001-0000-4000-8000-000000000001"
       }
     ],
-    "used_designators": "R_5V_EN_PD2,R_LED_DIN2-3,D2-5,#PWR32,#PWR65,#PWR68,JP4,R_CHARGER_CE_PU2",
+    "used_designators": "R_3V3_BOT2,R_PR1_BOT2-3,R_VIB2-3,C2,#PWR9,#PWR16,#PWR65,#PWR77,#PWR79,R_MUX_ILIM3-4",
     "variants": []
   },
   "sheets": [
