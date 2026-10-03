@@ -1,6 +1,6 @@
 (version 1)
 
-# JLCPCB, four-layer FR-4 with 1 oz copper. Reviewed 2026-09-20.
+# JLCPCB, four-layer FR-4, 1 oz outer and 0.5 oz inner copper. Reviewed 2026-09-20.
 # https://jlcpcb.com/capabilities/pcb-capabilities
 # Component lead holes have different limits from vias. Heatsink pads are
 # footprint thermal vias, so do not apply component lead-hole limits to them.

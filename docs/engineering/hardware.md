@@ -663,8 +663,9 @@ See the [BQ25186 datasheet](https://www.ti.com/lit/ds/symlink/bq25186.pdf),
 and [Semitec 103AT family data](https://www.semitec-global.com/products/thermistor_at/).
 
 The charger spreads heat through its soldered exposed pad, two 0.2 mm-drill
-thermal vias in that pad, nearby GND stitching, and both large 35 µm inner GND
-planes. This is the intended thermal path. At 5 V input, 3 V battery voltage,
+thermal vias in that pad, three 0.4 mm-drill GND vias at the pad's ends and
+beside GND pin 5, nearby GND stitching, and both large 0.5 oz (about 18 µm)
+inner GND planes. This is the intended thermal path. At 5 V input, 3 V battery voltage,
 and 1 A charge current, charger dissipation is approximately 2 W before current
 limiting. Copper area alone does not determine the temperature rise: heat must
 also leave the enclosed board. Confirm sustained charging current, thermal
@@ -1044,8 +1045,9 @@ confused with the toy's operating current.
 
 ### PCB electrical interfaces and programming
 
-The production PCB is **four layers**. A two-layer implementation is not being
-pursued. The current KiCad PCB contains its outline, placement, and routing;
+The production PCB is **four layers**, 1.6 mm, with 1 oz outer copper and
+JLCPCB's default 0.5 oz inner copper. Both inner layers are GND planes. A
+two-layer implementation is not being pursued. The current KiCad PCB contains its outline, placement, and routing;
 mechanical fit is checked against the enclosure design.
 
 Use **2.5 mm-pitch JST-XH-family connectors for all removable off-board wire
