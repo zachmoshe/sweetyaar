@@ -86,16 +86,8 @@
           ""
         ],
         [
-          "silk_over_copper|51756826|79125920|afe00944-efa0-4e8b-b8f7-dd53ee9ade17|85ac418c-e67c-493f-a2b1-9effa5712171",
-          ""
-        ],
-        [
-          "silk_over_copper|52328254|79340000|afe00944-efa0-4e8b-b8f7-dd53ee9ade17|c61c2cb2-ee73-40c9-8ced-b9c89319a47a",
-          ""
-        ],
-        [
-          "silk_overlap|42955000|84574800|57e8237f-f911-4759-bdec-dad5a6440a09|afe00944-efa0-4e8b-b8f7-dd53ee9ade17",
-          ""
+          "via_diameter|49777817|64248035|324fb9e9-7266-4277-8471-5d028de80397|00000000-0000-0000-0000-000000000000",
+          "allows for more GND vias next to the regulator"
         ]
       ],
       "meta": {
