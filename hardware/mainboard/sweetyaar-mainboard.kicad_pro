@@ -84,10 +84,6 @@
         [
           "silk_edge_clearance|44050000|100000000|1eff0831-1dc2-4504-9283-8dc0a4d2e1f2|666c19fb-84e1-47ef-9787-e0e44b1039df",
           ""
-        ],
-        [
-          "via_diameter|49777817|64248035|324fb9e9-7266-4277-8471-5d028de80397|00000000-0000-0000-0000-000000000000",
-          "allows for more GND vias next to the regulator"
         ]
       ],
       "meta": {
@@ -825,7 +821,7 @@
         "uuid": "a2bc0001-0000-4000-8000-000000000001"
       }
     ],
-    "used_designators": "R_3V3_BOT2,R_PR1_BOT2-3,R_VIB2-3,C2,#PWR9,#PWR16,#PWR65,#PWR77,#PWR79,R_MUX_ILIM3-4",
+    "used_designators": "",
     "variants": []
   },
   "sheets": [

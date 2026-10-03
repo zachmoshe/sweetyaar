@@ -19515,7 +19515,7 @@
 				)
 			)
 		)
-		(property "Value" "1uF, 25 V, X7R, ±10%"
+		(property "Value" "1uF, 50 V, X5R, ±10%"
 			(at 143.002 70.358 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -19536,7 +19536,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C15849.pdf"
 			(at 138.43 72.39 0)
 			(hide yes)
 			(show_name no)
@@ -19557,7 +19557,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C29936"
+		(property "LCSC" "C15849"
 			(at 138.43 72.39 0)
 			(hide yes)
 			(show_name no)
@@ -20887,7 +20887,7 @@
 				)
 			)
 		)
-		(property "Value" "1uF, 25 V, X7R, ±10%"
+		(property "Value" "1uF, 50 V, X5R, ±10%"
 			(at 111.506 115.57 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -20908,7 +20908,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C15849.pdf"
 			(at 114.3 113.03 0)
 			(hide yes)
 			(show_name no)
@@ -20929,7 +20929,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C29936"
+		(property "LCSC" "C15849"
 			(at 114.3 113.03 0)
 			(hide yes)
 			(show_name no)
@@ -21010,7 +21010,7 @@
 				)
 			)
 		)
-		(property "Value" "1uF, 25 V, X7R, ±10%"
+		(property "Value" "1uF, 50 V, X5R, ±10%"
 			(at 111.506 100.33 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -21031,7 +21031,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C15849.pdf"
 			(at 114.3 97.79 0)
 			(hide yes)
 			(show_name no)
@@ -21052,7 +21052,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C29936"
+		(property "LCSC" "C15849"
 			(at 114.3 97.79 0)
 			(hide yes)
 			(show_name no)
@@ -21133,7 +21133,7 @@
 				)
 			)
 		)
-		(property "Value" "2.2 uF, 25 V, X7R, ±10%"
+		(property "Value" "4.7 uF, 25 V, X5R, ±10%"
 			(at 159.258 60.96 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -21154,7 +21154,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C1779.pdf"
 			(at 171.45 58.42 0)
 			(hide yes)
 			(show_name no)
@@ -21175,7 +21175,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C126591"
+		(property "LCSC" "C1779"
 			(at 171.45 58.42 0)
 			(hide yes)
 			(show_name no)
@@ -21518,7 +21518,7 @@
 				)
 			)
 		)
-		(property "Value" "2.2 uF, 25 V, X7R, ±10%"
+		(property "Value" "4.7 uF, 25 V, X5R, ±10%"
 			(at 229.87 60.452 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -21539,7 +21539,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C1779.pdf"
 			(at 217.17 58.42 0)
 			(hide yes)
 			(show_name no)
@@ -21560,7 +21560,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C126591"
+		(property "LCSC" "C1779"
 			(at 217.17 58.42 0)
 			(hide yes)
 			(show_name no)
@@ -22528,7 +22528,7 @@
 				)
 			)
 		)
-		(property "Value" "22uF, 16 V, X5R/X7R, ±20%"
+		(property "Value" "22uF, 25 V, X5R, ±10%"
 			(at 339.09 70.866 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -22549,7 +22549,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C12891.pdf"
 			(at 336.55 68.58 0)
 			(hide yes)
 			(show_name no)
@@ -22571,7 +22571,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C90146"
+		(property "LCSC" "C12891"
 			(at 336.55 68.58 0)
 			(hide yes)
 			(show_name no)
@@ -23293,7 +23293,7 @@
 				)
 			)
 		)
-		(property "Value" "22uF, 16 V, X5R/X7R, ±20%"
+		(property "Value" "22uF, 25 V, X5R, ±10%"
 			(at 331.47 119.126 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -23314,7 +23314,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C12891.pdf"
 			(at 334.01 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -23335,7 +23335,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C90146"
+		(property "LCSC" "C12891"
 			(at 334.01 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -23416,7 +23416,7 @@
 				)
 			)
 		)
-		(property "Value" "22uF, 16 V, X5R/X7R, ±20%"
+		(property "Value" "22uF, 25 V, X5R, ±10%"
 			(at 341.63 119.38 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -23437,7 +23437,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C12891.pdf"
 			(at 339.09 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -23458,7 +23458,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C90146"
+		(property "LCSC" "C12891"
 			(at 339.09 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -23662,7 +23662,7 @@
 				)
 			)
 		)
-		(property "Value" "1uF, 25 V, X7R, ±10%"
+		(property "Value" "1uF, 50 V, X5R, ±10%"
 			(at 312.42 200.66 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -23683,7 +23683,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C15849.pdf"
 			(at 311.15 198.12 0)
 			(hide yes)
 			(show_name no)
@@ -23704,7 +23704,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C29936"
+		(property "LCSC" "C15849"
 			(at 311.15 198.12 0)
 			(hide yes)
 			(show_name no)
@@ -25024,17 +25024,6 @@
 			)
 		)
 		(property "LCSC" "C910544"
-			(at 157.48 246.38 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "FT Rotation Offset" ""
 			(at 157.48 246.38 0)
 			(hide yes)
 			(show_name no)
@@ -28091,7 +28080,7 @@
 				)
 			)
 		)
-		(property "Value" "1uF, 25 V, X7R, ±10%"
+		(property "Value" "1uF, 50 V, X5R, ±10%"
 			(at 365.76 81.28 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -28112,7 +28101,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C15849.pdf"
 			(at 364.49 78.74 0)
 			(hide yes)
 			(show_name no)
@@ -28133,7 +28122,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C29936"
+		(property "LCSC" "C15849"
 			(at 364.49 78.74 0)
 			(hide yes)
 			(show_name no)
@@ -30644,7 +30633,7 @@
 				)
 			)
 		)
-		(property "Value" "1uF, 25 V, X7R, ±10%"
+		(property "Value" "1uF, 50 V, X5R, ±10%"
 			(at 250.19 262.89 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -30665,7 +30654,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C15849.pdf"
 			(at 248.92 260.35 0)
 			(hide yes)
 			(show_name no)
@@ -30686,7 +30675,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C29936"
+		(property "LCSC" "C15849"
 			(at 248.92 260.35 0)
 			(hide yes)
 			(show_name no)

@@ -280,7 +280,7 @@ efficiency at very light load.
 | GPIO13 100 kΩ pulldown | GPIO13 and all three controlled enable inputs held LOW | 0 V across the resistor; EN leakage is included in the two AP2281 rows and the 5 V TPS63802 row | **≈0 µA** |
 | Buttons and addressable indicator | Buttons released; `5V_PERIPH_SW` off; GPIO2 high-impedance after the rail is disabled | The LED is unpowered; no driven HIGH on DIN and no pull-up to an always-on rail | **≈0 µA** |
 | Charger digital signals | `/PG`, `/INT`, `SDA`, and `SCL` are HIGH through four 10 kΩ pull-ups when idle; no DC path exists through an ideal high-impedance input | Include BQ25186 and ESP32 leakage for all four pins | **≤4 µA, provisional** |
-| Always-powered ceramic capacitors | BQ25186 `BAT` 1 µF and `SYS` ≥10 µF; two TPS63802 10 µF input capacitors; 3.3 V TPS63802 22 µF output capacitor; SD-switch AP2281 `IN` 1 µF; battery-sense AP2281 `IN` 1 µF; ESP32 local decoupling | Dielectric insulation leakage; exact capacitor part numbers not selected | **≤2 µA combined, provisional** |
+| Always-powered ceramic capacitors | BQ25186 `BAT` 4.7 µF and `SYS` ≥10 µF; two TPS63802 10 µF input capacitors; 3.3 V TPS63802 22 µF output capacitor; SD-switch AP2281 `IN` 1 µF; battery-sense AP2281 `IN` 1 µF; ESP32 local decoupling | Dielectric insulation leakage; worst-case total remains to be validated | **≤2 µA combined, provisional** |
 | AP2281 SD load switch | Disabled; input powered | 0.01 µA typical | **≤1 µA** |
 | AP2281 battery-sense load switch | `PERIPH_PWR_EN` LOW; `BAT` input powered, divider output discharged | 0.01 µA typical, 1 µA maximum shutdown current | **≤1 µA** |
 | Battery-sense divider | Disconnected from `BAT` by its AP2281; the series 200 kΩ lower leg holds GPIO36 at GND | No voltage across the 634 kΩ / 200 kΩ path | **≈0 µA** |
@@ -765,14 +765,14 @@ and reverse-current blocking require no firmware. This wiring uses the
 100 µs typical switchover mode, rather than the 5 µs fast mode. Verify the
 voltage dip and BQ25186 battery handover under load.
 
-The fitted power bypass capacitors are all X7R, ±10%:
+The fitted power bypass capacitors are all X5R, ±10%:
 
 | Reference | Connection | Value and placement |
 |---|---|---|
-| `C_MUX1` | `USB_VBUS` to GND | 1 µF, 25 V, 0603, beside mux `IN1`. |
-| `C_MUX2` | `AUX_5V_IN` to GND | 1 µF, 25 V, 0603, beside mux `IN2`. |
-| `C_MUX4` | `5V_INPUT` to GND | 1 µF, 25 V, 0603, beside mux `OUT`. |
-| `C_MUX3` | `5V_INPUT` to GND | 2.2 µF, 25 V, 0805, beside BQ25186 `IN`. |
+| `C_MUX1` | `USB_VBUS` to GND | 1 µF, 50 V, X5R, 0603, C15849, beside mux `IN1`. |
+| `C_MUX2` | `AUX_5V_IN` to GND | 1 µF, 50 V, X5R, 0603, C15849, beside mux `IN2`. |
+| `C_MUX4` | `5V_INPUT` to GND | 1 µF, 50 V, X5R, 0603, C15849, beside mux `OUT`. |
+| `C_MUX3` | `5V_INPUT` to GND | 4.7 µF, 25 V, X5R, 0805, C1779, beside BQ25186 `IN`. |
 
 Keep both output-net capacitors: each provides local bypassing at its own IC.
 Use short, wide copper between the mux's power pins and their local capacitors,
@@ -1003,13 +1003,40 @@ resistance, package, and temperature rating from TI's design limits. Select each
 capacitor by its **effective** capacitance after DC-bias derating, voltage
 rating, temperature rating, ESR, package, and worst-case insulation leakage.
 
+`C_BAT_SW_IN1`, `C_SD_SW_IN1`, `C_ESP_EN1`, `C_MUX1`, `C_MUX2`, and
+`C_MUX4` use Samsung CL10A105KB8NNNC
+([LCSC C15849 datasheet](https://www.lcsc.com/datasheet/C15849.pdf)),
+1 µF, 50 V, X5R, ±10%, in the existing 0603 footprints. Samsung's
+[published DC-bias curve](https://product.samsungsem.com/mlcc/CL10A105KB8NNN.do)
+gives approximately 0.82 µF at 3.3 V, 0.73 µF at 4.2 V, and 0.66 µF at 5 V.
+These are typical values at 25 °C, before tolerance, temperature variation,
+and aging; they are not guaranteed minima. X5R is rated from −55 to +85 °C.
+
+`C_3V3_OUT1`, `C_5V_OUT1`, and `C_5V_OUT2` use Samsung CL31A226KAHNNNE
+([LCSC C12891 datasheet](https://www.lcsc.com/datasheet/C12891.pdf)),
+22 µF, 25 V, X5R, ±10%, in the existing 1206 footprints. Samsung's
+[published DC-bias curve](https://product.samsungsem.com/mlcc/CL31A226KAHNNN.do)
+gives approximately 17.5 µF per capacitor at 3.3 V and 13.6 µF at 5 V
+(27.3 µF for the 5 V pair). These are typical values at 25 °C, before
+tolerance, temperature variation, and aging; they are not guaranteed minima.
+
 The BQ25186 needs at least 1 µF effective capacitance at `IN`, nominal 10 µF at
 `SYS` with at least 1 µF remaining after DC bias, and at least 1 µF at `BAT`.
+`C_CHG_BAT1` at `BAT` and `C_MUX3` at `IN` use Samsung CL21A475KAQNNNE
+([LCSC C1779 datasheet](https://www.lcsc.com/datasheet/C1779.pdf)),
+4.7 µF, 25 V, X5R, ±10%, in the existing 0805 footprints, matching the
+debugger's regulator capacitors. Samsung's
+[published DC-bias curve](https://product.samsungsem.com/mlcc/CL21A475KAQNNN.do)
+gives approximately 3.54 µF at 4.2 V and 3.20 µF at 5 V. These are typical
+values at 25 °C, before tolerance, temperature variation, and aging; they are
+not guaranteed minima. The charger specifies a 1–10 µF effective input
+capacitance range; `C_MUX3` and the 1 µF `C_MUX4` total 5.7 µF nominal on
+`5V_INPUT`. Retain both capacitors for local bypassing at their respective ICs.
+
 The `IN`, `SYS`, and `BAT` capacitors are placement-critical: put each directly
 beside its IC pin and the local GND/thermal plane. Select voltage ratings and
 package sizes that preserve the required effective capacitance after DC-bias
-derating. Exact manufacturer part numbers remain open until the schematic and
-layout are reviewed, and must be validated for startup, radio/audio transients,
+derating. Validate the selected capacitors for startup, radio/audio transients,
 efficiency, heating, and sleep leakage.
 
 The current design relies on the mandatory protected 18650 and therefore adds
@@ -1129,9 +1156,10 @@ Its footprint is `Package_SO:SOIC-16_3.9x9.9mm_P1.27mm`. Pin 1 is GND, pin 15
 pin 8 `OUT#` are left unconnected. No external crystal, VBUS-sense divider,
 or reset pull-up is needed.
 
-`C4` at the regulator input and `C2` at its output are both 2.2 µF, 25 V X7R
-0805, C126591, matching the mainboard; these provide margin over the regulator's
-1 µF application-circuit capacitors. `C3` is a local 100 nF capacitor beside
+`C4` at the regulator input and `C2` at its output are both 4.7 µF, 25 V X5R,
+±10%, 0805 capacitors, Samsung CL21A475KAQNNNE (LCSC C1779); these provide
+margin over the regulator's 1 µF application-circuit capacitors after DC-bias
+derating. `C3` is a local 100 nF capacitor beside
 CH340C pins 16/4. `C1` decouples the USB ESD device. Both 100 nF capacitors use
 the mainboard's 50 V X7R 0603 C14663. All debugger resistors are 0603, 1%:
 `R_CC1/R_CC2` are 5.1 kΩ C23186, `R_DTR1/R_RTS1` are 10 kΩ C25804, and the

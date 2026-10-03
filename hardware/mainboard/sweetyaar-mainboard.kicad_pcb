@@ -531,7 +531,7 @@
 				)
 			)
 		)
-		(property "Value" "1uF, 25 V, X7R, ±10%"
+		(property "Value" "1uF, 50 V, X5R, ±10%"
 			(at 0 1.43 90)
 			(layer "F.Fab")
 			(hide yes)
@@ -543,7 +543,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C15849.pdf"
 			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
@@ -578,7 +578,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C29936"
+		(property "LCSC" "C15849"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -5657,7 +5657,7 @@
 				)
 			)
 		)
-		(property "Value" "1uF, 25 V, X7R, ±10%"
+		(property "Value" "1uF, 50 V, X5R, ±10%"
 			(at 0 1.43 0)
 			(layer "F.Fab")
 			(uuid "c416e487-102b-4a2a-925a-5ccc1a6ce599")
@@ -5668,7 +5668,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C15849.pdf"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -5703,7 +5703,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C29936"
+		(property "LCSC" "C15849"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -7330,7 +7330,7 @@
 				)
 			)
 		)
-		(property "Value" "22uF, 16 V, X5R/X7R, ±20%"
+		(property "Value" "22uF, 25 V, X5R, ±10%"
 			(at 0 1.85 90)
 			(layer "F.Fab")
 			(hide yes)
@@ -7342,7 +7342,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C12891.pdf"
 			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
@@ -7376,7 +7376,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C90146"
+		(property "LCSC" "C12891"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -7876,7 +7876,7 @@
 				)
 			)
 		)
-		(property "Value" "1uF, 25 V, X7R, ±10%"
+		(property "Value" "1uF, 50 V, X5R, ±10%"
 			(at 0 1.43 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -7888,7 +7888,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C15849.pdf"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -7923,7 +7923,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C29936"
+		(property "LCSC" "C15849"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -8302,7 +8302,7 @@
 				)
 			)
 		)
-		(property "Value" "22uF, 16 V, X5R/X7R, ±20%"
+		(property "Value" "22uF, 25 V, X5R, ±10%"
 			(at 0 1.85 0)
 			(layer "F.Fab")
 			(uuid "351efbd7-f3a9-4622-83ab-9210544a21d9")
@@ -8313,7 +8313,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C12891.pdf"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -8347,7 +8347,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C90146"
+		(property "LCSC" "C12891"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -9204,7 +9204,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2410121944_Texas-Instruments-TPS2121RUXR_C485916.pdf"
+		(property "Datasheet" ""
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -9217,7 +9217,7 @@
 				)
 			)
 		)
-		(property "Description" "-40℃~+125℃ 2.8V~22V 200uA 56mΩ VQFN-HR-12(2x2.5) ORing Controllers ROHS"
+		(property "Description" ""
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -9230,54 +9230,21 @@
 				)
 			)
 		)
-		(property "LCSC" "C485916"
+		(property "FT Rotation Offset" "-90"
 			(at 0 0 270)
-			(unlocked yes)
-			(layer "F.Fab")
+			(layer "F.SilkS")
 			(hide yes)
-			(uuid "8fdf2c8a-fb76-4f48-bc6b-9b041f934d14")
+			(uuid "9ab7b184-f189-400d-91fa-cc90314a4236")
 			(effects
 				(font
 					(size 1 1)
-					(thickness 0.15)
-				)
-			)
-		)
-		(property "Manufacturer" "Texas Instruments"
-			(at 0 0 270)
-			(unlocked yes)
-			(layer "F.Fab")
-			(hide yes)
-			(uuid "f024ca5e-8b9f-4f45-b506-1f883998e63a")
-			(effects
-				(font
-					(size 1 1)
-					(thickness 0.15)
-				)
-			)
-		)
-		(property "Manufacturer Part" "TPS2121RUXR"
-			(at 0 0 270)
-			(unlocked yes)
-			(layer "F.Fab")
-			(hide yes)
-			(uuid "f4448b52-9839-46ac-885f-3c4f4ccd3095")
-			(effects
-				(font
-					(size 1 1)
-					(thickness 0.15)
+					(thickness 0.1)
 				)
 			)
 		)
 		(path "/a2bc0005-0000-4000-8000-000000000005")
 		(sheetname "/")
 		(sheetfile "sweetyaar-mainboard.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "2" "3" "4" "5" "6" "12" "11" "10" "9" "8" "7")
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -9574,7 +9541,7 @@
 				)
 			)
 		)
-		(property "Value" "1uF, 25 V, X7R, ±10%"
+		(property "Value" "1uF, 50 V, X5R, ±10%"
 			(at 0 1.43 90)
 			(layer "F.Fab")
 			(hide yes)
@@ -9586,7 +9553,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C15849.pdf"
 			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
@@ -9621,7 +9588,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C29936"
+		(property "LCSC" "C15849"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -19451,7 +19418,7 @@
 				)
 			)
 		)
-		(property "Value" "2.2 uF, 25 V, X7R, ±10%"
+		(property "Value" "4.7 uF, 25 V, X5R, ±10%"
 			(at 0 1.68 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -19463,7 +19430,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C1779.pdf"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -19498,7 +19465,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C126591"
+		(property "LCSC" "C1779"
 			(at 0 0 180)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -19664,7 +19631,7 @@
 				)
 			)
 		)
-		(property "Value" "1uF, 25 V, X7R, ±10%"
+		(property "Value" "1uF, 50 V, X5R, ±10%"
 			(at 0 1.43 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -19676,7 +19643,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C15849.pdf"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -19711,7 +19678,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C29936"
+		(property "LCSC" "C15849"
 			(at 0 0 180)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -21774,7 +21741,7 @@
 				)
 			)
 		)
-		(property "Value" "22uF, 16 V, X5R/X7R, ±20%"
+		(property "Value" "22uF, 25 V, X5R, ±10%"
 			(at 0 1.85 90)
 			(layer "F.Fab")
 			(hide yes)
@@ -21786,7 +21753,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C12891.pdf"
 			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
@@ -21820,7 +21787,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C90146"
+		(property "LCSC" "C12891"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -23019,7 +22986,7 @@
 				)
 			)
 		)
-		(property "Value" "2.2 uF, 25 V, X7R, ±10%"
+		(property "Value" "4.7 uF, 25 V, X5R, ±10%"
 			(at 0 1.68 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -23031,7 +22998,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C1779.pdf"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -23066,7 +23033,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C126591"
+		(property "LCSC" "C1779"
 			(at 0 0 180)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -23626,7 +23593,7 @@
 				)
 			)
 		)
-		(property "FT Rotation Offset" ""
+		(property "FT Rotation Offset" "-90"
 			(at 0 0 0)
 			(layer "F.SilkS")
 			(uuid "dc4b9a72-f1da-4ca8-a755-194054cf1526")
@@ -23637,57 +23604,10 @@
 				)
 			)
 		)
-		(property "LCSC" "C910544"
-			(at 0 0 0)
-			(unlocked yes)
-			(layer "F.Fab")
-			(hide yes)
-			(uuid "3d42380e-93fc-4dab-b94d-3afbf9ec16a5")
-			(effects
-				(font
-					(size 1 1)
-					(thickness 0.15)
-				)
-			)
-		)
-		(property "Sim.Device" ""
-			(at 0 0 0)
-			(unlocked yes)
-			(layer "F.Fab")
-			(hide yes)
-			(uuid "8fc4e569-fb5a-44e9-9bec-9e4cc30d3f07")
-			(effects
-				(font
-					(size 1 1)
-					(thickness 0.15)
-				)
-			)
-		)
-		(property "Sim.Pins" ""
-			(at 0 0 0)
-			(unlocked yes)
-			(layer "F.Fab")
-			(hide yes)
-			(uuid "f2627c7a-e778-4a1e-bfb3-36423749fcab")
-			(effects
-				(font
-					(size 1 1)
-					(thickness 0.15)
-				)
-			)
-		)
 		(property ki_fp_filters "TQFN*3x3mm*P0.5mm*EP1.23x1.23mm*")
 		(path "/a2bc0036-0000-4000-8000-000000000036")
 		(sheetname "/")
 		(sheetfile "sweetyaar-mainboard.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "16" "14" "4" "2" "3" "11" "15" "7" "8" "17" "5" "6" "12" "13"
-					"9" "10"
-				)
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -27853,7 +27773,7 @@
 				)
 			)
 		)
-		(property "Value" "1uF, 25 V, X7R, ±10%"
+		(property "Value" "1uF, 50 V, X5R, ±10%"
 			(at 0 1.43 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -27865,7 +27785,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C15849.pdf"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -27900,7 +27820,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C29936"
+		(property "LCSC" "C15849"
 			(at 0 0 180)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -48342,6 +48262,30 @@
 		(uuid "f18b4457-df5d-4ea9-8e5a-57f9292df7dd")
 	)
 	(segment
+		(start 53.985 89.12)
+		(end 54.885 90.02)
+		(width 0.2)
+		(layer "F.Cu")
+		(net "/MUX_ILIM")
+		(uuid "3f7ca86b-a204-4c52-b4f9-df7d9af48b88")
+	)
+	(segment
+		(start 53.54 89.12)
+		(end 53.985 89.12)
+		(width 0.2)
+		(layer "F.Cu")
+		(net "/MUX_ILIM")
+		(uuid "63b30445-e6a6-488a-8dfc-88de426787ee")
+	)
+	(segment
+		(start 54.885 90.02)
+		(end 54.885 91.61)
+		(width 0.2)
+		(layer "F.Cu")
+		(net "/MUX_ILIM")
+		(uuid "fb6671ad-88d4-4bf1-a162-fdcb22935c70")
+	)
+	(segment
 		(start 26.465 78.4)
 		(end 44.575 78.4)
 		(width 1)
@@ -48548,6 +48492,38 @@
 		(layer "F.Cu")
 		(net "/BOOT")
 		(uuid "c6f6af2f-63e4-40d9-9bbe-516b19f57210")
+	)
+	(segment
+		(start 50.132233 89.12)
+		(end 51.24 89.12)
+		(width 0.3)
+		(layer "F.Cu")
+		(net "/MUX_OV1")
+		(uuid "027aa0eb-8c07-466c-9945-5774ed84f9d5")
+	)
+	(segment
+		(start 46.93 88.11)
+		(end 48.51 88.11)
+		(width 0.3)
+		(layer "F.Cu")
+		(net "/MUX_OV1")
+		(uuid "03dec864-8f55-450c-b959-c2ecd910b789")
+	)
+	(segment
+		(start 48.51 88.11)
+		(end 49.122233 88.11)
+		(width 0.3)
+		(layer "F.Cu")
+		(net "/MUX_OV1")
+		(uuid "26c61d5e-5fa5-4bb5-8d4b-79e9e2507888")
+	)
+	(segment
+		(start 49.122233 88.11)
+		(end 50.132233 89.12)
+		(width 0.3)
+		(layer "F.Cu")
+		(net "/MUX_OV1")
+		(uuid "a912558e-d24b-4203-bf46-98f117983622")
 	)
 	(segment
 		(start 21.7 43.125)
@@ -49660,6 +49636,62 @@
 		(layer "B.Cu")
 		(net "Net-(JP3-A)")
 		(uuid "eb87738c-3868-4c63-8177-87fb86d1c104")
+	)
+	(segment
+		(start 50.339339 88.62)
+		(end 51.24 88.62)
+		(width 0.3)
+		(layer "F.Cu")
+		(net "/MUX_OV2")
+		(uuid "19751e0c-2428-4ab8-9d76-97ce41c8b1de")
+	)
+	(segment
+		(start 48.51 86.665)
+		(end 48.51 86.790661)
+		(width 0.3)
+		(layer "F.Cu")
+		(net "/MUX_OV2")
+		(uuid "802ef32c-49b7-4273-9d90-9ccf55201e38")
+	)
+	(segment
+		(start 46.93 86.655)
+		(end 48.5 86.655)
+		(width 0.3)
+		(layer "F.Cu")
+		(net "/MUX_OV2")
+		(uuid "9f055056-90fa-472f-94b6-087e2767767b")
+	)
+	(segment
+		(start 48.51 86.790661)
+		(end 50.339339 88.62)
+		(width 0.3)
+		(layer "F.Cu")
+		(net "/MUX_OV2")
+		(uuid "d411bec0-7b45-4239-b115-0d4ef3602285")
+	)
+	(segment
+		(start 48.5 86.655)
+		(end 48.51 86.665)
+		(width 0.3)
+		(layer "F.Cu")
+		(net "/MUX_OV2")
+		(uuid "f6d4441b-83e0-4038-844e-8f7b55e749ef")
+	)
+	(segment
+		(start 54.715 88.62)
+		(end 54.935 88.4)
+		(width 0.2)
+		(layer "F.Cu")
+		(net "/MUX_SS")
+		(uuid "7d30a302-9e9d-4627-9ddc-7dbad2f2289b")
+	)
+	(segment
+		(start 53.54 88.62)
+		(end 54.715 88.62)
+		(width 0.2)
+		(layer "F.Cu")
+		(net "/MUX_SS")
+		(uuid "8a62a5ae-5feb-4a8c-a983-9e08421f1bba")
 	)
 	(segment
 		(start 53.05 37.049997)
@@ -51252,118 +51284,6 @@
 		(layer "B.Cu")
 		(net "/GAIN_NET")
 		(uuid "487aa515-9cd1-4a80-ab93-e4387271b52e")
-	)
-	(segment
-		(start 54.715 88.62)
-		(end 54.935 88.4)
-		(width 0.2)
-		(layer "F.Cu")
-		(net "/MUX_SS")
-		(uuid "7d30a302-9e9d-4627-9ddc-7dbad2f2289b")
-	)
-	(segment
-		(start 53.54 88.62)
-		(end 54.715 88.62)
-		(width 0.2)
-		(layer "F.Cu")
-		(net "/MUX_SS")
-		(uuid "8a62a5ae-5feb-4a8c-a983-9e08421f1bba")
-	)
-	(segment
-		(start 53.985 89.12)
-		(end 54.885 90.02)
-		(width 0.2)
-		(layer "F.Cu")
-		(net "/MUX_ILIM")
-		(uuid "3f7ca86b-a204-4c52-b4f9-df7d9af48b88")
-	)
-	(segment
-		(start 53.54 89.12)
-		(end 53.985 89.12)
-		(width 0.2)
-		(layer "F.Cu")
-		(net "/MUX_ILIM")
-		(uuid "63b30445-e6a6-488a-8dfc-88de426787ee")
-	)
-	(segment
-		(start 54.885 90.02)
-		(end 54.885 91.61)
-		(width 0.2)
-		(layer "F.Cu")
-		(net "/MUX_ILIM")
-		(uuid "fb6671ad-88d4-4bf1-a162-fdcb22935c70")
-	)
-	(segment
-		(start 50.132233 89.12)
-		(end 51.24 89.12)
-		(width 0.3)
-		(layer "F.Cu")
-		(net "/MUX_OV1")
-		(uuid "027aa0eb-8c07-466c-9945-5774ed84f9d5")
-	)
-	(segment
-		(start 46.93 88.11)
-		(end 48.51 88.11)
-		(width 0.3)
-		(layer "F.Cu")
-		(net "/MUX_OV1")
-		(uuid "03dec864-8f55-450c-b959-c2ecd910b789")
-	)
-	(segment
-		(start 48.51 88.11)
-		(end 49.122233 88.11)
-		(width 0.3)
-		(layer "F.Cu")
-		(net "/MUX_OV1")
-		(uuid "26c61d5e-5fa5-4bb5-8d4b-79e9e2507888")
-	)
-	(segment
-		(start 49.122233 88.11)
-		(end 50.132233 89.12)
-		(width 0.3)
-		(layer "F.Cu")
-		(net "/MUX_OV1")
-		(uuid "a912558e-d24b-4203-bf46-98f117983622")
-	)
-	(segment
-		(start 50.339339 88.62)
-		(end 51.24 88.62)
-		(width 0.3)
-		(layer "F.Cu")
-		(net "/MUX_OV2")
-		(uuid "19751e0c-2428-4ab8-9d76-97ce41c8b1de")
-	)
-	(segment
-		(start 48.51 86.665)
-		(end 48.51 86.790661)
-		(width 0.3)
-		(layer "F.Cu")
-		(net "/MUX_OV2")
-		(uuid "802ef32c-49b7-4273-9d90-9ccf55201e38")
-	)
-	(segment
-		(start 46.93 86.655)
-		(end 48.5 86.655)
-		(width 0.3)
-		(layer "F.Cu")
-		(net "/MUX_OV2")
-		(uuid "9f055056-90fa-472f-94b6-087e2767767b")
-	)
-	(segment
-		(start 48.51 86.790661)
-		(end 50.339339 88.62)
-		(width 0.3)
-		(layer "F.Cu")
-		(net "/MUX_OV2")
-		(uuid "d411bec0-7b45-4239-b115-0d4ef3602285")
-	)
-	(segment
-		(start 48.5 86.655)
-		(end 48.51 86.665)
-		(width 0.3)
-		(layer "F.Cu")
-		(net "/MUX_OV2")
-		(uuid "f6d4441b-83e0-4038-844e-8f7b55e749ef")
 	)
 	(zone
 		(net "5V_PERIPH_SW")
@@ -56751,12 +56671,6 @@
 				(xy 29.996075 20.500802) (xy 29.997284 20.500777) (xy 30.011488 20.50058) (xy 30.011506 20.500585)
 				(xy 30.011506 20.50058) (xy 30.016686 20.500509) (xy 30.018043 20.5005) (xy 30.083244 20.5005) (xy 36.231 20.5005)
 			)
-		)
-	)
-	(group ""
-		(uuid "6d109413-5847-46ea-9019-66d6dfb73241")
-		(members "76a2127b-d1d2-4673-aba8-a3a4b4ea4ffd" "b3fc9eab-adbc-41fb-a175-2b32e56a2a6f"
-			"b9411785-db42-448a-8c9e-991617beef18"
 		)
 	)
 	(embedded_fonts no)

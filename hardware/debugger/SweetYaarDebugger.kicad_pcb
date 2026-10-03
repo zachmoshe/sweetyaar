@@ -168,6 +168,12 @@
 		(path "/cdc8a3e3-f1a9-4299-8d31-afd3d8cf644d")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
+		(units
+			(unit
+				(name "A")
+				(pins "1" "2" "3" "4" "5" "6")
+			)
+		)
 		(attr through_hole dnp)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -488,6 +494,12 @@
 		(path "/d1963d96-c51c-498e-9262-0045b1639b1f")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
+		(units
+			(unit
+				(name "A")
+				(pins "1" "3" "2")
+			)
+		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -857,6 +869,12 @@
 		(path "/36a609b9-369c-47d3-abe3-7dab35dc54ca")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
+		(units
+			(unit
+				(name "A")
+				(pins "1" "2")
+			)
+		)
 		(zone_connect 1)
 		(attr exclude_from_bom allow_soldermask_bridges)
 		(net_tie_pad_groups "1, 2")
@@ -1141,6 +1159,12 @@
 		(path "/a4a39be0-7422-43e3-a52b-cd51248eb9df")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
+		(units
+			(unit
+				(name "A")
+				(pins "1" "2")
+			)
+		)
 		(zone_connect 1)
 		(attr exclude_from_bom allow_soldermask_bridges)
 		(net_tie_pad_groups "1, 2")
@@ -1375,6 +1399,7 @@
 		(property "Reference" "J_USB1"
 			(at 0 -5.645 270)
 			(layer "F.SilkS")
+			(hide yes)
 			(uuid "69eb779a-d627-4a70-95ed-bcb05a7cb565")
 			(effects
 				(font
@@ -1449,6 +1474,14 @@
 		(path "/add197a4-7b84-44b9-be89-8329c01a8c0e")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
+		(units
+			(unit
+				(name "A")
+				(pins "SH" "A1" "A12" "B1" "B12" "A4" "A9" "B4" "B9" "A5" "B5" "A7" "B7"
+					"A6" "B6" "A8" "B8"
+				)
+			)
+		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -1908,6 +1941,14 @@
 		(path "/e3dbcb4b-d98f-4d46-9d3f-53368f1244c5")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
+		(units
+			(unit
+				(name "A")
+				(pins "15" "5" "6" "8" "7" "16" "4" "1" "2" "3" "9" "10" "11" "12" "13"
+					"14"
+				)
+			)
+		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -2379,6 +2420,12 @@
 		(path "/e14f3f4a-23f4-45b0-9eb4-93a4e7eb453b")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
+		(units
+			(unit
+				(name "A")
+				(pins "3" "1" "2")
+			)
+		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -2770,6 +2817,12 @@
 		(path "/e6bf67b1-f31e-4add-8036-be30c2d5fadb")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
+		(units
+			(unit
+				(name "A")
+				(pins "1" "3" "5" "2" "6" "4")
+			)
+		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -3131,6 +3184,12 @@
 		(path "/ec24f4d2-aedd-4d0e-9705-fac99e8b908d")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
+		(units
+			(unit
+				(name "A")
+				(pins "1" "2")
+			)
+		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -3299,6 +3358,12 @@
 		(path "/739f7012-77db-4ef2-b1d7-28b578f924ce")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
+		(units
+			(unit
+				(name "A")
+				(pins "1" "2")
+			)
+		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -3466,6 +3531,12 @@
 		(path "/80520636-4751-407d-a34f-979f5b923294")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
+		(units
+			(unit
+				(name "A")
+				(pins "1" "2")
+			)
+		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -3647,6 +3718,12 @@
 		(path "/a68c4748-4c4c-4838-9cfd-e9258d7af0ad")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
+		(units
+			(unit
+				(name "A")
+				(pins "1" "2")
+			)
+		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -3865,6 +3942,12 @@
 		(path "/835229cb-5482-4754-ae23-9257463ff762")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
+		(units
+			(unit
+				(name "A")
+				(pins "1" "2")
+			)
+		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -4033,6 +4116,12 @@
 		(path "/e0972ec9-78b3-4040-9766-b9f57982c181")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
+		(units
+			(unit
+				(name "A")
+				(pins "1" "2")
+			)
+		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -4201,6 +4290,12 @@
 		(path "/dc0f260f-d0e2-4f19-bdee-da9d8a03ec08")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
+		(units
+			(unit
+				(name "A")
+				(pins "1" "2")
+			)
+		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -4394,6 +4489,12 @@
 		(path "/dccbf7fc-a76f-4194-b548-4b6d771c7606")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
+		(units
+			(unit
+				(name "A")
+				(pins "1" "3" "2")
+			)
+		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -4786,6 +4887,12 @@
 		(path "/c29fb906-512c-4841-a402-86ee98be2a3a")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
+		(units
+			(unit
+				(name "A")
+				(pins "1" "2")
+			)
+		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -4890,7 +4997,7 @@
 				)
 			)
 		)
-		(property "Value" "2.2uF"
+		(property "Value" "4.7uF"
 			(at 0 1.68 90)
 			(layer "F.SilkS")
 			(hide yes)
@@ -4902,7 +5009,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.lcsc.com/datasheet/C126591.pdf"
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C1779.pdf"
 			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
@@ -4937,7 +5044,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C126591"
+		(property "LCSC" "C1779"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -4954,6 +5061,12 @@
 		(path "/132eaef6-d959-4854-bfb1-688ecb2e0855")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
+		(units
+			(unit
+				(name "A")
+				(pins "1" "2")
+			)
+		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -5058,7 +5171,7 @@
 				)
 			)
 		)
-		(property "Value" "2.2uF"
+		(property "Value" "4.7uF"
 			(at 0 1.68 90)
 			(layer "F.SilkS")
 			(hide yes)
@@ -5070,7 +5183,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.lcsc.com/datasheet/C126591.pdf"
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C1779.pdf"
 			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
@@ -5105,7 +5218,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C126591"
+		(property "LCSC" "C1779"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -5122,6 +5235,12 @@
 		(path "/3c720bc4-ea1b-4b42-93ec-b70839ed497a")
 		(sheetname "/")
 		(sheetfile "SweetYaarDebugger.kicad_sch")
+		(units
+			(unit
+				(name "A")
+				(pins "1" "2")
+			)
+		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -5229,8 +5348,8 @@
 		(uuid "d31a1344-6c1f-4fa4-ae32-74dbea52ba97")
 	)
 	(gr_circle
-		(center 113.27 37.08)
-		(end 113.27 37.48)
+		(center 113.23 37.57)
+		(end 113.23 37.97)
 		(stroke
 			(width 0.1)
 			(type default)

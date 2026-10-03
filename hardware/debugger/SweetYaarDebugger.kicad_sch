@@ -3490,12 +3490,6 @@
 		(uuid "00182128-425e-42d1-bb93-6b62cac5e8a1")
 	)
 	(junction
-		(at 99.06 50.8)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "028b96e5-a79f-44b7-818c-efc5c21483f8")
-	)
-	(junction
 		(at 162.56 67.31)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -3686,16 +3680,6 @@
 			(type default)
 		)
 		(uuid "36e53c00-69e6-4706-b906-4cac2c6f30ee")
-	)
-	(wire
-		(pts
-			(xy 99.06 50.8) (xy 99.06 54.61)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "47f8a68d-5208-411f-98e5-1097f41a64a6")
 	)
 	(wire
 		(pts
@@ -4366,7 +4350,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "2.2uF"
+		(property "Value" "4.7uF"
 			(at 147.32 55.88 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4388,7 +4372,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.lcsc.com/datasheet/C126591.pdf"
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C1779.pdf"
 			(at 143.51 54.61 0)
 			(hide yes)
 			(show_name no)
@@ -4409,7 +4393,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C126591"
+		(property "LCSC" "C1779"
 			(at 143.51 54.61 0)
 			(hide yes)
 			(show_name no)
@@ -4843,7 +4827,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "2.2uF"
+		(property "Value" "4.7uF"
 			(at 102.87 55.88 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4865,7 +4849,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.lcsc.com/datasheet/C126591.pdf"
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C1779.pdf"
 			(at 99.06 54.61 0)
 			(hide yes)
 			(show_name no)
@@ -4886,7 +4870,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C126591"
+		(property "LCSC" "C1779"
 			(at 99.06 54.61 0)
 			(hide yes)
 			(show_name no)
