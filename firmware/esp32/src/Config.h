@@ -10,6 +10,11 @@ static constexpr int HW_I2S_BCLK    = 26;  // Bit clock
 static constexpr int HW_I2S_WS      = 25;  // Word select / LRCK
 static constexpr int HW_I2S_DOUT    = 22;  // Data out to MAX98357A DIN
 static constexpr int PIN_AMP_MUTE   = 21;  // MAX98357A SD_MODE control
+// Bluetooth connection setup has very little internal heap to spare (about
+// 25 KB free after boot). 12 buffers (about 24 KB) exhausted it and crashed in
+// Bluedroid (fixed_queue_new / vQueueDelete) when encrypted BLE connected during
+// Classic audio. Do not raise this, the A2DP queue, SD_MAX_OPEN_FILES or BLE
+// payloads without repeating the coexistence test (firmware.md, "Bluetooth memory budget").
 static constexpr int I2S_DMA_BUFFER_COUNT = 6;
 static constexpr int I2S_DMA_BUFFER_FRAMES = 512;
 
@@ -33,7 +38,8 @@ static constexpr int PIN_SD_MISO    = 19;
 static constexpr int PIN_SD_MOSI    = 23;
 static constexpr int PIN_SD_CS      = 5;
 static constexpr uint32_t SD_SPI_FREQUENCY_HZ = 20000000;
-// FatFs reserves about 4 KB per file slot even when no file is open. Playback
+// FatFs reserves about 4 KB per file slot even when no file is open, and the
+// library default of 5 slots starved Bluetooth connection setup of heap. Playback
 // holds one WAV; settings read/write/check files sequentially in the other slot.
 static constexpr uint8_t SD_MAX_OPEN_FILES = 2;
 
@@ -193,6 +199,7 @@ static constexpr bool    DEFAULT_BEDTIME_ENABLED = true;
 static constexpr uint16_t DEFAULT_BEDTIME_START_MINUTES = 18U * 60U + 30U;
 static constexpr uint16_t DEFAULT_BEDTIME_END_MINUTES = 6U * 60U + 30U;
 static constexpr uint8_t DEFAULT_BEDTIME_VOLUME_CAP_PCT = 45;
+// Part of the Bluetooth memory budget; see the note at I2S_DMA_BUFFER_COUNT.
 static constexpr int     BT_A2DP_RINGBUFFER_BYTES = 8 * 1024;
 static constexpr int     BT_A2DP_I2S_TASK_STACK_BYTES = 2048;
 

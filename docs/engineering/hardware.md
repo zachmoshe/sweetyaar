@@ -192,7 +192,10 @@ vibration switch is a PCB-mounted component soldered directly to the board; it
 does not use an external cable or connector.
 
 The production PCB uses one four-pin connector for both child buttons, arranged
-as two adjacent pairs: `BTN_SONG`, GND, `BTN_ANIMAL`, GND. Both GND pins join the
+as two adjacent pairs: `BTN_SONG`, GND, `BTN_ANIMAL`, GND. Because the button
+wires may be 20–30 cm long, each signal has an ESD441 diode to GND (`D3`, `D5`)
+at the connector and a 330 Ω series resistor (`R_BTN_SONG1`, `R_BTN_ANIMAL1`)
+before the GPIO. Both GND pins join the
 same PCB ground, but duplicating the contact lets every physical button wire be
 crimped into its own terminal; the harness needs no splice or double-wire crimp.
 Each pair runs to a physically separate normally-open button. Pressing a button
@@ -235,9 +238,11 @@ default.
 The wake switch remains connected to `3V3_AON`. Its 470 kΩ pull-up draws
 about 7 µA while the normally-closed switch holds the input LOW. On movement,
 GPIO27 wakes the ESP32; wake is a normal reboot, after which GPIO13 powers the
-peripherals again. If the switch is still open when the toy wants to sleep,
-firmware waits for it to close before arming the HIGH-level wake source; this
-prevents an immediate wake loop.
+peripherals again. Before shutting down, firmware samples the switch every
+20 ms for 500 ms and sleeps only if every sample is LOW (closed); any HIGH
+sample postpones sleep and restarts the idle timer, which prevents an immediate
+wake loop. Firmware never waits for the switch to close after the peripherals
+are off, so movement that starts after the check simply wakes the toy at once.
 
 Battery-only deep sleep also drives the charger-enable transistor off and
 disables the BQ25186 host watchdog. This removes NPN base current from the sleep
@@ -252,14 +257,14 @@ Target: **at most 75 µA at the battery**, with the main switch on and USB, AUX,
 and the debugger disconnected. This is a design target until the production PCB
 is measured, not a measured consumption figure.
 
-For a **3400 mAh** battery, continuous sleep at 75 µA gives an ideal
+For the **3400 mAh** cell in use (the reference ARB-L18-3500 is sold as a 3500 mAh cell), continuous sleep at 75 µA gives an ideal
 `3400 mAh / 0.075 mA = 45,333 hours`, or **1,889 days / 5.17 years**.
 The electronics consume 1.8 mAh per day at that current. This is a capacity-only
 estimate, not a shelf-life guarantee: battery self-discharge, aging, temperature,
 unusable capacity below cutoff, and every wake/playback interval shorten it.
 
 The budget assumes that both buttons are released, the addressable status LED
-and its data pull-up are unpowered, GPIO2 is high-impedance,
+is unpowered, its DIN pulldown has no voltage across it, GPIO2 is high-impedance,
 `PERIPH_PWR_EN` is RTC-held LOW, and no unlisted
 indicator, test-point pull-up, or other circuit is connected to `SYS` or
 `3V3_AON`. The I2C, `/PG`, and `/INT` pull-ups and BQ25186 pin leakage must be
@@ -451,7 +456,10 @@ pad to a solid ground plane for thermal dissipation.
 
 The channel mode is **mixed mono** (`left/2 + right/2`), so both channels of a
 stereo source reach the single speaker. The chosen amplifier gain is **9 dB**;
-leave `GAIN_SLOT` unconnected to select that MAX98357A default. Place 0.1 µF and
+leave `GAIN_SLOT` unconnected to select that MAX98357A default. Two normally
+open solder jumpers can change it without a new PCB: `JP1` ties `GAIN_SLOT` to
+GND and `JP2` ties it to `5V_PERIPH_SW`, selecting the datasheet's other gain
+settings. Leave both open for the production configuration. Place 0.1 µF and
 10 µF VDD bypass capacitors close to the IC and follow the required ground and
 thermal layout described in the
 [MAX98357A datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/MAX98357A-MAX98357B.pdf).
@@ -568,9 +576,8 @@ with the button harness can short the battery or apply cell voltage to ESP32
 signals. Keeping JST-XH throughout simplifies component and crimp ordering;
 the extra, electrically unused battery position distinguishes this connection.
 Use the matching five-position header and housing, and verify the numbered pin
-order before connecting the cell. The current PCB already has this footprint
-and an unconnected pad 5; the saved schematic still has the earlier four-pin
-symbol/footprint and needs to be synchronized, including its ordering entry.
+order before connecting the cell. The schematic and PCB use the five-pin
+`JST_XH_B5B-XH-A` footprint (`J_BATT1`) with pin 5 unconnected.
 
 #### BQ25186 pin migration and control
 
@@ -698,11 +705,10 @@ output.
 Provide clearly labeled 5 V and GND through-hole pads or an unpopulated two-pin
 connector footprint with mechanical strain-relief provisions. The PCBA vendor
 does not fit this connector; the selected connector or cable is soldered during
-device assembly. Place `D2`, an
-[ESD441](https://www.ti.com/lit/ds/symlink/esd441.pdf), close to this connection
-with its cathode on `AUX_5V_IN` and its anode on GND. `D2` suppresses fast ESD
-and connection transients; it is not a regulator, sustained-overvoltage clamp,
-reverse-polarity protector, or substitute for the source-voltage requirement.
+device assembly (`J_AUX1`, a two-pin JST-XH footprint, is marked DNP). The
+board fits no ESD diode on `AUX_5V_IN`; the TPS2121 overvoltage threshold and the
+source-voltage requirement above are the only protection on this input, so the
+off-board module and its cable must be regulated and well-behaved.
 A TPS2121 power mux prevents reverse current between the USB and auxiliary
 sources and gives USB explicit priority. The onboard USB-C charging path
 remains fully functional whether or not an auxiliary module is installed.
@@ -736,7 +742,7 @@ Wire the mux as follows:
 | TPS2121 pin | Connection and purpose |
 |---|---|
 | 1, 8 `OUT` | Both connect to `5V_INPUT`, feeding BQ25186 `IN`. |
-| 2 `IN2` | `AUX_5V_IN`, with connector-side `D2` ESD protection. |
+| 2 `IN2` | `AUX_5V_IN`, with no ESD diode; see the auxiliary-input requirements above. |
 | 3 `CP2` | GND. This circuit uses the internal-reference/input-voltage comparison modes. |
 | 4 `OV2` | AUX overvoltage divider: `R_MUX_OV_DIV3` = 470 kΩ from `AUX_5V_IN`, and `R_MUX_OV_DIV4` = 100 kΩ to GND. |
 | 5 `OV1` | USB overvoltage divider: `R_MUX_OV_DIV1` = 470 kΩ from `USB_VBUS`, and `R_MUX_OV_DIV2` = 100 kΩ to GND. |
@@ -785,7 +791,7 @@ vias at pins 1/8, 2, or 7 must connect to `5V_INPUT`, `AUX_5V_IN`, or
 
 The higher mux voltage rating and the OV dividers do not make the complete
 board a high-voltage input design. Keep both sources regulated to 5 V nominal
-and no more than 5.5 V in normal operation. `D1` and `D2` reduce fast ESD and
+and no more than 5.5 V in normal operation. `D1` (on `USB_VBUS`) reduces fast ESD and
 connection transients; the mux rejects an overvoltage source but is not an
 instantaneous voltage clamp. Check hot-plug waveforms at the input, `5V_INPUT`,
 and the divided `/CE` node with the intended supplies and cables.
@@ -876,10 +882,15 @@ assembly. Do not connect its 5 V data output to an ESP32 input. Firmware current
 drives only the onboard pixel; enabling another status indicator requires code
 changes, not just increasing the pixel count (additional pixels are kept black).
 
-Current direct-data connection (`R_LED_DIN1`: 330 Ω, 0603, LCSC C23138):
+Current direct-data connection (`R_LED_DIN1`: 330 Ω, 0603, LCSC C23138;
+`R_LED_DIN2`: 100 kΩ, 0603, LCSC C25803):
 
 ```text
-GPIO2 ----------- 330 Ω ----------- LED1 DIN
+GPIO2 ----------- 330 Ω ----+------ LED1 DIN
+                            |
+                          100 kΩ
+                            |
+                           GND
 
 5V_PERIPH_SW ---------------------- LED1 VDD
 GND ------------------------------- LED1 GND
@@ -890,9 +901,9 @@ LED1 DOUT ------------------------- J_LED_EXT1 pin 2 (optional extension)
 The LED's MMBT3904, 10 kΩ base resistor and 1 kΩ pull-up to 5 V are removed;
 the debugger's transistors are unrelated and remain unchanged. This eliminates
 the former approximately 5 mA powered-idle pull-up current and NPN storage delay.
-Keep 100 nF local decoupling. No external DIN pulldown is currently fitted;
-a weak 47–100 kΩ pulldown is an optional refinement to hold the input LOW while
-GPIO2 is high-impedance. Never pull GPIO2 up to 5 V.
+Keep 100 nF local decoupling. `R_LED_DIN2`, a 100 kΩ pulldown from DIN to GND, holds the input LOW while GPIO2
+is high-impedance (during reset, boot and after sleep shutdown). When the LED rail is
+unpowered it carries no current. Never pull GPIO2 up to 5 V.
 
 Direct-drive qualification remains required: V6 specifies `VIH = 0.55 × VDD`
 (2.75 V at 5 V), but the ESP32-WROOM-32E's minimum specified output HIGH is
@@ -974,9 +985,11 @@ Output voltage is set by `VOUT -> Rtop -> FB -> Rbottom -> GND`, using
 | `5V_PERIPH_SW` | 820 kΩ | 91 kΩ | 5.005 V |
 
 The 3.3 V instance is always enabled. GPIO13 enables the 5 V instance and its
-100 kΩ pulldown keeps it disabled during reset and sleep. Start with `MODE` LOW
-(PFM) on both instances; use forced PWM on the 5 V instance only if audio tests
-show objectionable PFM noise. Leave both open-drain `PGOOD` pins unconnected.
+100 kΩ pulldown keeps it disabled during reset and sleep. `MODE` is LOW (PFM)
+on both instances. The 5 V instance's `MODE` pin has a 100 kΩ pulldown
+(`R_MODE_PD1`) and an open solder jumper, `JP4`, to `PERIPH_PWR_EN`; bridging
+`JP4` forces PWM whenever the rail is enabled. Bridge it only if audio tests show
+objectionable PFM noise. Leave both open-drain `PGOOD` pins unconnected.
 
 The expected amplifier load is a few hundred milliamps with approximately
 500 mA bursts; the design target remains 1 A at 5 V. At 90% efficiency, the
@@ -1092,7 +1105,7 @@ Electrically, the PCB must include:
 
 | Interface | Current requirement or decision |
 |---|---|
-| USB and auxiliary charging | The mainboard USB-C connector is power-only and is required for charging. Also provide unpopulated two-wire 5 V and GND auxiliary-input pads/footprint for a complete off-board source mounted elsewhere inside the device, such as a regulated wireless-charging receiver or power-only USB-C daughterboard. The PCBA vendor fits neither an auxiliary connector nor cable; it is added during device assembly when that option is used. `D2` remains populated on the mainboard. Firmware download and live serial logs use the separate USB-powered debugger through `J_PROG1`. |
+| USB and auxiliary charging | The mainboard USB-C connector is power-only and is required for charging. Also provide unpopulated two-wire 5 V and GND auxiliary-input pads/footprint for a complete off-board source mounted elsewhere inside the device, such as a regulated wireless-charging receiver or power-only USB-C daughterboard. The PCBA vendor fits neither an auxiliary connector nor cable; it is added during device assembly when that option is used. The mainboard fits no ESD diode on `AUX_5V_IN`. Firmware download and live serial logs use the separate USB-powered debugger through `J_PROG1`. |
 | Storage | Fit a replaceable bare microSD socket on `3V3_PERIPH_SW`, entirely inside the electronics enclosure. Changing the card requires opening the enclosure. Place the socket with insertion/removal clearance on the opened PCB, not at an enclosure edge or external opening. |
 | Battery | Use a protected removable 18650 in a holder and a five-position JST-XH connector: 1 GND / `BAT−`, 2 `BAT+`, 3 `TS_RETURN`, 4 `BAT_TEMP`, 5 unused. Fit the insulated Semitec 103AT-2 against the cell with two dedicated wires to `BAT_TEMP` and `TS_RETURN`; do not join its return to the current-carrying `BAT−` conductor at the holder. Leave debug bypass `JP3` open in normal use. |
 | Speaker | Use one keyed two-pin JST-XH connector and a short stranded-wire harness. It must support either 4 Ω or 8 Ω speakers; the battery uses a distinct five-position connector. |

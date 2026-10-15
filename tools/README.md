@@ -1,6 +1,7 @@
 # Project tools
 
-Add standalone development or maintenance utilities here when they are needed.
+Standalone development and maintenance utilities live here (the device test
+runner, `convert_wavs_to_mono.py`).
 Common user-facing commands should be exposed through the root `Makefile`.
 
 `device_test.py` is the opt-in Mac/ESP32 Bluetooth runner. It captures real

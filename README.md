@@ -55,7 +55,9 @@ make build          # Build the complete ESP32 firmware
 make flash          # Build and upload to a connected ESP32
 make monitor        # Open the serial monitor
 make flash-monitor  # Flash, then monitor
-make test           # Run the regression suite
+make test           # Run the full regression suite
+make test-unit      # Host-only tests; never flashes or touches hardware
+make test-device    # Approved real-device tests (see tests/README.md)
 ```
 
 Targets are intentionally thin wrappers around the component tools and can be
@@ -80,16 +82,17 @@ build instructions, and test coverage.
 ## Project Layout
 
 - `firmware/esp32/`: PlatformIO project and production firmware source.
-- `hardware/mainboard/`: production KiCad mainboard project and revision releases.
+- `hardware/mainboard/`: production KiCad mainboard project and manufacturing exports.
+- `hardware/debugger/`: KiCad project for the separate USB-UART debugger board.
 - `hardware/libraries/`: repository-owned KiCad symbols, footprints, and 3D models.
-- `hardware/mechanical/enclosure/`: enclosure CAD and mechanical drawings.
+- `hardware/mechanical/enclosure/`: enclosure STL models.
 - `hardware/references/`: hardware datasheet and application-note index.
 - `tests/`: host-side pytest, native C++, app, and firmware-build regression tests.
 - `app/`: the deployable Web Bluetooth parent remote and editable design assets.
 - `docs/engineering/`: firmware, app, and hardware engineering guides.
 - `docs/assets/`: shared engineering-documentation images and diagrams.
 - `content/sd-card-template/`: expected SD-card folder structure, metadata, and config.
-- `tools/`: future standalone development and maintenance utilities.
+- `tools/`: standalone utilities, including the opt-in device test runner and the WAV mono converter.
 - [`docs/overview.md`](docs/overview.md): high-level project overview and design history.
 - [`docs/engineering/firmware.md`](docs/engineering/firmware.md): device behavior, firmware components,
   build instructions, and regression tests.

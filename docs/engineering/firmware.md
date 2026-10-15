@@ -97,10 +97,34 @@ also update the live catalog.
 
 The SD mount permits two simultaneous regular files: one for WAV playback and
 one for settings operations, which open their read, write, and verification files
-sequentially. This saves about 12 KB of reserved FatFs cache compared with the
-library's five-file default, leaving more heap for Bluetooth connection setup
-without reducing audio buffering. See the
-[Bluetooth heap investigation](bt-heap-investigation.md) for measurements.
+sequentially.
+
+### Bluetooth memory budget
+
+Bluetooth connection setup needs several transient allocations (for example two
+4 KB AVRCP/SDP buffers), and the ESP32's internal heap is tight: with the original
+settings only about 13.5 KB was free once the toy was ready, and a Mac connecting
+from a fresh boot exhausted it. The failure surfaced as a crash inside Bluedroid
+(`l2cu_allocate_ccb` or `gatt_allocate_tcb_by_bdaddr` → `fixed_queue_new` →
+`vQueueDelete`), because the SDK cleans up a half-built queue without checking
+that its semaphore exists, followed by a `host_recv_pkt_cb` assertion.
+Two reservations were trimmed, leaving about 25 KB free at ready:
+
+- **SD file slots: 2 instead of the library's 5.** FatFs reserves about 4 KB of
+  cache per slot even when no file is open (`FF_MAX_SS=4096` with
+  `CONFIG_FATFS_PER_FILE_CACHE=1`), so this recovers about 12 KB without
+  reducing audio buffering.
+- **I2S DMA: 6 buffers of 512 frames instead of 12.** About 12 KB recovered, at
+  the cost of less audio buffering. Twelve buffers still crashed when encrypted
+  BLE connected during Classic audio, even with two SD slots.
+
+The 8 KB A2DP queue and the BLE payload sizes are part of the same budget (BLE
+alone adds about 23 KB at startup). Do not increase any of these reservations
+without repeating the coexistence checks: Classic audio `STARTED`, BLE connect
+and reads during playback, repeated connect/disconnect cycles, a settings save
+during local WAV playback, and no allocation failure or reboot. The measurements
+were taken on the generic prototype and do not establish long-duration
+reliability.
 
 The checked-in [SD-card template](../../content/sd-card-template/README.txt) contains a
 complete example card with the supported layout and configuration schema. If
@@ -175,6 +199,13 @@ response envelope, rather than a fixed character count. Rejected entries are
 excluded from playback and scans. Serial logs identify every rejected entry;
 the app receives a bounded warning with the first shortened name and a count.
 Oversized theme references in `config.json` fall back to firmware defaults.
+
+The Ready-screen theme selector uses the separate `themes` characteristic, a
+single JSON array that cannot exceed 512 bytes. Firmware also keeps at most 16
+playable themes in RAM for that array (`BLE_MAX_THEMES`). Whichever limit is hit
+first silently drops the remaining themes from the selector (a serial message
+reports it); a typical entry needs roughly 40 bytes, so about a dozen themes
+fit. The paged Settings scan is not affected by this limit.
 
 Most content settings are saved in `/config.json` or the relevant theme's
 `metadata.json` on the SD card. The Bluetooth device name is different: it is
