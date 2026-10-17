@@ -47,7 +47,8 @@ def catalog_scan_exe(repo_root, tmp_path_factory):
             "scanThemeStats", "scanPageHeader", "scanPageTail", "songPageHeader",
             "scanSizeError", "buildThemesPageJson", "buildSongsPageJson",
             "validThemeId", "worstCaseStats", "themeEntryFits", "songEntryFits",
-            "utf8Prefix", "recordOversizedEntry", "validateCatalog", "catalogWarning",
+            "utf8Prefix", "recordOversizedEntry", "sanitizeAttribution", "validateCatalog",
+            "catalogWarning",
         )
     ))
     exe = build / "catalog_scan"
@@ -72,10 +73,15 @@ def catalog_fixture(op, count, variant="plain", page_size=0):
                     error='Bad "WAV"\nheader\\x' if index % 5 == 4 else "")
 
     def theme(index, songs):
-        return dict(id=f"t{index:03d}",
-                    name=f'ים "🌙"\\{index:03d}' if variant == "unicode" else f"T{index:03d}",
-                    shuffle=index % 2 == 0, disabledByUser=index % 3 == 1,
-                    special=False, songs=songs)
+        row = dict(id=f"t{index:03d}",
+                   name=f'ים "🌙"\\{index:03d}' if variant == "unicode" else f"T{index:03d}",
+                   shuffle=index % 2 == 0, disabledByUser=index % 3 == 1,
+                   special=False, songs=songs)
+        if variant == "credit" and index % 2 == 0:
+            row.update(credit=f'מוזיקה: [Baby Mozart](https://www.babymozart.example/classical/{index}) "{index}"')
+        elif variant == "credit" and index % 4 == 1:
+            row.update(credit=f"Public domain {index}")   # a credit without a link
+        return row
 
     if op == "scanThemes":
         themes = [theme(i, [song(j) for j in range(i % 7)]) for i in range(count)]
@@ -104,6 +110,7 @@ def expected_rows(request):
             special=theme["special"], canDisable=not theme["special"],
             canSetDefault=not theme["special"], activeValid=playable,
             total=len(theme["songs"]), errors=sum(not s["supported"] for s in theme["songs"]),
+            **({"credit": theme["credit"]} if theme.get("credit") else {}),
         ))
     return result
 
@@ -157,7 +164,7 @@ def scan(catalog_scan_exe, request):
     ("scanThemes", (0, 1, 2, 3, 7, 16, 64, 81)),
     ("scanSongs", (0, 1, 2, 3, 5, 17, 128, 601)),
 ])
-@pytest.mark.parametrize("variant", ["plain", "unicode"])
+@pytest.mark.parametrize("variant", ["plain", "unicode", "credit"])
 @pytest.mark.parametrize("page_size", [0, 400, 450])
 def test_scan_pages_are_legal_and_complete(catalog_scan_exe, op, counts, variant, page_size):
     # Production defaults plus different divisions of the same catalog. Sizes
@@ -275,3 +282,54 @@ def test_theme_ids_fit_live_control_and_config_buffers(catalog_scan_exe, charact
     expected = [len(value.encode()) <= 63 and len(serialized(value)) - 2 <= 126 for value in ids]
     assert [row["fits"] for row in result["themes"]] == expected
     assert result["retainedThemes"] == sum(expected)
+
+
+def run_native(catalog_scan_exe, request):
+    result = subprocess.run([str(catalog_scan_exe)], input=serialized(request),
+                            stdout=subprocess.PIPE, check=True, timeout=10)
+    return json.loads(result.stdout.decode("utf-8", errors="strict"))
+
+
+@pytest.mark.parametrize("credit,expected", [
+    ("Public domain", "Public domain"),
+    ("[Baby Mozart](https://babymozart.org/classical-music/) · [IMSLP](https://imslp.org)",
+     "[Baby Mozart](https://babymozart.org/classical-music/) · [IMSLP](https://imslp.org)"),
+    ("מוזיקה: Baby Mozart", "מוזיקה: Baby Mozart"),
+    ("x" * 160, "x" * 160),                                                  # exact limit
+    ("x" * 161, ""),                                                         # too long: dropped
+    ("", ""),
+    ("Line\nbreak", ""),                                                     # one line only
+    ("Bell\x07", ""),
+])
+def test_attribution_is_sanitized(catalog_scan_exe, credit, expected):
+    themes = [dict(id="t", name="T", credit=credit, songs=[])]
+    row = run_native(catalog_scan_exe, dict(op="sanitize", themes=themes))["themes"][0]
+    assert row["credit"] == expected
+
+
+def test_credit_that_overflows_the_scan_page_is_dropped_not_the_theme(catalog_scan_exe):
+    # Quote characters double in JSON, so this credit is the worst case for the 512-byte page.
+    credit = '"' * 160
+    themes = []
+    for length in range(60, 260):
+        name = "n" * length
+        song = [dict(file="a.wav", supported=True)]
+        themes.append(dict(id=f"w{length}", name=name, credit=credit, songs=song))
+        themes.append(dict(id=f"p{length}", name=name, songs=song))
+    result = run_native(catalog_scan_exe, dict(op="limits", themes=themes))
+    fits = {theme["id"]: row["fits"] for theme, row in zip(themes, result["themes"])}
+    retained = {row["id"]: row for row in result["retained"]}
+    dropped_credit = 0
+    for length in range(60, 260):
+        with_credit, plain = f"w{length}", f"p{length}"
+        if fits[with_credit]:
+            assert retained[with_credit]["credit"] == credit      # fits: credit kept untouched
+        elif fits[plain]:
+            assert with_credit in retained, "A long credit must not hide the whole theme"
+            assert retained[with_credit]["credit"] == ""
+            dropped_credit += 1
+        else:
+            assert with_credit not in retained and plain not in retained, (
+                f"name length {length}: fits={fits[with_credit]}/{fits[plain]} "
+                f"retained={with_credit in retained}/{plain in retained}")
+    assert dropped_credit, "Fixture never exercised the credit-dropping path"

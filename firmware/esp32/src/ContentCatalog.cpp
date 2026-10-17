@@ -102,6 +102,11 @@ void appendThemeRow(String& json, const ThemeStats& stats) {
     json += stats.totalSongs;
     json += ",\"errors\":";
     json += stats.errorSongs;
+    if (!stats.credit.isEmpty()) {
+        json += ",\"credit\":\"";
+        json += jsonEscape(stats.credit);
+        json += "\"";
+    }
     json += "}";
 }
 
@@ -375,6 +380,22 @@ void sortSongsByName(std::vector<CachedSong>& songs) {
     }
 }
 
+// Keep only an attribution the parent app can show safely: a non-empty single-line string of at most
+// ATTRIBUTION_MAX_BYTES. The firmware does not parse the markdown; the app does, and only ever turns
+// well-formed https links into anchors.
+void sanitizeAttribution(CachedTheme& theme) {
+    if (theme.credit.isEmpty()) return;
+    bool ok = theme.credit.length() <= ATTRIBUTION_MAX_BYTES;
+    for (size_t i = 0; ok && i < theme.credit.length(); ++i) {
+        if (static_cast<uint8_t>(theme.credit[i]) < 0x20 || theme.credit[i] == '\x7f') ok = false;
+    }
+    if (!ok) {
+        Serial.printf("[Catalog] Ignoring attribution for theme %s: must be one line of at most %u bytes\n",
+                      theme.id.c_str(), unsigned(ATTRIBUTION_MAX_BYTES));
+        theme.credit = "";
+    }
+}
+
 // Walk one theme directory exactly once: read its metadata, inspect every WAV
 // header, and fill the cached song list. Used for /songs themes and /animals.
 void loadThemeContents(CachedTheme& theme, const String& themePath) {
@@ -384,6 +405,8 @@ void loadThemeContents(CachedTheme& theme, const String& themePath) {
         ? String(displayName)
         : (theme.special ? String(ANIMALS_DISPLAY_NAME) : theme.id);
     theme.shuffle = meta["shuffle"] | theme.special;  // animals default to shuffle
+    theme.credit = String(meta["attribution"] | "");
+    sanitizeAttribution(theme);
 
     File dir = SD.open(themePath.c_str());
     if (!dir || !dir.isDirectory()) {
@@ -510,6 +533,7 @@ ThemeStats scanThemeStats(const String& themeId, bool /*validateWavs*/) {
     }
 
     stats.name = theme->name;
+    stats.credit = theme->credit;
     stats.shuffle = theme->shuffle;
     stats.disabledByUser = theme->disabledByUser;
     for (const CachedSong& s : theme->songs) {
@@ -617,6 +641,7 @@ ThemeStats worstCaseStats(const CachedTheme& theme) {
     ThemeStats stats;
     stats.id = theme.id;
     stats.name = theme.name;
+    stats.credit = theme.credit;
     stats.totalSongs = stats.enabledValidSongs = stats.errorSongs = 2147483647;
     // false is the longer JSON boolean, including otherwise immutable flags.
     stats.enabled = stats.disabledByUser = stats.shuffle = stats.special = false;
@@ -670,6 +695,12 @@ void recordOversizedEntry(const String& kind, const String& name) {
 
 void validateCatalog() {
     for (auto theme = g_themes.begin(); theme != g_themes.end();) {
+        if (!themeEntryFits(*theme) && !theme->credit.isEmpty()) {
+            // A credit too long for the 512-byte scan page must not hide the whole theme.
+            Serial.printf("[Catalog] Dropping attribution for theme %s: entry exceeds the BLE response limit\n",
+                          theme->id.c_str());
+            theme->credit = "";
+        }
         if (!themeEntryFits(*theme)) {
             recordOversizedEntry("theme", validThemeId(theme->id) ? theme->name : theme->id);
             theme = g_themes.erase(theme);

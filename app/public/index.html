@@ -1068,6 +1068,45 @@
       background: rgba(239, 233, 255, 0.86);
     }
 
+    .theme-option-group {
+      display: grid;
+      border: 1px solid transparent;
+      border-radius: 10px;
+    }
+
+    .theme-option-group:not(.selected):hover {
+      background: rgba(98, 67, 170, 0.07);
+    }
+
+    .theme-option-group.selected {
+      border-color: rgba(98, 67, 170, 0.36);
+      background: rgba(239, 233, 255, 0.86);
+    }
+
+    .theme-option-group .theme-option {
+      border-color: transparent;
+      background: transparent;
+    }
+
+    .theme-credit {
+      min-width: 0;
+      color: var(--muted);
+      font-size: clamp(11px, 3vw, 13px);
+      font-weight: 600;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+
+    .theme-credit a {
+      color: var(--teal-dark);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .theme-option-group .theme-credit {
+      padding: 0 10px 7px;
+    }
+
     .bedtime-card {
       position: relative;
       min-height: 108px;
@@ -2287,6 +2326,7 @@
               </span>
               <span class="chevron" aria-hidden="true">⌄</span>
             </button>
+            <div class="theme-credit" id="themeCredit" hidden></div>
             <div class="theme-options" id="themeOptions" hidden></div>
           </div>
         </section>
@@ -2776,6 +2816,7 @@
       themeCurrent: document.querySelector("#themeCurrent"),
       themeHelper: document.querySelector("#themeHelper"),
       themeOptions: document.querySelector("#themeOptions"),
+      themeCredit: document.querySelector("#themeCredit"),
       killswitchToggle: document.querySelector("#killswitchToggle"),
       quietCard: document.querySelector(".quiet-card"),
       quietTitle: document.querySelector("#quietTitle"),
@@ -2864,6 +2905,8 @@
         effectiveTheme: "lullabies"
       },
       themeOpen: false,
+      themeCreditsReady: false,
+      themeCreditsLoading: false,
       message: "",
       requestId: 0,
       configError: null,
@@ -3670,6 +3713,65 @@
       }
     }
 
+    // The toy relays the credit string from the card's metadata.json untouched. The only markup honoured is
+    // [label](https://...); anything else (javascript:, data:, relative paths, other markdown) stays plain text,
+    // and everything is built as DOM nodes, never as HTML.
+    function safeCreditUrl(value) {
+      try {
+        const url = new URL(value);
+        return url.protocol === "https:" ? url.href : "";
+      } catch (error) {
+        return "";
+      }
+    }
+
+    function themeSelectorOption(theme) {
+      return { id: theme.id, name: theme.name || theme.id, credit: theme.credit || "" };
+    }
+
+    // Fills a container with the theme's credit, turning [label](https://url) into links that open in a new tab.
+    function fillCredit(container, theme) {
+      container.replaceChildren();
+      const pattern = /\[([^\]\[]+)\]\(([^()\s]+)\)/g;
+      let last = 0;
+      for (const match of theme.credit.matchAll(pattern)) {
+        const href = safeCreditUrl(match[2]);
+        if (!href) continue;                       // not a safe link: left in the surrounding plain text
+        if (match.index > last) container.append(theme.credit.slice(last, match.index));
+        const link = document.createElement("a");
+        link.href = href;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = match[1];
+        container.append(link);
+        last = match.index + match[0].length;
+      }
+      if (last < theme.credit.length) container.append(theme.credit.slice(last));
+      return container;
+    }
+
+    // Credits ride in the paged theme scan (the quick theme characteristic has no room for them), so the
+    // selector fetches the scan once per connection, the first time the picker opens. Credits are
+    // decoration: any failure leaves the picker working without them.
+    async function loadThemeCredits() {
+      if (state.themeCreditsReady || state.themeCreditsLoading) return;
+      state.themeCreditsLoading = true;
+      try {
+        const scanned = await fetchThemeScan();
+        const byId = new Map(scanned.map((theme) => [theme.id, theme]));
+        state.themes = state.themes.map((theme) => {
+          const found = byId.get(theme.id);
+          return found ? { ...theme, credit: found.credit } : theme;
+        });
+        state.themeCreditsReady = true;
+      } catch (error) {
+        console.warn("[SweetYaar] Could not load theme credits", error);
+      } finally {
+        state.themeCreditsLoading = false;
+        render();
+      }
+    }
+
     function normalizeThemes(themes) {
       if (!Array.isArray(themes)) return [];
       return themes
@@ -3677,6 +3779,7 @@
         .map((theme) => ({
           id: theme.id,
           name: typeof theme.name === "string" && theme.name ? theme.name : theme.id,
+          credit: typeof theme.credit === "string" ? theme.credit : "",
           enabled: !!theme.enabled,
           disabledByUser: !!theme.disabledByUser,
           shuffle: !!theme.shuffle,
@@ -3723,7 +3826,8 @@
       state.settings.themes = themes;
       state.themes = themes
         .filter((theme) => theme.enabled && theme.canSetDefault !== false)
-        .map((theme) => ({ id: theme.id, name: theme.name || theme.id }));
+        .map(themeSelectorOption);
+      state.themeCreditsReady = true;
       if (state.themes.length > 0 && !state.themes.some((theme) => theme.id === state.theme)) {
         state.theme = state.themes[0].id;
       }
@@ -3994,7 +4098,7 @@
           .map((name) => [name, state.configValues[name]])));
         state.themes = state.settings.themes
           .filter((theme) => theme.enabled && theme.canSetDefault !== false)
-          .map((theme) => ({ id: theme.id, name: theme.name || theme.id }));
+          .map(themeSelectorOption);
         resetPendingSettingsChanges();
         state.settings.dirty = false;
         state.settings.message = "Settings saved.";
@@ -4120,9 +4224,19 @@
         button.type = "button";
         button.dataset.themeId = theme.id;
         button.textContent = theme.name;
-        button.setAttribute("aria-selected", theme.id === displayedThemeId() ? "true" : "false");
+        const selected = theme.id === displayedThemeId();
+        button.setAttribute("aria-selected", selected ? "true" : "false");
         button.disabled = controlsDisabled();
-        els.themeOptions.append(button);
+        if (theme.credit) {
+          const group = document.createElement("div");
+          group.className = selected ? "theme-option-group selected" : "theme-option-group";
+          const credit = document.createElement("div");
+          credit.className = "theme-credit";
+          group.append(button, fillCredit(credit, theme));
+          els.themeOptions.append(group);
+        } else {
+          els.themeOptions.append(button);
+        }
       }
       return options;
     }
@@ -4519,6 +4633,10 @@
       els.themeCurrent.textContent = selectedThemeName();
       els.themeHelper.textContent = bedtimeModeActive() ? "☾ bedtime mode" : "";
       els.themeHelper.hidden = !bedtimeModeActive();
+      const displayedTheme = remoteThemeOptions.find((theme) => theme.id === displayedThemeId());
+      els.themeCredit.replaceChildren();
+      els.themeCredit.hidden = !displayedTheme?.credit;
+      if (displayedTheme?.credit) fillCredit(els.themeCredit, displayedTheme);
       els.themeCard.classList.toggle("expanded", state.themeOpen && remoteThemeOptions.length > 0);
       els.themeTrigger.setAttribute("aria-expanded", state.themeOpen && remoteThemeOptions.length > 0 ? "true" : "false");
       els.themeOptions.hidden = !state.themeOpen || remoteThemeOptions.length === 0;
@@ -4756,6 +4874,7 @@
         : null;
 
       state.themes = parseThemes(readText(themesValue));
+      state.themeCreditsReady = false;
       state.volume = readUint8(volumeValue);
       state.killswitch = readUint8(killswitchValue) !== 0;
       state.theme = readText(themeValue);
@@ -5343,6 +5462,7 @@
       if (controlsDisabled() || themeOptions().length === 0) return;
       state.themeOpen = !state.themeOpen;
       render();
+      if (state.themeOpen) void loadThemeCredits();
     });
 
     els.themeOptions.addEventListener("click", (event) => {

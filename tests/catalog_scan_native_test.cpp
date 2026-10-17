@@ -24,6 +24,7 @@ int main() {
         CachedTheme theme;
         theme.id = item["id"].as<const char*>();
         theme.name = item["name"].as<const char*>();
+        theme.credit = String(item["credit"] | "");
         theme.disabledByUser = item["disabledByUser"] | false;
         theme.shuffle = item["shuffle"] | false;
         theme.special = item["special"] | false;
@@ -41,6 +42,19 @@ int main() {
     }
 
     const std::string op = request["op"].as<const char*>();
+    if (op == "sanitize") {
+        JsonDocument result;
+        auto themes = result["themes"].to<JsonArray>();
+        for (auto& theme : g_themes) {
+            sanitizeAttribution(theme);
+            auto row = themes.add<JsonObject>();
+            row["credit"] = theme.credit.c_str();
+        }
+        std::string output;
+        serializeJson(result, output);
+        std::cout << output << '\n';
+        return 0;
+    }
     if (op == "limits") {
         JsonDocument result;
         auto themes = result["themes"].to<JsonArray>();
@@ -52,6 +66,12 @@ int main() {
         }
         validateCatalog();
         result["warning"] = catalogWarning().c_str();
+        auto retained = result["retained"].to<JsonArray>();
+        for (const auto& theme : g_themes) {
+            auto row = retained.add<JsonObject>();
+            row["id"] = theme.id.c_str();
+            row["credit"] = theme.credit.c_str();
+        }
         result["retainedThemes"] = g_themes.size();
         int songs = 0;
         for (const auto& theme : g_themes) songs += theme.songs.size();

@@ -200,6 +200,16 @@ excluded from playback and scans. Serial logs identify every rejected entry;
 the app receives a bounded warning with the first shortened name and a count.
 Oversized theme references in `config.json` fall back to firmware defaults.
 
+A theme's optional `attribution` in `metadata.json` is a single markdown string
+(for example `[Baby Mozart](https://babymozart.org) · [IMSLP](https://imslp.org)`).
+It is validated at boot and relayed unchanged in each `scanThemes` row as
+`credit`, present only when set. The limit is 160 bytes of one line with no
+control characters; anything else drops the credit. Firmware does not parse the
+markdown (the app does), and an entry that exceeds the 512-byte page only
+because of its credit loses the credit, not the theme.
+Serial logs name each case. The quick `themes` characteristic below carries no
+credits: the app reads them from the first scan after the picker opens.
+
 The Ready-screen theme selector uses the separate `themes` characteristic, a
 single JSON array that cannot exceed 512 bytes. Firmware also keeps at most 16
 playable themes in RAM for that array (`BLE_MAX_THEMES`). Whichever limit is hit

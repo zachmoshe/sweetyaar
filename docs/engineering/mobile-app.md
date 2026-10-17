@@ -70,6 +70,14 @@ independently, whether they arrive before or after the reply.
 Reconnect reads the current values and installs fresh listeners. Changes from
 the toy update live state without overwriting unsaved Settings edits.
 
+Credits for the theme selector come from the same theme scan (one markdown
+`credit` string per row). The Ready screen has not scanned yet at connect, so the app
+runs one scan the first time the theme picker opens in a connection (or reuses the
+Settings scan) and ignores a failure: the picker works without credits. The app
+renders only `[label](https://…)` as links (anything else, including other
+markdown or HTML, stays plain text), builds DOM nodes rather than HTML, and
+opens links with `rel="noopener noreferrer"`.
+
 Theme and song scans follow byte-packed cursor pages until completion. Names
 that cannot fit the protocol are skipped by firmware at boot; a short retained
 warning points to the full serial boot log. Dismissing it lasts for the current
@@ -98,7 +106,7 @@ controls used during normal local playback.
 | **Stop** | Stops local playback. |
 | **Loop songs** | Continues with the next song when one finishes. Looping is temporary and resets after Stop, animal playback, Quiet time, Bluetooth speaker mode, or reboot. |
 | **Volume** | Changes the current local WAV volume. It does not control audio streamed over Classic Bluetooth. |
-| **Theme** | Changes the song theme for the current awake session. Only enabled themes containing playable audio are offered. |
+| **Theme** | Changes the song theme for the current awake session. Only enabled themes containing playable audio are offered. A theme whose `metadata.json` has an `attribution` shows that credit under the current theme and in the list; its `[label](https://…)` links open in a new browser tab. |
 | **Quiet time** | Stops local playback and ignores physical-button and app playback commands for ten minutes, or until the parent cancels it. |
 | **Daytime / Bedtime** | Shows the current Bedtime state and allows a temporary manual override when Bedtime mode and the toy's clock are available. |
 

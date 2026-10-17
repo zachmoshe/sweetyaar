@@ -90,6 +90,23 @@ theme metadata.json schema:
 Bedtime theme selection lives in /config.json. Individual theme metadata files
 do not need a bedtime flag.
 
+Optional attribution (credit for where a theme's songs come from):
+  {
+    "schemaVersion": 2,
+    "name": "Classical",
+    "shuffle": true,
+    "disabledSongs": [],
+    "attribution": "Music: [Baby Mozart](https://babymozart.org) · [IMSLP](https://imslp.org)"
+  }
+
+The parent app shows this one-line string under the theme name in the theme
+selector. Only [label](https://...) is turned into a link (opens in the phone's
+browser); everything else shows as plain text. At most 160 bytes of UTF-8
+(Hebrew letters take 2 bytes each), one line; otherwise it is ignored and the boot
+log says why. If the whole theme entry is too long for the 512-byte BLE scan page,
+the attribution is dropped rather than the theme. The parent app's save
+operations keep this field untouched.
+
 animals metadata.json uses the same schema. The app shows it as a special
 always-enabled "Animals" theme and ignores any custom name.
 

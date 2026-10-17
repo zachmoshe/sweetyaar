@@ -221,6 +221,7 @@ function createContext() {
     TextDecoder,
     TextEncoder,
     Uint8Array,
+    URL,
     setTimeout,
     clearTimeout,
     setInterval: () => 0,
@@ -1652,6 +1653,89 @@ const tests = [
     assertJsonEqual(ble.writes.theme, ["nature"]);
     assert.strictEqual(state.theme, "nature");
     assert.strictEqual(els.themeOptions.hidden, true);
+  `],
+  ["theme picker shows attribution links from the theme scan", String.raw`
+    const creditText = (el) => el.children.map((c) => (typeof c === "string" ? c : c.textContent)).join("");
+    const anchors = (el) => el.children.filter((c) => typeof c !== "string");
+    const ble = await connectWithFakeBle({ themes: [
+      { id: "classical", name: "Classical", enabled: true, canSetDefault: true, activeValid: 1,
+        credit: "[Baby Mozart](https://www.babymozart.example/classical) · [IMSLP](https://imslp.org) & more" },
+      { id: "lullabies", name: "Lullabies", enabled: true, canSetDefault: true, activeValid: 1,
+        credit: "Public domain" },
+      { id: "nature", name: "Nature", enabled: true, canSetDefault: true, activeValid: 1 }
+    ], theme: "classical", config: { activeTheme: "classical", defaultTheme: "classical" }, songs: {} });
+    // Credits are not in the quick theme characteristic: nothing is shown until the picker first opens.
+    assert.strictEqual(els.themeCredit.hidden, true);
+    assert(!payloadsWithoutIds(ble.writes.config).some((p) => p.op === "scanThemes"), "connecting must not scan themes");
+    await els.themeTrigger.click();
+    assertJsonEqual(payloadsWithoutIds(ble.writes.config).filter((p) => p.op === "scanThemes"),
+      [{ op: "scanThemes", cursor: 0 }]);
+    // Collapsed card: each markdown link is its own anchor that opens in a new tab; text around them stays text.
+    assert.strictEqual(els.themeCredit.hidden, false);
+    const links = anchors(els.themeCredit);
+    assert.strictEqual(links.length, 2);
+    assert.strictEqual(links[0].href, "https://www.babymozart.example/classical");
+    assert.strictEqual(links[0].textContent, "Baby Mozart");
+    assert.strictEqual(links[0].target, "_blank");
+    assert.strictEqual(links[0].rel, "noopener noreferrer");
+    assert.strictEqual(links[1].href, "https://imslp.org/");
+    assert.strictEqual(creditText(els.themeCredit), "Baby Mozart · IMSLP & more");
+    // Expanded list: themes with a credit are grouped with it; a credit without a link is plain text.
+    const group = (id) => els.themeOptions.children.find((child) =>
+      child.classList.contains("theme-option-group") && child.children[0].dataset.themeId === id);
+    assert(group("classical").classList.contains("selected"));
+    assert.strictEqual(anchors(group("classical").children[1])[0].href, "https://www.babymozart.example/classical");
+    assert(!group("lullabies").classList.contains("selected"));
+    assert.strictEqual(creditText(group("lullabies").children[1]), "Public domain");
+    assert.strictEqual(anchors(group("lullabies").children[1]).length, 0);
+    const nature = els.themeOptions.children.find((child) => child.dataset?.themeId === "nature");
+    assert(nature, "a theme without a credit stays a plain option");
+    // Choosing still works through the grouped button, and the scan is not repeated.
+    await group("lullabies").children[0].click();
+    assertJsonEqual(ble.writes.theme, ["lullabies"]);
+    assert.strictEqual(anchors(els.themeCredit).length, 0);
+    assert.strictEqual(creditText(els.themeCredit), "Public domain");
+    await els.themeTrigger.click();
+    assert.strictEqual(payloadsWithoutIds(ble.writes.config).filter((p) => p.op === "scanThemes").length, 1);
+  `],
+  ["theme attribution never becomes an unsafe link", String.raw`
+    const creditText = (el) => el.children.map((c) => (typeof c === "string" ? c : c.textContent)).join("");
+    const anchors = (el) => el.children.filter((c) => typeof c !== "string");
+    const ble = await connectWithFakeBle({ themes: [
+      { id: "a", name: "A", enabled: true, canSetDefault: true, activeValid: 1,
+        credit: "[Bad](javascript:alert(1)) [Data](data:text/html,x)" },
+      { id: "b", name: "B", enabled: true, canSetDefault: true, activeValid: 1,
+        credit: "[Insecure](http://example.com/x) <b>bold</b>" },
+      { id: "c", name: "C", enabled: true, canSetDefault: true, activeValid: 1,
+        credit: "[Relative](/etc/passwd) [Mixed](https://ok.example/) **x**" }
+    ], theme: "a", config: { activeTheme: "a", defaultTheme: "a" }, songs: {} });
+    await els.themeTrigger.click();
+    const group = (id) => els.themeOptions.children.find((child) => child.children[0]?.dataset?.themeId === id);
+    for (const id of ["a", "b"]) {
+      assert.strictEqual(anchors(group(id).children[1]).length, 0, id + " must render as text, not a link");
+    }
+    assert.strictEqual(creditText(group("a").children[1]), "[Bad](javascript:alert(1)) [Data](data:text/html,x)");
+    assert.strictEqual(creditText(group("b").children[1]), "[Insecure](http://example.com/x) <b>bold</b>");
+    // Only the well-formed https link in a mixed credit becomes an anchor; the rest stays visible text.
+    assert.strictEqual(anchors(group("c").children[1]).length, 1);
+    assert.strictEqual(anchors(group("c").children[1])[0].href, "https://ok.example/");
+    assert.strictEqual(creditText(group("c").children[1]), "[Relative](/etc/passwd) Mixed **x**");
+    assert.strictEqual(anchors(els.themeCredit).length, 0);
+    assert.strictEqual(creditText(els.themeCredit), "[Bad](javascript:alert(1)) [Data](data:text/html,x)");
+  `],
+  ["theme picker still works when the credit scan fails", String.raw`
+    const ble = await connectWithFakeBle();
+    const write = ble.chars.configCommand.write;
+    ble.chars.configCommand.write = (value) => {
+      const request = JSON.parse(textFromValue(value));
+      if (request.op !== "scanThemes") return write(value);
+      ble.chars.configResponse.emit(JSON.stringify({ id: request.id, ok: false, error: "scan failed" }));
+    };
+    await els.themeTrigger.click();
+    assert.strictEqual(els.themeOptions.hidden, false);
+    assert.strictEqual(els.themeOptions.children.length, 2);
+    assert.strictEqual(els.themeCredit.hidden, true);
+    assert.strictEqual(state.themeCreditsLoading, false);
   `],
   ["remote theme picker overrides theme without leaving bedtime", String.raw`
     const ble = await connectWithFakeBle({

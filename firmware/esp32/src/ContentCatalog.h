@@ -21,9 +21,15 @@ struct WavInfo {
     String error;
 };
 
+// Optional per-theme credit from metadata.json {"attribution": "<markdown>"}. The toy relays the string
+// as-is (the parent app renders its [text](https://...) links); it travels in the paged theme scan, which
+// must still fit a 512-byte BLE response, so it is bounded.
+static constexpr size_t ATTRIBUTION_MAX_BYTES = 160;
+
 struct ThemeStats {
     String id;
     String name;
+    String credit;      // attribution markdown; empty when the theme has none
     bool disabledByUser = false;
     bool enabled = false;
     bool shuffle = false;
@@ -58,6 +64,7 @@ struct CachedSong {
 struct CachedTheme {
     String id;
     String name;
+    String credit;
     bool   shuffle = false;
     bool   disabledByUser = false;  // from config.json disabledThemes
     bool   special = false;          // the reserved Animals theme
