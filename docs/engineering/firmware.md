@@ -77,7 +77,7 @@ The card stores audio, content metadata, and configuration:
 | ------------------------------ | ------------------------------------------------------------------- |
 | `/songs/<theme>/*.wav`         | Song WAV files grouped into themes such as `lullabies` or `nature`. |
 | `/songs/<theme>/metadata.json` | The theme's display name, shuffle setting, and disabled tracks.     |
-| `/animals/*.wav`               | Animal-sound WAV files.                                             |
+| `/animals/*.wav`               | Animal-sound WAV files (built per toy by `make animals`, see [animal sounds](../../content/animal-sounds/README.md)). |
 | `/animals/metadata.json`       | Shuffle and disabled-track settings for animal sounds.              |
 | `/config.json`                 | Default volume and theme, Bedtime settings, and sleep settings.     |
 

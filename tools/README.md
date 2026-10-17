@@ -1,7 +1,9 @@
 # Project tools
 
 Standalone development and maintenance utilities live here (the device test
-runner, `convert_wavs_to_mono.py`).
+runner, `convert_wavs_to_mono.py`) and the animal-sound pipeline in `animals/`
+(`build_animals.py`; see
+[content/animal-sounds](../content/animal-sounds/README.md)).
 Common user-facing commands should be exposed through the root `Makefile`.
 
 `device_test.py` is the opt-in Mac/ESP32 Bluetooth runner. It captures real

@@ -1,0 +1,6 @@
+{
+  "_comment": "One profile = the choices for one toy's SD card. \"tts\" is a folder name under tts/. Everything else is optional.",
+  "tts": "he-tts",
+  "animals": ["dog", "cat", "sheep", "cow", "rooster", "elephant", "fish", "duck", "horse", "lion", "monkey", "frog", "owl"],
+  "overrides": {}
+}

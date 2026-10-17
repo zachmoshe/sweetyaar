@@ -10,6 +10,11 @@ dev = [
     "platformio==6.1.19",
     "pytest>=8,<9",
 ]
+audio = [
+    "numpy",
+    "scipy",
+]
 
 [tool.uv]
 package = false
+default-groups = ["dev", "audio"]

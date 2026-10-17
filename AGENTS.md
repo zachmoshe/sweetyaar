@@ -36,7 +36,8 @@ explicitly says to reuse an existing branch or worktree (or to work on `main`).
   of a fresh checkout clones the pinned `lib_deps` from GitHub (network needed).
 - `make help` lists targets. Common ones: `make build`, `make flash`,
   `make monitor`, `make app`, `make test` (everything), `make test-unit`
-  (host only, never touches hardware), `make test-device` (approved real-device
+  (host only, never touches hardware), `make animals` (build SD-card animal WAVs from `content/animal-sounds`),
+  `make test-device` (approved real-device
   run; needs `DEVICE_TEST_APPROVED=1`, `PIO_ENV` and `SERIAL_PORT`).
 - PlatformIO environments (in `firmware/esp32/platformio.ini`):
   - `sweetyaar`: production PCB (default).

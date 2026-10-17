@@ -1,0 +1,21 @@
+{
+  "_comment": "Global defaults for tools/animals/build_animals.py. Profiles in profiles/ override any of these.",
+  "sample_rate": 44100,
+  "defaults": {
+    "lead_in_sec": 0.1,
+    "pause_after_prompt_sec": 0.7,
+    "tail_silence_sec": 0.3,
+    "prompt_gain_db": 0.0,
+    "animal_gain_db": 2.0
+  },
+  "trim_silence": true,
+  "trim_threshold_db": -45,
+  "keep_edge_silence_sec": 0.0,
+  "voice_band_hz": [200, 4000],
+  "voice_threshold_db": -35,
+  "voice_min_run_sec": 0.06,
+  "voice_merge_gap_sec": 0.35,
+  "voice_margin_sec": [0.02, 0.06],
+  "prompt_target_db": -21.0,
+  "animals": {}
+}

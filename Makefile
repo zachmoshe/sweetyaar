@@ -17,7 +17,7 @@ PYTHON ?= $(VENV_DIR)/bin/python
 PIO ?= $(VENV_DIR)/bin/pio
 UV ?= uv
 
-.PHONY: help setup app build flash monitor flash-monitor clean test test-unit test-device test-app test-firmware check-python check-pio
+.PHONY: help setup app build flash monitor flash-monitor clean test test-unit test-device test-app test-firmware check-python check-pio animals
 
 help: ## Show the available project commands.
 	@printf 'SweetYaar project commands\n\n'
@@ -51,6 +51,12 @@ flash-monitor: ## Flash firmware and then open the serial monitor.
 
 clean: check-pio ## Remove generated PlatformIO build output.
 	cd "$(FIRMWARE_DIR)" && "$(PIO)" run -e "$(PIO_ENV)" -t clean
+
+PROFILE ?= default
+SDCARD ?=
+
+animals: check-python ## Build the SD-card /animals WAVs for PROFILE (SDCARD=<card> also syncs the card).
+	"$(PYTHON)" "$(ROOT_DIR)/tools/animals/build_animals.py" "$(PROFILE)" $(if $(SDCARD),--sdcard "$(SDCARD)",)
 
 test: check-python ## Run the complete pytest suite.
 	cd "$(ROOT_DIR)" && "$(PYTHON)" -m pytest

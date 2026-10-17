@@ -1,0 +1,13 @@
+cow: 03_mooing_cow - klankbeeld; excerpt curated by Karol J. Piczak - CC-BY-NC 3.0
+dog: 02_dog_bark - ipears1; excerpt curated by Karol J. Piczak - CC-BY-NC 3.0
+duck: 01_duck_call - dobroide - CC-BY 3.0
+fish: 01_bubble_pops - ianslattery - CC0 1.0
+horse: 02_close_whinny - n_audioman - CC-BY 3.0
+owl: 01_owl_hoot - Anthousai - CC0 1.0
+rooster: 01_jersey_giant_crow - jsbarrett - CC0 1.0
+sheep: 02_sheep_bleating - reinsamba; excerpt curated by Karol J. Piczak - CC-BY-NC 3.0
+frog: ribbit "classic" pattern built from "Frog" by egomassive (derived from R01-47 Frog Ribbits by Craig Smith) - CC0 1.0 - https://freesound.org/people/egomassive/sounds/536759/
+cat: "cat meow" by philsapphire (edited from cat meow by tuberatanka) - CC0 1.0 - https://freesound.org/people/philsapphire/sounds/256452/
+monkey: "Cartoon monkey mocking and giggling" - Mixkit - Mixkit Sound Effects Free License - https://mixkit.co/free-sound-effects/monkey/
+lion: real lion roar (Lion raring-sound1 TamilNadu178.ogg) - public domain; pitch-smoothed and trimmed (lion_designs.py)
+elephant: elephant trumpet (preview.mp3) - Mixkit - Mixkit Sound Effects Free License - https://mixkit.co/free-sound-effects/
