@@ -1,0 +1,15 @@
+ATTRIBUTION - nature sounds for SweetYaar
+Source: https://pixabay.com/sound-effects (all files). Licence: Pixabay Content License, https://pixabay.com/service/license-summary/
+Free for commercial use, no attribution required, modification allowed; the files may not be sold or distributed standalone in substantially unmodified form. Per-file author and page URL were not recorded.
+Processed for SweetYaar: converted to 44.1 kHz mono 16-bit WAV, rumble filtered, edges trimmed, faded and loudness-matched.
+
+Birds in the Forest
+Crackling Fireplace
+Dripping Water
+Nature Ambience
+Night Crickets
+Ocean Waves
+Rain
+Thunderstorm
+Tropical Jungle
+Wind
