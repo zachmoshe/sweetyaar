@@ -1682,22 +1682,18 @@ const tests = [
     assert.strictEqual(links[0].rel, "noopener noreferrer");
     assert.strictEqual(links[1].href, "https://imslp.org/");
     assert.strictEqual(creditText(els.themeCredit), "Baby Mozart · IMSLP & more");
-    // Expanded list: themes with a credit are grouped with it; a credit without a link is plain text.
-    const group = (id) => els.themeOptions.children.find((child) =>
-      child.classList.contains("theme-option-group") && child.children[0].dataset.themeId === id);
-    assert(group("classical").classList.contains("selected"));
-    assert.strictEqual(anchors(group("classical").children[1])[0].href, "https://www.babymozart.example/classical");
-    assert(!group("lullabies").classList.contains("selected"));
-    assert.strictEqual(creditText(group("lullabies").children[1]), "Public domain");
-    assert.strictEqual(anchors(group("lullabies").children[1]).length, 0);
-    const nature = els.themeOptions.children.find((child) => child.dataset?.themeId === "nature");
-    assert(nature, "a theme without a credit stays a plain option");
-    // Choosing still works through the grouped button, and the scan is not repeated.
-    await group("lullabies").children[0].click();
+    // Expanded list: plain options only; credits belong to the selected theme, not the list.
+    assertJsonEqual(els.themeOptions.children.map((c) => c.dataset.themeId), ["classical", "lullabies", "nature"]);
+    assert(els.themeOptions.children.every((c) => c.classList.contains("theme-option") && c.children.length === 0));
+    // Choosing another theme swaps the shown credit; a credit without a link is plain text.
+    const option = (id) => els.themeOptions.children.find((c) => c.dataset.themeId === id);
+    await option("lullabies").click();
     assertJsonEqual(ble.writes.theme, ["lullabies"]);
     assert.strictEqual(anchors(els.themeCredit).length, 0);
     assert.strictEqual(creditText(els.themeCredit), "Public domain");
     await els.themeTrigger.click();
+    await option("nature").click();
+    assert.strictEqual(els.themeCredit.hidden, true);
     assert.strictEqual(payloadsWithoutIds(ble.writes.config).filter((p) => p.op === "scanThemes").length, 1);
   `],
   ["theme attribution never becomes an unsafe link", String.raw`
@@ -1712,18 +1708,20 @@ const tests = [
         credit: "[Relative](/etc/passwd) [Mixed](https://ok.example/) **x**" }
     ], theme: "a", config: { activeTheme: "a", defaultTheme: "a" }, songs: {} });
     await els.themeTrigger.click();
-    const group = (id) => els.themeOptions.children.find((child) => child.children[0]?.dataset?.themeId === id);
-    for (const id of ["a", "b"]) {
-      assert.strictEqual(anchors(group(id).children[1]).length, 0, id + " must render as text, not a link");
-    }
-    assert.strictEqual(creditText(group("a").children[1]), "[Bad](javascript:alert(1)) [Data](data:text/html,x)");
-    assert.strictEqual(creditText(group("b").children[1]), "[Insecure](http://example.com/x) <b>bold</b>");
-    // Only the well-formed https link in a mixed credit becomes an anchor; the rest stays visible text.
-    assert.strictEqual(anchors(group("c").children[1]).length, 1);
-    assert.strictEqual(anchors(group("c").children[1])[0].href, "https://ok.example/");
-    assert.strictEqual(creditText(group("c").children[1]), "[Relative](/etc/passwd) Mixed **x**");
-    assert.strictEqual(anchors(els.themeCredit).length, 0);
+    assert.strictEqual(anchors(els.themeCredit).length, 0, "a must render as text, not a link");
     assert.strictEqual(creditText(els.themeCredit), "[Bad](javascript:alert(1)) [Data](data:text/html,x)");
+    const choose = async (id) => {
+      await els.themeOptions.children.find((c) => c.dataset.themeId === id).click();
+      await els.themeTrigger.click();
+    };
+    await choose("b");
+    assert.strictEqual(anchors(els.themeCredit).length, 0, "b must render as text, not a link");
+    assert.strictEqual(creditText(els.themeCredit), "[Insecure](http://example.com/x) <b>bold</b>");
+    // Only the well-formed https link in a mixed credit becomes an anchor; the rest stays visible text.
+    await choose("c");
+    assert.strictEqual(anchors(els.themeCredit).length, 1);
+    assert.strictEqual(anchors(els.themeCredit)[0].href, "https://ok.example/");
+    assert.strictEqual(creditText(els.themeCredit), "[Relative](/etc/passwd) Mixed **x**");
   `],
   ["theme picker still works when the credit scan fails", String.raw`
     const ble = await connectWithFakeBle();

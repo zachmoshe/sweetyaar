@@ -106,7 +106,7 @@ controls used during normal local playback.
 | **Stop** | Stops local playback. |
 | **Loop songs** | Continues with the next song when one finishes. Looping is temporary and resets after Stop, animal playback, Quiet time, Bluetooth speaker mode, or reboot. |
 | **Volume** | Changes the current local WAV volume. It does not control audio streamed over Classic Bluetooth. |
-| **Theme** | Changes the song theme for the current awake session. Only enabled themes containing playable audio are offered. A theme whose `metadata.json` has an `attribution` shows that credit under the current theme and in the list; its `[label](https://…)` links open in a new browser tab. |
+| **Theme** | Changes the song theme for the current awake session. Only enabled themes containing playable audio are offered. A theme whose `metadata.json` has an `attribution` shows that credit under the current theme only, not in the list of choices; its `[label](https://…)` links open in a new browser tab. |
 | **Quiet time** | Stops local playback and ignores physical-button and app playback commands for ten minutes, or until the parent cancels it. |
 | **Daytime / Bedtime** | Shows the current Bedtime state and allows a temporary manual override when Bedtime mode and the toy's clock are available. |
 
