@@ -199,6 +199,7 @@ function createContext() {
     innerHeight: 844,
     isSecureContext: true,
     addEventListener() {},
+    matchMedia: () => ({ matches: false }),
   };
   const consoleOutput = [];
   return {
@@ -226,6 +227,7 @@ function createContext() {
     clearTimeout,
     setInterval: () => 0,
     clearInterval: () => {},
+    requestAnimationFrame: () => 0,
     document,
     window,
     navigator: { bluetooth: {} },

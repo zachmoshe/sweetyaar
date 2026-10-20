@@ -1681,6 +1681,22 @@
       to { transform: rotate(360deg); }
     }
 
+    /* Names wider than their box scroll back and forth instead of ellipsizing. */
+    @keyframes scroll-text {
+      0%, 25% { transform: translateX(0); }
+      75%, 100% { transform: translateX(var(--scroll-shift, 0px)); }
+    }
+
+    .scrolling {
+      text-overflow: clip !important;
+    }
+
+    .scrolling > .scroll-inner {
+      display: inline-block;
+      white-space: nowrap;
+      animation: scroll-text var(--scroll-dur, 6s) ease-in-out infinite alternate;
+    }
+
     .settings-volume-line {
       display: grid;
       grid-template-columns: 1fr auto;
@@ -3001,6 +3017,44 @@
       el.classList.toggle("rtl-text", rtl);
     }
 
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    // Skips unchanged text so frequent renders don't restart the animation.
+    function setScrollingText(el, text) {
+      if (el.dataset.scrollText === text && el.dataset.scrollMeasured === "1") return;
+      el.dataset.scrollText = text;
+      el.dataset.scrollMeasured = "0";
+      el.classList.remove("scrolling");
+      el.textContent = text;
+      // Hebrew names must be RTL, or the clipped end is the start of the name.
+      applyTextDir(el, text);
+      if (text) requestAnimationFrame(() => measureScrollingText(el));
+    }
+
+    function measureScrollingText(el) {
+      const text = el.dataset.scrollText;
+      if (!el.isConnected || !text) return;
+      el.classList.remove("scrolling");
+      el.textContent = text;
+      // Hidden elements measure as zero; they are re-measured on the next render.
+      if (el.clientWidth === 0) return;
+      el.dataset.scrollMeasured = "1";
+      const overflow = el.scrollWidth - el.clientWidth;
+      if (overflow <= 2 || reducedMotion.matches) return;
+      const inner = document.createElement("span");
+      inner.className = "scroll-inner";
+      inner.textContent = text;
+      el.replaceChildren(inner);
+      const rtl = getComputedStyle(el).direction === "rtl";
+      el.style.setProperty("--scroll-shift", `${rtl ? overflow : -overflow}px`);
+      el.style.setProperty("--scroll-dur", `${Math.max(3, overflow / 24).toFixed(1)}s`);
+      el.classList.add("scrolling");
+    }
+
+    window.addEventListener("resize", () => {
+      for (const el of document.querySelectorAll("[data-scroll-text]")) measureScrollingText(el);
+    });
+
     // Remove characters that render as garbage (invisible control / zero-width /
     // bidi-format characters look like a "barcode") or that are path separators
     // and reserved filename characters that should never reach the display.
@@ -4245,7 +4299,7 @@
       const options = settingsDefaultThemeOptions();
       const current = selectedSettingsDefaultThemeId();
 
-      els.settingsDefaultThemeCurrent.textContent = selectedSettingsDefaultThemeName();
+      setScrollingText(els.settingsDefaultThemeCurrent, selectedSettingsDefaultThemeName());
       els.settingsDefaultThemeTrigger.setAttribute("aria-expanded", state.settings.defaultThemeOpen ? "true" : "false");
       els.settingsDefaultThemeCard.classList.toggle("expanded", state.settings.defaultThemeOpen);
       els.settingsDefaultThemeOptions.hidden = !state.settings.defaultThemeOpen;
@@ -4267,7 +4321,7 @@
       const options = settingsBedtimeThemeOptions();
       const current = selectedSettingsBedtimeThemeId();
 
-      els.settingsBedtimeThemeCurrent.textContent = selectedSettingsBedtimeThemeName();
+      setScrollingText(els.settingsBedtimeThemeCurrent, selectedSettingsBedtimeThemeName());
       els.settingsBedtimeThemeTrigger.setAttribute("aria-expanded", state.settings.bedtimeThemeOpen ? "true" : "false");
       els.settingsBedtimeThemeCard.classList.toggle("expanded", state.settings.bedtimeThemeOpen);
       els.settingsBedtimeThemeOptions.hidden = !state.settings.bedtimeThemeOpen;
@@ -4329,7 +4383,7 @@
 
         const name = document.createElement("span");
         name.className = "theme-row-name";
-        name.textContent = theme.name || theme.id;
+        setScrollingText(name, theme.name || theme.id);
 
         const count = document.createElement("span");
         count.className = "theme-row-count";
@@ -4363,7 +4417,7 @@
         : state.settings.songs;
       const errorCount = state.settings.songs.filter((song) => !song.ok).length;
 
-      els.settingsSongsTitle.textContent = title;
+      setScrollingText(els.settingsSongsTitle, title);
       els.settingsFilterAll.classList.toggle("active", state.settings.songFilter === "all");
       els.settingsFilterEnabled.classList.toggle("active", state.settings.songFilter === "enabled");
       els.settingsFilterAll.disabled = settingsBusy();
@@ -4423,8 +4477,7 @@
         const text = document.createElement("span");
         text.className = "song-name-text";
         const pretty = prettifyName(song.file);
-        text.textContent = pretty;
-        applyTextDir(text, pretty);
+        setScrollingText(text, pretty);
         const fileLine = document.createElement("span");
         fileLine.className = "song-file-text";
         const cleanFile = sanitizeName(song.file).replace(/\s+/g, " ").trim();
@@ -4592,12 +4645,10 @@
       const readyStatusText = readyStatus();
       const readyMessageText = readyMessage();
       const hideReadyMessage = readyMessageText === "";
-      els.readyStatusText.textContent = readyStatusText;
-      els.readyMessage.textContent = hideReadyMessage ? "" : readyMessageText;
+      setScrollingText(els.readyStatusText, readyStatusText);
+      setScrollingText(els.readyMessage, hideReadyMessage ? "" : readyMessageText);
       els.readyMessage.hidden = hideReadyMessage;
       els.readyStatusCard.classList.toggle("ready-compact", hideReadyMessage);
-      applyTextDir(els.readyStatusText, readyStatusText);
-      applyTextDir(els.readyMessage, hideReadyMessage ? "" : readyMessageText);
 
       const statusIcon = readyStatusIcon();
       els.readyStatusIcon.classList.remove("green", "tint-song", "tint-animal", "tint-quiet");
@@ -4630,7 +4681,7 @@
 
       const remoteThemeOptions = renderThemeOptions();
       const themePickerDisabled = disabled || remoteThemeOptions.length === 0;
-      els.themeCurrent.textContent = selectedThemeName();
+      setScrollingText(els.themeCurrent, selectedThemeName());
       els.themeHelper.textContent = bedtimeModeActive() ? "☾ bedtime mode" : "";
       els.themeHelper.hidden = !bedtimeModeActive();
       const displayedTheme = remoteThemeOptions.find((theme) => theme.id === displayedThemeId());
