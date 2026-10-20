@@ -71,56 +71,45 @@ void test() {
     tick(16000, true);
     tick(19000, true); // open after the three-second gesture
     assert(requests.size() == 1 && requests.back() == SystemSound::Pairing);
+    tick(19000, true); // no duplicate in the same tick
     tick(19001);
-    for (unsigned repeat = 1; repeat <= 3; ++repeat) {
-        tick(19000 + repeat * 15000 - 1);
-        assert(requests.size() == repeat);
-        tick(19000 + repeat * 15000);
-        tick(19000 + repeat * 15000); // no duplicate in the same tick
-        assert(requests.size() == repeat + 1);
-    }
-    tick(78999);
-    tick(79000); // timeout wins over a fourth repeat
+    for (uint32_t at = 20000; at < 79000; at += 1000) tick(at);
+    assert(requests.size() == 1 && bluetoothAccess.pairingOpen()); // no repeats while open
+    tick(79000);
     tick(100000);
-    assert(requests.size() == 4 && !bluetoothAccess.pairingOpen());
+    assert(requests.size() == 1 && !bluetoothAccess.pairingOpen());
 
     tick(110000, true);
-    tick(113000, true);
+    tick(113000, true); // a new window plays once more
+    assert(requests.size() == 2);
     tick(113001);
     tick(120000, true);
-    tick(123000, true); // reopen restarts the sound interval
-    assert(requests.size() == 6);
-    tick(128000); // would have been due for the previous window
-    tick(137999);
-    assert(requests.size() == 6);
+    tick(123000, true); // reopening an open window plays again
+    assert(requests.size() == 3);
+    tick(123001);
     tick(138000);
-    assert(requests.size() == 7);
+    assert(requests.size() == 3);
     tick(153000, true);
     tick(156000, true);
-    assert(requests.size() == 9); // due repeat, then a fresh window
+    assert(requests.size() == 4);
     tick(163000, true); // ten-second hold clears bonds and closes pairing
     tick(171000, true);
-    assert(requests.size() == 9 && !bluetoothAccess.pairingOpen());
+    assert(requests.size() == 4 && !bluetoothAccess.pairingOpen());
     tick(172000);
 
     const uint32_t start = 0xfffff000;
     tick(start, true);
     tick(start + 3000, true);
-    assert(requests.size() == 10);
-    for (unsigned repeat = 1; repeat <= 3; ++repeat) {
-        tick(start + 3000 + repeat * 15000 - 1);
-        assert(requests.size() == 9 + repeat);
-        tick(start + 3000 + repeat * 15000);
-        assert(requests.size() == 10 + repeat);
-    }
+    assert(requests.size() == 5);
+    for (uint32_t at = start + 4000; at != start + 63000; at += 1000) tick(at);
     tick(start + 63000);
-    assert(requests.size() == 13 && !bluetoothAccess.pairingOpen());
+    assert(requests.size() == 5 && !bluetoothAccess.pairingOpen());
 
     bluetoothAccess.ready = false; // migration/reset can refuse to open
     tick(100000, true);
     tick(103000, true);
     tick(118000);
-    assert(requests.size() == 13);
+    assert(requests.size() == 5);
 }
 } // namespace pairing_schedule
 

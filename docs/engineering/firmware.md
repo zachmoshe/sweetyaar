@@ -63,8 +63,8 @@ or animal sounds. Disabled or empty themes are not offered for playback.
 Startup-ready, persistent-error and pairing cues are stored separately in the
 firmware's read-only flash. Ready plays once after initialization; a startup
 fault plays Error instead. A first persistent runtime fault also plays Error
-once. Pairing plays when the physical gesture opens the window, then every
-15 seconds until the window closes or bonds are reset. The error cue
+once. Pairing plays once when the physical gesture opens the window; it does
+not repeat while the window stays open. The error cue
 can therefore play with no SD card. These cues use the effective local volume
 (including mute and the bedtime cap), briefly take over the speaker, and then
 return it to SD or Bluetooth audio. They do not disconnect Bluetooth or change

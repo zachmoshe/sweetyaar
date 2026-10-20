@@ -1173,8 +1173,6 @@ void reopenBluetoothForPairing(const char* reason) {
 }
 
 void pollBluetoothPairing() {
-    static constexpr uint32_t SOUND_INTERVAL_MS = 15000;
-    static uint32_t lastSoundAt = 0;
     const uint32_t now = millis();
     const auto action = pairingPolicy.update(now, buttons.isBothHeld(), buttons.areBothReleased());
     if (action == PairingPolicy::Action::Open) {
@@ -1196,9 +1194,7 @@ void pollBluetoothPairing() {
         Serial.println(persisted ? "[Pairing] Clearing all bonds" : "[Pairing] Bond reset storage error; access disabled");
     }
     const bool pairingOpen = bluetoothAccess.pairingOpen();
-    if (pairingOpen && (action == PairingPolicy::Action::Open ||
-                        now - lastSoundAt >= SOUND_INTERVAL_MS)) {
-        lastSoundAt = now;
+    if (pairingOpen && action == PairingPolicy::Action::Open) {
         playSystemSound(SystemSound::Pairing);
     }
     statusLed.setSignal(StatusSignal::Pairing, pairingOpen);

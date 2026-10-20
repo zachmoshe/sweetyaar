@@ -3,6 +3,9 @@
 Implementation branch: `codex/wav-mono-stereo`. The embedded ready/error/pairing
 cues build on this branch's mono/stereo playback implementation.
 
+Since changed: the 15-second pairing repeat was removed. Pairing now plays once
+when the gesture opens the window (see [firmware](firmware.md)).
+
 ## Host validation
 
 The initial cue implementation passed all 130 host tests and both firmware
