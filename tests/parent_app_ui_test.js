@@ -2019,6 +2019,63 @@ const tests = [
     assert.strictEqual(scansAfterReopen, scansAfterFirstOpen, "reopening settings must not re-scan");
     assert(els.settingsSongList.children.length >= 1, "cached songs should still render");
   `],
+  ["settings lists keep their rows across unrelated renders so taps are not lost", String.raw`
+    const ble = await connectWithFakeBle();
+    await els.openSettingsButton.click();
+    await waitForSettingsLoaded();
+    const themeRows = () => els.settingsThemeList.children;
+    const songRows = () => els.settingsSongList.children;
+    const firstTheme = themeRows()[0], firstSong = songRows()[0];
+    // Notifications render the whole app; unchanged lists must keep their nodes.
+    handleStatusUpdate("Idle");
+    ble.chars.charger.emit(bytesView([1, 4, 3, 0x60, 0, 1]));
+    assert.strictEqual(themeRows()[0], firstTheme, "theme rows must survive an unrelated render");
+    assert.strictEqual(songRows()[0], firstSong, "song rows must survive an unrelated render");
+
+    // The whole song row is the checkbox's label.
+    assert.strictEqual(firstSong.selector, "label");
+    const songBox = firstSong.children[0];
+    await songBox.change(false);
+    assert.strictEqual(state.settings.songs[0].enabled, false);
+    assert.strictEqual(songRows()[0].children[0].checked, false);
+
+    // A theme's checkbox sits in its own label; tapping it must not select the theme.
+    const selected = state.settings.selectedThemeId;
+    const other = themeRows().find((row) => row.dataset.themeId !== selected);
+    const hit = other.children[0];
+    assert(hit.classList.contains("settings-check-hit"));
+    await hit.click();
+    assert.strictEqual(state.settings.selectedThemeId, selected, "the checkbox tap must not select the theme");
+    await hit.children[0].change(false);
+    assert.strictEqual(state.settings.themes.find((t) => t.id === other.dataset.themeId).enabled, false);
+
+    // A refused change re-syncs the box with the real state.
+    const again = themeRows().find((row) => row.dataset.themeId === other.dataset.themeId).children[0].children[0];
+    state.busy = true;
+    await again.change(true);
+    const resynced = themeRows().find((row) => row.dataset.themeId === other.dataset.themeId).children[0].children[0];
+    assert.strictEqual(resynced.checked, false);
+    assert.strictEqual(resynced.disabled, true);
+    state.busy = false;
+  `],
+  ["song list shows a loading spinner while a theme's songs are scanned", String.raw`
+    await connectWithFakeBle();
+    await els.openSettingsButton.click();
+    await waitForSettingsLoaded();
+    const songs = state.settings.songs;
+    state.settings.songs = [];
+    state.settings.loading = true;
+    render();
+    const loader = els.settingsSongList.children[0];
+    assert.strictEqual(els.settingsSongList.children.length, 1);
+    assert(loader.classList.contains("settings-list-loading"));
+    assert(loader.children[0].classList.contains("spinner"));
+    assert.strictEqual(loader.children[1].textContent, "Loading songs…");
+    state.settings.songs = songs;
+    state.settings.loading = false;
+    render();
+    assert(!els.settingsSongList.children.some((c) => c.classList.contains("settings-list-loading")));
+  `],
   ["returning to remote refreshes the device clock", String.raw`
     const ble = await connectWithFakeBle();
     assert.strictEqual(els.deviceWatch.textContent, "Toy clock 21:05");

@@ -1628,7 +1628,8 @@
       line-height: 1.32;
     }
 
-    .settings-loading-banner {
+    .settings-loading-banner,
+    .settings-list-loading {
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1824,6 +1825,16 @@
       height: 20px;
     }
 
+    /* Fills the checkbox column plus the row padding and half the gap. */
+    .settings-check-hit {
+      display: grid;
+      place-items: center;
+      align-self: stretch;
+      min-height: 44px;
+      margin: -5px -4px;
+      cursor: pointer;
+    }
+
     .theme-row-name,
     .song-name {
       min-width: 0;
@@ -1928,6 +1939,7 @@
       min-height: 44px;
       border-radius: 12px;
       padding: 5px 4px;
+      cursor: pointer;
     }
 
     .song-row.disabled-row {
@@ -4306,7 +4318,16 @@
       }
     }
 
+    // Rebuilding a list mid-tap swaps the pressed checkbox and drops the tap, and
+    // every BLE notification renders, so lists rebuild only when their inputs change.
+    let settingsThemeListKey = "";
+    let settingsSongListKey = "";
+
     function renderSettingsThemes() {
+      const key = JSON.stringify([state.settings.themes, state.settings.selectedThemeId,
+        state.settings.loading, settingsBusy()]);
+      if (key === settingsThemeListKey) return;
+      settingsThemeListKey = key;
       els.settingsThemeList.replaceChildren();
 
       if (state.settings.loading && state.settings.themes.length === 0) {
@@ -4335,13 +4356,21 @@
 
         let checkbox;
         if (canDisable) {
-          checkbox = document.createElement("input");
-          checkbox.type = "checkbox";
-          checkbox.checked = !!theme.enabled;
-          checkbox.disabled = settingsBusy() || (!theme.disabledByUser && activeValid === 0);
-          checkbox.setAttribute("aria-label", `${theme.name || theme.id} enabled`);
+          const input = document.createElement("input");
+          input.type = "checkbox";
+          input.checked = !!theme.enabled;
+          input.disabled = settingsBusy() || (!theme.disabledByUser && activeValid === 0);
+          input.setAttribute("aria-label", `${theme.name || theme.id} enabled`);
+          input.addEventListener("change", () => {
+            settingsThemeListKey = "";  // re-sync the box if the change is refused
+            setThemeEnabled(theme.id, input.checked);
+            render();
+          });
+          // A larger tap target than the box; taps in it toggle instead of selecting the theme.
+          checkbox = document.createElement("label");
+          checkbox.className = "settings-check-hit";
           checkbox.addEventListener("click", (event) => event.stopPropagation());
-          checkbox.addEventListener("change", () => setThemeEnabled(theme.id, checkbox.checked));
+          checkbox.append(input);
         } else {
           checkbox = document.createElement("span");
           checkbox.className = "settings-checkbox-empty";
@@ -4368,7 +4397,8 @@
         shuffle.innerHTML = `<span class="button-glyph" aria-hidden="true">🔀</span>`;
         shuffle.addEventListener("click", (event) => {
           event.stopPropagation();
-          setThemeShuffle(theme.id, !theme.shuffle);
+          const current = state.settings.themes.find((item) => item.id === theme.id);
+          if (current) setThemeShuffle(theme.id, !current.shuffle);
         });
 
         row.append(checkbox, name, count, shuffle);
@@ -4393,6 +4423,10 @@
       els.settingsSongErrors.textContent = errorCount === 1
         ? "1 error in this theme"
         : `${errorCount} errors in this theme`;
+      const key = JSON.stringify([selectedTheme?.id ?? null, state.settings.songFilter, state.settings.songs,
+        state.settings.loading, settingsBusy()]);
+      if (key === settingsSongListKey) return;
+      settingsSongListKey = key;
       els.settingsSongList.replaceChildren();
 
       if (!selectedTheme) {
@@ -4404,7 +4438,18 @@
       }
 
       if (state.settings.loading && state.settings.songs.length === 0) {
-        return;  // the loading banner at the top shows progress
+        // The top banner is often scrolled out of view down here.
+        const loading = document.createElement("div");
+        loading.className = "settings-list-loading";
+        loading.setAttribute("role", "status");
+        const spinner = document.createElement("span");
+        spinner.className = "spinner";
+        spinner.setAttribute("aria-hidden", "true");
+        const label = document.createElement("span");
+        label.textContent = "Loading songs…";
+        loading.append(spinner, label);
+        els.settingsSongList.append(loading);
+        return;
       }
 
       if (filteredSongs.length === 0) {
@@ -4418,7 +4463,8 @@
       }
 
       for (const song of filteredSongs) {
-        const row = document.createElement("div");
+        // The whole row is the tap target for its checkbox.
+        const row = document.createElement("label");
         row.className = "song-row";
         row.classList.toggle("disabled-row", !song.enabled);
 
@@ -4427,7 +4473,11 @@
         checkbox.checked = !!song.enabled;
         checkbox.disabled = settingsBusy();
         checkbox.setAttribute("aria-label", `${song.file} enabled`);
-        checkbox.addEventListener("change", () => setSongEnabled(song.file, checkbox.checked));
+        checkbox.addEventListener("change", () => {
+          settingsSongListKey = "";  // re-sync the box if the change is refused
+          setSongEnabled(song.file, checkbox.checked);
+          render();
+        });
 
         const name = document.createElement("span");
         name.className = "song-name";
@@ -4463,7 +4513,7 @@
 
         row.append(checkbox, name, size, duration);
         if (!song.ok && song.error) {
-          const error = document.createElement("div");
+          const error = document.createElement("span");
           error.className = "song-error";
           error.textContent = song.error;
           row.append(error);

@@ -169,8 +169,12 @@ the **Save** button.
 | General | Device name, default local volume, and default song theme. |
 | Bedtime mode | Enable or disable the feature, choose its theme, set the daily window, and set its volume cap. |
 | Sleep | Enable automatic sleep and set the normal-idle, vibration-wake-idle, and connected-BLE-idle timeouts. |
-| Themes | Enable or disable song themes and turn shuffling on or off. |
-| Songs and animals | Inspect detected files and validation errors, and enable or disable individual recordings. |
+| Themes | Enable or disable song themes and turn shuffling on or off. Tapping a row selects the theme; its checkbox has its own enlarged tap area. |
+| Songs and animals | Inspect detected files and validation errors, and enable or disable individual recordings. Tapping anywhere on a song row toggles it. While a theme's songs are scanned, the list shows a loading spinner. |
+
+The theme and song lists are rebuilt only when their contents change, not on
+every Bluetooth notification; a rebuild between a finger's press and release
+would replace the pressed checkbox and silently drop the tap.
 
 Most saved settings live in `/config.json` or the relevant `metadata.json` file
 on the microSD card. The device name is stored in the ESP32's non-volatile
