@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <driver/rtc_io.h>
+#include <rom/ets_sys.h>
 
 #include "Config.h"
 
@@ -26,7 +27,7 @@ inline void setPeripheralPowerEnabled(bool enabled) {
 inline void enablePeripheralPower(uint32_t settleMs = 50) {
     setPeripheralPowerEnabled(true);
     if (settleMs > 0) {
-        delay(settleMs);
+        ets_delay_us(settleMs * 1000UL);  // ROM busy-wait: no flash access during inrush
     }
 }
 
