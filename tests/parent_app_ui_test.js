@@ -2058,6 +2058,36 @@ const tests = [
     assert.strictEqual(resynced.disabled, true);
     state.busy = false;
   `],
+  ["theme pickers keep their options across unrelated renders so taps are not lost", String.raw`
+    const ble = await connectWithFakeBle({ themes: [
+      { id: "classical", name: "Classical", enabled: true, canSetDefault: true, activeValid: 1,
+        credit: "[IMSLP](https://imslp.org) & more" },
+      { id: "nature", name: "Nature", enabled: true, canSetDefault: true, activeValid: 1 }
+    ], theme: "classical", config: { activeTheme: "classical", defaultTheme: "classical" }, songs: {} });
+    await els.themeTrigger.click();
+    const option = els.themeOptions.children[1];
+    const link = els.themeCredit.children[0];
+    handleStatusUpdate("Playing song - Classical / A.wav");
+    ble.chars.charger.emit(bytesView([1, 4, 3, 0x60, 0, 1]));
+    assert.strictEqual(els.themeOptions.children[1], option, "main-screen theme options must survive renders");
+    assert.strictEqual(els.themeCredit.children[0], link, "credit links must survive renders");
+    // A real change still rebuilds: choosing another theme moves the selection.
+    await option.click();
+    assertJsonEqual(ble.writes.theme, ["nature"]);
+    assert.strictEqual(els.themeOptions.children[1].getAttribute("aria-selected"), "true");
+    assert.strictEqual(els.themeCredit.hidden, true);
+
+    await els.openSettingsButton.click();
+    await waitForSettingsLoaded();
+    state.settings.defaultThemeOpen = true;
+    state.settings.bedtimeThemeOpen = true;
+    render();
+    const defaultOption = els.settingsDefaultThemeOptions.children[0];
+    const bedtimeOption = els.settingsBedtimeThemeOptions.children[0];
+    handleStatusUpdate("Idle");
+    assert.strictEqual(els.settingsDefaultThemeOptions.children[0], defaultOption);
+    assert.strictEqual(els.settingsBedtimeThemeOptions.children[0], bedtimeOption);
+  `],
   ["song list shows a loading spinner while a theme's songs are scanned", String.raw`
     await connectWithFakeBle();
     await els.openSettingsButton.click();

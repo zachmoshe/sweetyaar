@@ -4257,8 +4257,22 @@
       }
     }
 
+    // Rebuilding a list mid-tap swaps the pressed element and drops the tap, and
+    // every BLE notification renders, so lists rebuild only when their inputs change.
+    const listRenderKeys = new WeakMap();
+    function listUnchanged(container, inputs) {
+      const key = JSON.stringify(inputs);
+      if (listRenderKeys.get(container) === key) return true;
+      listRenderKeys.set(container, key);
+      return false;
+    }
+    function invalidateList(container) {
+      listRenderKeys.delete(container);
+    }
+
     function renderThemeOptions() {
       const options = themeOptions();
+      if (listUnchanged(els.themeOptions, [options, displayedThemeId(), controlsDisabled()])) return options;
       els.themeOptions.replaceChildren();
       for (const theme of options) {
         const button = document.createElement("button");
@@ -4282,6 +4296,7 @@
       els.settingsDefaultThemeTrigger.setAttribute("aria-expanded", state.settings.defaultThemeOpen ? "true" : "false");
       els.settingsDefaultThemeCard.classList.toggle("expanded", state.settings.defaultThemeOpen);
       els.settingsDefaultThemeOptions.hidden = !state.settings.defaultThemeOpen;
+      if (listUnchanged(els.settingsDefaultThemeOptions, [options, current, settingsBusy()])) return;
       els.settingsDefaultThemeOptions.replaceChildren();
 
       for (const theme of options) {
@@ -4304,6 +4319,8 @@
       els.settingsBedtimeThemeTrigger.setAttribute("aria-expanded", state.settings.bedtimeThemeOpen ? "true" : "false");
       els.settingsBedtimeThemeCard.classList.toggle("expanded", state.settings.bedtimeThemeOpen);
       els.settingsBedtimeThemeOptions.hidden = !state.settings.bedtimeThemeOpen;
+      if (listUnchanged(els.settingsBedtimeThemeOptions,
+        [options, current, settingsBusy(), state.settings.bedtimeEnabled])) return;
       els.settingsBedtimeThemeOptions.replaceChildren();
 
       for (const theme of options) {
@@ -4318,16 +4335,9 @@
       }
     }
 
-    // Rebuilding a list mid-tap swaps the pressed checkbox and drops the tap, and
-    // every BLE notification renders, so lists rebuild only when their inputs change.
-    let settingsThemeListKey = "";
-    let settingsSongListKey = "";
-
     function renderSettingsThemes() {
-      const key = JSON.stringify([state.settings.themes, state.settings.selectedThemeId,
-        state.settings.loading, settingsBusy()]);
-      if (key === settingsThemeListKey) return;
-      settingsThemeListKey = key;
+      if (listUnchanged(els.settingsThemeList, [state.settings.themes, state.settings.selectedThemeId,
+        state.settings.loading, settingsBusy()])) return;
       els.settingsThemeList.replaceChildren();
 
       if (state.settings.loading && state.settings.themes.length === 0) {
@@ -4362,7 +4372,7 @@
           input.disabled = settingsBusy() || (!theme.disabledByUser && activeValid === 0);
           input.setAttribute("aria-label", `${theme.name || theme.id} enabled`);
           input.addEventListener("change", () => {
-            settingsThemeListKey = "";  // re-sync the box if the change is refused
+            invalidateList(els.settingsThemeList);  // re-sync the box if the change is refused
             setThemeEnabled(theme.id, input.checked);
             render();
           });
@@ -4423,10 +4433,8 @@
       els.settingsSongErrors.textContent = errorCount === 1
         ? "1 error in this theme"
         : `${errorCount} errors in this theme`;
-      const key = JSON.stringify([selectedTheme?.id ?? null, state.settings.songFilter, state.settings.songs,
-        state.settings.loading, settingsBusy()]);
-      if (key === settingsSongListKey) return;
-      settingsSongListKey = key;
+      if (listUnchanged(els.settingsSongList, [selectedTheme?.id ?? null, state.settings.songFilter,
+        state.settings.songs, state.settings.loading, settingsBusy()])) return;
       els.settingsSongList.replaceChildren();
 
       if (!selectedTheme) {
@@ -4474,7 +4482,7 @@
         checkbox.disabled = settingsBusy();
         checkbox.setAttribute("aria-label", `${song.file} enabled`);
         checkbox.addEventListener("change", () => {
-          settingsSongListKey = "";  // re-sync the box if the change is refused
+          invalidateList(els.settingsSongList);  // re-sync the box if the change is refused
           setSongEnabled(song.file, checkbox.checked);
           render();
         });
@@ -4702,9 +4710,11 @@
       els.themeHelper.textContent = bedtimeModeActive() ? "☾ bedtime mode" : "";
       els.themeHelper.hidden = !bedtimeModeActive();
       const displayedTheme = remoteThemeOptions.find((theme) => theme.id === displayedThemeId());
-      els.themeCredit.replaceChildren();
       els.themeCredit.hidden = !displayedTheme?.credit;
-      if (displayedTheme?.credit) fillCredit(els.themeCredit, displayedTheme);
+      if (!listUnchanged(els.themeCredit, [displayedTheme?.credit || ""])) {
+        els.themeCredit.replaceChildren();
+        if (displayedTheme?.credit) fillCredit(els.themeCredit, displayedTheme);
+      }
       els.themeCard.classList.toggle("expanded", state.themeOpen && remoteThemeOptions.length > 0);
       els.themeTrigger.setAttribute("aria-expanded", state.themeOpen && remoteThemeOptions.length > 0 ? "true" : "false");
       els.themeOptions.hidden = !state.themeOpen || remoteThemeOptions.length === 0;
