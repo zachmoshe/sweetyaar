@@ -7,6 +7,7 @@ __pycache__/
 *.pyc
 tools/bt_smoke_logs/
 content/sd-card-template/**/*.wav
+content/extra-songs-themes/
 content/animal-sounds/build/
 **/.history/
 .claude/
