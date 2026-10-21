@@ -1,5 +1,7 @@
 #include "ContentCatalog.h"
+#include <dirent.h>
 #include <esp_heap_caps.h>
+#include <unistd.h>
 #include <utility>
 
 namespace ContentCatalog {
@@ -396,10 +398,59 @@ void sanitizeAttribution(CachedTheme& theme) {
     }
 }
 
-// Walk one theme directory exactly once: read its metadata, inspect every WAV
-// header, and fill the cached song list. Used for /songs themes and /animals.
+uint32_t elapsedMs(uint32_t startUs) {
+    return (micros() - startUs + 500U) / 1000U;
+}
+
+// Metadata files macOS Finder writes beside copied content. They are never
+// audio, and every extra directory entry slows listing, so they are deleted.
+bool isRemovableMacMetadata(const String& name) {
+    return name.startsWith("._") || name.equalsIgnoreCase(".DS_Store");
+}
+
+struct DirEntry {
+    String name;
+    bool isDir;
+};
+
+// Lists one directory through the POSIX VFS. Unlike File::openNextFile(), it
+// does not open each entry, which cost 11-23 ms per entry on the SD card.
+std::vector<DirEntry> listDirectory(const String& path, unsigned& removed) {
+    std::vector<DirEntry> entries;
+    std::vector<String> junk;
+    const String fsPath = String(SD_MOUNT_POINT) + path;
+    DIR* dir = opendir(fsPath.c_str());
+    if (dir == nullptr) return entries;
+    while (dirent* entry = readdir(dir)) {
+        const String name = entry->d_name;
+        const bool isDir = entry->d_type == DT_DIR;
+        if (!isDir && isRemovableMacMetadata(name)) {
+            junk.push_back(name);
+        } else {
+            entries.push_back({name, isDir});
+        }
+    }
+    closedir(dir);
+    for (const String& name : junk) {
+        if (unlink((fsPath + "/" + name).c_str()) == 0) {
+            removed++;
+        } else {
+            Serial.printf("[Catalog] Could not remove %s/%s\n", path.c_str(), name.c_str());
+        }
+    }
+    if (removed > 0) {
+        Serial.printf("[Catalog] Removed %u macOS metadata file(s) from %s\n", removed, path.c_str());
+    }
+    return entries;
+}
+
+// List one theme directory: read its metadata and record its WAV names. Headers
+// are checked later by checkNextSong() or at playback.
 void loadThemeContents(CachedTheme& theme, const String& themePath) {
+    const uint32_t themeStartUs = micros();
+    uint32_t stepUs = micros();
     JsonDocument meta = readThemeMetadata(themePath);
+    const uint32_t metaMs = elapsedMs(stepUs);
     const char* displayName = meta["name"] | "";
     theme.name = (displayName && displayName[0] != '\0')
         ? String(displayName)
@@ -408,31 +459,49 @@ void loadThemeContents(CachedTheme& theme, const String& themePath) {
     theme.credit = String(meta["attribution"] | "");
     sanitizeAttribution(theme);
 
-    File dir = SD.open(themePath.c_str());
-    if (!dir || !dir.isDirectory()) {
-        return;
-    }
-    while (true) {
-        File entry = dir.openNextFile();
-        if (!entry) break;
-        String fileName = baseNameOf(String(entry.name()));
-        if (!entry.isDirectory() && !isIgnoredFilesystemEntry(fileName) && isWavName(fileName)) {
-            CachedSong song;
-            song.file = fileName;
-            WavInfo wav = inspectWav(entry);
-            song.sizeBytes = wav.sizeBytes;
-            song.durationMs = wav.durationMs;
-            song.supported = wav.supported;
-            if (!wav.supported) {
-                song.error = wav.error;
-            }
-            song.disabled = isSongDisabled(meta, fileName);
-            theme.songs.push_back(std::move(song));
+    stepUs = micros();
+    unsigned removed = 0;
+    const std::vector<DirEntry> entries = listDirectory(themePath, removed);
+    const uint32_t listMs = elapsedMs(stepUs);
+    for (const DirEntry& entry : entries) {
+        if (entry.isDir || isIgnoredFilesystemEntry(entry.name) || !isWavName(entry.name)) {
+            continue;
         }
-        entry.close();
+        CachedSong song;
+        song.file = entry.name;
+        song.supported = true;  // until its header is checked
+        song.disabled = isSongDisabled(meta, entry.name);
+        theme.songs.push_back(std::move(song));
     }
-    dir.close();
     sortSongsByName(theme.songs);
+    Serial.printf("[Catalog] Scan %s: entries=%u wav=%u removed=%u metadata=%lums list=%lums "
+                  "total=%lums\n",
+                  theme.id.c_str(), unsigned(entries.size()), unsigned(theme.songs.size()), removed,
+                  static_cast<unsigned long>(metaMs), static_cast<unsigned long>(listMs),
+                  static_cast<unsigned long>(elapsedMs(themeStartUs)));
+}
+
+// Songs newly found unplayable since the last takeUnplayableReport().
+unsigned g_unplayableCount = 0;
+String g_firstUnplayable;
+
+// Background header checking, for the diagnostic summary.
+unsigned g_checkedCount = 0;
+uint32_t g_checkBusyUs = 0;
+uint32_t g_checkStartMs = 0;
+unsigned g_checkUnplayable = 0;
+bool g_checkSummaryLogged = false;
+
+CachedSong* findSongByPath(const String& path) {
+    for (CachedTheme& theme : g_themes) {
+        const String base = pathForThemeId(theme.id) + "/";
+        if (!path.startsWith(base)) continue;
+        const String file = path.substring(base.length());
+        for (CachedSong& song : theme.songs) {
+            if (song.file == file) return &song;
+        }
+    }
+    return nullptr;
 }
 
 CachedTheme* mutableFindTheme(const String& themeId) {
@@ -451,27 +520,27 @@ void buildCatalog() {
     g_firstOversizedEntry = "";
     g_catalogReady = false;
 
+    uint32_t stepUs = micros();
     JsonDocument config = readJsonFile(SD_CONFIG_FILE);
+    Serial.printf("[Catalog] Scan config.json=%lums\n",
+                  static_cast<unsigned long>(elapsedMs(stepUs)));
 
-    File root = SD.open(SONGS_ROOT);
-    if (root && root.isDirectory()) {
-        while (true) {
-            File entry = root.openNextFile();
-            if (!entry) break;
-            String id = baseNameOf(String(entry.name()));
-            bool isDir = entry.isDirectory();
-            entry.close();
-            if (!isDir || isIgnoredFilesystemEntry(id)) {
-                continue;
-            }
-            CachedTheme theme;
-            theme.id = id;
-            theme.special = false;
-            theme.disabledByUser = nameInJsonArray(config["disabledThemes"], id);
-            loadThemeContents(theme, String(SONGS_ROOT) + "/" + id);
-            g_themes.push_back(std::move(theme));
+    stepUs = micros();
+    unsigned rootRemoved = 0;
+    const std::vector<DirEntry> rootEntries = listDirectory(SONGS_ROOT, rootRemoved);
+    Serial.printf("[Catalog] Scan %s: entries=%u removed=%u list=%lums\n", SONGS_ROOT,
+                  unsigned(rootEntries.size()), rootRemoved,
+                  static_cast<unsigned long>(elapsedMs(stepUs)));
+    for (const DirEntry& entry : rootEntries) {
+        if (!entry.isDir || isIgnoredFilesystemEntry(entry.name)) {
+            continue;
         }
-        root.close();
+        CachedTheme theme;
+        theme.id = entry.name;
+        theme.special = false;
+        theme.disabledByUser = nameInJsonArray(config["disabledThemes"], entry.name);
+        loadThemeContents(theme, String(SONGS_ROOT) + "/" + entry.name);
+        g_themes.push_back(std::move(theme));
     }
 
     // Sort song themes by id (Animals is appended after, so it stays last).
@@ -505,6 +574,64 @@ void buildCatalog() {
                   static_cast<unsigned>(g_themes.size()), totalSongs,
                   heap_caps_get_free_size(MALLOC_CAP_8BIT),
                   heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+}
+
+bool recordWavCheck(const String& path, const WavInfo& info) {
+    CachedSong* song = findSongByPath(path);
+    if (song == nullptr) return false;
+    const bool wasPlayable = song->supported;
+    song->checked = true;
+    song->sizeBytes = info.sizeBytes;
+    song->durationMs = info.supported ? info.durationMs : 0;
+    song->supported = info.supported;
+    song->error = info.supported ? String() : info.error;
+    if (!wasPlayable || info.supported) return false;
+    Serial.printf("[Catalog] Cannot play %s: %s\n", path.c_str(), song->error.c_str());
+    if (g_unplayableCount++ == 0) {
+        g_firstUnplayable = utf8Prefix(song->file, 60) + " (" + song->error + ")";
+    }
+    return true;
+}
+
+bool checkNextSong() {
+    for (CachedTheme& theme : g_themes) {
+        for (CachedSong& song : theme.songs) {
+            if (song.checked) continue;
+            if (g_checkedCount == 0) g_checkStartMs = millis();
+            const uint32_t startUs = micros();
+            const String path = pathForThemeId(theme.id) + "/" + song.file;
+            WavInfo info;
+            File file = SD.open(path.c_str());
+            if (file) {
+                info = inspectWav(file);
+                file.close();
+            } else {
+                info.error = "Cannot open file";
+            }
+            if (recordWavCheck(path, info)) g_checkUnplayable++;
+            g_checkBusyUs += micros() - startUs;
+            g_checkedCount++;
+            return true;
+        }
+    }
+    if (g_checkedCount > 0 && !g_checkSummaryLogged) {
+        g_checkSummaryLogged = true;
+        Serial.printf("[Catalog] Header check: %u files, busy=%lums over %lums, %u unplayable\n",
+                      g_checkedCount, static_cast<unsigned long>((g_checkBusyUs + 500U) / 1000U),
+                      static_cast<unsigned long>(millis() - g_checkStartMs), g_checkUnplayable);
+    }
+    return false;
+}
+
+bool takeUnplayableReport(String& message) {
+    if (g_unplayableCount == 0) return false;
+    message = g_unplayableCount == 1
+        ? String("Can't play ") + g_firstUnplayable + "."
+        : String(g_unplayableCount) + " songs can't be played, e.g. " + g_firstUnplayable + ".";
+    message += " See the song list in Settings.";
+    g_unplayableCount = 0;
+    g_firstUnplayable = "";
+    return true;
 }
 
 bool catalogReady() { return g_catalogReady; }

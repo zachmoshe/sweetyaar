@@ -219,6 +219,7 @@ static constexpr bool ENABLE_BLE_PARENT_SERVICE = true;
 // ---------------------------------------------------------------------------
 // SD file paths
 // ---------------------------------------------------------------------------
+static constexpr char SD_MOUNT_POINT[] = "/sd";  // VFS prefix for POSIX directory listing
 static constexpr char SD_CONFIG_FILE[] = "/config.json";
 static constexpr char SONGS_ROOT[]    = "/songs";
 static constexpr char ANIMALS_PATH[]  = "/animals";

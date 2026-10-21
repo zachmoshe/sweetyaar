@@ -44,21 +44,22 @@ struct ThemeStats {
 // ---------------------------------------------------------------------------
 // In-RAM catalog
 //
-// The SD card is read exactly once, at boot, into these structures; every
-// other code path (playback file lists, BLE theme list, settings scans) is
-// served from RAM. Audio is 44.1 kHz / 16-bit PCM, mono or stereo. The per-song
-// record keeps the duration calculated from the file's channel count, without
-// retaining format fields; playback re-reads the header. Edits flip flags in
-// place; the catalog is rebuilt only on reboot, because the card is inaccessible
-// while the toy is in use.
+// At boot the SD folders are only listed (names, no file opens) into these
+// structures; every other code path (playback file lists, BLE theme list,
+// settings scans) is served from RAM. WAV headers are checked afterwards, one
+// file at a time while the toy is idle, and again whenever a file is played;
+// each check fills in size, duration and playability. Audio is 44.1 kHz /
+// 16-bit PCM, mono or stereo. Edits flip flags in place; the catalog is rebuilt
+// only on reboot, because the card is inaccessible while the toy is in use.
 // ---------------------------------------------------------------------------
 struct CachedSong {
     String   file;             // filename (basename), no directory
     String   error;            // diagnostic for the UI; empty when supported
-    uint32_t sizeBytes = 0;
+    uint32_t sizeBytes = 0;    // 0 until the header has been checked
     uint32_t durationMs = 0;
     bool     supported = false;  // playable: PCM 44.1 kHz / 16-bit / mono or stereo
     bool     disabled  = false;  // parent-disabled via metadata.json
+    bool     checked   = false;  // header inspected since boot
 };
 
 struct CachedTheme {
@@ -80,9 +81,16 @@ struct CachedTheme {
     }
 };
 
-// Build (or rebuild) the whole catalog with a single pass over the SD card.
-// Call once at boot after SD.begin().
+// Build (or rebuild) the whole catalog by listing the SD folders. Songs are
+// assumed playable until checked. Call once at boot after SD.begin().
 void buildCatalog();
+// Check one not-yet-checked song header; false once every song is checked.
+bool checkNextSong();
+// Store a header check of a catalog path such as "/songs/<theme>/<file>".
+// Returns true when the song is newly found to be unplayable.
+bool recordWavCheck(const String& path, const WavInfo& info);
+// Message for songs newly found unplayable since the last call, if any.
+bool takeUnplayableReport(String& message);
 bool catalogReady();
 bool validThemeId(const String& id);
 bool themeEntryFits(const CachedTheme& theme);

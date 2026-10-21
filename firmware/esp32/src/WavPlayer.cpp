@@ -9,7 +9,7 @@ WavPlayer::WavPlayer(VolumeStream& output) : _output(output), _pcmOutput(output)
 // ---------------------------------------------------------------------------
 bool WavPlayer::begin() {
     SPI.begin(PIN_SD_SCK, PIN_SD_MISO, PIN_SD_MOSI, PIN_SD_CS);
-    if (!SD.begin(PIN_SD_CS, SPI, SD_SPI_FREQUENCY_HZ, "/sd", SD_MAX_OPEN_FILES)) {
+    if (!SD.begin(PIN_SD_CS, SPI, SD_SPI_FREQUENCY_HZ, SD_MOUNT_POINT, SD_MAX_OPEN_FILES)) {
         Serial.println("[WavPlayer] SD init failed");
         return false;
     }
@@ -181,10 +181,14 @@ bool WavPlayer::openFile(const String& path) {
     if (!_sdFile) {
         _currentPath = "";
         Serial.printf("[WavPlayer] Cannot open: %s\n", path.c_str());
+        ContentCatalog::WavInfo missing;
+        missing.error = "Cannot open file";
+        ContentCatalog::recordWavCheck(path, missing);
         return false;
     }
 
     ContentCatalog::WavInfo wavInfo = ContentCatalog::inspectWav(_sdFile);
+    ContentCatalog::recordWavCheck(path, wavInfo);
     if (wavInfo.sizeBytes < 44) {
         Serial.printf("[WavPlayer] Skipping too-small WAV: %s (%u bytes)\n",
                       path.c_str(), static_cast<unsigned>(_sdFile.size()));

@@ -139,6 +139,7 @@ void handleBleCommand(uint8_t command);
 void publishBleValues();
 void sendNotice(const String& severity, const String& message);
 void notifyPlaybackFailure(bool animal);
+void serviceSongChecks();
 void playSong();
 void playNextSong();
 void playAnimal();
@@ -485,6 +486,7 @@ void loop() {
     if (ENABLE_BLE_PARENT_SERVICE) {
         bleService.pollAdvertising(!btLinkConnected || millis() - btConnectedAtMs >= BT_SETTLE_MS);
     }
+    serviceSongChecks();
     statusLed.service(millis());
     pollIdleSleep();
 
@@ -1727,6 +1729,24 @@ void notifyPlaybackFailure(bool animal) {
         sendNotice("warn", "No animal sounds on the card.");
     } else {
         sendNotice("warn", "No songs in this theme.");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// serviceSongChecks() — check one WAV header per loop while nothing plays, and
+// tell the app (at most every 2 s) about songs found unplayable here or at
+// playback.
+// ---------------------------------------------------------------------------
+void serviceSongChecks() {
+    static uint32_t lastNoticeMs = 0;
+    if (sdReady && sm.currentState() == State::IDLE && wavPlayer.isIdle() &&
+        !systemAudio.active() && !btLinkConnected) {
+        ContentCatalog::checkNextSong();
+    }
+    String message;
+    if (millis() - lastNoticeMs >= 2000 && ContentCatalog::takeUnplayableReport(message)) {
+        lastNoticeMs = millis();
+        sendNotice("warn", message);
     }
 }
 

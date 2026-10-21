@@ -90,10 +90,21 @@ Bluetooth compatibility. Files are streamed from the card rather than loading
 a whole recording into memory. Playback reads the validated WAV data section
 directly, so RIFF headers and metadata are not sent to the speaker. The channel
 adapter uses a fixed 512-byte buffer without per-file decoder allocations.
-At boot it scans the content once, validates the WAV files, and builds an
-in-memory catalog used by playback and the parent app. Files added or removed
-manually are therefore picked up after a restart; changes made through the app
-also update the live catalog.
+At boot it lists the content folders once, without opening any WAV file, and
+builds an in-memory catalog used by playback and the parent app; every listed
+WAV is assumed playable. Opening each entry used to take 11–23 ms per entry,
+about 4.7 s for a 106-song card. While the toy is idle (no local playback,
+system sound, or Bluetooth audio connection) the main loop then checks one WAV
+header per pass, filling in each song's size, duration, and playability, and
+playback checks the header again whenever it opens a file. A song found
+unplayable is logged as `[Catalog] Cannot play <path>: <reason>`, dropped from
+playlists, shown with its error in the app's song list, and reported to the
+app as a warning notice (at most one notice every 2 s, naming the first song
+and the count). Until a song is checked, the app shows its size and duration
+as unknown. The listing deletes macOS Finder metadata files (`._*` and
+`.DS_Store`) it finds in `/songs`, its theme folders, and `/animals`, so they
+cost time only once. Files added or removed manually are picked up after a
+restart; changes made through the app also update the live catalog.
 
 The SD mount permits two simultaneous regular files: one for WAV playback and
 one for settings operations, which open their read, write, and verification files

@@ -53,6 +53,7 @@ int wavChannels;
 
 namespace ContentCatalog {
 #include "wav_inspect.inc"
+bool recordWavCheck(const String&, const WavInfo&) { return false; }
 }
 
 #define Serial firmwareSerial
