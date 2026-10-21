@@ -92,6 +92,10 @@ explicitly says to reuse an existing branch or worktree (or to work on `main`).
 
 ## Hardware lessons
 
+- Never leave the debugger's six-pin cable on a board while the debugger has no
+  USB power: the board then feeds the debugger's LED through `3V3_REF` and its
+  unpowered CH340C through `UART_TXD`. Either power both or remove the cable
+  (see the programming-interface rules in hardware.md).
 - Bench setup: ESP32 on stable external 5 V with a data-capable USB cable for
   serial; common ground between supply, ESP32, SD module and amp. A power-only
   cable or hub causes confusing monitor/reset behavior, and a long USB power
