@@ -258,7 +258,6 @@ void setup() {
     pinMode(PIN_AMP_MUTE, OUTPUT);
     setAmpMuted(true);
 
-    delay(500);
     Serial.println("\n=== SweetYaar Boot ===");
     Serial.printf("[Audio] GPIO%d mute is active-%s\n",
                   PIN_AMP_MUTE,

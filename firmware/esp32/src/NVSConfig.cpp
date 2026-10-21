@@ -43,7 +43,10 @@ void NVSConfig::setBtName(const String& name) {
 
 String NVSConfig::readDeviceConfigJson() const {
     _prefs.begin(NVS_NAMESPACE, true);
-    String json = _prefs.getString(NVS_KEY_DEVICE_CONFIG, "");
+    // getString() logs an error for a missing key; it exists only after a rename.
+    String json = _prefs.isKey(NVS_KEY_DEVICE_CONFIG)
+        ? _prefs.getString(NVS_KEY_DEVICE_CONFIG, "")
+        : String();
     _prefs.end();
     return json;
 }

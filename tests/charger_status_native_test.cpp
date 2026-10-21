@@ -110,10 +110,6 @@ void testEachStatusBitChangesTheSnapshot() {
     struct Case { unsigned reg; uint8_t bit; const char* field; const char* value; };
     const Case cases[] = {
         {0, 0x80, "TS_OPEN_STAT", "ACTIVE"},
-        {0, 0x10, "ILIM_ACTIVE_STAT", "ACTIVE"},
-        {0, 0x08, "VDPPM_ACTIVE_STAT", "ACTIVE"},
-        {0, 0x04, "VINDPM_ACTIVE_STAT", "ACTIVE"},
-        {0, 0x02, "THERMREG_ACTIVE_STAT", "ACTIVE"},
         {0, 0x01, "VIN_PGOOD_STAT", "NO_VALID_INPUT"},
         {1, 0x80, "VIN_OVP_STAT", "ACTIVE"},
         {1, 0x40, "BUVLO_STAT", "ACTIVE"},
@@ -142,14 +138,34 @@ void testEachStatusBitChangesTheSnapshot() {
     assert(Serial.output.empty());
 }
 
+void testLimitBitsDoNotLog() {
+    for (uint8_t bit : {0x10, 0x08, 0x04, 0x02}) {
+        Fixture f;
+        Wire.registers[0] ^= bit;
+        f.interruptRead();
+        assert(Serial.output.empty());
+        assert(f.charger.snapshot().conditions != 0);
+        Wire.registers[0] ^= bit;
+        f.interruptRead();
+        assert(Serial.output.empty());
+    }
+    Fixture f;
+    for (uint8_t bit : {0x40, 0x20, 0x10, 0x08}) {
+        Wire.registers[2] = bit;
+        f.interruptRead();
+        assert(Serial.output.empty());
+        assert(Wire.registers[2] == 0);
+    }
+}
+
 void testEventFlagsAreSeparateFromState() {
     Fixture f;
     const char* flags[] = {
         "BAT_OCP_FAULT", "BUVLO_FAULT_FLAG", "VIN_OVP_FAULT_FLAG",
-        "THERMREG_ACTIVE_FLAG", "VINDPM_ACTIVE_FLAG", "VDPPM_ACTIVE_FLAG",
-        "ILIM_ACTIVE_FLAG", "TS_FAULT",
+        nullptr, nullptr, nullptr, nullptr, "TS_FAULT",
     };
     for (unsigned bit = 0; bit < 8; ++bit) {
+        if (flags[bit] == nullptr) continue;
         // Even repeated reports are events, never state transitions.
         for (unsigned repeat = 0; repeat < 2; ++repeat) {
             Wire.registers[2] = static_cast<uint8_t>(1U << bit);
@@ -173,7 +189,10 @@ void testEventFlagsAreSeparateFromState() {
     Wire.registers[2] = 0xFF;
     f.interruptRead();
     assert(count("[Charger state]") == 1 && count("[Charger events]") == 1);
-    for (const char* flag : flags) assert(contains(flag));
+    for (const char* flag : flags) {
+        if (flag != nullptr) assert(contains(flag));
+    }
+    assert(!contains("ILIM_ACTIVE_FLAG") && !contains("THERMREG_ACTIVE_FLAG"));
 }
 
 void testReservedAndUnusedWakeBitsAppearOnlyInRawLog() {
@@ -408,6 +427,7 @@ void testLocalTimeLogging() {
 int main() {
     testChargeAndTemperatureNames();
     testEachStatusBitChangesTheSnapshot();
+    testLimitBitsDoNotLog();
     testEventFlagsAreSeparateFromState();
     testReservedAndUnusedWakeBitsAppearOnlyInRawLog();
     testPollScheduling();

@@ -26,6 +26,11 @@ constexpr uint8_t REG_MASK_ID = 0x0C;
 // STAT1 contributes VIN OVP, battery UVLO, temperature zone, and the safety
 // timer indication. Reserved and TS/MR pushbutton event bits are not state.
 constexpr uint8_t STAT1_STATE_MASK = 0xDC;
+// ILIM, VDPPM, VINDPM, and thermal regulation toggle continuously while the
+// charger runs at its input limit. They stay in the BLE snapshot but do not
+// trigger serial logs.
+constexpr uint8_t STAT0_LIMIT_MASK = 0x1E;
+constexpr uint8_t FLAG0_LIMIT_MASK = 0x78;
 
 // Production policy, encoded directly from the BQ25186 register map:
 // 4.20 V cell, 1.00 A charge, 10% termination, 4.5 V VINDPM, 100 C IC
@@ -93,6 +98,7 @@ const char* activeStateName(bool active) {
 }
 
 void logEvents(uint8_t flags, const char* timestamp) {
+    flags &= static_cast<uint8_t>(~FLAG0_LIMIT_MASK);
     if (flags == 0) {
         return;
     }
@@ -100,13 +106,9 @@ void logEvents(uint8_t flags, const char* timestamp) {
     // it visible separately: a transient may be over before STAT is read and
     // BAT_OCP has no equivalent live bit. A persistent fault can reassert flags,
     // so another line is not necessarily another distinct physical event.
-    Serial.printf("[Charger events] time=%s%s%s%s%s%s%s%s%s\n",
+    Serial.printf("[Charger events] time=%s%s%s%s%s\n",
                   timestamp,
                   (flags & 0x80U) ? " TS_FAULT" : "",
-                  (flags & 0x40U) ? " ILIM_ACTIVE_FLAG" : "",
-                  (flags & 0x20U) ? " VDPPM_ACTIVE_FLAG" : "",
-                  (flags & 0x10U) ? " VINDPM_ACTIVE_FLAG" : "",
-                  (flags & 0x08U) ? " THERMREG_ACTIVE_FLAG" : "",
                   (flags & 0x04U) ? " VIN_OVP_FAULT_FLAG" : "",
                   (flags & 0x02U) ? " BUVLO_FAULT_FLAG" : "",
                   (flags & 0x01U) ? " BAT_OCP_FAULT" : "");
@@ -379,15 +381,20 @@ bool BQ25186Charger::readStatus() {
     char timestamp[20];
     formatLogTime(timestamp);
 
-    if (!_hasLastState || stat0 != _lastStat0 || stat1 != _lastStat1 ||
-        flags != _lastFlags || pgLevel != _lastPgLevel) {
+    const uint8_t stat0Logged = stat0 & static_cast<uint8_t>(~STAT0_LIMIT_MASK);
+    const uint8_t lastStat0Logged = _lastStat0 & static_cast<uint8_t>(~STAT0_LIMIT_MASK);
+    const uint8_t flagsLogged = flags & static_cast<uint8_t>(~FLAG0_LIMIT_MASK);
+    const uint8_t lastFlagsLogged = _lastFlags & static_cast<uint8_t>(~FLAG0_LIMIT_MASK);
+
+    if (!_hasLastState || stat0Logged != lastStat0Logged || stat1 != _lastStat1 ||
+        flagsLogged != lastFlagsLogged || pgLevel != _lastPgLevel) {
         Serial.printf("[Charger registers] time=%s STAT0=0x%02X STAT1=0x%02X "
                       "FLAG0=0x%02X PG=%s\n",
                       timestamp, stat0, stat1, flags,
                       pgLevel == 0 ? "VALID_INPUT" : "NO_VALID_INPUT");
     }
 
-    if (!_hasLastState || stat0 != _lastStat0 ||
+    if (!_hasLastState || stat0Logged != lastStat0Logged ||
         stat1State != (_lastStat1 & STAT1_STATE_MASK) ||
         pgLevel != _lastPgLevel) {
         Serial.printf("[Charger state] time=%s CHARGE_STATUS=%s TEMP_STATUS=%s "

@@ -370,10 +370,14 @@ by the parent app (also retained through deep sleep). Before synchronization
 on a cold boot, they print `time=UNKNOWN`.
 
 Serial prints `[Charger registers] time=<local date and time> STAT0=0x.. STAT1=0x.. FLAG0=0x.. PG=...`
-on the first complete successful read, when any of the three full register bytes
+on the first complete successful read, when any of the three register bytes
 or the physical `/PG` input changes, and after recovery from a failed read.
 The hexadecimal bytes preserve every bit, including reserved/wake bits and
 `FLAG0` transitions back to zero. Incomplete reads do not print a register snapshot.
+The input-current, DPPM, VINDPM, and thermal-regulation bits in `STAT0` and
+`FLAG0` are excluded from these change checks: they toggle continuously while
+the charger runs at its input limit. They still appear in any printed snapshot
+and in the BLE charger conditions.
 
 Serial also prints a complete `[Charger state] time=<local date and time> ...`
 snapshot on the first successful read, whenever a reported field changes, and
@@ -391,9 +395,8 @@ distinguish. Limiting/fault status uses `ACTIVE`/`INACTIVE`; input power uses
 not a measured battery temperature.
 
 `FLAG0` changes appear in the raw register log without triggering the decoded
-state log. Nonzero flags also produce a separate `[Charger events]` line listing
-`TS_FAULT`, `ILIM_ACTIVE_FLAG`, `VDPPM_ACTIVE_FLAG`, `VINDPM_ACTIVE_FLAG`,
-`THERMREG_ACTIVE_FLAG`, `VIN_OVP_FAULT_FLAG`, `BUVLO_FAULT_FLAG`, and/or
+state log. Nonzero fault flags also produce a separate `[Charger events]` line
+listing `TS_FAULT`, `VIN_OVP_FAULT_FLAG`, `BUVLO_FAULT_FLAG`, and/or
 `BAT_OCP_FAULT`. This preserves evidence of short events that may have ended
 before the live status read, including battery overcurrent, which has no
 separate live status bit. Reasserted flags do not necessarily mean a new event.
