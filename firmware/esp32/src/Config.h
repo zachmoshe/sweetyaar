@@ -57,8 +57,8 @@ static constexpr int PIN_PERIPH_PWR_EN = 13;  // SD, battery-sense, and 5 V shar
 // pulse ends early in the converter's current-limit ramp (~321 us enable delay,
 // ~224 us ramp, typical), so C_AMP3 charges in small low-current steps. Tune
 // with a scope on 5V_PERIPH_SW and SYS; see docs/engineering/hardware.md.
-static constexpr uint32_t PERIPH_5V_PRECHARGE_PULSES = 60;
-static constexpr uint32_t PERIPH_5V_PRECHARGE_ON_US = 400;
+static constexpr uint32_t PERIPH_5V_PRECHARGE_PULSES = 80;
+static constexpr uint32_t PERIPH_5V_PRECHARGE_ON_US = 350;
 static constexpr uint32_t PERIPH_5V_PRECHARGE_OFF_US = 1500;
 
 // --- Battery / BQ25186 charger ---------------------------------------------
