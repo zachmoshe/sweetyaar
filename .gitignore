@@ -30,3 +30,6 @@ content/animal-sounds/build/
 # hardware/mainboard/releases/<revision>/ and remain tracked.
 hardware/mainboard/fab/
 hardware/mainboard/output/
+
+# Local notes, not tracked
+docs/backlog.md
