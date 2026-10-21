@@ -45,13 +45,13 @@ config.json schema:
   {
     "schemaVersion": 2,
     "defaultVolumePct": 75,
-    "defaultTheme": "lullabies",
+    "defaultTheme": "children-songs",
     "disabledThemes": [],
     "bedtime": {
       "enabled": true,
       "startTime": "18:30",
       "endTime": "06:30",
-      "theme": "lullabies",
+      "theme": "classical-music",
       "volumeCapPct": 45
     },
     "sleep": {

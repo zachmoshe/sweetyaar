@@ -48,7 +48,7 @@ def test_sd_template_has_versioned_sleep_config() -> None:
     config = json.loads(CONFIG_PATH.read_text())
     assert config["schemaVersion"] == 2
     assert config["defaultVolumePct"] == 75
-    assert config["defaultTheme"] == "lullabies"
+    assert config["defaultTheme"] == "children-songs"
     assert set(config["sleep"]) == {
         "enabled",
         "normalIdleSec",
@@ -59,7 +59,7 @@ def test_sd_template_has_versioned_sleep_config() -> None:
         "enabled": True,
         "startTime": "18:30",
         "endTime": "06:30",
-        "theme": "lullabies",
+        "theme": "classical-music",
         "volumeCapPct": 45,
     }
 
