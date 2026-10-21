@@ -51,6 +51,16 @@ static constexpr int PIN_BTN2       = 33;  // Button 2: Animals
 static constexpr int PIN_VIB_WAKE   = 27;  // Externally biased NC vibration switch to GND; wake HIGH
 static constexpr int PIN_PERIPH_PWR_EN = 13;  // SD, battery-sense, and 5 V shared enable
 
+// Pulsed 5 V soft start. Held HIGH from the start, the TPS63802 charges the
+// 470 uF C_AMP3 at its full current limit and the battery current exceeds the
+// BQ25186 3.125 A BAT_OCP (its maximum setting), which disconnects SYS. Each
+// pulse ends early in the converter's current-limit ramp (~321 us enable delay,
+// ~224 us ramp, typical), so C_AMP3 charges in small low-current steps. Tune
+// with a scope on 5V_PERIPH_SW and SYS; see docs/engineering/hardware.md.
+static constexpr uint32_t PERIPH_5V_PRECHARGE_PULSES = 60;
+static constexpr uint32_t PERIPH_5V_PRECHARGE_ON_US = 400;
+static constexpr uint32_t PERIPH_5V_PRECHARGE_OFF_US = 1500;
+
 // --- Battery / BQ25186 charger ---------------------------------------------
 // GPIO34/35 are input-only and use external 10 kOhm pull-ups to 3V3_AON.
 // GPIO4 drives the base of the external /CE pull-down transistor: HIGH turns

@@ -756,7 +756,9 @@ sound, serving a Bluetooth stream, or locked by Quiet time. Events from the
 buttons, BLE, the audio player, and Bluetooth callbacks all pass through that
 state model so two audio sources cannot take control at the same time.
 
-At startup, `main.cpp` initializes the wake state and peripheral power, loads
+At startup, `main.cpp` initializes the wake state and peripheral power (a
+pulsed precharge of the 5 V bulk capacitor, then `PERIPH_PWR_EN` held HIGH;
+see `C_AMP3` in [hardware.md](hardware.md)), loads
 the device name, prepares the buttons and audio output, starts Bluetooth,
 mounts and scans the SD card, and finally starts the BLE parent service. Its
 main loop then polls controls, advances WAV playback, processes state changes,

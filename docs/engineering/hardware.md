@@ -224,7 +224,8 @@ transient limits are revalidated and every new signal crossing from an
 always-powered domain obeys the unpowered-domain rules below.
 
 GPIO13, named `PERIPH_PWR_EN`, is the shared active-HIGH enable for both AP2281
-instances and the 5 V TPS63802. The firmware drives it HIGH during boot. Before
+instances and the 5 V TPS63802. The firmware drives it HIGH during boot, after
+the pulsed `C_AMP3` precharge described with that capacitor. Before
 sleeping, firmware stops playback, mutes the amplifier, closes SD/SPI/I2S, changes
 peripheral signal pins to high-impedance inputs, drives `PERIPH_PWR_EN` LOW, and
 enables RTC hold so the pin stays LOW while the main CPU sleeps.
@@ -470,6 +471,25 @@ after assembly; **it is populated in the completed Rev A board**. Its polarity
 must be observed. This capacitor is retained because the prototype showed
 resets during loud playback without local bulk capacitance. The DNP flag is an
 assembly-method marker, not a decision to omit the capacitor from final use.
+
+`C_AMP3` cannot be charged by simply enabling the 5 V converter. On Rev A with
+battery power only, a held-HIGH enable made the TPS63802 charge `C_AMP3` at its
+full current limit (about 3.1 A measured into the capacitor). The battery
+current rose with the capacitor voltage and crossed the BQ25186 battery
+overcurrent limit (`IBAT_OCP`, 3.125 A ±18%, already the maximum setting) when
+`5V_PERIPH_SW` reached about 3.8 V. The charger then disconnected `SYS`,
+re-enabled it after its 250 ms `tREC_SC` hiccup delay, and the ESP32 rebooted
+into the same enable: a 1.54 s boot loop. Firmware therefore precharges
+`C_AMP3` with a train of short `PERIPH_PWR_EN` pulses before holding it HIGH.
+Each pulse ends early in the converter's soft start (typically 321 µs from
+enable to first switching, then a 224 µs current-limit ramp), and between
+pulses the converter's load disconnect keeps the charge on `C_AMP3`, so
+`5V_PERIPH_SW` rises as a low-current staircase rather than switching the
+amplifier on and off. The same pulses briefly power the SD and battery-sense
+switches before SPI or the ADC are used. Pulse count, width, and gap are in
+`Config.h` (`PERIPH_5V_PRECHARGE_*`) and must be validated with a scope on
+`5V_PERIPH_SW` and `SYS`, including a cold start with `C_AMP3` discharged, a
+quick hard-off/on with it charged, wake from deep sleep, and a low battery.
 
 On the production board, connect GPIO21 to `SD_MODE` through one **634 kΩ, 1%**
 series resistor. Do not fit an external transistor, pull-up, or pull-down on

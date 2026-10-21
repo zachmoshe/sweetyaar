@@ -24,10 +24,28 @@ inline void setPeripheralPowerEnabled(bool enabled) {
     digitalWrite(PIN_PERIPH_PWR_EN, enabled ? HIGH : LOW);
 }
 
+// Charges C_AMP3 in short enable pulses so the 5 V converter never reaches its
+// full current limit; GPIO13 also pulses the SD and battery-sense switches.
+inline void prechargePeripheral5V() {
+    static portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
+    const gpio_num_t pin = peripheralPowerGpio();
+    for (uint32_t i = 0; i < PERIPH_5V_PRECHARGE_PULSES; ++i) {
+        // A delayed falling edge would become a full-current start.
+        portENTER_CRITICAL(&mux);
+        gpio_set_level(pin, 1);
+        ets_delay_us(PERIPH_5V_PRECHARGE_ON_US);
+        gpio_set_level(pin, 0);
+        portEXIT_CRITICAL(&mux);
+        ets_delay_us(PERIPH_5V_PRECHARGE_OFF_US);
+    }
+}
+
 inline void enablePeripheralPower(uint32_t settleMs = 50) {
-    setPeripheralPowerEnabled(true);
+    setPeripheralPowerEnabled(false);
+    prechargePeripheral5V();
+    digitalWrite(PIN_PERIPH_PWR_EN, HIGH);
     if (settleMs > 0) {
-        ets_delay_us(settleMs * 1000UL);  // ROM busy-wait: no flash access during inrush
+        delay(settleMs);
     }
 }
 
