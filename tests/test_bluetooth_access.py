@@ -44,7 +44,7 @@ def test_ble_authorization_and_takeover(repo_root, tmp_path):
     assert "BLE authorization and takeover tests passed" in run_checked([exe]).stdout
 
 
-def test_bond_store_migration_and_reset(repo_root, tmp_path):
+def test_bond_store_startup_and_reset(repo_root, tmp_path):
     compiler = shutil.which("c++")
     if not compiler:
         pytest.skip("A C++ compiler is required.")
@@ -58,7 +58,7 @@ def test_bond_store_migration_and_reset(repo_root, tmp_path):
     exe = tmp_path / "approvals"
     run_checked([compiler, "-std=c++17", "-Wall", "-Wextra", "-I", src, "-I", tmp_path,
                  repo_root / "tests/bluetooth_approvals_native_test.cpp", "-o", exe])
-    assert "Bluetooth bond migration and reset tests passed" in run_checked([exe]).stdout
+    assert "Bluetooth bond startup and reset tests passed" in run_checked([exe]).stdout
 
 
 def test_classic_pairing_and_audio_admission(repo_root, tmp_path):

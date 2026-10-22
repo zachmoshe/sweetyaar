@@ -11,22 +11,6 @@
 BluetoothAccess bluetoothAccess;
 
 namespace {
-// Read only during the one-time upgrade. Never written by this firmware.
-struct LegacyApprovals {
-    uint8_t count = 0;
-    uint8_t addresses[8][6] = {};
-    void load(Preferences& prefs, const char* key) {
-        if (prefs.getBytesLength(key) != sizeof(*this) ||
-            prefs.getBytes(key, this, sizeof(*this)) != sizeof(*this) || count > 8)
-            count = 0;
-    }
-    bool contains(const uint8_t* address) const {
-        for (uint8_t i = 0; i < count; ++i)
-            if (memcmp(addresses[i], address, 6) == 0) return true;
-        return false;
-    }
-};
-
 // BLE bond records include key material. Wipe temporary copies on every exit.
 struct BleBonds {
     int count = esp_ble_get_bond_device_num();
@@ -61,8 +45,7 @@ void BluetoothAccess::begin() {
         return;
     }
     _storageOk = true;
-    _maintenance = prefs.getBool("clearPending", false) ? Maintenance::Reset
-        : prefs.getBool("bondsOnly", false) ? Maintenance::None : Maintenance::Migrate;
+    _maintenance = prefs.getBool("clearPending", false) ? Maintenance::Reset : Maintenance::None;
     _lastPoll = millis() - 500;
 }
 
@@ -124,42 +107,30 @@ bool BluetoothAccess::poll(bool linksActive) {
     _lastPoll = millis();
     Preferences prefs;
     if (!prefs.begin("sy-access", false)) return false;
-    LegacyApprovals classic, ble;
-    if (_maintenance == Maintenance::Migrate) {
-        classic.load(prefs, "classic");
-        ble.load(prefs, "ble");
-    }
+    const bool reset = _maintenance == Maintenance::Reset;
     bool pending = linksActive;
-    int count = esp_bt_gap_get_bond_device_num();
-    if (count < 0 || count > 32) return false;
-    if (count > 0) {
-        std::unique_ptr<esp_bd_addr_t[]> addresses(new (std::nothrow) esp_bd_addr_t[count]);
-        if (!addresses || esp_bt_gap_get_bond_device_list(&count, addresses.get()) != ESP_OK) return false;
-        for (int i = 0; i < count; ++i) {
-            if (_maintenance == Maintenance::None ||
-                (_maintenance == Maintenance::Migrate && classic.contains(addresses[i]))) continue;
-            pending = true;
-            esp_bt_gap_remove_bond_device(addresses[i]);
+    if (reset) {
+        int count = esp_bt_gap_get_bond_device_num();
+        if (count < 0 || count > 32) return false;
+        if (count > 0) {
+            std::unique_ptr<esp_bd_addr_t[]> addresses(new (std::nothrow) esp_bd_addr_t[count]);
+            if (!addresses || esp_bt_gap_get_bond_device_list(&count, addresses.get()) != ESP_OK) return false;
+            for (int i = 0; i < count; ++i) {
+                pending = true;
+                esp_bt_gap_remove_bond_device(addresses[i]);
+            }
         }
-    }
-    BleBonds bonds;
-    if (!bonds.load()) return false;
-    for (int i = 0; i < bonds.count; ++i) {
-        const auto& bond = bonds.data[i];
-        const uint8_t* identity = (bond.bond_key.key_mask & ESP_BLE_ID_KEY_MASK)
-            ? bond.bond_key.pid_key.static_addr : bond.bd_addr;
-        if (_maintenance == Maintenance::None ||
-            (_maintenance == Maintenance::Migrate && ble.contains(identity))) continue;
-        pending = true;
-        esp_ble_remove_bond_device(bonds.data[i].bd_addr);
+        BleBonds bonds;
+        if (!bonds.load()) return false;
+        for (int i = 0; i < bonds.count; ++i) {
+            pending = true;
+            esp_ble_remove_bond_device(bonds.data[i].bd_addr);
+        }
     }
     if (pending || !_storageOk) return false;
     // Deletion is asynchronous. Only commit after a later snapshot proves it
     // finished and no old live link can recreate a bond after the commit.
-    if (prefs.putBool("bondsOnly", true) != 1 || prefs.putBool("clearPending", false) != 1) return false;
-    if (prefs.isKey("classic") && !prefs.remove("classic")) return false;
-    if (prefs.isKey("ble") && !prefs.remove("ble")) return false;
-    const bool reset = _maintenance == Maintenance::Reset;
+    if (reset && prefs.putBool("clearPending", false) != 1) return false;
     _maintenance = Maintenance::None;
     _ready = true;
     Serial.printf("[Access] Bonds ready classic=%d ble=%d pairing=closed\n",

@@ -1271,14 +1271,6 @@ bool processStateMachineTransitions() {
         } else {
             btSettleBlePublishPending = true;
         }
-        if (loopChanged && ENABLE_BLE_PARENT_SERVICE) {
-            String eventJson = "{\"type\":\"loop\",\"active\":";
-            eventJson += sm.loopMode() ? "true" : "false";
-            eventJson += "}";
-            // Reuse the optional device-to-app event channel instead of
-            // changing the GATT schema and triggering stale-cache failures.
-            bleService.updateNotice(eventJson);
-        }
         return true;
     }
     return false;

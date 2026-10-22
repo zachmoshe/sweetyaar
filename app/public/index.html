@@ -4827,9 +4827,7 @@
       els.chargerStatusCard.hidden = !!state.chargerTransportError && !snapshot;
       if (!snapshot?.available && !state.chargerTransportError) {
         title = "Unavailable";
-        description = state.chars.charger
-          ? "Charger diagnostics are not available on this toy."
-          : "This connection does not provide charger diagnostics. Updated firmware may be needed.";
+        description = "Charger diagnostics are not available on this toy.";
       } else if (snapshot?.available && !snapshot.valid) {
         description = "The toy cannot verify the charger state. Charging is disabled.";
       }
@@ -4920,17 +4918,6 @@
       els.chargerTitle.focus?.();
     }
 
-    // Fetch a characteristic that older firmware may not have. Returns null
-    // instead of throwing so connect() proceeds against pre-notice firmware.
-    async function getOptionalCharacteristic(service, name) {
-      try {
-        return await service.getCharacteristic(UUIDS[name]);
-      } catch (error) {
-        console.info(`[SweetYaar BLE] Optional characteristic "${name}" unavailable.`);
-        return null;
-      }
-    }
-
     async function getCharacteristic(service, name) {
       try {
         return await service.getCharacteristic(UUIDS[name]);
@@ -4955,16 +4942,14 @@
       const killswitchValue = await readInitialCharacteristic("killswitch");
       const themeValue = await readInitialCharacteristic("theme");
       const themesValue = await readInitialCharacteristic("themes");
-      const batteryValue = state.chars.battery
-        ? await readInitialCharacteristic("battery")
-        : null;
+      const batteryValue = await readInitialCharacteristic("battery");
 
       state.themes = parseThemes(readText(themesValue));
       state.themeCreditsReady = false;
       state.volume = readUint8(volumeValue);
       state.quietSeconds = readUint16(killswitchValue);
       state.theme = readText(themeValue);
-      state.battery = batteryValue ? decodeBatteryState(readUint8(batteryValue)) : "unknown";
+      state.battery = decodeBatteryState(readUint8(batteryValue));
       await readChargerStatus();
     }
 
@@ -5032,15 +5017,7 @@
     }
 
     async function checkConnectionAccess(service, device) {
-      let access;
-      try {
-        access = await service.getCharacteristic(UUIDS.access);
-      } catch (error) {
-        // Old firmware has no access diagnostic. A broken connection is not
-        // evidence that a characteristic is missing, so preserve that error.
-        if (error?.name === "NotFoundError" && device.gatt.connected) return;
-        throw error;
-      }
+      const access = await getCharacteristic(service, "access");
       const deadline = Date.now() + 30000;
       let pairingReadStarted = false;
       while (state.device === device && device.gatt.connected) {
@@ -5126,18 +5103,12 @@
         disconnectWithReason(TAKEOVER_MESSAGE);
         return;
       }
-      if (parsed?.type === "loop" && typeof parsed.active === "boolean") {
-        state.loop = parsed.active;
-        render();
-        return;
-      }
       if (parsed && typeof parsed.message === "string") {
         showNotice(parsed.severity, parsed.message);
       }
     }
 
     async function subscribeToNoticeNotifications() {
-      if (!state.chars.notice) return;
       if (subscriptions.get("notice")?.characteristic === state.chars.notice) return;
       await subscribe("notice", (event) => {
         handleNotice(readText(event.target.value));
@@ -5164,12 +5135,10 @@
         await subscribeToStatusNotifications();
       }
       await subscribeToNoticeNotifications();
-      if (state.chars.battery) {
-        await subscribe("battery", (event) => {
-          state.battery = decodeBatteryState(readUint8(event.target.value));
-          render();
-        });
-      }
+      await subscribe("battery", (event) => {
+        state.battery = decodeBatteryState(readUint8(event.target.value));
+        render();
+      });
       await subscribeToChargerStatus();
     }
 
@@ -5188,15 +5157,15 @@
       for (const name of CONFIG_ATTRIBUTES) state.chars[name] = await getCharacteristic(service, name);
       state.configValues = {};
       state.configError = null;
-      state.chars.notice = await getOptionalCharacteristic(service, "notice");
+      state.chars.notice = await getCharacteristic(service, "notice");
       // Receive takeover notices before loading values and syncing settings.
       await subscribeToNoticeNotifications();
-      state.chars.battery = await getOptionalCharacteristic(service, "battery");
+      state.chars.battery = await getCharacteristic(service, "battery");
       state.charger = null;
       state.chargerTransportError = "";
       state.chargerSubscribed = false;
       state.chargerReading = false;
-      state.chars.charger = await getOptionalCharacteristic(service, "charger");
+      state.chars.charger = await getCharacteristic(service, "charger");
     }
 
     async function initializeRemoteConnection(server, knownService = null) {
