@@ -137,6 +137,37 @@ during local WAV playback, and no allocation failure or reboot. The measurements
 were taken on the generic prototype and do not establish long-duration
 reliability.
 
+Fresh BLE pairing is not possible within this budget while Classic audio plays.
+On the production board (about 15.6 KB free, largest block 8.7 KB at audio
+start), a fresh LE Secure Connections pairing during playback asserted in
+`host_recv_pkt_cb` and rebooted. The firmware therefore refuses BLE pairing
+requests while A2DP audio is `STARTED` (`SECURITY_REQUEST ... audio=active
+decision=deny`), even with the pairing window open. Saved-key reconnects of a
+bonded remote are still allowed during playback: repeated reconnects while
+streaming authenticated without a reboot, with about 10.8 KB free (largest block
+5.6 KB) after audio restarted with the remote connected. A refused pairing
+reports access state `5`, and the app asks the parent to pause the music and
+pair again.
+
+After each Classic session, once the 1.5-second cooldown ends in idle, the
+firmware logs `[BT] Post-session heap: free=... largest=... min=...` and
+restarts if the next connection may not fit:
+
+- **Free heap below 20,000 bytes.** A connection consumed up to about 14 KB at
+  its peak: free heap fell from about 21.7 KB after a session to a lowest point
+  of about 7.7 KB (`min`, the low-water mark since boot).
+- **Largest free block below 5,000 bytes.** Connection setup needs 4 KB
+  contiguous Bluedroid buffers, which a fragmented heap cannot provide whatever
+  its total.
+
+On the third consecutive low reading it enters deep sleep instead of
+restarting. An 8-cycle Mac
+connect/disconnect stress test on the production board (four with audio, the
+BLE remote bonded) ended every session at 21.7–22.9 KB free and a 6.4 KB
+largest block, with no restart. Both limits are guards derived from that run
+and earlier crashes, not measured failure points. `tools/bt_heap_stress.py`
+repeats the test.
+
 The checked-in [SD-card template](../../content/sd-card-template/README.txt) contains a
 complete example card with the supported layout and configuration schema. If
 the card or configuration is missing, Bluetooth speaker mode still starts and
@@ -434,7 +465,9 @@ Boot and wake start with pairing closed. Previously approved phones can reconnec
 while the toy is awake; a new phone needs the physical three-second gesture.
 Fresh Classic and BLE pairing requests require an open window even from a
 previously bonded address; saved-key authentication on an ordinary reconnect
-does not require that grant. This
+does not require that grant. Fresh BLE pairing is also refused while Classic
+audio is playing (see "Bluetooth memory budget"); pause the music to enroll the
+parent app. This
 admission policy does not guarantee bond preservation against unsolicited
 re-pairing: the bundled Bluetooth stack can clear keys before or during rejection.
 The window lasts a full 60 seconds from opening, even if audio and BLE both
@@ -513,7 +546,10 @@ supplies remembered keys; the button-controlled window authorizes new enrollment
 
 The public read-only `access` characteristic (`...78A1`) returns one byte for
 the requesting connection: `0` pairing required, `1` authentication pending,
-`2` authenticated controller, `3` authentication failed, or `4` taken over.
+`2` authenticated controller, `3` authentication failed, `4` taken over, or `5`
+pairing refused because Classic audio is playing. A new device refused because
+the window is closed reports `0`, or `5` while Classic audio plays, since
+pairing cannot succeed until the music is paused.
 It exposes no settings or control data. Rejected peers have up to ten seconds
 to read the reason before firmware disconnects them; the app reads it before
 accessing controls and disconnects immediately after displaying a refusal.

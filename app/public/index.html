@@ -5014,6 +5014,7 @@
     const NOTICE_AUTO_DISMISS_MS = 6000;
     const TAKEOVER_MESSAGE = "Someone else took control.";
     const PAIRING_REQUIRED_MESSAGE = "Device not approved. Hold both buttons for 3 seconds to open pairing mode, then reconnect.";
+    const AUDIO_BUSY_MESSAGE = "Can't pair while music is playing through SweetYaar. Pause the music, hold both buttons for 3 seconds to open pairing mode, then reconnect.";
     const CONNECTION_PAIRING_HINT = "Couldn't connect. If this is a new device, hold both buttons for 3 seconds to open pairing mode.";
 
     function connectionMessageError(message) {
@@ -5042,6 +5043,7 @@
         if (accessState === 2) return;
         if (accessState === 3) throw connectionMessageError("Couldn't authenticate. Reconnect and check for a Bluetooth pairing request.");
         if (accessState === 4) throw connectionMessageError(TAKEOVER_MESSAGE);
+        if (accessState === 5) throw connectionMessageError(AUDIO_BUSY_MESSAGE);
         if (accessState !== 1 || Date.now() >= deadline) {
           throw connectionMessageError("Pairing did not finish. Reconnect and check for a Bluetooth pairing request.");
         }

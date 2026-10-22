@@ -449,7 +449,7 @@ void BLEParentService::connected(esp_ble_gatts_cb_param_t* param) {
         slot->reject = !bluetoothAccess.ready() || security.keysOutsidePairing ||
             (!known && !bluetoothAccess.pairingOpen());
         slot->rejectedAt = slot->connectedAt;
-        slot->rejectionReason = AccessState::PairingRequired;
+        slot->rejectionReason = _btAudioActive ? AccessState::AudioBusy : AccessState::PairingRequired;
     }
     _restartAdvPending = true; // keep a slot available for takeover
     portEXIT_CRITICAL(&_mux);
@@ -458,7 +458,7 @@ void BLEParentService::connected(esp_ble_gatts_cb_param_t* param) {
         connection.remote_bda[0], connection.remote_bda[1], connection.remote_bda[2],
         connection.remote_bda[3], connection.remote_bda[4], connection.remote_bda[5],
         known, bluetoothAccess.pairingOpen() ? "open" : "closed",
-        !slot ? "no-free-slot" : slot->reject ? "pairing-required" : "authenticate");
+        !slot ? "no-free-slot" : slot->reject ? accessStateName(slot->rejectionReason) : "authenticate");
     if (!slot) {
         disconnectPeer(connection.conn_id);
         return;
@@ -515,6 +515,7 @@ const char* BLEParentService::accessStateName(AccessState state) {
         case AccessState::Authenticating: return "authenticating";
         case AccessState::Ready: return "ready";
         case AccessState::TakenOver: return "taken-over";
+        case AccessState::AudioBusy: return "audio-busy";
         default: return "authentication-failed";
     }
 }
@@ -535,14 +536,24 @@ void BLEParentService::handleGap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_pa
         auto* p = peerByAddress(param->ble_security.ble_req.bd_addr);
         // A peripheral receives this event for fresh pairing. Saved-key
         // encryption does not need this grant, even for an approved peer.
+        // Also deny while A2DP audio plays: fresh pairing then exhausted
+        // Bluedroid heap and asserted in host_recv_pkt_cb.
+        const bool audioBusy = _btAudioActive;
         portENTER_CRITICAL(&_mux);
-        const bool allow = (!p || !p->reject) && bluetoothAccess.pairingOpen();
+        const bool allow = (!p || !p->reject) && bluetoothAccess.pairingOpen() && !audioBusy;
         const uint16_t connection = p ? p->id : NO_CONNECTION;
+        if (!allow && p && !p->reject) {
+            // Report why before the failed pairing surfaces as an auth failure.
+            p->reject = true;
+            p->rejectedAt = millis();
+            p->rejectionReason = audioBusy ? AccessState::AudioBusy : AccessState::PairingRequired;
+        }
         portEXIT_CRITICAL(&_mux);
         const esp_err_t result = esp_ble_gap_security_rsp(param->ble_security.ble_req.bd_addr, allow);
-        Serial.printf("[BLE] t=%lu SECURITY_REQUEST conn=%u decision=%s pairing=%s result=0x%X\n",
+        Serial.printf("[BLE] t=%lu SECURITY_REQUEST conn=%u decision=%s pairing=%s audio=%s result=0x%X\n",
             static_cast<unsigned long>(millis()), connection, allow ? "allow" : "deny",
-            bluetoothAccess.pairingOpen() ? "open" : "closed", unsigned(result));
+            bluetoothAccess.pairingOpen() ? "open" : "closed", audioBusy ? "active" : "idle",
+            unsigned(result));
         return; // prevent Arduino's unconditional positive security response
     }
     if (event == ESP_GAP_BLE_KEY_EVT) {

@@ -229,6 +229,7 @@ static void btAudioStateChanged(esp_a2d_audio_state_t state, void*) {
             markActivity("BT audio started");
         }
         btAudioActive = true;
+        bleService.setAudioActive(true);
         statusLed.setSignal(StatusSignal::BluetoothPlaying, true);
     } else if (state == ESP_A2D_AUDIO_STATE_STOPPED ||
                state == ESP_A2D_AUDIO_STATE_REMOTE_SUSPEND) {
@@ -236,6 +237,7 @@ static void btAudioStateChanged(esp_a2d_audio_state_t state, void*) {
             markActivity("BT audio inactive");
         }
         btAudioActive = false;
+        bleService.setAudioActive(false);
         statusLed.setSignal(StatusSignal::BluetoothPlaying, false);
     }
 }
@@ -1221,19 +1223,24 @@ void pollBluetoothReopen() {
         return;
     }
 
-    // Low remaining heap can make later Bluedroid allocations fail and abort.
-    // This recovery runs after disconnect; connection-time headroom must also
-    // be measured. A low reading alone does not establish a memory leak.
+    // Restart while idle if the next connection may not fit: a connection
+    // takes up to ~14 KB at its peak, and its setup needs 4 KB contiguous
+    // Bluedroid buffers. See "Bluetooth memory budget" in firmware.md.
+    const uint32_t SAFE_FREE_HEAP = 20000;
+    const uint32_t SAFE_LARGEST_BLOCK = 5000;
     uint32_t freeNow = ESP.getFreeHeap();
-    const uint32_t SAFE_HEAP_FLOOR = 20000;
-    if (freeNow < SAFE_HEAP_FLOOR) {
+    uint32_t largestNow = ESP.getMaxAllocHeap();
+    Serial.printf("[BT] Post-session heap: free=%lu largest=%lu min=%lu\n",
+                  static_cast<unsigned long>(freeNow),
+                  static_cast<unsigned long>(largestNow),
+                  static_cast<unsigned long>(ESP.getMinFreeHeap()));
+    if (freeNow < SAFE_FREE_HEAP || largestNow < SAFE_LARGEST_BLOCK) {
         if (rtcHeapRestartMagic != RTC_HEAP_RESTART_MAGIC) {
             rtcHeapRestartCount = 0;
             rtcHeapRestartMagic = RTC_HEAP_RESTART_MAGIC;
         }
         rtcHeapRestartCount++;
-        Serial.printf("[BT] Heap critically low after BT session (free=%lu, restart %lu/%lu).\n",
-                      static_cast<unsigned long>(freeNow),
+        Serial.printf("[BT] Heap too low after BT session; restarting (%lu/%lu)\n",
                       static_cast<unsigned long>(rtcHeapRestartCount),
                       static_cast<unsigned long>(MAX_HEAP_RESTARTS));
         if (rtcHeapRestartCount >= MAX_HEAP_RESTARTS) {

@@ -50,3 +50,9 @@ def bluetooth_reopen_exe(repo_root, tmp_path_factory):
 def test_classic_reconnect_after_disconnect_cooldown(bluetooth_reopen_exe, scenario):
     result = run_command([bluetooth_reopen_exe, scenario], check=False)
     assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize("scenario", ["heap-at-limits", "heap-low-free", "heap-low-largest"])
+def test_post_session_heap_limits(bluetooth_reopen_exe, scenario):
+    result = run_command([bluetooth_reopen_exe, scenario], check=False)
+    assert result.returncode == 0, result.stdout

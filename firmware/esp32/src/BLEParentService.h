@@ -89,6 +89,9 @@ public:
     void pollAdvertising(bool canNotify = true);
     void disconnectAll();
 
+    // Refuses fresh BLE pairing while A2DP audio plays; bonded reconnects still work.
+    void setAudioActive(bool active) { _btAudioActive = active; }
+
 private:
     BLEServer*         _server   = nullptr;
     BLECharacteristic* _volChar  = nullptr;
@@ -119,7 +122,7 @@ private:
     // Public, per-connection diagnostic; it never authorizes control access.
     enum class AccessState : uint8_t {
         PairingRequired = 0, Authenticating = 1, Ready = 2,
-        AuthenticationFailed = 3, TakenOver = 4
+        AuthenticationFailed = 3, TakenOver = 4, AudioBusy = 5
     };
     static const char* accessStateName(AccessState state);
     static constexpr uint32_t REJECTION_GRACE_MS = 10000;
@@ -189,6 +192,7 @@ private:
     char             _pendingConfigCommand[384] = {0};
 
     volatile bool    _restartAdvPending = false;
+    volatile bool    _btAudioActive = false;
     portMUX_TYPE     _mux = portMUX_INITIALIZER_UNLOCKED;
 
     // Server callbacks (connect/disconnect)

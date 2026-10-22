@@ -90,6 +90,9 @@ bool ClassicBluetooth::authenticated(const uint8_t* address, bool success) {
         allowed = allowed && !link->rejected && (!link->pairing || bluetoothAccess.pairingOpen());
         link->authenticated = allowed;
         link->rejected = !allowed;
+        // A2DP re-authenticates with the new key after the window may have
+        // closed; keeping the pairing mark would then delete the fresh bond.
+        if (allowed) link->pairing = false;
     }
     portEXIT_CRITICAL(&mux);
     return allowed;

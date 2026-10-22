@@ -14,12 +14,21 @@ uint32_t btReopenAtMs = 0;
 uint32_t rtcHeapRestartCount = 0;
 uint32_t rtcHeapRestartMagic = 0;
 
-// Healthy heap: these scenarios must not restart or enter deep sleep.
+// Healthy heap by default: cooldown scenarios must not restart or sleep.
 constexpr int MALLOC_CAP_8BIT = 1;
-struct { uint32_t getFreeHeap() { return 50000; } } ESP;
+uint32_t g_freeHeap = 50000;
+uint32_t g_largestBlock = 40000;
+struct {
+    uint32_t getFreeHeap() { return g_freeHeap; }
+    uint32_t getMaxAllocHeap() { return g_largestBlock; }
+    uint32_t getMinFreeHeap() { return 7000; }
+} ESP;
 unsigned heap_caps_get_free_size(int) { return 50000; }
 unsigned heap_caps_get_largest_free_block(int) { return 40000; }
-void delay(uint32_t) { throw std::runtime_error("Unexpected blocking delay"); }
+bool g_restartDelayAllowed = false;
+void delay(uint32_t) {
+    if (!g_restartDelayAllowed) throw std::runtime_error("Unexpected blocking delay");
+}
 void esp_restart() { throw std::runtime_error("Unexpected reboot"); }
 void enterIdleDeepSleep() { throw std::runtime_error("Unexpected deep sleep"); }
 
@@ -62,11 +71,39 @@ void trace(const char* step) {
     assert(!radioDiscoverable && !radioPairable);
 }
 
+// After an idle cooldown, restart only when the next connection may not fit.
+int heapScenario(const std::string& scenario) {
+    const bool lowFree = scenario == "heap-low-free";
+    const bool lowLargest = scenario == "heap-low-largest";
+    assert(lowFree || lowLargest || scenario == "heap-at-limits");
+    g_freeHeap = lowFree ? 19999 : 20000;
+    g_largestBlock = lowLargest ? 4999 : 5000;
+    g_restartDelayAllowed = true;  // the restart path flushes the log first
+    event(Event::BT_CONNECTED, State::BT_STREAMING);
+    event(Event::BT_DISCONNECTED, State::IDLE);
+    scheduleBluetoothReopen("BT disconnected");
+    g_fakeMillis += BT_REOPEN_DELAY_MS;
+    bool restarted = false;
+    try {
+        pollBluetoothReopen();
+    } catch (const std::runtime_error& error) {
+        restarted = std::string(error.what()) == "Unexpected reboot";
+        if (!restarted) throw;
+    }
+    if (restarted != (lowFree || lowLargest)) {
+        std::cerr << "FAIL: " << scenario << " restarted=" << restarted << '\n';
+        return 1;
+    }
+    std::cout << "Heap check passed: " << scenario << '\n';
+    return 0;
+}
+
 int main(int argc, char** argv) {
     assert(argc == 2);
     const std::string scenario = argv[1];
-    assert(scenario == "idle" || scenario == "song" || scenario == "short-animal");
     sm.begin();
+    if (scenario.rfind("heap-", 0) == 0) return heapScenario(scenario);
+    assert(scenario == "idle" || scenario == "song" || scenario == "short-animal");
     event(Event::BT_CONNECTED, State::BT_STREAMING);
     event(Event::BT_DISCONNECTED, State::IDLE);
     // The library restores access on disconnect; main's BT->IDLE entry then
