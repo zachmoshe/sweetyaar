@@ -92,28 +92,17 @@ public:
 #include "approvals_under_test.inc"
 
 bool poll(BluetoothAccess& access, bool links = false) { nowMs += 500; return access.poll(links); }
-void legacy(const char* key, uint8_t id) {
-    LegacyApprovals value;
-    value.count = 1; address(value.addresses[0], id);
-    const auto* first = reinterpret_cast<const uint8_t*>(&value);
-    Preferences::saved[key] = {first, first + sizeof(value)};
-}
 int main() {
     uint8_t phone[6] = {};
-    // Preserve only the previously approved bonds, including BLE identity
-    // addresses. An address with no key must not be resurrected as a bond.
-    legacy("classic", 1); legacy("ble", 5);
-    classic = {1, 9}; addBle(2, 5); addBle(9);
+    // Startup keeps every stack bond, including BLE identity addresses, and
+    // writes nothing.
+    classic = {1}; addBle(2, 5);
     BluetoothAccess access;
     access.begin();
     assert(!access.ready() && !access.pairingOpen());
-    assert(!poll(access));
-    assert(classicRemovals == std::set<uint8_t>{9});
-    assert(bleRemovals == std::set<uint8_t>{9});
-    assert(!poll(access)); // API return is not deletion completion
-    finishRemovals();
     assert(poll(access) && access.ready());
-    assert(!Preferences::saved.count("classic") && !Preferences::saved.count("ble"));
+    assert(classicRemovals.empty() && bleRemovals.empty());
+    assert(Preferences::writes == 0);
     address(phone, 1);
     assert(access.classicBonded(phone) && !access.bleBonded(phone));
     address(phone, 5);
@@ -165,31 +154,24 @@ int main() {
     assert(Preferences::saved["clearPending"][0] == 0);
     assert(Serial.output.find("[Pairing] All bonds cleared") != std::string::npos);
 
-    // Old firmware without approval metadata cannot silently promote old keys.
-    Preferences::saved.clear();
-    classic.insert(7); addBle(7);
-    BluetoothAccess oldFirmware;
-    oldFirmware.begin();
-    assert(!poll(oldFirmware));
-    finishRemovals();
-    assert(poll(oldFirmware));
-    assert(classic.empty() && ble.empty());
-
     // A failed reset-marker write still deletes keys but never reports ready.
+    BluetoothAccess failedReset;
+    failedReset.begin();
+    assert(poll(failedReset));
     classic.insert(1);
     Preferences::failWrites = true;
-    assert(!oldFirmware.forgetBonds());
-    assert(!poll(oldFirmware));
+    assert(!failedReset.forgetBonds());
+    assert(!poll(failedReset));
     finishRemovals();
     Preferences::failWrites = false;
-    assert(!poll(oldFirmware) && !oldFirmware.ready());
+    assert(!poll(failedReset) && !failedReset.ready());
 
-    // Failure to read migration metadata must not delete a valid user's bonds.
+    // Failure to open the access store must not delete a valid user's bonds.
     classic.insert(1);
     Preferences::failBegin = true;
     BluetoothAccess unavailable;
     unavailable.begin();
     Preferences::failBegin = false;
     assert(!poll(unavailable) && classicRemovals.empty() && classic.count(1));
-    std::cout << "Bluetooth bond migration and reset tests passed\n";
+    std::cout << "Bluetooth bond startup and reset tests passed\n";
 }

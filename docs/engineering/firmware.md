@@ -280,6 +280,14 @@ Activating it stops local audio and ignores physical-button and app playback com
 ten minutes, unless the parent cancels it early. Quiet time applies only to local playback;
 it does not prevent a Classic Bluetooth source from connecting and streaming.
 
+Quiet time is exposed as one read/write/notify characteristic (`killswitch`, UUID
+suffix `7892`) holding an unsigned 16-bit little-endian count of **seconds left**;
+0 means quiet time is off. Firmware notifies it when quiet time starts, restarts,
+is cancelled or expires, and once per second while it runs. Writing any non-zero
+value starts quiet time (or restarts its ten minutes); writing 0 cancels it. The
+status text is just `Quiet time` and carries no timer; the app takes the countdown
+only from this value.
+
 The app is a control surface, not a content uploader. Songs and animal sounds
 are placed on the microSD card directly. Its complete behavior, connection
 flow, and offline support are described in [Mobile App](mobile-app.md).
@@ -495,9 +503,7 @@ phone once through its Bluetooth audio settings and once through the parent
 app, during the same window or separate windows. Bonds survive reboot and
 SD-card changes; their capacity and replacement are managed by the stack.
 After a reset, the phone may also need to forget the old pairing before enrolling
-again. On upgrade from the approval-list firmware, only bonds with matching
-legacy approvals are retained; an older firmware with no approval metadata
-requires enrollment again. The legacy lists are deleted after migration.
+again.
 
 New BLE bonds require LE Secure Connections with a full 16-byte encryption key.
 Firmware enables strict security-mode acceptance and sets both minimum and
@@ -525,8 +531,8 @@ revalidate its private ABI and linker wrapping before changing the SDK.
 Reset persists a pending-deletion marker before disconnecting. Access remains
 disabled until both transports have disconnected and bond-store snapshots confirm
 deletion. Removal is retried, and a reboot resumes an unfinished reset. This
-marker stores no device identities or keys. Migration uses the same closed-access
-period. A storage failure leaves access disabled and is logged.
+marker stores no device identities or keys. A storage failure leaves access
+disabled and is logged.
 
 BLE keeps advertising while a controller is connected. The most recently
 connected phone that successfully authenticates becomes the controller. An
@@ -561,9 +567,9 @@ duplicate Android pairing dialogs. Approval still requires AUTH_CMPL and the
 normal enrollment policy. An encrypted request that reaches the application
 before approval receives insufficient authorization (0x08), not a request
 to repeat authentication (0x05).
-The app waits for pending authentication, supports older firmware without this
-diagnostic, and never translates a generic discovery failure into proof that
-the firmware needs upgrading.
+The app requires this diagnostic, waits for pending authentication, and never
+translates a generic discovery failure into proof that the firmware needs
+upgrading.
 
 Connection diagnostics are always printed to serial. `t=` is milliseconds since
 boot, `peer=` is the Bluetooth address, and BLE `conn=` identifies that link.
@@ -575,7 +581,7 @@ are:
 | `[BLE] CONNECT` | A BLE link reached the device; includes bond presence, window state, and initial decision. |
 | `[BLE] SECURITY_REQUEST` | A peer security request arrived; `result=0x0` means the response API accepted the operation, not that authentication finished. |
 | `[BLE] AUTH` | Authentication completed; includes stack success, raw failure code, negotiated mode, and the admission decision. |
-| `[Access] Bonds ready` | Bond migration or reset completed; lists Classic/BLE bond counts. |
+| `[Access] Bonds ready` | Startup or bond reset completed; lists Classic/BLE bond counts. |
 | `[BT] JUST_WORKS_REQUEST` | The SDK requested fresh pairing; records the pairing-window decision without keys or codes. |
 | `[BLE] CONTROL` | The authenticated connection and selected controller. |
 | `[BLE] AUTH_TIMEOUT` / `DISCONNECT` | Authentication exceeded its deadline/window, or a link ended; includes timing or the disconnect reason. |
@@ -823,7 +829,7 @@ The high-level components are:
 | `firmware/esp32/src/StateMachine.*`     | Playback ownership, mode changes, looping, and the Quiet time timer.                     |
 | `firmware/esp32/src/ButtonHandler.*`    | Debouncing the two buttons and recognizing a simultaneous press.                         |
 | `firmware/esp32/src/PairingPolicy.h` | Three/ten-second gestures, release rearming, and the 60-second window. |
-| `firmware/esp32/src/BluetoothAccess.*` and `BleIdentity.h` | Bond lookup, private-address resolution, one-time legacy migration, and durable reset. |
+| `firmware/esp32/src/BluetoothAccess.*` and `BleIdentity.h` | Bond lookup, private-address resolution, and durable reset. |
 | `firmware/esp32/src/ClassicBluetooth.*` | Classic Just Works pairing gate and transient authenticated-link state. |
 | `firmware/esp32/src/ApprovedA2DPSink.h` | Classic pairing admission, discoverability, and approved audio sessions. |
 | `firmware/esp32/src/WavPlayer.*`        | Streaming validated SD-card WAV PCM to the I2S audio output.                            |

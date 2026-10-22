@@ -7,7 +7,7 @@ class BluetoothAccess {
 public:
     void begin();
     // Call after both stacks start, then from loop. Returns true when access
-    // becomes ready after migration/reset. Wait for links to close before commit.
+    // becomes ready at startup or after a reset. Wait for links to close before commit.
     bool poll(bool linksActive);
     bool ready() const { return _ready.load(); }
     void openPairing(uint32_t now);
@@ -21,8 +21,8 @@ public:
     bool forgetBonds();
     static bool bleIdentity(const uint8_t* address, uint8_t* identity);
 private:
-    enum class Maintenance { Migrate, Reset, None };
-    Maintenance _maintenance = Maintenance::Migrate;
+    enum class Maintenance { Reset, None };
+    Maintenance _maintenance = Maintenance::None;
     bool _storageOk = false;
     uint32_t _lastPoll = 0;
     std::atomic<bool> _ready{false};

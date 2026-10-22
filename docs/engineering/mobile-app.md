@@ -45,9 +45,8 @@ Firmware waits for this client operation instead of issuing its own security
 request on connection, avoiding competing triggers for Android's pairing UI.
 Authentication failures direct the user to check the Bluetooth pairing request,
 instead of assuming the physical pairing window was closed.
-Older firmware without this diagnostic retains the
-previous connection flow; generic connection failures include a pairing hint
-without claiming that missing approval is the confirmed cause.
+The access diagnostic is required. Generic connection failures include a pairing
+hint without claiming that missing approval is the confirmed cause.
 
 The app then reads and subscribes to playback status and
 opens the appropriate Ready or Bluetooth-streaming screen. Ready-screen controls
@@ -107,7 +106,7 @@ controls used during normal local playback.
 | **Loop songs** | Continues with the next song when one finishes. Looping is temporary and resets after Stop, animal playback, Quiet time, Bluetooth speaker mode, or reboot. |
 | **Volume** | Changes the current local WAV volume. It does not control audio streamed over Classic Bluetooth. |
 | **Theme** | Changes the song theme for the current awake session. Only enabled themes containing playable audio are offered. A theme whose `metadata.json` has an `attribution` shows that credit under the current theme only, not in the list of choices; its `[label](https://…)` links open in a new browser tab. |
-| **Quiet time** | Stops local playback and ignores physical-button and app playback commands for ten minutes, or until the parent cancels it. |
+| **Quiet time** | Stops local playback and ignores physical-button and app playback commands for ten minutes, or until the parent cancels it. Shows the time left from the firmware's seconds-left value (see [Firmware](firmware.md#parent-controls)). Volume stays adjustable and takes effect once quiet time ends. |
 | **Daytime / Bedtime** | Shows the current Bedtime state and allows a temporary manual override when Bedtime mode and the toy's clock are available. |
 
 The Ready screen reflects playback started from either the app or the physical
@@ -153,9 +152,9 @@ the charge-status card until another valid reading arrives; a failed notificatio
 subscription still allows manual Refresh. ESP32-to-charger supervision failure
 remains **Unknown** plus a charger error, with charging disabled by firmware.
 
-The charger characteristic is optional. Older firmware or a generic prototype
-without the charger shows **Unavailable**, with no false assertion that there
-are no warnings. Unsupported diagnostics do not prevent normal remote controls.
+The charger characteristic is required. A generic prototype without the charger
+reports it as unavailable in its snapshot, and the app shows **Unavailable**, with
+no false assertion that there are no warnings. Unsupported diagnostics do not prevent normal remote controls.
 See [Firmware](firmware.md#charger-supervision) for the binary snapshot format.
 
 ## Settings and content
@@ -305,11 +304,9 @@ configuration request/response characteristics for settings and paged content
 scans.
 
 The app subscribes to firmware notifications rather than assuming every write
-succeeded. Older firmware without the optional notice characteristic can still
-connect. The battery characteristic is also optional for compatibility; without
-it the icon is gray and reports an unknown state. Firmware missing the required
-service or control characteristics on a working connection is reported as needing
-an upgrade. A connection lost or refused during discovery is not treated as a
+succeeded. Every characteristic is required, including notice, battery and charger;
+the app does not support older firmware. Firmware missing the service or any
+characteristic on a working connection is reported as needing an upgrade. A connection lost or refused during discovery is not treated as a
 missing-service diagnosis.
 
 The notice characteristic uses confirmed indications in the current firmware.

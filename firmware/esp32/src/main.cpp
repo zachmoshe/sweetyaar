@@ -77,7 +77,7 @@ uint32_t btReopenAtMs = 0;
 const uint32_t BT_REOPEN_DELAY_MS = 1500;
 volatile bool btLinkConnected = false;
 volatile bool btAudioActive = false;
-uint32_t lastBleStatusPublishMs = 0;
+uint32_t lastQuietPublishMs = 0;
 // After BT A2DP connects, hold off BLE notify() calls for this many ms.
 // The BTDM HCI transport asserts if BLE packets are injected while A2DP is
 // still completing its stream setup (hci_hal_h4.c:553).
@@ -183,7 +183,7 @@ String buildConfigErrorResponse(uint32_t requestId, const String& message);
 bool isKnownTheme(const String& theme);
 String themeDisplayName(const String& theme);
 String fileNameOf(const String& path);
-String formatRemaining(uint32_t remainingMs);
+uint16_t quietSecondsLeft();
 
 // ---------------------------------------------------------------------------
 // BT A2DP callbacks (fire from BT task — post to SM queue, never block)
@@ -469,9 +469,9 @@ void loop() {
         publishBleValues();
     }
     if (ENABLE_BLE_PARENT_SERVICE && sm.currentState() == State::KILLSWITCH &&
-        (millis() - lastBleStatusPublishMs) >= 1000) {
-        bleService.updateStatus(bleStatusForState(sm.currentState()));
-        lastBleStatusPublishMs = millis();
+        (millis() - lastQuietPublishMs) >= 1000) {
+        bleService.updateQuietSeconds(quietSecondsLeft());
+        lastQuietPublishMs = millis();
     }
 
     // 7. A cue temporarily owns the speaker. Keep controls/Bluetooth serviced
@@ -1278,14 +1278,6 @@ bool processStateMachineTransitions() {
         } else {
             btSettleBlePublishPending = true;
         }
-        if (loopChanged && ENABLE_BLE_PARENT_SERVICE) {
-            String eventJson = "{\"type\":\"loop\",\"active\":";
-            eventJson += sm.loopMode() ? "true" : "false";
-            eventJson += "}";
-            // Reuse the optional device-to-app event channel instead of
-            // changing the GATT schema and triggering stale-cache failures.
-            bleService.updateNotice(eventJson);
-        }
         return true;
     }
     return false;
@@ -1684,13 +1676,20 @@ void publishBleValues() {
 
     State state = sm.currentState();
     bleService.updateVolume(currentVolumePct);
-    bleService.updateKillswitch(state == State::KILLSWITCH);
+    bleService.updateQuietSeconds(quietSecondsLeft());
     bleService.updateTheme(activeTheme);
     bleService.updateStatus(bleStatusForState(state));
     bleService.updateBatteryState(batteryMonitor.encodedState());
     bleService.updateChargerStatus(HAS_BQ25186 ? charger.snapshot() : ChargerStatus::Snapshot{});
     publishConfigAttributes();
-    lastBleStatusPublishMs = millis();
+    lastQuietPublishMs = millis();
+}
+
+// Seconds of quiet time left, rounded up so it reads 0 only once it has ended.
+uint16_t quietSecondsLeft() {
+    if (sm.currentState() != State::KILLSWITCH) return 0;
+    const uint32_t seconds = (sm.killswitchRemainingMs() + 999) / 1000;
+    return static_cast<uint16_t>(seconds > 0 ? seconds : 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -1825,8 +1824,7 @@ String bleStatusForState(State state) {
             return "BT connected";
 
         case State::KILLSWITCH:
-            return String("Killswitch active (") +
-                   formatRemaining(sm.killswitchRemainingMs()) + " left)";
+            return "Quiet time";
 
         default:
             return "Idle";
@@ -2027,20 +2025,6 @@ String fileNameOf(const String& path) {
     int slash = path.lastIndexOf('/');
     if (slash < 0) return path;
     return path.substring(slash + 1);
-}
-
-// ---------------------------------------------------------------------------
-// formatRemaining()
-// ---------------------------------------------------------------------------
-String formatRemaining(uint32_t remainingMs) {
-    uint32_t totalSeconds = (remainingMs + 999) / 1000;
-    uint32_t minutes = totalSeconds / 60;
-    uint32_t seconds = totalSeconds % 60;
-    char buf[12];
-    snprintf(buf, sizeof(buf), "%02lu:%02lu",
-             static_cast<unsigned long>(minutes),
-             static_cast<unsigned long>(seconds));
-    return String(buf);
 }
 
 // ---------------------------------------------------------------------------

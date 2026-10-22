@@ -263,6 +263,10 @@ function uint8View(value) {
   return bytesView([value]);
 }
 
+function uint16View(value) {
+  return bytesView([value & 0xff, (value >> 8) & 0xff]);
+}
+
 function textFromValue(value) {
   return textDecoder.decode(value);
 }
@@ -480,13 +484,16 @@ function makeBleHarness(options = {}) {
   const notifications = [];
   const readHooks = {
     async beforeRead(name) {
+      // Only access-focused tests set accessState and assert its reads.
+      if (name === "access" && options.accessState === undefined) return;
       reads.push(name);
       if (!options.trackConcurrentReads) return;
       activeReads += 1;
       maxConcurrentReads = Math.max(maxConcurrentReads, activeReads);
       await delay(5);
     },
-    afterRead() {
+    afterRead(name) {
+      if (name === "access" && options.accessState === undefined) return;
       if (!options.trackConcurrentReads) return;
       activeReads -= 1;
     },
@@ -496,7 +503,7 @@ function makeBleHarness(options = {}) {
   };
   const chars = {
     volume: new FakeCharacteristic("volume", options.volume ?? 75, readHooks),
-    killswitch: new FakeCharacteristic("killswitch", options.killswitch ? 1 : 0, readHooks),
+    killswitch: new FakeCharacteristic("killswitch", uint16View(options.quietSeconds ?? 0), readHooks),
     theme: new FakeCharacteristic("theme", options.theme || "lullabies", readHooks),
     status: new FakeCharacteristic("status", options.status || "Idle", readHooks),
     themes: new FakeCharacteristic("themes", JSON.stringify(themes.filter((theme) => theme.enabled).map((theme) => ({ id: theme.id, name: theme.name }))), readHooks),
@@ -507,7 +514,7 @@ function makeBleHarness(options = {}) {
     battery: new FakeCharacteristic("battery", options.battery ?? 1, readHooks),
     charger: new FakeCharacteristic("charger", bytesView(options.charger ?? [1, 4, 3, 0, 0, 0]), readHooks)
   };
-  if (options.accessState !== undefined) chars.access = new FakeCharacteristic("access", options.accessState, readHooks);
+  chars.access = new FakeCharacteristic("access", options.accessState ?? 2, readHooks);
 
   function configValues() {
     const { enabled, startTime, endTime, theme, volumeCapPct, ...runtime } = config.bedtime;
@@ -568,8 +575,9 @@ function makeBleHarness(options = {}) {
     }
   };
   chars.killswitch.write = (value) => {
-    writes.killswitch.push(value[0]);
-    chars.killswitch.value = value[0];
+    const seconds = value[0] | (value[1] << 8);
+    writes.killswitch.push(seconds);
+    chars.killswitch.value = uint16View(seconds);
   };
 
   const charByUuid = new Map(Object.entries(UUIDS).map(([name, uuid]) => [uuid, chars[name]]));
@@ -585,7 +593,7 @@ function makeBleHarness(options = {}) {
         error.name = "NotFoundError";
         throw error;
       }
-      if (remoteInitializationGate && characteristic.name !== "status") {
+      if (remoteInitializationGate && characteristic.name !== "status" && characteristic.name !== "access") {
         await remoteInitializationGate;
       }
       return characteristic;
@@ -814,17 +822,14 @@ const tests = [
     assert.strictEqual(els.chargerErrorsSection.hidden, true);
     assert(!els.batteryIndicator.classList.contains("charger-error"));
   `],
-  ["old firmware and generic boards report diagnostics unavailable without false assurance", String.raw`
-    for (const options of [{ missingCharacteristics: ["charger"] }, { charger: [1, 0, 0, 0, 0, 0] }]) {
-      await connectWithFakeBle(options);
-      assert(state.connected);
-      await els.batteryIndicator.click();
-      assert.strictEqual(els.chargerStatusText.textContent, "Unavailable");
-      assert.strictEqual(els.chargerWarningsSection.hidden, true);
-      assert.strictEqual(els.chargerDetailsSection.hidden, true);
-      assert(!els.batteryIndicator.classList.contains("charger-error"));
-      onDisconnected();
-    }
+  ["generic boards report charger diagnostics unavailable without false assurance", String.raw`
+    await connectWithFakeBle({ charger: [1, 0, 0, 0, 0, 0] });
+    assert(state.connected);
+    await els.batteryIndicator.click();
+    assert.strictEqual(els.chargerStatusText.textContent, "Unavailable");
+    assert.strictEqual(els.chargerWarningsSection.hidden, true);
+    assert.strictEqual(els.chargerDetailsSection.hidden, true);
+    assert(!els.batteryIndicator.classList.contains("charger-error"));
   `],
   ["disconnect prevents a pending charger read or old notification leaking into reconnect", String.raw`
     const ble = await connectWithFakeBle();
@@ -1416,8 +1421,8 @@ const tests = [
     assert.strictEqual(els.themeOptions.children.length, 0);
     assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime"]);
   `],
-  ["connect requires both dedicated config characteristics", String.raw`
-    for (const name of ["configCommand", "configResponse", ...CONFIG_ATTRIBUTES]) {
+  ["connect requires the config, notice, battery and charger characteristics", String.raw`
+    for (const name of ["configCommand", "configResponse", ...CONFIG_ATTRIBUTES, "notice", "battery", "charger"]) {
       const ble = await connectWithFakeBle({ missingCharacteristics: [name] });
       assert.strictEqual(state.connected, false);
       assert.strictEqual(ble.device.gatt.connected, false);
@@ -1636,9 +1641,11 @@ const tests = [
     assert.strictEqual(state.loop, false);
     assert.strictEqual(els.loopBadge.hidden, true);
   `],
-  ["firmware loop events keep the indicator synchronized", String.raw`
+  ["runtime config keeps the loop indicator synchronized", String.raw`
     const ble = await connectWithFakeBle();
-    ble.chars.notice.emit(JSON.stringify({ type: "loop", active: true }));
+    ble.config.loop = true;
+    ble.publishConfigValues();
+    await waitUntil(() => state.loop, "runtime loop notification");
     assert.strictEqual(state.loop, true);
     assert.strictEqual(els.loopCard.classList.contains("active"), true);
     ble.chars.status.emit("Playing animal - cat.wav");
@@ -1761,18 +1768,20 @@ const tests = [
   ["quiet-time toggle writes optimistic values", String.raw`
     const ble = await connectWithFakeBle();
     await els.killswitchToggle.click();
-    assertJsonEqual(ble.writes.killswitch, [1]);
-    assert.strictEqual(state.killswitch, true);
+    assertJsonEqual(ble.writes.killswitch, [600]);
+    assert.strictEqual(state.quietSeconds, 600);
     assert.strictEqual(els.killswitchToggle.getAttribute("aria-checked"), "true");
     assert.strictEqual(els.quietCard.classList.contains("active"), true);
+    assert.strictEqual(els.quietSub.textContent, "Paused · 10:00 left");
     await els.killswitchToggle.click();
-    assertJsonEqual(ble.writes.killswitch, [1, 0]);
-    assert.strictEqual(state.killswitch, false);
+    assertJsonEqual(ble.writes.killswitch, [600, 0]);
+    assert.strictEqual(state.quietSeconds, 0);
     assert.strictEqual(els.killswitchToggle.getAttribute("aria-checked"), "false");
   `],
-  ["quiet-time toggle shows live countdown from status", String.raw`
+  ["quiet-time countdown comes from the seconds value, not the status text", String.raw`
     const ble = await connectWithFakeBle();
-    ble.chars.status.emit("Killswitch active (9:32 left)");
+    ble.chars.status.emit("Quiet time");
+    ble.chars.killswitch.emit(new DataView(new Uint8Array([572 & 0xff, 572 >> 8]).buffer));
     assert.strictEqual(els.quietCard.classList.contains("active"), true);
     assert.strictEqual(els.quietSub.textContent, "Paused · 9:32 left");
     assert.strictEqual(els.readyStatusText.textContent, "Quiet time");
@@ -1976,13 +1985,6 @@ const tests = [
     assert.strictEqual(state.battery, "charging");
     assert.strictEqual(els.batteryWarning.hidden, true);
     assert.strictEqual(els.batteryIndicator.getAttribute("aria-label"), "Battery charging");
-  `],
-  ["older firmware without battery state remains usable", String.raw`
-    await connectWithFakeBle({ missingCharacteristics: ["battery"] });
-    assert.strictEqual(state.connected, true);
-    assert.strictEqual(state.battery, "unknown");
-    assert.strictEqual(els.batteryWarning.hidden, true);
-    assert.strictEqual(els.batteryIndicator.classList.contains("unknown"), true);
   `],
   ["settings screen loads config and content scans", String.raw`
     const ble = await connectWithFakeBle();
