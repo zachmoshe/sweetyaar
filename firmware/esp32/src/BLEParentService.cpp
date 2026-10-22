@@ -205,10 +205,10 @@ void BLEParentService::updateVolume(uint8_t volumePct) {
     notifyOwner(_volChar);
 }
 
-void BLEParentService::updateKillswitch(bool active) {
+void BLEParentService::updateQuietSeconds(uint16_t seconds) {
     if (!_killChar) return;
-    uint8_t value = active ? 1 : 0;
-    _killChar->setValue(&value, 1);
+    uint8_t value[2] = {static_cast<uint8_t>(seconds & 0xFF), static_cast<uint8_t>(seconds >> 8)};
+    _killChar->setValue(value, sizeof(value));
     notifyOwner(_killChar);
 }
 

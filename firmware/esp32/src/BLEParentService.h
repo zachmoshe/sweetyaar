@@ -14,7 +14,8 @@
 //
 // Exposes parent-control and config characteristics:
 //   volume     (uint8, read/write/notify)   — 0–100, local WAV volume
-//   killswitch (uint8, read/write/notify)   — write 1 to activate, 0 to cancel
+//   quiet time (uint16 LE seconds left, read/write/notify) — 0 when off;
+//     write any non-zero value to start or restart 10 minutes, 0 to cancel
 //   theme      (string, read/write/notify)  — active song theme folder id
 //   status     (string, read/notify)        — user-facing state description
 //   themes     (JSON string, read)          — available song themes
@@ -50,7 +51,8 @@ public:
 
     // Push current values to the subscribed, authenticated controller.
     void updateVolume(uint8_t volumePct);
-    void updateKillswitch(bool active);
+    // Quiet time: uint16 little-endian seconds left; 0 when not in quiet time.
+    void updateQuietSeconds(uint16_t seconds);
     void updateTheme(const String& theme);
     void updateStatus(const String& status);
     void updateThemes(const String& themesJson);
@@ -229,9 +231,11 @@ private:
         void onWrite(BLECharacteristic* c) override {
             std::string value = c->getValue();
             if (value.empty()) return;
-            uint8_t val = static_cast<uint8_t>(value[0]);
+            // Any non-zero value starts (or restarts) quiet time; 0 cancels it.
+            bool on = false;
+            for (char byte : value) on = on || byte != 0;
             portENTER_CRITICAL(&_owner->_mux);
-            _owner->_pendingKillswitch = (val != 0);
+            _owner->_pendingKillswitch = on;
             _owner->_newKillswitch     = true;
             portEXIT_CRITICAL(&_owner->_mux);
         }

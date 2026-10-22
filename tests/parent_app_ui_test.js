@@ -263,6 +263,10 @@ function uint8View(value) {
   return bytesView([value]);
 }
 
+function uint16View(value) {
+  return bytesView([value & 0xff, (value >> 8) & 0xff]);
+}
+
 function textFromValue(value) {
   return textDecoder.decode(value);
 }
@@ -496,7 +500,7 @@ function makeBleHarness(options = {}) {
   };
   const chars = {
     volume: new FakeCharacteristic("volume", options.volume ?? 75, readHooks),
-    killswitch: new FakeCharacteristic("killswitch", options.killswitch ? 1 : 0, readHooks),
+    killswitch: new FakeCharacteristic("killswitch", uint16View(options.quietSeconds ?? 0), readHooks),
     theme: new FakeCharacteristic("theme", options.theme || "lullabies", readHooks),
     status: new FakeCharacteristic("status", options.status || "Idle", readHooks),
     themes: new FakeCharacteristic("themes", JSON.stringify(themes.filter((theme) => theme.enabled).map((theme) => ({ id: theme.id, name: theme.name }))), readHooks),
@@ -568,8 +572,9 @@ function makeBleHarness(options = {}) {
     }
   };
   chars.killswitch.write = (value) => {
-    writes.killswitch.push(value[0]);
-    chars.killswitch.value = value[0];
+    const seconds = value[0] | (value[1] << 8);
+    writes.killswitch.push(seconds);
+    chars.killswitch.value = uint16View(seconds);
   };
 
   const charByUuid = new Map(Object.entries(UUIDS).map(([name, uuid]) => [uuid, chars[name]]));
@@ -1761,18 +1766,20 @@ const tests = [
   ["quiet-time toggle writes optimistic values", String.raw`
     const ble = await connectWithFakeBle();
     await els.killswitchToggle.click();
-    assertJsonEqual(ble.writes.killswitch, [1]);
-    assert.strictEqual(state.killswitch, true);
+    assertJsonEqual(ble.writes.killswitch, [600]);
+    assert.strictEqual(state.quietSeconds, 600);
     assert.strictEqual(els.killswitchToggle.getAttribute("aria-checked"), "true");
     assert.strictEqual(els.quietCard.classList.contains("active"), true);
+    assert.strictEqual(els.quietSub.textContent, "Paused · 10:00 left");
     await els.killswitchToggle.click();
-    assertJsonEqual(ble.writes.killswitch, [1, 0]);
-    assert.strictEqual(state.killswitch, false);
+    assertJsonEqual(ble.writes.killswitch, [600, 0]);
+    assert.strictEqual(state.quietSeconds, 0);
     assert.strictEqual(els.killswitchToggle.getAttribute("aria-checked"), "false");
   `],
-  ["quiet-time toggle shows live countdown from status", String.raw`
+  ["quiet-time countdown comes from the seconds value, not the status text", String.raw`
     const ble = await connectWithFakeBle();
-    ble.chars.status.emit("Killswitch active (9:32 left)");
+    ble.chars.status.emit("Quiet time");
+    ble.chars.killswitch.emit(new DataView(new Uint8Array([572 & 0xff, 572 >> 8]).buffer));
     assert.strictEqual(els.quietCard.classList.contains("active"), true);
     assert.strictEqual(els.quietSub.textContent, "Paused · 9:32 left");
     assert.strictEqual(els.readyStatusText.textContent, "Quiet time");

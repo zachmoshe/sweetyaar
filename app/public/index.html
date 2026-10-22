@@ -2880,7 +2880,7 @@
       theme: "",
       themes: [],
       loop: false,
-      killswitch: false,
+      quietSeconds: 0,
       battery: "unknown",
       charger: null,
       chargerTransportError: "",
@@ -2965,12 +2965,13 @@
     }
 
     function isKillswitchActive() {
-      return state.killswitch || state.status.startsWith("Killswitch active");
+      return state.quietSeconds > 0;
     }
 
     function killswitchRemainingText() {
-      const match = /\(([0-9]+:[0-9]{2}) left\)/.exec(state.status);
-      return match ? match[1] : "";
+      const minutes = Math.floor(state.quietSeconds / 60);
+      const seconds = state.quietSeconds % 60;
+      return `${minutes}:${String(seconds).padStart(2, "0")}`;
     }
 
     // Parse the firmware status string into a structured playback descriptor.
@@ -3093,7 +3094,7 @@
       if (state.status === "Idle" || state.status === "Disconnected") {
         return "Ready to play";
       }
-      if (state.status.startsWith("Killswitch active")) {
+      if (isKillswitchActive()) {
         return "Quiet time";
       }
       const playback = parsePlayback();
@@ -3344,6 +3345,10 @@
       return value.byteLength ? value.getUint8(0) : 0;
     }
 
+    function readUint16(value) {
+      return value.byteLength >= 2 ? value.getUint16(0, true) : 0;
+    }
+
     function decodeBatteryState(value) {
       return ["unknown", "good", "medium", "low", "charging"][Number(value)] || "unknown";
     }
@@ -3478,6 +3483,10 @@
 
     async function writeUint8(name, value) {
       await writeCharacteristic(state.chars[name], Uint8Array.of(value));
+    }
+
+    async function writeUint16(name, value) {
+      await writeCharacteristic(state.chars[name], Uint8Array.of(value & 0xff, (value >> 8) & 0xff));
     }
 
     async function writeText(name, value) {
@@ -4741,8 +4750,7 @@
       els.quietCard.classList.toggle("active", quietActive);
       els.quietTitle.textContent = "Quiet time";
       if (quietActive) {
-        const remaining = killswitchRemainingText();
-        els.quietSub.textContent = remaining ? `Paused · ${remaining} left` : "Paused";
+        els.quietSub.textContent = `Paused · ${killswitchRemainingText()} left`;
       } else {
         els.quietSub.textContent = "Pause the toy's buttons for 10 min";
       }
@@ -4954,7 +4962,7 @@
       state.themes = parseThemes(readText(themesValue));
       state.themeCreditsReady = false;
       state.volume = readUint8(volumeValue);
-      state.killswitch = readUint8(killswitchValue) !== 0;
+      state.quietSeconds = readUint16(killswitchValue);
       state.theme = readText(themeValue);
       state.battery = batteryValue ? decodeBatteryState(readUint8(batteryValue)) : "unknown";
       await readChargerStatus();
@@ -4991,7 +4999,7 @@
       const previousStatus = state.status;
       state.status = status || "Idle";
       if (state.status.startsWith("Playing animal") ||
-          state.status.startsWith("Killswitch active") ||
+          state.status === "Quiet time" ||
           isBtConnected() ||
           (previousStatus.startsWith("Playing song") && state.status === "Idle")) {
         state.loop = false;
@@ -5012,6 +5020,7 @@
     }
 
     const NOTICE_AUTO_DISMISS_MS = 6000;
+    const QUIET_TIME_SECONDS = 600;
     const TAKEOVER_MESSAGE = "Someone else took control.";
     const PAIRING_REQUIRED_MESSAGE = "Device not approved. Hold both buttons for 3 seconds to open pairing mode, then reconnect.";
     const CONNECTION_PAIRING_HINT = "Couldn't connect. If this is a new device, hold both buttons for 3 seconds to open pairing mode.";
@@ -5143,7 +5152,8 @@
         render();
       });
       await subscribe("killswitch", (event) => {
-        state.killswitch = readUint8(event.target.value) !== 0;
+        state.quietSeconds = readUint16(event.target.value);
+        if (isKillswitchActive()) state.loop = false;
         render();
       });
       await subscribe("theme", (event) => {
@@ -5351,7 +5361,7 @@
       state.configError = null;
       state.remoteInitializing = false;
       state.status = "Disconnected";
-      state.killswitch = false;
+      state.quietSeconds = 0;
       state.loop = false;
       state.battery = "unknown";
       state.charger = null;
@@ -5595,19 +5605,19 @@
     els.killswitchToggle.addEventListener("click", () => {
       if (controlsDisabled()) return;
       const turnOn = !isKillswitchActive();
-      const previousKillswitch = state.killswitch;
+      const previousQuietSeconds = state.quietSeconds;
       const previousStatus = state.status;
       const previousLoop = state.loop;
-      state.killswitch = turnOn;
-      state.status = turnOn ? "Killswitch active" : "Idle";
+      state.quietSeconds = turnOn ? QUIET_TIME_SECONDS : 0;
+      state.status = turnOn ? "Quiet time" : "Idle";
       if (turnOn) state.loop = false;
       render();
       safeWrite(
-        () => writeUint8("killswitch", turnOn ? 1 : 0),
+        () => writeUint16("killswitch", state.quietSeconds),
         "",
         controlsDisabled(),
         () => {
-          state.killswitch = previousKillswitch;
+          state.quietSeconds = previousQuietSeconds;
           state.status = previousStatus;
           state.loop = previousLoop;
         }

@@ -249,6 +249,14 @@ Activating it stops local audio and ignores physical-button and app playback com
 ten minutes, unless the parent cancels it early. Quiet time applies only to local playback;
 it does not prevent a Classic Bluetooth source from connecting and streaming.
 
+Quiet time is exposed as one read/write/notify characteristic (`killswitch`, UUID
+suffix `7892`) holding an unsigned 16-bit little-endian count of **seconds left**;
+0 means quiet time is off. Firmware notifies it when quiet time starts, restarts,
+is cancelled or expires, and once per second while it runs. Writing any non-zero
+value starts quiet time (or restarts its ten minutes); writing 0 cancels it. The
+status text is just `Quiet time` and carries no timer; the app takes the countdown
+only from this value.
+
 The app is a control surface, not a content uploader. Songs and animal sounds
 are placed on the microSD card directly. Its complete behavior, connection
 flow, and offline support are described in [Mobile App](mobile-app.md).
