@@ -214,18 +214,125 @@ void testReservedAndUnusedWakeBitsAppearOnlyInRawLog() {
 void testPollScheduling() {
     Fixture f;
     const unsigned initialReads = Wire.reads[0];
-    g_fakeMillis = CHARGER_VERIFY_INTERVAL_MS - 1;
+    const unsigned initialConfigReads = Wire.reads[3];
+    g_fakeMillis = CHARGER_STATUS_INTERVAL_MS - 1;
     f.charger.poll();
     assert(Wire.reads[0] == initialReads);
     ++g_fakeMillis;
     f.charger.poll();
     assert(Wire.reads[0] == initialReads + 1 && Wire.reads[2] == initialReads + 1);
+    assert(Wire.reads[3] == initialConfigReads); // Live reads are lightweight.
     assert(Serial.output.empty());
+    // Status reads never postpone the independent ten-second verification.
+    for (g_fakeMillis = 2000; g_fakeMillis <= 10000; g_fakeMillis += 1000) {
+        f.charger.poll();
+    }
+    assert(Wire.reads[0] == initialReads + 10);
+    assert(Wire.reads[3] == initialConfigReads + 1);
     // An interrupt bypasses the periodic deadline.
+    g_fakeMillis = 10000;
     Wire.registers[0] = 0x41;
     f.interruptRead();
-    assert(Wire.reads[0] == initialReads + 2);
+    assert(Wire.reads[0] == initialReads + 11);
+    assert(Wire.reads[3] == initialConfigReads + 2);
     assert(contains("[Charger state] time=UNKNOWN CHARGE_STATUS=CHARGING_CONSTANT_VOLTAGE"));
+}
+
+void testRegulationMasksAndSampledState() {
+    Fixture f;
+    // TI CHARGECTRL1 bits 2/1/0 mask charge-phase, ILIM and DPM events.
+    assert((Wire.registers[6] & 0x07) == 0x07);
+    assert((Wire.registers[6] & 0xF8) == 0xD0); // OCP/UVLO thresholds unchanged.
+    // MASK_ID bit 6 masks TREG; TS, battery and power-good faults stay enabled.
+    assert(Wire.registers[12] == 0x41);
+    assert(Wire.registers[4] == 0x7F && Wire.registers[8] == 0x4F);
+    assert(Wire.registers[5] == 0x24 && Wire.registers[11] == 0xCC);
+
+    const unsigned initialReads = Wire.reads[0];
+    // 100 changing observations per second produce no unmasked interrupt.
+    // The app sees one latest live sample, never latched FLAG0 limit events.
+    for (g_fakeMillis = 10; g_fakeMillis <= 3000; g_fakeMillis += 10) {
+        Wire.registers[0] = 0x21 | ((g_fakeMillis / 10) % 2 ? 0 : 0x1E);
+        Wire.registers[2] = 0x78;
+        f.charger.poll();
+        assert(Wire.reads[0] == initialReads + g_fakeMillis / 1000);
+        assert(Serial.output.empty());
+    }
+    using namespace ChargerStatus;
+    assert(f.charger.snapshot().conditions ==
+           (InputCurrentLimit | SystemVoltageLimit | InputVoltageLimit | ThermalRegulation));
+    assert(f.charger.snapshot().reportedEvents == 0);
+    Wire.registers[0] = 0x21;
+    g_fakeMillis = 3999;
+    f.charger.poll();
+    assert(f.charger.snapshot().conditions != 0); // Last sampled state.
+    g_fakeMillis = 4000;
+    f.charger.poll();
+    assert(f.charger.snapshot().conditions == 0);
+    assert(Serial.output.empty());
+
+    // A real overvoltage interrupt bypasses the one-second sampling cadence.
+    Wire.registers[1] = 0x80;
+    Wire.registers[2] = 0x04;
+    f.interruptRead();
+    assert(f.charger.snapshot().conditions == InputOvervoltage);
+    assert(contains("VIN_OVP_FAULT_FLAG"));
+}
+
+void testChargePhaseSamplingWithoutInterrupts() {
+    Fixture f;
+    const unsigned initialReads = Wire.reads[0];
+    // Charge phase changes have no IRQ, but activity and completion must
+    // still reach the app through the one-second status sample.
+    Wire.registers[0] = 0x41;
+    g_fakeMillis = 999;
+    f.charger.poll();
+    assert(Wire.reads[0] == initialReads);
+    g_fakeMillis = 1000;
+    f.charger.poll();
+    assert(f.charger.status() == ChargerStatus::State::Charging);
+    assert(contains("CHARGING_CONSTANT_VOLTAGE"));
+    Wire.registers[0] = 0x61;
+    g_fakeMillis = 2000;
+    f.charger.poll();
+    assert(f.charger.status() == ChargerStatus::State::Finished);
+    Wire.registers[0] = 0x21;
+    g_fakeMillis = 3000;
+    f.charger.poll();
+    assert(f.charger.status() == ChargerStatus::State::Charging);
+    assert(Wire.reads[0] == initialReads + 3);
+}
+
+void testPeriodicRecoveryAndRollover() {
+    Fixture f;
+    Wire.failReadRegister = 0;
+    g_fakeMillis = CHARGER_STATUS_INTERVAL_MS;
+    f.charger.poll();
+    assert(!f.charger.healthy() && g_pins[PIN_CHARGER_ENABLE] == LOW);
+    Wire.failReadRegister = -1;
+    Wire.registers[6] ^= 0x02; // A lost mask must be restored before /CE.
+    g_fakeMillis += CHARGER_STATUS_INTERVAL_MS;
+    f.charger.poll();
+    assert(Wire.registers[6] == 0xD7);
+    assert(f.charger.healthy() && g_pins[PIN_CHARGER_ENABLE] == HIGH);
+    assert(f.charger.status() == ChargerStatus::State::Unknown);
+    g_fakeMillis += CHARGER_STATUS_INTERVAL_MS;
+    f.charger.poll();
+    assert(f.charger.status() == ChargerStatus::State::Charging);
+
+    g_fakeMillis = UINT32_MAX - 499;
+    f.charger.poll();
+    const auto initialReads = Wire.reads;
+    g_fakeMillis = 499;
+    f.charger.poll();
+    assert(Wire.reads == initialReads);
+    g_fakeMillis = 500;
+    f.charger.poll();
+    assert(Wire.reads[0] == initialReads[0] + 1);
+    assert(Wire.reads[3] == initialReads[3]);
+    g_fakeMillis = 9500;
+    f.charger.poll();
+    assert(Wire.reads[3] == initialReads[3] + 1);
 }
 
 void testFailedReadsAndRecovery() {
@@ -431,6 +538,9 @@ int main() {
     testEventFlagsAreSeparateFromState();
     testReservedAndUnusedWakeBitsAppearOnlyInRawLog();
     testPollScheduling();
+    testRegulationMasksAndSampledState();
+    testChargePhaseSamplingWithoutInterrupts();
+    testPeriodicRecoveryAndRollover();
     testFailedReadsAndRecovery();
     testCompletionDoesNotReuseDisabledSamples();
     testAppSnapshotReflectsLatestRead();

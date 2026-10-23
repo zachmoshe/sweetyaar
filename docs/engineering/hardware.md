@@ -659,9 +659,19 @@ watchdog is enabled while awake and disabled immediately before deliberate
 deep sleep. These settings do not turn `SYS` into a boost converter: the 3.3 V
 and 5 V regulators remain required.
 
+Routine charging-phase, ILIM, VINDPM/VDPPM and thermal-regulation interrupts are masked
+(`CHARGECTRL1=0xD7`, `MASK_ID=0x41`). This changes host notifications only;
+current limiting, voltage regulation, thermal regulation and all protection
+thresholds stay enabled. Input-good/overvoltage, battery-protection and TS
+interrupts remain enabled. Firmware samples charging activity and live limit
+conditions once per second for the parent app instead of servicing every
+transient limit event or rapid CC/CV phase change.
+
 The read-and-verify path has no configuration cache. At boot firmware writes
 one register and immediately reads the physical register back before advancing.
-It then rereads every configured register every 10 seconds and on `/INT`. Any
+It then rereads every configured register every 10 seconds and on unmasked `/INT`.
+Additional status-only reads occur once per second without postponing that
+verification; recovery also verifies the complete policy before re-enabling `/CE`. Any
 I2C failure, unexpected device ID, or mismatch immediately releases `/CE`;
 firmware attempts one complete rewrite/read-back cycle and re-enables charging
 only after successful verification. The ESP32 CPU1 loop task also uses the

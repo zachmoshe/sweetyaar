@@ -15,9 +15,10 @@ public:
     // was written and read back exactly.
     bool begin(LocalTimeReader readLocalTime = nullptr);
 
-    // Services /INT and performs a complete register read-back every 10 s.
-    // Logs a named state snapshot initially and whenever a field changes;
-    // read-to-clear FLAG0 events are logged separately from state changes.
+    // Samples live status every second. Complete configuration verification
+    // runs every 10 s, on unmasked /INT, and before recovery re-enables /CE.
+    // Routine limiting remains visible in snapshots without event interrupts
+    // or serial spam; real fault events retain separate logging.
     void poll();
 
     // Disable charging and the charger's host watchdog before battery-only
@@ -60,4 +61,5 @@ private:
     uint8_t _lastStat1 = 0xFF;
     int8_t _lastPgLevel = -1;
     uint32_t _lastVerifyMs = 0;
+    uint32_t _lastStatusMs = 0;
 };

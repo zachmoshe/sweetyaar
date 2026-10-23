@@ -193,6 +193,7 @@ static_assert(PIN_CHARGER_SCL == 17);
 static_assert(PIN_CHARGER_PG == 34);
 static_assert(PIN_CHARGER_INT == 35);
 static_assert(CHARGER_VERIFY_INTERVAL_MS == 10000);
+static_assert(CHARGER_STATUS_INTERVAL_MS == 1000);
 """)
     assert result.returncode == 0, result.stderr
 
@@ -203,14 +204,14 @@ def test_bq25186_safety_policy_is_encoded_and_verified() -> None:
         "VALUE_VBAT_CTRL = 0x46",
         "VALUE_ICHG_CTRL = 0x7F",
         "VALUE_CHARGECTRL0 = 0x24",
-        "VALUE_CHARGECTRL1 = 0xD0",
+        "VALUE_CHARGECTRL1 = 0xD7",
         "VALUE_IC_CTRL_AWAKE = 0x86",
         "VALUE_IC_CTRL_SLEEP = 0x87",
         "VALUE_TMR_ILIM = 0x4F",
         "VALUE_SHIP_RST = 0x00",
         "VALUE_SYS_REG = 0x40",
         "VALUE_TS_CONTROL = 0xCC",
-        "VALUE_MASK_ID = 0x01",
+        "VALUE_MASK_ID = 0x41",
     ):
         assert setting in source
 

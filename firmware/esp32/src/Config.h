@@ -190,6 +190,7 @@ static constexpr uint32_t SLEEP_VIB_WAKE_IDLE_MS = 2UL * 60UL * 1000UL;
 static constexpr uint32_t SLEEP_BLE_IDLE_MS = 2UL * 60UL * 1000UL;
 static constexpr uint32_t BATTERY_SAMPLE_INTERVAL_MS = 30UL * 1000UL;
 static constexpr uint32_t CHARGER_VERIFY_INTERVAL_MS = 10UL * 1000UL;
+static constexpr uint32_t CHARGER_STATUS_INTERVAL_MS = 1000;
 static constexpr uint32_t BATTERY_BOOT_SAMPLE_INTERVAL_MS = 100;
 static constexpr uint8_t  BATTERY_BOOT_SAMPLE_COUNT = 5;
 static constexpr uint8_t  BATTERY_ROLLING_SAMPLE_COUNT = 10;

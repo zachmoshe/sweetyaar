@@ -27,8 +27,8 @@ constexpr uint8_t REG_MASK_ID = 0x0C;
 // timer indication. Reserved and TS/MR pushbutton event bits are not state.
 constexpr uint8_t STAT1_STATE_MASK = 0xDC;
 // ILIM, VDPPM, VINDPM, and thermal regulation toggle continuously while the
-// charger runs at its input limit. They stay in the BLE snapshot but do not
-// trigger serial logs.
+// charger runs at its input limit. Mask their interrupts and retain live
+// conditions through periodic status reads, without transient event logs.
 constexpr uint8_t STAT0_LIMIT_MASK = 0x1E;
 constexpr uint8_t FLAG0_LIMIT_MASK = 0x78;
 
@@ -40,15 +40,18 @@ constexpr uint8_t FLAG0_LIMIT_MASK = 0x78;
 constexpr uint8_t VALUE_VBAT_CTRL = 0x46;
 constexpr uint8_t VALUE_ICHG_CTRL = 0x7F;
 constexpr uint8_t VALUE_CHARGECTRL0 = 0x24;
-constexpr uint8_t VALUE_CHARGECTRL1 = 0xD0;
+// Mask ILIM, VINDPM/VDPPM and charge-phase notifications. CC/CV transitions
+// also chatter near regulation; sample them once per second. Input/fault
+// interrupts, regulation thresholds and hardware protection remain enabled.
+constexpr uint8_t VALUE_CHARGECTRL1 = 0xD7;
 constexpr uint8_t VALUE_TMR_ILIM = 0x4F;
 constexpr uint8_t VALUE_SHIP_RST = 0x00;
 constexpr uint8_t VALUE_SYS_REG = 0x40;
 constexpr uint8_t VALUE_TS_CONTROL = 0xCC;
-// Enable all supported event sources and require the read-only BQ25186
-// Device_ID nibble (0x1). Including this register in verification also catches
-// accidental interrupt-mask changes.
-constexpr uint8_t VALUE_MASK_ID = 0x01;
+// Mask thermal-regulation notifications, retaining TS, battery-protection,
+// and input-good/overvoltage interrupts plus the read-only Device_ID (0x1).
+// Configuration verification also catches accidental interrupt-mask changes.
+constexpr uint8_t VALUE_MASK_ID = 0x41;
 
 // TS enabled, six-hour safety timer. While awake the 40-second BQ25186
 // watchdog performs a full SYS power-cycle if I2C traffic stops. It must be
@@ -157,6 +160,7 @@ bool BQ25186Charger::begin(LocalTimeReader readLocalTime) {
 
     _healthy = true;
     _lastVerifyMs = millis();
+    _lastStatusMs = _lastVerifyMs;
     setChargeEnabled(_inputPresent);
     logStatusChange();
     Serial.printf("[Charger] Configuration verified; charging %s\n",
@@ -165,23 +169,31 @@ bool BQ25186Charger::begin(LocalTimeReader readLocalTime) {
 }
 
 void BQ25186Charger::poll() {
-    uint32_t now = millis();
-    bool periodic = now - _lastVerifyMs >= CHARGER_VERIFY_INTERVAL_MS;
-    if (!_interruptPending && !periodic) {
+    const uint32_t now = millis();
+    const bool interrupted = _interruptPending;
+    const bool verifyDue = now - _lastVerifyMs >= CHARGER_VERIFY_INTERVAL_MS;
+    const bool statusDue = now - _lastStatusMs >= CHARGER_STATUS_INTERVAL_MS;
+    if (!interrupted && !verifyDue && !statusDue) {
         return;
     }
 
     _interruptPending = false;
-    _lastVerifyMs = now;
+    _lastStatusMs = now;
 
-    if (!verifyConfiguration(VALUE_IC_CTRL_AWAKE)) {
-        setChargeEnabled(false);
-        Serial.println("[Charger] Configuration mismatch; attempting fail-closed recovery");
-        if (!applyConfiguration(VALUE_IC_CTRL_AWAKE)) {
-            failClosed("configuration recovery failed");
-            return;
+    // Keep complete safety verification on interrupts, every ten seconds,
+    // and before recovery can re-enable /CE. Routine live-state sampling
+    // reads only STAT0, STAT1 and FLAG0 and cannot postpone verification.
+    if (interrupted || verifyDue || !_healthy) {
+        _lastVerifyMs = now;
+        if (!verifyConfiguration(VALUE_IC_CTRL_AWAKE)) {
+            setChargeEnabled(false);
+            Serial.println("[Charger] Configuration mismatch; attempting fail-closed recovery");
+            if (!applyConfiguration(VALUE_IC_CTRL_AWAKE)) {
+                failClosed("configuration recovery failed");
+                return;
+            }
+            Serial.println("[Charger] Configuration restored and verified");
         }
-        Serial.println("[Charger] Configuration restored and verified");
     }
 
     if (!readStatus()) {

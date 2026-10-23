@@ -408,9 +408,28 @@ of `setup()`. It probes the device ID,
 writes each configuration register, immediately reads that physical register
 back, and enables charging only after the complete sequence succeeds. The
 verification path deliberately has no cached register values. Every ten seconds
-and after `/INT`, it rereads every configured register and the status/flag
-registers. A mismatch or I2C error releases `/CE`; one complete rewrite and
-read-back must succeed before charging can resume.
+and after an unmasked `/INT`, it rereads every configured register and the
+status/flag registers. Between these checks it samples the three status/flag
+registers once per second, keeping the app's live conditions current without
+rechecking all settings. Status-only reads cannot postpone the ten-second
+verification. A mismatch or I2C error releases `/CE`; recovery verifies the
+complete configuration and rewrites/read-verifies it if needed before charging
+can resume.
+
+Routine regulation notifications are masked at the chip: `CHARGECTRL1=0xD7`
+masks charging-phase, ILIM and VINDPM/VDPPM interrupts, and `MASK_ID=0x41` masks thermal-regulation
+interrupts. Current/voltage/thermal regulation itself remains enabled with the
+same thresholds. Input-good/overvoltage, battery
+protection and TS temperature-fault interrupts remain enabled. The latest live
+limit bits still appear in BLE conditions, refreshed at approximately one-second
+intervals rather than on every rapid limiting event. They are informational
+conditions, not repeated fault warnings. Other unmasked events can refresh the
+whole snapshot sooner. Charging activity and completion are also sampled once
+per second: CC/CV phase changes can chatter hundreds of times per second near
+regulation. Confirming that charging started, and therefore playing the plug-in
+cue, can take about one second after enabling charging. See [TI sections 6.3.7, 6.3.13 and register masks](https://www.ti.com/lit/ds/symlink/bq25186.pdf).
+The [regulation notification validation record](charger-limit-status-validation.md)
+separates host checks from device measurements.
 
 `/PG` on GPIO34 reports valid input power and wakes the ESP32 when USB/AUX is
 attached during deep sleep. `/INT` on GPIO35 prompts a status read while awake.
@@ -468,8 +487,10 @@ Failed supervision invalidates the observations and sets only supervision failur
 The battery-overcurrent message and safety-timer warning follow the latest sampled
 bits: a reported 1 shows the condition and a reported 0 removes it. Firmware does
 not latch either indication across reads or infer whether the hardware recovered.
-The snapshot stays unchanged between successful reads; sampling is periodic and
-interrupt-driven. Earlier events remain available in the serial log.
+The snapshot stays unchanged between successful reads; sampling is once per
+second and on unmasked interrupts. Limit indicators describe the latest sample,
+not every transient between reads or the fraction of time spent limiting.
+Earlier fault events remain available in the serial log.
 
 Firmware updates the readable snapshot even while disconnected and notifies only
 when its bytes change, respecting the existing Classic-Bluetooth settle interval.
@@ -492,6 +513,9 @@ The input-current, DPPM, VINDPM, and thermal-regulation bits in `STAT0` and
 `FLAG0` are excluded from these change checks: they toggle continuously while
 the charger runs at its input limit. They still appear in any printed snapshot
 and in the BLE charger conditions.
+Masking their interrupts prevents the corresponding I2C and BLE traffic storm;
+the existing log filtering also keeps their latched event flags quiet when the
+periodic poll reads them.
 
 Serial also prints a complete `[Charger state] time=<local date and time> ...`
 snapshot on the first successful read, whenever a reported field changes, and
