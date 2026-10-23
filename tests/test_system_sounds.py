@@ -35,7 +35,7 @@ def test_flash_cues_and_audio_ownership(repo_root, tmp_path):
         "-o", exe,
     ])
     assets = repo_root / "firmware/esp32/assets/sounds"
-    result = run_checked([exe, fixture, *(assets / f"{name}.wav" for name in ("ready", "error", "pairing"))])
+    result = run_checked([exe, fixture, *(assets / f"{name}.wav" for name in ("ready", "error", "pairing", "battery", "charger"))])
     assert "system sound tests passed" in result.stdout
 
 
@@ -45,9 +45,10 @@ def test_cue_assets_are_embedded_and_triggers_are_reachable(repo_root):
     main = (src / "main.cpp").read_text()
     config = (src.parent / "platformio.ini").read_text()
     assert "board_build.embed_files" in config
-    for name in ("ready", "error", "pairing"):
+    for name in ("ready", "error", "pairing", "battery", "charger"):
         assert f"assets/sounds/{name}.wav" in config
     setup = function_source(main, "setup")
     assert setup.index("finishSystemSoundStartup();") > setup.index("setupLoopTaskWatchdog();")
     assert "pollBluetoothPairing();" in function_source(main, "loop")
+    assert "pollBatteryState();" in function_source(main, "loop")
     assert "systemAudio.active()" in function_source(main, "canEnterIdleSleep")

@@ -77,6 +77,11 @@ void SystemSoundOutput::cancel() {
     _sound = SystemSound::None;
 }
 
+void SystemSoundOutput::stop(SystemSound sound) {
+    std::lock_guard<std::mutex> guard(_mutex);
+    if (_active && _sound == sound) _position = uint64_t(_frames) << 32;
+}
+
 SystemSoundOutput::Result SystemSoundOutput::service() {
     std::lock_guard<std::mutex> guard(_mutex);
     if (!_active) return Result::Idle;

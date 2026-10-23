@@ -62,6 +62,8 @@ bool prevLoopMode = false;
 bool sdReady = false;
 bool systemSoundsReady = false;
 bool systemErrorReported = false;
+bool batterySoundPending = false;
+bool chargerSoundPlayed = false;
 String activeTheme = DEFAULT_THEME;
 String currentPlaybackTheme = DEFAULT_THEME;
 String currentDeviceName = DEFAULT_BT_NAME;
@@ -117,6 +119,7 @@ void playSystemSound(SystemSound sound);
 void reportSystemError();
 void serviceSystemSound();
 void finishSystemSoundStartup();
+void pollBatteryState();
 void setupI2S();
 void resetI2SOutput(const char* owner);
 void setupBT(const String& deviceName);
@@ -418,16 +421,7 @@ void loop() {
         }
     }
 
-    // Battery state is a separate one-byte BLE value. Avoid injecting a BLE
-    // notification into the short Classic-BT connection settle interval.
-    if (batteryMonitor.poll(HAS_BQ25186 && charger.charging()) &&
-        ENABLE_BLE_PARENT_SERVICE) {
-        if (btLinkConnected && millis() - btConnectedAtMs < BT_SETTLE_MS) {
-            btSettleBlePublishPending = true;
-        } else {
-            bleService.updateBatteryState(batteryMonitor.encodedState());
-        }
-    }
+    pollBatteryState();
 
     // Charger diagnostics are independent of the coarse battery level.
     if (ENABLE_BLE_PARENT_SERVICE) {
@@ -493,7 +487,10 @@ void loop() {
     pollIdleSleep();
 
     esp_task_wdt_reset();
-    delay(wavPlayer.isIdle() ? 5 : 1);  // keep WAV streaming fed while still yielding
+    // Cues need the same feed cadence as SD audio. Charger interrupt polling
+    // can take ~6.3 ms per pass; adding a 5 ms idle sleep leaves too little
+    // time for a 512-frame / 11.61 ms cue block and starves the I2S queue.
+    delay((systemAudio.active() || !wavPlayer.isIdle()) ? 1 : 5);
 }
 
 // ---------------------------------------------------------------------------
@@ -569,6 +566,54 @@ void finishSystemSoundStartup() {
     if (systemSoundsReady) return;
     systemSoundsReady = true;
     playSystemSound(systemErrorReported ? SystemSound::Error : SystemSound::Ready);
+}
+
+void pollBatteryState() {
+    const bool chargerHealthy = HAS_BQ25186 && charger.healthy();
+    const bool inputPresent = chargerHealthy && charger.inputPresent();
+    // Only a confirmed loss of valid input re-arms the connection cue. Charge
+    // pauses/resumptions and failed I2C reads do not start another connection.
+    if (chargerHealthy && !inputPresent) {
+        chargerSoundPlayed = false;
+    }
+    const bool suppressBattery = HAS_BQ25186 && (!chargerHealthy || inputPresent);
+
+    if (batteryMonitor.poll(HAS_BQ25186 && charger.charging())) {
+        const BatteryState current = batteryMonitor.state();
+        // Cue once on every change into MEDIUM/LOW, including the first valid
+        // reading after power-on or deep-sleep wake. Other states cancel a
+        // queued cue; stable readings never retrigger it.
+        batterySoundPending = !suppressBattery &&
+            (current == BatteryState::Medium || current == BatteryState::Low);
+
+        // Audio is independent of BLE. Preserve the Classic connection's
+        // notification settle interval without delaying the battery cue.
+        if (ENABLE_BLE_PARENT_SERVICE) {
+            if (btLinkConnected && millis() - btConnectedAtMs < BT_SETTLE_MS) {
+                btSettleBlePublishPending = true;
+            } else {
+                bleService.updateBatteryState(batteryMonitor.encodedState());
+            }
+        }
+    }
+    if (suppressBattery) {
+        batterySoundPending = false;
+        systemAudio.stop(SystemSound::Battery);
+    }
+    if (inputPresent && !chargerSoundPlayed &&
+        charger.status() == ChargerStatus::State::Charging && !systemAudio.active()) {
+        // Includes boot/wake with a cable attached. Use interpreted status,
+        // which requires a fresh observation after /CE enabled charging.
+        // Consume even when muted; charging resumption must not replay it.
+        chargerSoundPlayed = true;
+        playSystemSound(SystemSound::Charger);
+    }
+    if (batterySoundPending && !systemAudio.active()) {
+        // Wait for another cue rather than interrupting it. Consume even when
+        // muted so raising the volume later cannot replay an old warning.
+        batterySoundPending = false;
+        playSystemSound(SystemSound::Battery);
+    }
 }
 
 void serviceSystemSound() {

@@ -8,6 +8,7 @@ import shutil
 import pytest
 
 from helpers import run_checked
+from test_settings_runtime import function_source
 
 
 @pytest.fixture(scope="module")
@@ -17,6 +18,8 @@ def battery_monitor_exe(repo_root: pathlib.Path, tmp_path_factory) -> pathlib.Pa
         pytest.skip("No C++ compiler found for native battery regression tests.")
 
     build_dir = tmp_path_factory.mktemp("battery_monitor")
+    main = (repo_root / "firmware/esp32/src/main.cpp").read_text()
+    (build_dir / "battery_events.inc").write_text(function_source(main, "pollBatteryState"))
     (build_dir / "Arduino.h").write_text(r"""
 #pragma once
 #include <cassert>
@@ -59,6 +62,7 @@ inline SerialClass Serial;
         "-I", build_dir,
         "-I", repo_root / "firmware/esp32/src",
         repo_root / "firmware/esp32/src/BatteryMonitor.cpp",
+        repo_root / "firmware/esp32/src/ChargerStatus.cpp",
         repo_root / "tests/battery_monitor_native_test.cpp",
         "-o", exe,
     ])
@@ -67,6 +71,7 @@ inline SerialClass Serial;
 
 @pytest.mark.parametrize("scenario", [
     "startup", "late_poll", "seed_weight", "invalid_startup", "wraparound", "restart",
+    "sound_events", "charger_sound_events",
 ])
 def test_battery_monitor(battery_monitor_exe: pathlib.Path, scenario: str) -> None:
     result = run_checked([battery_monitor_exe, scenario])

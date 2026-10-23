@@ -1,0 +1,78 @@
+{
+  "method": "Remove only all-zero leading and trailing PCM; retain one zero frame at each endpoint. All intervening PCM is unchanged.",
+  "format": "44.1 kHz, 16-bit mono PCM",
+  "files": [
+    {
+      "file": "ready.wav",
+      "source": "firmware/esp32/assets/sounds/ready.wav",
+      "source_sha256": "a1e3b3f88ce15701adafa38c009951023be49d0ad1f2b50e75dac5de26552616",
+      "before_frames": 33869,
+      "frames": 31899,
+      "leading_frames_removed": 354,
+      "trailing_frames_removed": 1616,
+      "duration_s": 0.7233333333333334,
+      "bytes": 63842,
+      "sha256": "dfba4d1cdc0f2b68abafbd3356b8d095311f34539f27a09690ada3464d25573c"
+    },
+    {
+      "file": "error.wav",
+      "source": "firmware/esp32/assets/sounds/error.wav",
+      "source_sha256": "0725084f43ef7a45e78512557b192ce7e930679a368cc572d8815ec89ececf58",
+      "before_frames": 29635,
+      "frames": 27831,
+      "leading_frames_removed": 354,
+      "trailing_frames_removed": 1450,
+      "duration_s": 0.6310884353741497,
+      "bytes": 55706,
+      "sha256": "ecfe08d3d38ad11e892377718ead1879cfcd69779c6d08b331cba61234be468a"
+    },
+    {
+      "file": "pairing.wav",
+      "source": "firmware/esp32/assets/sounds/pairing.wav",
+      "source_sha256": "f00234449cf320057015ba89eb2f0843f5aa90fdc0d0e669d799c4bb2e42ed41",
+      "before_frames": 29635,
+      "frames": 27762,
+      "leading_frames_removed": 354,
+      "trailing_frames_removed": 1519,
+      "duration_s": 0.6295238095238095,
+      "bytes": 55568,
+      "sha256": "3113138e0bd7036e1415c2c2c456dbbff1a1965f42e11abae6511e22392616b2"
+    },
+    {
+      "file": "battery.wav",
+      "source": "firmware/esp32/assets/sounds/battery.wav",
+      "source_sha256": "b6f1a3c5b96427d5e2e4f7faf446a1d2e9e8aa6bd91d31fc9fbaae1f3ccf01d3",
+      "before_frames": 34927,
+      "frames": 33675,
+      "leading_frames_removed": 1030,
+      "trailing_frames_removed": 222,
+      "duration_s": 0.7636054421768708,
+      "bytes": 67394,
+      "sha256": "09a4aacf32debc2c1c0a04fd2dd98efba57ae665c910c2a69ef11b6aa2fb72b2"
+    },
+    {
+      "file": "charger.wav",
+      "source": "firmware/esp32/assets/sounds/charger.wav",
+      "source_sha256": "a1e3b3f88ce15701adafa38c009951023be49d0ad1f2b50e75dac5de26552616",
+      "before_frames": 33869,
+      "frames": 31899,
+      "leading_frames_removed": 354,
+      "trailing_frames_removed": 1616,
+      "duration_s": 0.7233333333333334,
+      "bytes": 63842,
+      "sha256": "dfba4d1cdc0f2b68abafbd3356b8d095311f34539f27a09690ada3464d25573c"
+    },
+    {
+      "file": "charger-sunrise.wav",
+      "source": "content/system-sounds/charger-happy-options/01-sunrise.wav",
+      "source_sha256": "ee5a4bb091624ede9077e991264b0388cc9526687f258aa5922ec6f530ab40fc",
+      "before_frames": 28136,
+      "frames": 21807,
+      "leading_frames_removed": 971,
+      "trailing_frames_removed": 5358,
+      "duration_s": 0.49448979591836734,
+      "bytes": 43658,
+      "sha256": "0957cfd85be598e09a7aa76c090717ce44a4a5e701f5a7145d859e255390aaf2"
+    }
+  ]
+}

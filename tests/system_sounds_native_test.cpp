@@ -128,7 +128,7 @@ void complete(SystemSoundOutput& player) {
 }
 
 int main(int argc, char** argv) {
-    assert(argc == 5);
+    assert(argc == 7);
     RecordingOutput sink;
     SystemSoundOutput player(sink);
     player.setAudioInfo(AudioInfo(44100, 2, 16));
@@ -143,10 +143,12 @@ int main(int argc, char** argv) {
         const auto wav = read(argv[assetIndex]);
         assert(wav.size() >= 44 && wav[36] == 'd');
         const SystemSoundAsset asset{wav.data(), wav.size()};
+        const SystemSound sound = assetIndex == argc - 1 ? SystemSound::Charger :
+            assetIndex == argc - 2 ? SystemSound::Battery : SystemSound::Ready;
         for (int pct : {25, 100}) {
             sink.data.clear();
-            assert(player.play(SystemSound::Ready, asset, pct));
-            assert(!player.play(SystemSound::Ready, asset, pct)); // no repeated restart
+            assert(player.play(sound, asset, pct));
+            assert(!player.play(sound, asset, pct)); // no repeated restart
             assert(player.write(music.data(), music.size()) == music.size());
             assert(sink.data.empty()); // BT consumed but not mixed into the cue
             complete(player);
@@ -168,7 +170,7 @@ int main(int argc, char** argv) {
         }
         sink.data.clear();
         player.setAudioInfo(AudioInfo(48000, 2, 16));
-        assert(player.play(SystemSound::Pairing, asset, 100));
+        assert(player.play(sound, asset, 100));
         complete(player);
         assert(player.audioInfo().sample_rate == 48000 && sink.audioInfo().sample_rate == 48000);
         const double sourceFrames = (wav.size() - 44) / 2;
@@ -180,32 +182,38 @@ int main(int argc, char** argv) {
         player.setAudioInfo(AudioInfo(44100, 2, 16));
     }
 
-    const auto wav = read(argv[2]);
-    const SystemSoundAsset asset{wav.data(), wav.size()};
     // A2DP writes from another task while loop() feeds the cue. They must be
     // consumed without interleaving music bytes into the sound or its DMA tail.
-    sink.data.clear();
-    assert(player.play(SystemSound::Pairing, asset, 100));
-    std::atomic<bool> running{true}, writerStarted{false};
-    std::thread bluetooth([&] {
-        while (running) {
-            assert(player.write(music.data(), music.size()) == music.size());
-            writerStarted = true;
-            std::this_thread::yield();
+    for (int assetIndex : {argc - 2, argc - 1}) {
+        const auto wav = read(argv[assetIndex]);
+        const SystemSoundAsset asset{wav.data(), wav.size()};
+        sink.data.clear();
+        assert(player.play(assetIndex == argc - 2 ? SystemSound::Battery : SystemSound::Charger, asset, 100));
+        std::atomic<bool> running{true}, writerStarted{false};
+        std::thread bluetooth([&] {
+            while (running) {
+                assert(player.write(music.data(), music.size()) == music.size());
+                writerStarted = true;
+                std::this_thread::yield();
+            }
+        });
+        while (!writerStarted) std::this_thread::yield();
+        complete(player);
+        running = false;
+        bluetooth.join();
+        const size_t realFrames = (wav.size() - 44) / 2;
+        for (size_t frame = 0; frame < realFrames; ++frame) {
+            assert(sink.data[frame * 4] == wav[44 + frame * 2]);
+            assert(sink.data[frame * 4 + 1] == wav[45 + frame * 2]);
         }
-    });
-    while (!writerStarted) std::this_thread::yield();
-    complete(player);
-    running = false;
-    bluetooth.join();
-    const size_t realFrames = (wav.size() - 44) / 2;
-    for (size_t frame = 0; frame < realFrames; ++frame) {
-        assert(sink.data[frame * 4] == wav[44 + frame * 2]);
-        assert(sink.data[frame * 4 + 1] == wav[45 + frame * 2]);
+        for (size_t byte = realFrames * 4; byte < (realFrames + tail) * 4; ++byte) assert(sink.data[byte] == 0);
     }
-    for (size_t byte = realFrames * 4; byte < (realFrames + tail) * 4; ++byte) assert(sink.data[byte] == 0);
 
+    const auto wav = read(argv[argc - 1]);
+    const SystemSoundAsset asset{wav.data(), wav.size()};
     assert(!player.play(SystemSound::Ready, asset, 0)); // respect mute
+    assert(!player.play(SystemSound::Battery, asset, 0));
+    assert(!player.play(SystemSound::Charger, asset, 0));
     assert(!player.active());
     assert(!player.play(SystemSound::Ready, {wav.data(), 43}, 50));
     assert(!player.play(SystemSound::Ready, {wav.data(), wav.size() - 1}, 50));
@@ -213,14 +221,47 @@ int main(int argc, char** argv) {
     invalid[22] = 2; // cue input must be mono
     assert(!player.play(SystemSound::Ready, {invalid.data(), invalid.size()}, 50));
     assert(player.play(SystemSound::Ready, asset, 50));
+    assert(player.play(SystemSound::Battery, asset, 50));
+    assert(!player.play(SystemSound::Battery, asset, 50));
+    assert(player.play(SystemSound::Charger, asset, 50));
+    assert(!player.play(SystemSound::Charger, asset, 50));
+    assert(!player.play(SystemSound::Battery, asset, 50));
     assert(player.play(SystemSound::Pairing, asset, 50));
+    assert(!player.play(SystemSound::Charger, asset, 50));
+    assert(!player.play(SystemSound::Battery, asset, 50));
     assert(!player.play(SystemSound::Ready, asset, 50));
     assert(player.play(SystemSound::Error, asset, 50));
+    assert(!player.play(SystemSound::Charger, asset, 50));
+    assert(!player.play(SystemSound::Battery, asset, 50));
     assert(!player.play(SystemSound::Pairing, asset, 50));
     player.service();
     player.setAudioInfo(AudioInfo(48000, 2, 16)); // BT negotiates while cue is active
     player.service();
     player.setAudioInfo(AudioInfo(44100, 2, 16)); // disconnect during the same cue
+    complete(player);
+
+    // Suppressing an active warning drops its remaining PCM but drains the
+    // existing DMA tail, so normal completion can restore the amplifier state.
+    sink.data.clear();
+    assert(player.play(SystemSound::Battery, asset, 100));
+    player.service();
+    player.stop(SystemSound::Charger); // Conditional stop leaves Battery alone.
+    player.service();
+    assert(sink.data.size() == 1024 * 4);
+    for (size_t frame = 0; frame < 1024; ++frame) {
+        assert(sink.data[frame * 4] == wav[44 + frame * 2]);
+        assert(sink.data[frame * 4 + 1] == wav[45 + frame * 2]);
+    }
+    unsigned drains = 0;
+    while (player.active()) {
+        assert(++drains <= I2S_DMA_BUFFER_COUNT);
+        player.stop(SystemSound::Battery); // Repeated loop polls don't reset the tail.
+        player.service();
+    }
+    assert(sink.data.size() == (1024 + tail) * 4);
+    for (size_t byte = 1024 * 4; byte < sink.data.size(); ++byte) assert(sink.data[byte] == 0);
+    assert(player.play(SystemSound::Charger, asset, 100));
+    player.stop(SystemSound::Battery); // Battery suppression cannot stop Charger.
     complete(player);
 
     assert(player.play(SystemSound::Ready, asset, 50));

@@ -1,0 +1,40 @@
+{
+  "format": "44.1 kHz, 16-bit mono PCM WAV",
+  "source": "firmware/esp32/assets/sounds/pairing.wav, isolated C5 strike",
+  "status": "Sunrise selected and embedded unchanged as charger.wav; see charger-happy-sound-options.md for validation coverage.",
+  "options": [
+    {
+      "name": "Sunrise",
+      "description": "Three overlapping notes rising through a bright major chord.",
+      "pitches": "C5\u2013E5\u2013G5",
+      "file": "01-sunrise.wav",
+      "duration_s": 0.638,
+      "frames": 28136,
+      "peak_dbfs": -10.46,
+      "rms_dbfs": -23.7,
+      "bytes": 56316
+    },
+    {
+      "name": "Little celebration",
+      "description": "A playful four-note climb, finishing an octave above the first note.",
+      "pitches": "G4\u2013B4\u2013D5\u2013G5",
+      "file": "02-little-celebration.wav",
+      "duration_s": 0.698,
+      "frames": 30782,
+      "peak_dbfs": -10.46,
+      "rms_dbfs": -22.67,
+      "bytes": 61608
+    },
+    {
+      "name": "Smiling finish",
+      "description": "A cheerful leap, then a softer major-third landing with quiet harmony.",
+      "pitches": "C5\u2013G5\u2013E5, with a soft C5 under the last note",
+      "file": "03-smiling-finish.wav",
+      "duration_s": 0.668,
+      "frames": 29459,
+      "peak_dbfs": -10.46,
+      "rms_dbfs": -23.72,
+      "bytes": 58962
+    }
+  ]
+}

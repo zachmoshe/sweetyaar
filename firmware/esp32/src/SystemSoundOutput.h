@@ -4,7 +4,8 @@
 #include <mutex>
 #include "AudioTools/CoreAudio/AudioOutput.h"
 
-enum class SystemSound : uint8_t { None, Ready, Pairing, Error };
+// Later values can interrupt earlier ones. Power cues wait for other cues.
+enum class SystemSound : uint8_t { None, Ready, Battery, Charger, Pairing, Error };
 
 struct SystemSoundAsset {
     const uint8_t* data;
@@ -27,6 +28,8 @@ public:
     Result service();
     bool active() const { return _active.load(); }
     void cancel();
+    // Stop only this cue, retaining the DMA tail and normal amp cleanup.
+    void stop(SystemSound sound);
 
     void setAudioInfo(audio_tools::AudioInfo info) override;
     audio_tools::AudioInfo audioInfo() override;

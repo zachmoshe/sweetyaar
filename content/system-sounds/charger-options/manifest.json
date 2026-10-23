@@ -1,0 +1,38 @@
+{
+  "format": "44.1 kHz, 16-bit mono PCM WAV",
+  "source": "firmware/esp32/assets/sounds/pairing.wav, isolated C5 strike",
+  "status": "First audition round; option 3 was replaced by Sunrise from charger-happy-options. See charger-sound-options.md for history.",
+  "intended_event": "Once per valid-input connection after active charging is confirmed, including boot/wake; charging resumption does not repeat it.",
+  "options": [
+    {
+      "name": "Soft lift",
+      "description": "Two rising piano notes: a light, quick confirmation.",
+      "pitches": "C5\u2013E5",
+      "file": "01-soft-lift.wav",
+      "duration_s": 0.538,
+      "peak_dbfs": -9.12,
+      "rms_dbfs": -21.48,
+      "bytes": 47496
+    },
+    {
+      "name": "Warm chord",
+      "description": "A softly rolled major chord: a compact, settled confirmation.",
+      "pitches": "G4\u2013B4\u2013D5, overlapping",
+      "file": "02-warm-chord.wav",
+      "duration_s": 0.454,
+      "peak_dbfs": -9.12,
+      "rms_dbfs": -22.46,
+      "bytes": 40086
+    },
+    {
+      "name": "Upward nudge",
+      "description": "Two short taps, then a higher note: the positive counterpart to the battery cue.",
+      "pitches": "E4\u2013E4\u2013G4",
+      "file": "03-upward-nudge.wav",
+      "duration_s": 0.628,
+      "peak_dbfs": -11.31,
+      "rms_dbfs": -21.41,
+      "bytes": 55434
+    }
+  ]
+}

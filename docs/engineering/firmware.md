@@ -60,12 +60,16 @@ or animal sounds. Disabled or empty themes are not offered for playback.
 
 ## Content on the microSD card
 
-Startup-ready, persistent-error and pairing cues are stored separately in the
+Startup-ready, persistent-error, pairing, battery and charger cues are stored in the
 firmware's read-only flash. Ready plays once after initialization; a startup
 fault plays Error instead. A first persistent runtime fault also plays Error
 once. Pairing plays once when the physical gesture opens the window; it does
-not repeat while the window stays open. The error cue
-can therefore play with no SD card. These cues use the effective local volume
+not repeat while the window stays open. Battery plays the same short cue on
+each change into `MEDIUM` or `LOW`, including the first medium/low reading after
+power-on or wake, while external power is absent. Charger plays once per cable
+connection after valid input and active charging are confirmed, including boot
+or wake with a cable attached (see battery behavior below).
+All cues can play with no SD card. These cues use the effective local volume
 (including mute and the bedtime cap), briefly take over the speaker, and then
 return it to SD or Bluetooth audio. They do not disconnect Bluetooth or change
 its negotiated sample rate. See [system sound assets](../../firmware/esp32/assets/sounds/README.md).
@@ -324,6 +328,66 @@ at 3.50 V; `MEDIUM` falls to `LOW` at 3.10 V and returns at 3.20 V. Voltage
 sampling continues while charging so the most recent band is ready when charge
 status ends. Charger faults are logged, while only normal charging uses the
 `CHARGING` battery state.
+
+All five embedded cues trim all-zero leading/trailing PCM, preserving their
+audible samples and one zero frame at each endpoint. They share the established
+44.1 kHz, 16-bit mono PCM format. The charger asset is Sunrise and plays once
+per confirmed input connection. The temporary Ready-copy comparison, five-play
+sequence and timing counters have been removed. Historical measurements are in
+[the Ready comparison record](charger-ready-validation.md),
+[five-play diagnostic](charger-repeat-validation.md), and
+[cue feed timing investigation](cue-feed-validation.md).
+The main loop now yields for 1 ms while either a system cue or SD playback is
+active, using its 5 ms idle yield only when both are idle. This keeps cue feeding
+ahead of I2S consumption even when charger interrupts cause frequent I2C polls;
+the existing audio buffer reservations are unchanged.
+
+The selected battery cue is the first **Gentle nudge** audition: G4–G4–E4,
+0.764 seconds after silence trimming, stored once as `assets/sounds/battery.wav`. It plays once whenever
+the public battery status changes into `MEDIUM` or `LOW`, provided valid charger
+input is absent.
+This includes the first medium/low reading after power-on or deep-sleep
+wake, `LOW` → `MEDIUM`, and unplugging while charging at medium/low. A stable status does
+not repeat the cue. `GOOD`, `CHARGING` and `UNKNOWN` never trigger it.
+The existing averaging and hysteresis determine voltage-band transitions.
+
+Battery warnings wait for any active system cue to finish, with at most one
+pending warning. A change to `GOOD`, `CHARGING` or `UNKNOWN` cancels a pending
+warning. Charger input also cancels queued warnings and stops a warning already
+playing, even if charging is paused, disabled or finished. The output drains
+the existing DMA buffers before releasing the speaker. An invalid charger
+observation suppresses warnings until input can be determined again.
+
+The selected charger cue is **Sunrise** (option 1 of the second audition round):
+C5–E5–G5, 0.494 seconds after silence trimming,
+stored as `assets/sounds/charger.wav`. It plays once per cable connection only
+after both `VIN_PGOOD_STAT` and interpreted `ChargerStatus::State::Charging` are
+confirmed. This requires a successful status read after charging was enabled,
+not a stale charge phase from before the `/CE` transition. Boot and deep-sleep
+wake with valid input count as a new connection for the cue. If input is present
+but charging has not started, both power cues stay silent; the charger cue can
+play when charging first starts. Thermal/current pauses, charging completion,
+and subsequent resumption do not replay it. Only a healthy status read reporting
+input absent re-arms it; I2C failures and recovery do not. Cable presence is
+inferred from the charger's valid-input signal, not a separate physical plug
+sensor. A full battery that never begins charging does not trigger the cue.
+
+Charger takes precedence over Battery, so they are never queued together.
+Ready, Pairing and Error finish before the charger cue starts. Both power cues use the
+same effective-volume/mute rules and SD/Bluetooth handoff as other system
+sounds; a muted cue is consumed rather than replayed when volume rises.
+Sound triggering works independently of BLE enablement or notification deferral.
+The generic prototype has no charger detection, so it retains battery warnings
+and never emits the charger cue.
+No Bluetooth/I2S buffer reservations or BLE contract values change.
+
+Songs, animal playback and Bluetooth streaming do not suppress either cue. SD
+playback pauses at its current sample and then resumes. During Bluetooth
+streaming the cue temporarily replaces the music while incoming packets are
+consumed, keeping the connection and negotiated sample rate intact. This is not
+an overlay: the output currently has no PCM mixer. Mixing the cue with briefly
+attenuated Bluetooth audio is feasible at the decoded-PCM output, but is not
+implemented or hardware-validated in this change.
 
 The BLE battery characteristic is a one-byte read/notify value rather than
 JSON. This keeps the public contract deliberately small and prevents the app

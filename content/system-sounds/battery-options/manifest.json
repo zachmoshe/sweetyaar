@@ -1,0 +1,86 @@
+{
+  "format": "44.1 kHz, 16-bit mono PCM WAV",
+  "source": "firmware/esp32/assets/sounds/pairing.wav, isolated C5 strike",
+  "status": "Audition candidates only; no firmware integration or hardware validation.",
+  "preview_order": "Good to medium, 1.10 seconds of silence, medium to low",
+  "options": [
+    {
+      "id": "01-falling-pair",
+      "name": "Falling pair",
+      "description": "Two soft descending notes; the simplest, shortest reminder.",
+      "medium": {
+        "file": "01-falling-pair-medium.wav",
+        "duration_s": 0.678,
+        "peak_dbfs": -9.95,
+        "rms_dbfs": -21.72,
+        "bytes": 59844
+      },
+      "low": {
+        "file": "01-falling-pair-low.wav",
+        "duration_s": 0.738,
+        "peak_dbfs": -9.76,
+        "rms_dbfs": -20.92,
+        "bytes": 65136
+      },
+      "preview": {
+        "file": "01-falling-pair-preview.wav",
+        "duration_s": 2.896,
+        "peak_dbfs": -9.76,
+        "rms_dbfs": -24.39,
+        "bytes": 255472
+      }
+    },
+    {
+      "id": "02-little-staircase",
+      "name": "Little staircase",
+      "description": "Three falling piano notes; a more melodic sense of energy dropping.",
+      "medium": {
+        "file": "02-little-staircase-medium.wav",
+        "duration_s": 0.778,
+        "peak_dbfs": -9.34,
+        "rms_dbfs": -21.72,
+        "bytes": 68664
+      },
+      "low": {
+        "file": "02-little-staircase-low.wav",
+        "duration_s": 0.868,
+        "peak_dbfs": -9.27,
+        "rms_dbfs": -20.92,
+        "bytes": 76602
+      },
+      "preview": {
+        "file": "02-little-staircase-preview.wav",
+        "duration_s": 3.126,
+        "peak_dbfs": -9.27,
+        "rms_dbfs": -24.06,
+        "bytes": 275758
+      }
+    },
+    {
+      "id": "03-gentle-nudge",
+      "name": "Gentle nudge",
+      "description": "Two short taps followed by a lower note; the clearest attention cue.",
+      "medium": {
+        "file": "03-gentle-nudge-medium.wav",
+        "duration_s": 0.838,
+        "peak_dbfs": -11.19,
+        "rms_dbfs": -21.72,
+        "bytes": 73956
+      },
+      "low": {
+        "file": "03-gentle-nudge-low.wav",
+        "duration_s": 0.908,
+        "peak_dbfs": -10.82,
+        "rms_dbfs": -20.92,
+        "bytes": 80130
+      },
+      "preview": {
+        "file": "03-gentle-nudge-preview.wav",
+        "duration_s": 3.226,
+        "peak_dbfs": -10.82,
+        "rms_dbfs": -23.95,
+        "bytes": 284578
+      }
+    }
+  ]
+}
