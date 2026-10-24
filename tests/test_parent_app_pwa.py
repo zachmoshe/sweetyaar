@@ -201,18 +201,14 @@ def test_parent_app_service_worker_precache_contract(repo_root) -> None:
     assert "./index.html" in urls
     assert "./manifest.webmanifest" in urls
     assert "./tokens.css" in urls
-    assert "./assets/bedtime-day-art.png" in urls
-    assert "./assets/bedtime-night-art.png" in urls
-    assert "./assets/battery-low-art.png" in urls
-    assert "./assets/battery-medium-art.png" in urls
-    assert "./assets/favicon-16.png" in urls
-    assert "./assets/favicon-32.png" in urls
-    assert "./assets/favicon-48.png" in urls
-    assert "./assets/icon-settings-sliders.svg" in urls
-    assert "./assets/pwa-icon-192.png" in urls
-    assert "./assets/pwa-icon-512.png" in urls
-    assert "./assets/pwa-icon-maskable-192.png" in urls
-    assert "./assets/pwa-icon-maskable-512.png" in urls
+    # Every asset the app shell references must work offline.
+    referenced = set()
+    for name in ("index.html", "tokens.css", "manifest.webmanifest"):
+        text = (public_dir / name).read_text(encoding="utf-8")
+        referenced.update(re.findall(r"assets/[\w@.-]+\.(?:png|svg|jpg|webp)", text))
+    assert referenced, "expected the app shell to reference assets"
+    for asset in sorted(referenced):
+        assert "./" + asset in urls, f"{asset} is referenced but not precached"
 
     for url in urls:
         if url == "./":

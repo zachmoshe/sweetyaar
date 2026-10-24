@@ -836,57 +836,97 @@ async function waitForUpdatePhase(phase, timeoutMs = 8000) {
   await waitUntil(() => state.update.phase === phase, "update phase " + phase, timeoutMs);
 }
 
+// An optional update is offered on the Doll tab, never on the Ready screen.
+async function openOptionalUpdate() {
+  assert.strictEqual(els.updateCard.hidden, true);
+  await els.tabDoll.click();
+  await els.settingsUpdateButton.click();
+}
+
 async function waitForSettingsLoaded() {
   await waitUntil(() => state.view === "settings" && state.settings.loading === false, "settings load");
 }
 `;
 
 const tests = [
-  ["newer release shows an update card that Later hides, and Settings keeps the update", String.raw`
+  ["bottom tabs switch between Doll, Remote and Settings only while connected", String.raw`
+    assert.strictEqual(els.ground.hidden, true);
+    const ble = await connectWithFakeBle();
+    assert.strictEqual(els.ground.hidden, false);
+    assert(els.app.classList.contains("has-tabs"));
+    const tabs = [[els.tabDoll, els.chargerView], [els.tabRemote, els.readyView], [els.tabSettings, els.settingsView]];
+    const checkActive = (current) => {
+      for (const [tab, view] of tabs) {
+        assert.strictEqual(tab.classList.contains("active"), tab === current);
+        assert.strictEqual(tab.getAttribute("aria-current"), tab === current ? "page" : "false");
+        assert.strictEqual(view.hidden, tab !== current);
+      }
+    };
+    checkActive(els.tabRemote);
+    await els.tabSettings.click();
+    await waitForSettingsLoaded();
+    checkActive(els.tabSettings);
+    await els.tabDoll.click();
+    checkActive(els.tabDoll);
+    await els.tabRemote.click();
+    checkActive(els.tabRemote);
+    assert.strictEqual(els.tabDollDot.hidden, true);
+    ble.chars.battery.emit(3);
+    assert.strictEqual(els.tabDollDot.hidden, false); // low battery needs a look
+    ble.chars.battery.emit(1);
+    assert.strictEqual(els.tabDollDot.hidden, true);
+    ble.chars.charger.emit(bytesView([1, 4, 3, 0, 0, 1]));
+    assert.strictEqual(els.tabDollDot.hidden, false); // charger fault
+    ble.device.gatt.disconnect();
+    ble.device.listeners.gattserverdisconnected({ target: ble.device });
+    assert.strictEqual(els.ground.hidden, true);
+    assert(!els.app.classList.contains("has-tabs"));
+  `],
+  ["newer release puts a bead on the Doll tab until seen, and the Doll tab offers the update", String.raw`
     const release = await makeRelease();
     await connectWithFakeBle();
     await waitUntil(() => state.releaseStatus === "ready", "release manifest");
-    assert.strictEqual(els.updateCard.hidden, false);
-    assert.strictEqual(els.updateCardTitle.textContent, "Update available");
-    assert.strictEqual(els.updateCardMessage.textContent,
-      "Version 1.1.0: Bedtime songs fade out gently. About 1 minute.");
-    assert.strictEqual(els.updateLaterButton.hidden, false);
+    assert.strictEqual(els.updateCard.hidden, true); // optional: the remote stays uncluttered
+    assert.strictEqual(els.tabDollDot.hidden, false);
+    assert.strictEqual(els.tabDoll.getAttribute("aria-label"), "Doll, needs attention");
     assert.strictEqual(els.playSongButton.disabled, false);
-    await els.updateLaterButton.click();
-    assert.strictEqual(els.updateCard.hidden, true);
-    assert.strictEqual(localStorage.getItem("sweetyaar-update-later"), "1.1.0");
-    await els.openSettingsButton.click();
-    await waitForSettingsLoaded();
+    await els.tabDoll.click();
+    assertVisible(els.chargerView, [els.readyView, els.settingsView]);
+    assert.strictEqual(els.tabDollDot.hidden, true);
+    assert.strictEqual(els.tabDoll.getAttribute("aria-label"), "Doll");
     assert.strictEqual(els.settingsFirmwareVersion.textContent, "1.0.0");
     assert.strictEqual(els.settingsLatestVersion.textContent, "1.1.0");
     assert.strictEqual(els.settingsUpdateButton.hidden, false);
     assert.strictEqual(els.settingsUpdateButton.textContent, "Update to 1.1.0");
+    assert(els.settingsUpdateNote.textContent.includes("Bedtime songs fade out gently."));
     await els.settingsUpdateButton.click();
-    assertVisible(els.updateView, [els.settingsView, els.readyView, els.openingView]);
+    assertVisible(els.updateView, [els.chargerView, els.readyView, els.openingView]);
     assert.strictEqual(els.updateConfirmVersion.textContent, "Version 1.1.0: Bedtime songs fade out gently.");
     await els.updateSecondaryButton.click(); // Not now
-    assertVisible(els.settingsView, [els.updateView]);
+    assertVisible(els.chargerView, [els.updateView]);
+    await els.tabRemote.click();
+    assertVisible(els.readyView, [els.chargerView]);
+    assert.strictEqual(els.tabDollDot.hidden, true); // seen stays seen
     assert(release.requests.includes("firmware/manifest.json"));
   `],
-  ["current version offers only a reinstall, in Settings", String.raw`
+  ["current version offers only a reinstall, on the Doll tab", String.raw`
     await makeRelease();
     await connectWithFakeBle({ firmwareVersion: "1.1.0" });
     await waitUntil(() => state.releaseStatus === "ready", "release manifest");
     assert.strictEqual(els.updateCard.hidden, true);
-    await els.openSettingsButton.click();
-    await waitForSettingsLoaded();
+    assert.strictEqual(els.tabDollDot.hidden, true);
+    await els.tabDoll.click();
     assert.strictEqual(els.settingsUpdateButton.textContent, "Reinstall 1.1.0");
     await els.settingsUpdateButton.click();
     assert.strictEqual(els.updateConfirmVersion.textContent, "Reinstall version 1.1.0.");
     assert.strictEqual(els.updatePrimaryButton.textContent, "Reinstall");
   `],
-  ["no published release leaves Settings without an update button", String.raw`
+  ["no published release leaves the Doll tab without an update button", String.raw`
     globalThis.fetch = async () => ({ ok: false, status: 404 });
     await connectWithFakeBle();
     await waitUntil(() => state.releaseStatus === "none", "missing manifest");
     assert.strictEqual(els.updateCard.hidden, true);
-    await els.openSettingsButton.click();
-    await waitForSettingsLoaded();
+    await els.tabDoll.click();
     assert.strictEqual(els.settingsLatestVersion.textContent, "None published");
     assert.strictEqual(els.settingsUpdateButton.hidden, true);
     assert.strictEqual(els.settingsUpdateNote.hidden, true);
@@ -896,9 +936,7 @@ const tests = [
     await connectWithFakeBle({ firmwareVersion: "0.9.0" });
     await waitUntil(() => state.releaseStatus === "ready", "release manifest");
     assert.strictEqual(els.updateCard.hidden, false);
-    assert.strictEqual(els.updateCardTitle.textContent, "Update needed");
-    assert.strictEqual(els.updateLaterButton.hidden, true);
-    assert.strictEqual(els.updateCardButton.textContent, "Update now");
+    assert.strictEqual(els.updateCardButton.hidden, false);
     assert.strictEqual(els.playSongButton.disabled, true);
     assert.strictEqual(els.volumeRange.disabled, true);
   `],
@@ -906,7 +944,7 @@ const tests = [
     await makeRelease();
     const ble = await connectWithFakeBle({ battery: 3 });
     await waitUntil(() => state.releaseStatus === "ready", "release manifest");
-    await els.updateCardButton.click();
+    await openOptionalUpdate();
     assert.strictEqual(els.updatePrimaryButton.disabled, true);
     assert.strictEqual(els.updateBatteryWarning.hidden, false);
     assert.strictEqual(els.updateBatteryText.textContent, "Battery too low, connect a charger");
@@ -930,7 +968,7 @@ const tests = [
     } };
     const ble = await connectWithFakeBle({ dropOtaPacket: 3 });
     await waitUntil(() => state.releaseStatus === "ready", "release manifest");
-    await els.updateCardButton.click();
+    await openOptionalUpdate();
     await els.updatePrimaryButton.click();
     assert.strictEqual(state.update.active, true);
     await waitForUpdatePhase("sending");
@@ -951,14 +989,14 @@ const tests = [
     await waitUntil(() => state.connected && !state.remoteInitializing, "remote after update");
     assert.strictEqual(state.firmware.version, "1.1.0");
     await els.updatePrimaryButton.click(); // Done
-    assertVisible(els.readyView, [els.updateView, els.openingView]);
+    assertVisible(els.chargerView, [els.updateView, els.openingView, els.readyView]); // back where it started
     assert.strictEqual(els.updateCard.hidden, true);
   `],
   ["a lost response to enter update mode still continues the update", String.raw`
     await makeRelease();
     const ble = await connectWithFakeBle({ enterResponseLost: true });
     await waitUntil(() => state.releaseStatus === "ready", "release manifest");
-    await els.updateCardButton.click();
+    await openOptionalUpdate();
     await els.updatePrimaryButton.click();
     await waitForUpdatePhase("done", 15000);
     assertJsonEqual(ble.ota.commands, [1, 2, 3]); // the toy acted on enter despite the lost reply
@@ -968,7 +1006,7 @@ const tests = [
     await makeRelease();
     const ble = await connectWithFakeBle({ failBegins: 2 });
     await waitUntil(() => state.releaseStatus === "ready", "release manifest");
-    await els.updateCardButton.click();
+    await openOptionalUpdate();
     await els.updatePrimaryButton.click();
     await waitForUpdatePhase("done", 15000);
     assert.strictEqual(state.update.linkRetries, 2);
@@ -978,7 +1016,7 @@ const tests = [
     await makeRelease();
     const ble = await connectWithFakeBle({ failBegins: 10 });
     await waitUntil(() => state.releaseStatus === "ready", "release manifest");
-    await els.updateCardButton.click();
+    await openOptionalUpdate();
     await els.updatePrimaryButton.click();
     await waitForUpdatePhase("failed", 15000);
     assert.strictEqual(state.update.linkRetries, 3);
@@ -988,7 +1026,7 @@ const tests = [
     await makeRelease();
     const ble = await connectWithFakeBle({ disconnectAtPacket: 12 });
     await waitUntil(() => state.releaseStatus === "ready", "release manifest");
-    await els.updateCardButton.click();
+    await openOptionalUpdate();
     await els.updatePrimaryButton.click();
     await waitForUpdatePhase("paused");
     assert.strictEqual(els.updateProgressTitle.textContent.startsWith("Update paused at"), true);
@@ -1008,7 +1046,7 @@ const tests = [
       return sendChunk(value);
     };
     await waitUntil(() => state.releaseStatus === "ready", "release manifest");
-    await els.updateCardButton.click();
+    await openOptionalUpdate();
     await els.updatePrimaryButton.click();
     await waitUntil(() => state.update.phase === "sending" && state.update.received > 0, "transfer");
     await els.updateSecondaryButton.click(); // Cancel update
@@ -1023,7 +1061,7 @@ const tests = [
     await waitUntil(() => state.connected && state.firmware?.mode === "normal", "normal firmware");
     assert.strictEqual(state.firmware.version, "1.0.0");
     await els.updatePrimaryButton.click(); // Done
-    assertVisible(els.readyView, [els.updateView]);
+    assertVisible(els.chargerView, [els.updateView, els.readyView]);
   `],
   ["reconnecting to a toy waiting in update mode resumes the update", String.raw`
     await makeRelease();
@@ -1037,21 +1075,21 @@ const tests = [
     await makeRelease();
     const ble = await connectWithFakeBle({ otaRefuse: true });
     await waitUntil(() => state.releaseStatus === "ready", "release manifest");
-    await els.updateCardButton.click();
+    await openOptionalUpdate();
     await els.updatePrimaryButton.click();
     await waitForUpdatePhase("failed", 8000);
     assert.strictEqual(els.updateResultMessage.textContent, "Battery low. Connect a charger, then try again.");
     assertJsonEqual(ble.ota.restarts, []);
     assert.strictEqual(els.updatePrimaryButton.textContent, "Try again");
     await els.updateSecondaryButton.click(); // Not now
-    assertVisible(els.readyView, [els.updateView]);
+    assertVisible(els.chargerView, [els.updateView, els.readyView]);
   `],
   ["damaged download never reaches the toy", String.raw`
     const release = await makeRelease();
     release.manifest.images.sweetyaar.fileSha256 = "00".repeat(32);
     const ble = await connectWithFakeBle();
     await waitUntil(() => state.releaseStatus === "ready", "release manifest");
-    await els.updateCardButton.click();
+    await openOptionalUpdate();
     await els.updatePrimaryButton.click();
     await waitForUpdatePhase("failed");
     assert.strictEqual(els.updateResultMessage.textContent, "The downloaded update is damaged. Try again.");
@@ -1091,7 +1129,7 @@ const tests = [
     assert.strictEqual(els.chargerNoWarnings.hidden, false);
     assert(!els.batteryIndicator.classList.contains("charger-error"));
     assert(!els.batteryIndicator.classList.contains("charger-warning"));
-    await els.chargerBackButton.click();
+    await els.tabRemote.click();
     assertVisible(els.readyView, [els.chargerView]);
   `],
   ["every charger activity and condition has a human description and severity", String.raw`
@@ -1693,7 +1731,7 @@ const tests = [
     assert.strictEqual(els.readyMessage.textContent, "Loading controls...");
     assert.strictEqual(els.playSongButton.disabled, true);
     assert.strictEqual(els.volumeRange.disabled, true);
-    assert.strictEqual(els.openSettingsButton.disabled, true);
+    assert.strictEqual(els.tabSettings.disabled, true);
     assert.deepStrictEqual(ble.reads, ["firmware", "status"]);
     assert.deepStrictEqual(ble.notifications, ["status"]);
 
@@ -1703,7 +1741,7 @@ const tests = [
     assert.strictEqual(els.readyMessage.hidden, true);
     assert.strictEqual(els.playSongButton.disabled, false);
     assert.strictEqual(els.volumeRange.disabled, false);
-    assert.strictEqual(els.openSettingsButton.disabled, false);
+    assert.strictEqual(els.tabSettings.disabled, false);
     assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime"]);
   `],
   ["early config notification avoids the polling fallback", String.raw`
@@ -2350,7 +2388,7 @@ const tests = [
   `],
   ["settings screen loads config and content scans", String.raw`
     const ble = await connectWithFakeBle();
-    await els.openSettingsButton.click();
+    await els.tabSettings.click();
     await waitForSettingsLoaded();
     assertVisible(els.settingsView, [els.openingView, els.readyView, els.streamingView]);
     assert.strictEqual(state.settings.loading, false);
@@ -2370,12 +2408,12 @@ const tests = [
   `],
   ["settings are cached for the session and not re-scanned on reopen", String.raw`
     const ble = await connectWithFakeBle();
-    await els.openSettingsButton.click();
+    await els.tabSettings.click();
     await waitForSettingsLoaded();
     const scansAfterFirstOpen = payloadsWithoutIds(ble.writes.config)
       .filter((p) => p.op === "scanThemes" || p.op === "scanSongs").length;
-    await els.settingsBackButton.click();
-    await els.openSettingsButton.click();
+    await els.tabRemote.click();
+    await els.tabSettings.click();
     assert.strictEqual(state.settings.loading, false);
     assertVisible(els.settingsView, [els.openingView, els.readyView, els.streamingView]);
     const scansAfterReopen = payloadsWithoutIds(ble.writes.config)
@@ -2385,7 +2423,7 @@ const tests = [
   `],
   ["settings lists keep their rows across unrelated renders so taps are not lost", String.raw`
     const ble = await connectWithFakeBle();
-    await els.openSettingsButton.click();
+    await els.tabSettings.click();
     await waitForSettingsLoaded();
     const themeRows = () => els.settingsThemeList.children;
     const songRows = () => els.settingsSongList.children;
@@ -2441,7 +2479,7 @@ const tests = [
     assert.strictEqual(els.themeOptions.children[1].getAttribute("aria-selected"), "true");
     assert.strictEqual(els.themeCredit.hidden, true);
 
-    await els.openSettingsButton.click();
+    await els.tabSettings.click();
     await waitForSettingsLoaded();
     state.settings.defaultThemeOpen = true;
     state.settings.bedtimeThemeOpen = true;
@@ -2454,7 +2492,7 @@ const tests = [
   `],
   ["song list shows a loading spinner while a theme's songs are scanned", String.raw`
     await connectWithFakeBle();
-    await els.openSettingsButton.click();
+    await els.tabSettings.click();
     await waitForSettingsLoaded();
     const songs = state.settings.songs;
     state.settings.songs = [];
@@ -2473,11 +2511,11 @@ const tests = [
   ["returning to remote refreshes the device clock", String.raw`
     const ble = await connectWithFakeBle();
     assert.strictEqual(els.deviceWatch.textContent, "Toy clock 21:05");
-    await els.openSettingsButton.click();
+    await els.tabSettings.click();
     await waitForSettingsLoaded();
     ble.config.bedtime.currentTime = "22:14";
     ble.config.bedtime.currentSecondOfDay = 80040;
-    await els.settingsBackButton.click();
+    await els.tabRemote.click();
     await waitUntil(() => els.deviceWatch.textContent === "Toy clock 22:14", "device clock refresh");
     assertVisible(els.readyView, [els.openingView, els.streamingView, els.settingsView]);
     const syncPayloads = payloadsWithoutIds(ble.writes.config).filter((payload) => payload.op === "syncTime");
@@ -2485,7 +2523,7 @@ const tests = [
   `],
   ["settings save writes config, theme, and song payloads", String.raw`
     const ble = await connectWithFakeBle();
-    await els.openSettingsButton.click();
+    await els.tabSettings.click();
     await waitForSettingsLoaded();
     await els.settingsDeviceName.input("SweetYaar Night");
     await els.settingsVolumeRange.input("42");
@@ -2525,7 +2563,7 @@ const tests = [
     const ble = await connectWithFakeBle({ volume: 20 });
     chooseTheme("nature");
     await waitUntil(() => !state.busy && ble.config.activeTheme === "nature", "live theme change");
-    await els.openSettingsButton.click();
+    await els.tabSettings.click();
     await waitForSettingsLoaded();
     await els.settingsVolumeRange.input("42");
     await els.settingsSaveButton.click();
@@ -2533,10 +2571,10 @@ const tests = [
     assert.strictEqual(state.volume, 20);
     assert.strictEqual(state.theme, "nature");
 
-    await els.settingsBackButton.click();
+    await els.tabRemote.click();
     chooseTheme("lullabies");
     await waitUntil(() => !state.busy && ble.config.activeTheme === "lullabies", "second live theme change");
-    await els.openSettingsButton.click();
+    await els.tabSettings.click();
     await waitForSettingsLoaded();
     state.settings.defaultTheme = "nature";
     await els.settingsDeviceName.input("SweetYaar Night");
@@ -2545,7 +2583,7 @@ const tests = [
     assert.strictEqual(state.volume, 20);
     assert.strictEqual(state.theme, "lullabies");
     assertJsonEqual(ble.writes.volume, []);
-    await els.settingsBackButton.click();
+    await els.tabRemote.click();
     assert.strictEqual(state.volume, 20);
     assert.strictEqual(state.theme, "lullabies");
   `],
@@ -2554,14 +2592,14 @@ const tests = [
     await connectWithFakeBle({ configFileError: message });
     assert.strictEqual(state.connected, true);
     assert.strictEqual(state.configError.message, message);
-    await els.openSettingsButton.click();
+    await els.tabSettings.click();
     await waitForSettingsLoaded();
     assert.strictEqual(state.settings.message, message);
     assert.strictEqual(state.settings.sessionScanned, false);
   `],
   ["setTheme SD write failure surfaces error to app", String.raw`
     const ble = await connectWithFakeBle();
-    await els.openSettingsButton.click();
+    await els.tabSettings.click();
     await waitForSettingsLoaded();
 
     // Stage a pending theme change so the save flow emits a setTheme command.

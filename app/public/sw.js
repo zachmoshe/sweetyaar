@@ -1,7 +1,7 @@
 "use strict";
 
 const CACHE_PREFIX = "sweetyaar-parent";
-const CACHE_VERSION = "sweetyaar-parent-v50";
+const CACHE_VERSION = "sweetyaar-parent-v51";
 
 const PRECACHE_URLS = [
   "./",
@@ -17,12 +17,12 @@ const PRECACHE_URLS = [
   "./assets/favicon-16.png",
   "./assets/favicon-32.png",
   "./assets/favicon-48.png",
+  "./assets/ground-row.png",
   "./assets/header-decoration-teddy.png",
   "./assets/header-decoration-teddy@2x.png",
   "./assets/icon-animal.png",
   "./assets/icon-bluetooth.svg",
   "./assets/icon-pause.png",
-  "./assets/icon-settings-sliders.svg",
   "./assets/icon-song.png",
   "./assets/icon-stop.png",
   "./assets/icon-theme.png",
@@ -34,7 +34,10 @@ const PRECACHE_URLS = [
   "./assets/pwa-icon-maskable-512.png",
   "./assets/ready-bottom-graphics.png",
   "./assets/ready-bottom-graphics@2x.png",
-  "./assets/streaming-toy-scene.png"
+  "./assets/streaming-toy-scene.png",
+  "./assets/tab-doll.png",
+  "./assets/tab-remote.png",
+  "./assets/tab-settings.png"
 ];
 
 self.addEventListener("install", (event) => {

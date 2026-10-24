@@ -121,12 +121,30 @@ the **Used as a speaker** screen. Local playback, theme, volume, loop, and Quiet
 time controls remain unavailable until that audio connection ends. Stream
 volume belongs to the phone, tablet, or computer sending the audio.
 
+### Navigation
+
+While connected, the Ready screen's bottom artwork stays fixed at the bottom of
+every screen, and three toys standing on its grass are the tabs: **Doll** (a
+teddy: charge status and *About this doll*), **Remote** (the Ready or **Used as
+a speaker** screen) and **Settings** (gears). There are no Back buttons on
+these screens and no separate settings icon. The active toy lifts slightly and
+its name sits on a cream tag; tabs other than the current one are disabled
+while a command or the initial load is in progress. The footer scales with the
+app width, and the grass continues to the bottom edge (including under the
+phone's home indicator) by stretching the artwork's own last pixel row.
+Scrolled content fades out behind the toys.
+
+A pink bead on the teddy's ear means the Doll tab needs a look: an optional
+firmware update that this phone has not seen yet, a low battery, or a charger
+error. Opening the Doll tab marks the update as seen. The tabs are hidden on the
+opening screen and on the firmware-update screen.
+
 ## Battery and charging diagnostics
 
-Press the battery icon on the Ready screen to open **Battery & charging**.
-This read-only debugging screen shows the human charge status, followed by
-errors (when present), warnings, and details. It updates as firmware reports
-changes; **Refresh** rereads its latest snapshot and **Back** returns to the remote.
+The **Doll** tab (also opened by the battery icon on the Ready screen) shows
+**Doll status**: the human charge status, followed by errors (when present),
+warnings, and details, then *About this doll*. It updates as firmware reports
+changes; **Refresh** rereads the latest charger snapshot.
 There is no UI debounce, so brief limits can appear and disappear during testing.
 
 The battery fill keeps its level color. Its border is orange while any warning
@@ -269,17 +287,19 @@ are described in [Firmware updates](firmware.md#firmware-updates).
 **Finding out.** After connecting, the app fetches `firmware/manifest.json`
 from its own site. It lists the latest version, its release note and the
 compressed image per published board (only the production board; the generic
-prototype is updated from a Mac and is never offered an update). When that version is newer than the toy's, the Ready screen shows an
-**Update available** card with the note, **Update** and **Later**. **Later**
-hides the card for that version on this phone (stored in `localStorage`). A toy
-older than the app's `MIN_FIRMWARE_VERSION` instead shows **Update needed**,
-without **Later**, and its remote controls stay disabled until it is updated.
+prototype is updated from a Mac and is never offered an update). When that
+version is newer than the toy's, a bead appears on the **Doll** tab until the
+parent opens it on this phone (the seen version is stored in `localStorage`);
+the Ready screen stays as it is. A toy older than the app's
+`MIN_FIRMWARE_VERSION` instead shows an **Update needed** card on the Ready
+screen, and its remote controls stay disabled until it is updated.
 
-**Settings.** *About this doll*, at the end of Settings, always shows the toy's
-firmware version and the latest published version, with **Update to …** when
-newer or **Reinstall …** when the same, so a parent who chose **Later** (or wants
-to repair a toy) can still update. Without a published release it shows *None
-published*; when the manifest could not be fetched, it says so.
+**Doll tab.** *About this doll*, below the charge status, always shows the toy's
+firmware version and the latest published version, with **Update to …** and
+the release note when newer, or **Reinstall …** when the same (to repair a
+toy). Without a published release it shows *None published*; when the manifest
+could not be fetched, it says so. Leaving the update screen returns to the tab
+it was opened from.
 
 **Updating.** The confirm screen lists what to expect, each with its own icon:
 keep the screen open, keep the doll nearby, no songs for about a minute, and the
@@ -392,7 +412,7 @@ saves keep unsaved edits in the app so the parent can retry.
 
 ### Battery presentation
 
-The Ready screen stacks a compact battery icon above the settings control. It
+The Ready screen shows a compact battery icon beside the status card. It
 shows green for `GOOD`, orange for `MEDIUM`, red for `LOW`, green with a bolt for
 `CHARGING`, and gray for `UNKNOWN`. It never displays voltage or percentage.
 
@@ -423,7 +443,7 @@ Editable assets are kept out of the deployed `app/public/` directory:
 
 | Path | Purpose |
 |---|---|
-| `app/design/assets/source/` | High-resolution or editable source material for the app icon, favicon, header, and footer artwork. |
+| `app/design/assets/source/` | High-resolution or editable source material for the app icon, favicon, header, footer artwork and the tab toys (`tab-*-source.png`, cut out of one hand-drawn sheet). |
 | `app/design/assets/final/` | Prepared reference exports for the opening, streaming, battery warnings, header, footer, and control artwork. |
 | `app/public/assets/` | The exact browser-ready files used by the deployed app. |
 
