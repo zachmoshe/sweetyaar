@@ -1856,7 +1856,8 @@ void notifyPlaybackFailure(bool animal) {
 // ---------------------------------------------------------------------------
 // serviceSongChecks() — check one WAV header per loop while nothing plays, and
 // tell the app (at most every 2 s) about songs found unplayable here or at
-// playback.
+// playback. The warning waits until an app is subscribed to notices: the
+// boot-time check usually finishes before any parent connects.
 // ---------------------------------------------------------------------------
 void serviceSongChecks() {
     static uint32_t lastNoticeMs = 0;
@@ -1865,7 +1866,8 @@ void serviceSongChecks() {
         ContentCatalog::checkNextSong();
     }
     String message;
-    if (millis() - lastNoticeMs >= 2000 && ContentCatalog::takeUnplayableReport(message)) {
+    if (millis() - lastNoticeMs >= 2000 && bleService.noticeSubscribed() &&
+        ContentCatalog::takeUnplayableReport(message)) {
         lastNoticeMs = millis();
         sendNotice("warn", message);
     }

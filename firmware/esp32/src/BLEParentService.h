@@ -102,6 +102,9 @@ public:
 
     // True only when an authenticated controller owns this remote.
     bool isConnected() const;
+    // True when that controller is subscribed to notices, so one sent now
+    // is shown instead of dropped.
+    bool noticeSubscribed();
     bool hasLinks();
 
     // Maintain takeover delivery and advertising from the main loop.

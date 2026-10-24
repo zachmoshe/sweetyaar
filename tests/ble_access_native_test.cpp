@@ -551,6 +551,13 @@ int main() {
     ble.updateOtaStatus(otaStatus, sizeof(otaStatus));
     assert(packets.size() == sentBefore + 1 && packets.back().handle == otaChars[3].handle);
     assert(packets.back().data.size() == 18 && !packets.back().indication);
+    // An unplayable-song warning waits for the controller's notice subscription.
+    assert(!ble.noticeSubscribed());
+    ble.peer(1)->subscriptions |= 1UL << 13;
+    assert(ble.noticeSubscribed());
+    bluetoothAccess.available = false;  // during a bond reset nothing is shown
+    assert(!ble.noticeSubscribed());
+    bluetoothAccess.available = true;
     ble.setOtaTransport(nullptr);
     ble.disconnected(3);
     ble.disconnected(1);

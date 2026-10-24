@@ -387,6 +387,15 @@ bool BLEParentService::pollConfigCommand(String& out) {
 bool BLEParentService::isConnected() const {
     return _ownerId != NO_CONNECTION;
 }
+bool BLEParentService::noticeSubscribed() {
+    portENTER_CRITICAL(&_mux);
+    auto* p = peer(_ownerId);
+    const bool subscribed = bluetoothAccess.ready() && p && !p->reject && p->authenticated &&
+        (p->subscriptions & (1UL << 13));
+    portEXIT_CRITICAL(&_mux);
+    return subscribed;
+}
+
 bool BLEParentService::hasLinks() {
     portENTER_CRITICAL(&_mux);
     bool active = false;

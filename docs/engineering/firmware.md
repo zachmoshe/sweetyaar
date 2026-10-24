@@ -104,7 +104,9 @@ playback checks the header again whenever it opens a file. A song found
 unplayable is logged as `[Catalog] Cannot play <path>: <reason>`, dropped from
 playlists, shown with its error in the app's song list, and reported to the
 app as a warning notice (at most one notice every 2 s, naming the first song
-and the count). Until a song is checked, the app shows its size and duration
+and the count). The boot-time check usually finishes before a parent connects,
+so the notice waits until a connected app has subscribed to notices; songs
+found in the meantime are counted into that one notice. Until a song is checked, the app shows its size and duration
 as unknown. The listing deletes macOS Finder metadata files (`._*` and
 `.DS_Store`) it finds in `/songs`, its theme folders, and `/animals`, so they
 cost time only once. Files added or removed manually are picked up after a
