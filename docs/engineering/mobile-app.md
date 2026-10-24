@@ -201,7 +201,9 @@ the tap.
 Most saved settings live in `/config.json` or the relevant `metadata.json` file
 on the microSD card. The device name is stored in the ESP32's non-volatile
 storage so changing cards does not rename the toy. A new name appears after the
-app reconnects.
+app reconnects. Once known, that name appears in the app header, browser title,
+connection and accessibility labels, and battery charge warnings. The installed
+PWA name remains the static SweetYaar product name.
 
 The app manages the catalog already present on the card; it does not add,
 delete, or replace WAV files. New content must be copied to the microSD card

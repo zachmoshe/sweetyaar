@@ -2573,7 +2573,7 @@
         <article class="card battery-warning" id="batteryWarning" role="status" hidden>
           <img class="battery-warning-art" id="batteryWarningArt" src="assets/battery-medium-art.png" alt="">
           <div class="battery-warning-copy">
-            <h2 id="batteryWarningTitle">Charge SweetYaar soon</h2>
+            <h2 id="batteryWarningTitle"></h2>
             <p id="batteryWarningMessage">Battery is getting tired.</p>
           </div>
         </article>
@@ -3862,7 +3862,7 @@
           return {
             label: "Battery medium",
             warning: true,
-            title: "Charge SweetYaar soon",
+            title: `Charge ${displayDeviceName()} soon`,
             message: "Battery is getting tired. Plug it in when convenient.",
             art: "assets/battery-medium-art.png"
           };
@@ -3870,7 +3870,7 @@
           return {
             label: "Battery low",
             warning: true,
-            title: "Charge SweetYaar now",
+            title: `Charge ${displayDeviceName()} now`,
             message: "Playback may stop soon to protect the battery.",
             art: "assets/battery-low-art.png"
           };
@@ -5168,6 +5168,7 @@
       els.chargerView.hidden = !(state.connected && state.view === "charger");
       els.updateView.hidden = !updating;
       els.readyView.setAttribute("aria-busy", state.remoteInitializing ? "true" : "false");
+      document.title = `${displayDeviceName()} Parent Remote`;
       els.brandName.textContent = displayDeviceName();
       els.openingView.setAttribute("aria-label", `Connect to ${displayDeviceName()}`);
       els.streamingView.setAttribute("aria-label", `${displayDeviceName()} is streaming music`);

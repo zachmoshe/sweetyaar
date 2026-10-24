@@ -190,6 +190,7 @@ function createContext() {
   elements = new Map();
   const document = {
     activeElement: null,
+    title: "SweetYaar Parent Remote",
     documentElement: getElement("documentElement"),
     querySelector: getElement,
     createElement: (tag) => new FakeElement(tag),
@@ -1696,6 +1697,7 @@ const tests = [
     assert.strictEqual(els.connectButtonLabel.textContent, "Connect to SweetYaar");
     assert.strictEqual(els.openingMessage.textContent, "New phone? Hold both buttons on the toy for 3 seconds, then connect.");
     assert.strictEqual(els.brandName.textContent, "SweetYaar");
+    assert.strictEqual(document.title, "SweetYaar Parent Remote");
   `],
   ["connect success shows ready remote", String.raw`
     const ble = await connectWithFakeBle({
@@ -1708,6 +1710,7 @@ const tests = [
     assert.strictEqual(state.connected, true);
     assertVisible(els.readyView, [els.openingView, els.streamingView, els.settingsView]);
     assert.strictEqual(els.brandName.textContent, "SweetYaar Test");
+    assert.strictEqual(document.title, "SweetYaar Test Parent Remote");
     assert.strictEqual(els.readyStatusText.textContent, "Ready to play");
     assert.strictEqual(els.volumeValue.textContent, "42%");
     assert.strictEqual(els.themeCurrent.textContent, "Nature");
@@ -2365,20 +2368,20 @@ const tests = [
     assert.strictEqual(els.noticeBanner.hidden, true);
   `],
   ["battery state renders the compact indicator and persistent warning", String.raw`
-    const ble = await connectWithFakeBle({ battery: 2 });
+    const ble = await connectWithFakeBle({ battery: 2, deviceName: "Bedtime Bear" });
     assert.strictEqual(state.battery, "medium");
     assert.strictEqual(els.batteryIndicator.classList.contains("medium"), true);
     assert.strictEqual(els.batteryIndicator.getAttribute("aria-label"), "Battery medium");
     assert.strictEqual(els.batteryWarning.hidden, false);
     assert.strictEqual(els.batteryWarning.classList.contains("medium"), true);
-    assert.strictEqual(els.batteryWarningTitle.textContent, "Charge SweetYaar soon");
+    assert.strictEqual(els.batteryWarningTitle.textContent, "Charge Bedtime Bear soon");
     assert.strictEqual(els.batteryWarningArt.src, "assets/battery-medium-art.png");
 
     ble.chars.battery.emit(3);
     assert.strictEqual(state.battery, "low");
     assert.strictEqual(els.batteryIndicator.classList.contains("low"), true);
     assert.strictEqual(els.batteryWarning.classList.contains("low"), true);
-    assert.strictEqual(els.batteryWarningTitle.textContent, "Charge SweetYaar now");
+    assert.strictEqual(els.batteryWarningTitle.textContent, "Charge Bedtime Bear now");
     assert.strictEqual(els.batteryWarningArt.src, "assets/battery-low-art.png");
 
     ble.chars.battery.emit(4);
