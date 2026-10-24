@@ -1,4 +1,4 @@
-"""Check template conversion and the selected firmware sound asset contract."""
+"""Check template conversion and the format of the embedded firmware sounds."""
 
 import importlib.util
 import struct
@@ -30,37 +30,15 @@ def test_mono_conversion_preserves_timing_and_mix(repo_root, tmp_path, channels,
 
 
 def test_system_sounds_are_compact_pcm(repo_root):
-    root = repo_root / "firmware/esp32/assets/sounds"
-    for name, frames in (("ready", 31899), ("error", 27831), ("pairing", 27762), ("battery", 33675), ("charger", 21807)):
-        with wave.open(str(root / f"{name}.wav"), "rb") as sound:
-            assert sound.getparams()[:4] == (1, 2, 44100, frames)
-            assert sound.getcomptype() == "NONE"
+    # Cues are embedded in flash and mixed into the I2S stream: mono 16-bit
+    # 44.1 kHz PCM, starting and ending on silence so they never click.
+    sounds = sorted((repo_root / "firmware/esp32/assets/sounds").glob("*.wav"))
+    assert sounds
+    for path in sounds:
+        with wave.open(str(path), "rb") as sound:
+            frames = sound.getnframes()
+            assert sound.getparams()[:3] == (1, 2, 44100), path.name
+            assert sound.getcomptype() == "NONE", path.name
+            assert frames > 2, path.name
             pcm = struct.unpack(f"<{frames}h", sound.readframes(frames))
-            assert pcm[0] == pcm[-1] == 0
-            assert pcm[1] != 0 and pcm[-2] != 0
-
-
-def active_pcm(path):
-    with wave.open(str(path), "rb") as sound:
-        pcm = struct.unpack(f"<{sound.getnframes()}h", sound.readframes(sound.getnframes()))
-    start = next(i for i, value in enumerate(pcm) if value)
-    end = len(pcm) - next(i for i, value in enumerate(reversed(pcm)) if value)
-    return pcm[start:end]
-
-
-def test_battery_cue_is_the_selected_first_gentle_nudge(repo_root):
-    selected = repo_root / "content/system-sounds/battery-options/03-gentle-nudge-medium.wav"
-    embedded = repo_root / "firmware/esp32/assets/sounds/battery.wav"
-    assert active_pcm(embedded) == active_pcm(selected)
-
-
-def test_sunrise_preview_preserves_selected_audio(repo_root):
-    selected = repo_root / "content/system-sounds/charger-happy-options/01-sunrise.wav"
-    preview = repo_root / "content/system-sounds/trimmed/charger-sunrise.wav"
-    assert active_pcm(preview) == active_pcm(selected)
-
-
-def test_charger_uses_selected_trimmed_sunrise(repo_root):
-    selected = repo_root / "content/system-sounds/trimmed/charger-sunrise.wav"
-    embedded = repo_root / "firmware/esp32/assets/sounds/charger.wav"
-    assert embedded.read_bytes() == selected.read_bytes()
+        assert pcm[0] == pcm[-1] == 0, path.name

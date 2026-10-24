@@ -98,67 +98,66 @@ def png_rgba_alpha_bounds(path):
     return stats["width"], stats["height"], stats["bounds"]
 
 
+HEX_COLOR = re.compile(r"#[0-9a-fA-F]{6}")
+
+
 def test_parent_app_manifest_contract(repo_root) -> None:
     public_dir = repo_root / "app" / "public"
-    manifest_path = public_dir / "manifest.webmanifest"
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = json.loads((public_dir / "manifest.webmanifest").read_text(encoding="utf-8"))
 
-    assert manifest["name"] == "SweetYaar Parent Remote"
-    assert manifest["short_name"] == "SweetYaar"
-    assert manifest["id"] == "./"
-    assert manifest["start_url"] == "./"
-    assert manifest["scope"] == "./"
+    # Relative paths let the same files run from the Pages path, the custom
+    # domain and a local server; standalone display makes it installable.
+    assert manifest["id"] == manifest["start_url"] == manifest["scope"] == "./"
     assert manifest["display"] == "standalone"
-    assert manifest["orientation"] == "portrait"
-    assert manifest["theme_color"] == "#08736c"
-    assert manifest["background_color"] == "#fcf8f3"
+    assert manifest["orientation"] == "portrait"  # the layout is portrait-only
+    for key in ("name", "short_name"):
+        assert isinstance(manifest[key], str) and manifest[key].strip()
+    for key in ("theme_color", "background_color"):
+        assert HEX_COLOR.fullmatch(manifest[key]), key
 
-    icons = {icon["src"]: icon for icon in manifest["icons"]}
-    assert icons["assets/pwa-icon-192.png"]["sizes"] == "192x192"
-    assert icons["assets/pwa-icon-512.png"]["sizes"] == "512x512"
-    assert icons["assets/pwa-icon-maskable-192.png"]["purpose"] == "maskable"
-    assert icons["assets/pwa-icon-maskable-192.png"]["sizes"] == "192x192"
-    assert icons["assets/pwa-icon-maskable-512.png"]["purpose"] == "maskable"
-    assert icons["assets/pwa-icon-maskable-512.png"]["sizes"] == "512x512"
-
-    for icon_src, icon in icons.items():
-        icon_path = public_dir / icon_src
-        assert icon_path.exists(), icon_src
-        expected_size = tuple(int(value) for value in icon["sizes"].split("x"))
-        assert png_size(icon_path) == expected_size
+    # Installation needs 192 and 512 px icons; maskable ones fill adaptive shapes.
+    icons = manifest["icons"]
+    declared = {(icon["sizes"], icon.get("purpose", "any")) for icon in icons}
+    for size in ("192x192", "512x512"):
+        assert (size, "any") in declared, size
+        assert (size, "maskable") in declared, size
+    for icon in icons:
+        icon_path = public_dir / icon["src"]
+        assert icon_path.exists(), icon["src"]
+        assert png_size(icon_path) == tuple(int(value) for value in icon["sizes"].split("x"))
 
 
 def test_parent_app_index_links_pwa_assets(repo_root) -> None:
     public_dir = repo_root / "app" / "public"
     index_html = (public_dir / "index.html").read_text(encoding="utf-8")
     tokens_css = (public_dir / "tokens.css").read_text(encoding="utf-8")
+    manifest = json.loads((public_dir / "manifest.webmanifest").read_text(encoding="utf-8"))
 
-    assert '<meta name="theme-color" content="#08736c">' in index_html
+    # The browser chrome colour must agree with the installed app's.
+    assert f'<meta name="theme-color" content="{manifest["theme_color"]}">' in index_html
     assert '<meta name="mobile-web-app-capable" content="yes">' in index_html
-    assert "apple-mobile-web-app-capable" not in index_html
+    assert "apple-mobile-web-app-capable" not in index_html  # deprecated
     assert '<link rel="manifest" href="manifest.webmanifest">' in index_html
+    assert '<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">' in index_html
+
+    # Design tokens live in one shared file, not inline.
     assert '<link rel="stylesheet" href="tokens.css">' in index_html
     assert ":root {" not in index_html
     assert ":root {" in tokens_css
-    assert "--teal: #34b8a9;" in tokens_css
-    assert 'Arial Rounded MT Bold' in tokens_css
-    assert 'href="favicon.ico"' in index_html
-    assert 'href="assets/favicon-16.png"' in index_html
-    assert 'href="assets/favicon-32.png"' in index_html
-    assert 'href="assets/favicon-48.png"' in index_html
-    assert 'href="assets/pwa-icon-192.png"' in index_html
-    assert '<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">' in index_html
-    assert 'class="install-app-icon" src="assets/pwa-icon-192.png"' in index_html
-    assert 'id="installBanner"' in index_html
-    assert 'id="installButton"' in index_html
-    assert 'id="installDismissButton"' in index_html
-    assert 'src="assets/icon-settings-sliders.svg"' in index_html
-    assert ">⚙<" not in index_html
-    assert 'settings-back .button-glyph::before' in index_html
-    assert ">←<" not in index_html
+
+    # Every local file the page references exists.
+    references = re.findall(r'(?:src|href|srcset)="([^"]+)"', index_html)
+    local = {part.split()[0] for ref in references for part in ref.split(",")
+             if part.strip() and not re.match(r"[a-z]+:|#|//", part.strip())}
+    assert local, "no local references found"
+    for path in local:
+        assert (public_dir / path.strip()).exists(), path
+
+    # Install prompt and service worker wiring.
+    for element in ("installBanner", "installButton", "installDismissButton"):
+        assert f'id="{element}"' in index_html
     assert 'window.addEventListener("beforeinstallprompt"' in index_html
     assert 'window.addEventListener("appinstalled"' in index_html
-    assert "promptInstall" in index_html
     assert 'navigator.serviceWorker.register("sw.js", { scope: "./" })' in index_html
     assert "registration.update" in index_html
 

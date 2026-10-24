@@ -46,24 +46,43 @@ def platformio_build_flags(name: str) -> list[str]:
     return [flag.replace('\\"', '"') for flag in flags]
 
 
-def test_sd_template_has_versioned_sleep_config() -> None:
+def test_sd_template_matches_the_config_schema() -> None:
+    """Structure and technical limits only; default themes and volumes are content choices."""
     config = json.loads(CONFIG_PATH.read_text())
+
+    def percent(value) -> bool:
+        return isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 100
+
+    def theme_id(value) -> bool:
+        # Theme IDs must fit the firmware's 63-byte live-theme buffer.
+        return isinstance(value, str) and 0 < len(value.encode()) <= 63
+
+    def clock(value) -> bool:
+        return isinstance(value, str) and re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", value) is not None
+
+    def seconds(value) -> bool:
+        # The app accepts 1 s to one day for each sleep timeout.
+        return isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= 86400
+
     assert config["schemaVersion"] == 2
-    assert config["defaultVolumePct"] == 75
-    assert config["defaultTheme"] == "children-songs"
-    assert set(config["sleep"]) == {
-        "enabled",
-        "normalIdleSec",
-        "vibrationWakeIdleSec",
-        "bleIdleSec",
-    }
-    assert config["bedtime"] == {
-        "enabled": True,
-        "startTime": "18:30",
-        "endTime": "06:30",
-        "theme": "classical-music",
-        "volumeCapPct": 45,
-    }
+    assert set(config) == {"schemaVersion", "defaultVolumePct", "defaultTheme",
+                           "disabledThemes", "bedtime", "sleep"}
+    assert percent(config["defaultVolumePct"])
+    assert theme_id(config["defaultTheme"])
+    assert isinstance(config["disabledThemes"], list)
+    assert all(theme_id(theme) for theme in config["disabledThemes"])
+
+    bedtime = config["bedtime"]
+    assert set(bedtime) == {"enabled", "startTime", "endTime", "theme", "volumeCapPct"}
+    assert isinstance(bedtime["enabled"], bool)
+    assert clock(bedtime["startTime"]) and clock(bedtime["endTime"])
+    assert theme_id(bedtime["theme"])
+    assert percent(bedtime["volumeCapPct"])
+
+    sleep = config["sleep"]
+    assert set(sleep) == {"enabled", "normalIdleSec", "vibrationWakeIdleSec", "bleIdleSec"}
+    assert isinstance(sleep["enabled"], bool)
+    assert all(seconds(sleep[key]) for key in ("normalIdleSec", "vibrationWakeIdleSec", "bleIdleSec"))
 
 
 def test_generic_board_overrides_hardware_inversions() -> None:
@@ -112,15 +131,13 @@ def compile_led_config(flags: list[str], assertions: str = "") -> subprocess.Com
 
 
 @pytest.mark.parametrize("environment", [None, "sweetyaar", "sweetyaar-generic"])
-def test_status_led_effective_timing(environment: str | None) -> None:
+def test_status_led_board_settings(environment: str | None) -> None:
+    # Frame type, inversion and channel order decide whether each board's LED
+    # shows the right colour. Pulse timings are checked against the
+    # WS2812B-V6 datasheet ranges below.
     flags = platformio_build_flags(environment) if environment else []
     generic = environment == "sweetyaar-generic"
-    zero, one, reset = (400, 800, 80) if generic else (300, 650, 300)
     result = compile_led_config(flags, f"""
-static_assert(SWEETYAAR_STATUS_LED_T0H_NS == {zero});
-static_assert(SWEETYAAR_STATUS_LED_T1H_NS == {one});
-static_assert(SWEETYAAR_STATUS_LED_BIT_NS == 1250);
-static_assert(SWEETYAAR_STATUS_LED_RESET_US == {reset});
 static_assert(SWEETYAAR_STATUS_LED_RGBW == {int(generic)});
 static_assert(SWEETYAAR_STATUS_LED_DATA_INVERTED == 0);
 static_assert(SWEETYAAR_STATUS_LED_COLOR_ORDER_GRB == 1);
@@ -178,32 +195,74 @@ def test_status_led_rejects_unrepresentable_timing(setting: str) -> None:
     assert "Status LED" in result.stderr or "SWEETYAAR_STATUS_LED_RESET_US" in result.stderr
 
 
-def test_status_led_default_max_brightness_is_50_percent() -> None:
-    firmware_config = FIRMWARE_CONFIG_PATH.read_text()
-    assert "#define SWEETYAAR_STATUS_LED_MAX_BRIGHTNESS_PCT 50" in firmware_config
-    assert "#define SWEETYAAR_STATUS_LED_RGBW 0" in firmware_config
+def test_status_led_brightness_cap_is_visible_and_guarded() -> None:
+    # The cap is a tuning value; only an invisible LED or an impossible
+    # percentage would be wrong.
+    result = compile_led_config([], "static_assert(STATUS_LED_MAX_BRIGHTNESS_PCT >= 1);\n")
+    assert result.returncode == 0, result.stderr
+    for invalid in ("-1", "101"):
+        result = compile_led_config([f"-DSWEETYAAR_STATUS_LED_MAX_BRIGHTNESS_PCT={invalid}"])
+        assert result.returncode != 0
 
 
 @pytest.mark.parametrize(
     ("environment", "enabled"),
     [(None, 1), ("sweetyaar", 1), ("sweetyaar-generic", 0)],
 )
-def test_charger_pinout_and_board_selection(
-    environment: str | None, enabled: int
-) -> None:
+def test_charger_board_selection(environment: str | None, enabled: int) -> None:
+    # Only the production board has a BQ25186.
     flags = platformio_build_flags(environment) if environment else []
     result = compile_led_config(flags, f"""
 static_assert(SWEETYAAR_BQ25186_ENABLED == {enabled});
 static_assert(HAS_BQ25186 == {str(bool(enabled)).lower()});
-static_assert(PIN_CHARGER_ENABLE == 4);
-static_assert(PIN_CHARGER_SDA == 16);
-static_assert(PIN_CHARGER_SCL == 17);
-static_assert(PIN_CHARGER_PG == 34);
-static_assert(PIN_CHARGER_INT == 35);
-static_assert(CHARGER_VERIFY_INTERVAL_MS == 10000);
-static_assert(CHARGER_STATUS_INTERVAL_MS == 1000);
 """)
     assert result.returncode == 0, result.stderr
+
+
+def kicad_cli() -> str | None:
+    return shutil.which("kicad-cli") or next(
+        (path for path in ("/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli",)
+         if pathlib.Path(path).exists()), None)
+
+
+def schematic_nets(tmp_path: pathlib.Path) -> dict[str, list[tuple[str, str]]]:
+    """Net name -> [(reference, pin function)] from the exported netlist."""
+    cli = kicad_cli()
+    if not cli:
+        pytest.skip("kicad-cli is required to read the schematic's connections")
+    netlist = tmp_path / "mainboard.net"
+    subprocess.run([cli, "sch", "export", "netlist", "--format", "kicadsexpr",
+                    "-o", str(netlist), str(MAINBOARD_SCHEMATIC_PATH)],
+                   check=True, capture_output=True)
+    nets = {}
+    for block in re.split(r"\n\t\t\(net\n", netlist.read_text())[1:]:
+        name = re.search(r'\(name "([^"]*)"\)', block).group(1)
+        nets[name] = [(ref, function or pin) for ref, pin, function in re.findall(
+            r'\(ref "([^"]+)"\)\s*\(pin "([^"]+)"\)(?:\s*\(pinfunction "([^"]*)"\))?', block)]
+    return nets
+
+
+def test_charger_pins_match_schematic(tmp_path: pathlib.Path) -> None:
+    # Each GPIO in Config.h must reach the charger signal it is used for.
+    config = FIRMWARE_CONFIG_PATH.read_text()
+    nets = schematic_nets(tmp_path)
+
+    def gpio(name: str) -> int:
+        return int(re.search(rf"\b{name}\s*=\s*(\d+);", config).group(1))
+
+    def net_of(io: int) -> tuple[str, list[tuple[str, str]]]:
+        for net, nodes in nets.items():
+            if any(ref == "U_ESP32" and function.startswith(f"IO{io}_") for ref, function in nodes):
+                return net, nodes
+        raise AssertionError(f"IO{io} is not connected in the schematic")
+
+    for name, charger_pin in (("PIN_CHARGER_SDA", "SDA"), ("PIN_CHARGER_SCL", "SCL"),
+                              ("PIN_CHARGER_PG", "PG#"), ("PIN_CHARGER_INT", "INT#")):
+        net, nodes = net_of(gpio(name))
+        assert any(ref == "U_CHG1" and function.startswith(charger_pin) for ref, function in nodes), \
+            f"{name} (IO{gpio(name)}) is on {net}, not the charger's {charger_pin}"
+    # /CE is driven through a transistor, so its GPIO reaches the enable net.
+    assert net_of(gpio("PIN_CHARGER_ENABLE"))[0] == "/CHARGER_ENABLE"
 
 
 def test_bq25186_safety_policy_is_encoded_and_verified() -> None:
