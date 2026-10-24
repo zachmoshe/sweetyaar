@@ -412,9 +412,11 @@ saves keep unsaved edits in the app so the parent can retry.
 
 ### Battery presentation
 
-The Ready screen shows a compact battery icon beside the status card. It
-shows green for `GOOD`, orange for `MEDIUM`, red for `LOW`, green with a bolt for
-`CHARGING`, and gray for `UNKNOWN`. It never displays voltage or percentage.
+The Ready screen shows a standing battery, vertically centred beside the status
+card, that fills from the bottom: green and mostly full for `GOOD`, orange and
+about half for `MEDIUM`, a short red strip for `LOW`, green with a white bolt
+for `CHARGING`, and a faint gray partial fill for `UNKNOWN`. The fill heights
+are symbolic; it never displays voltage or percentage.
 
 `MEDIUM` adds a persistent orange panel with the tired, sweating teddy and a
 charge-soon message. `LOW` replaces it with a red panel showing the collapsed,

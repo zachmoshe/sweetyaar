@@ -238,7 +238,7 @@
 
     .ready-top-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 62px;
+      grid-template-columns: minmax(0, 1fr) 64px;
       gap: 10px;
       align-items: stretch;
     }
@@ -1294,18 +1294,22 @@
 
     .ready-side-controls {
       display: grid;
-      grid-template-rows: 44px;
       place-items: center;
       min-height: 76px;
     }
 
+    /* A standing battery centred beside the status card, filling from the
+       bottom. --level is the fill. */
     .battery-indicator {
       --battery-outline: #879a94;
-      position: relative;
-      width: 44px;
-      height: 44px;
-      padding: 0;
+      --level: 0.8;
+      display: grid;
+      place-items: center;
+      width: 64px;
+      height: 64px;
+      padding: 6px 0 0; /* the cap sticks out on top */
       border: 0;
+      border-radius: 14px;
       background: transparent;
       cursor: pointer;
       color: #8d9698;
@@ -1313,33 +1317,37 @@
 
     .battery-indicator.charger-warning { --battery-outline: #e28b18; }
     .battery-indicator.charger-error { --battery-outline: #dc3d52; }
-    .battery-indicator:focus-visible { outline: 2px solid var(--teal-dark); border-radius: 8px; }
-
-    .battery-indicator::after {
-      content: "";
-      position: absolute;
-      top: 18px;
-      right: 2px;
-      width: 4px;
-      height: 8px;
-      border-radius: 0 3px 3px 0;
-      background: var(--battery-outline);
-    }
+    .battery-indicator:focus-visible { outline: 2px solid var(--teal-dark); }
 
     .battery-body {
+      position: relative;
+      width: 30px;
+      height: 50px;
+      border: 2.5px solid var(--battery-outline);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.75);
+      box-shadow: 0 2px 5px rgba(73, 55, 34, 0.12);
+    }
+
+    .battery-body::after {
+      content: "";
       position: absolute;
-      inset: 12px 7px 12px 3px;
-      overflow: hidden;
-      border: 2px solid var(--battery-outline);
-      border-radius: 5px;
-      background: rgba(255, 255, 255, 0.7);
+      top: -7.5px;
+      left: 50%;
+      width: 12px;
+      height: 5px;
+      transform: translateX(-50%);
+      border-radius: 3px 3px 0 0;
+      background: var(--battery-outline);
     }
 
     .battery-fill {
       position: absolute;
-      inset: 3px;
-      width: calc(80% - 6px);
-      border-radius: 2px;
+      right: 3px;
+      bottom: 3px;
+      left: 3px;
+      height: calc((100% - 6px) * var(--level));
+      border-radius: 4px;
       background: currentColor;
     }
 
@@ -1349,36 +1357,30 @@
     }
 
     .battery-indicator.medium {
+      --level: 0.55;
       color: #e28b18;
     }
 
     .battery-indicator.low {
+      --level: 0.28;
       color: #dc3d52;
     }
 
-    .battery-indicator.medium .battery-fill {
-      width: calc(55% - 6px);
-    }
-
-    .battery-indicator.low .battery-fill {
-      width: calc(28% - 6px);
-    }
-
     .battery-indicator.unknown .battery-fill {
-      width: calc(45% - 6px);
+      --level: 0.45;
       opacity: 0.32;
     }
 
     .battery-bolt {
       position: absolute;
-      inset: -3px 0 0 0;
+      inset: 0;
       display: none;
       place-items: center;
       color: #ffffff;
-      font-size: 15px;
+      font-size: 19px;
       font-weight: 900;
       line-height: 1;
-      text-shadow: 0 1px 1px rgba(0, 82, 58, 0.3);
+      text-shadow: 0 1px 1px rgba(0, 82, 58, 0.35);
     }
 
     .battery-indicator.charging .battery-bolt {
