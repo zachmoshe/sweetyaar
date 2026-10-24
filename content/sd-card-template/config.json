@@ -1,13 +1,13 @@
 {
   "schemaVersion": 2,
   "defaultVolumePct": 75,
-  "defaultTheme": "children-songs",
+  "defaultTheme": "nature-sounds",
   "disabledThemes": [],
   "bedtime": {
     "enabled": true,
     "startTime": "18:30",
     "endTime": "06:30",
-    "theme": "classical-music",
+    "theme": "lullabies",
     "volumeCapPct": 45
   },
   "sleep": {
