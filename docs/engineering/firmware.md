@@ -963,6 +963,27 @@ The PlatformIO board identifier is `esp32dev` for both because both use the
 original ESP32-WROOM-32; that identifier is a build-system detail, not a third
 hardware target or firmware application.
 
+`esp32dev` assumes 4 MB of flash, so both environments set
+`board_upload.flash_size = 8MB` explicitly. The production module is
+ESP32-WROOM-32E-N8 (8 MB); the generic prototype board v1.0 uses the N16 (16 MB)
+variant and uses only the lower 8 MB. Both use the checked-in
+`firmware/esp32/partitions_8mb.csv`, an unmodified copy of Arduino-ESP32's
+`default_8MB.csv`:
+
+| Partition | Offset | Size | Use |
+| --- | --- | --- | --- |
+| `nvs` | 0x9000 | 20 KB | Settings and Bluetooth bonds |
+| `otadata` | 0xE000 | 8 KB | Selects the boot app slot |
+| `app0` (`ota_0`) | 0x10000 | 3.2 MB | Firmware |
+| `app1` (`ota_1`) | 0x340000 | 3.2 MB | Second slot for future OTA updates; unused today |
+| `spiffs` | 0x670000 | 1.5 MB | Unused |
+| `coredump` | 0x7F0000 | 64 KB | Crash dumps |
+
+The partition table and bootloader are written only by wired flashing; a future
+OTA update can replace an app slot but never this layout. `nvs` keeps the same
+offset and size as the previous `min_spiffs.csv` layout, so moving a device to
+this table preserves its bonds and settings.
+
 Set up the checked-in development environment from the repository root:
 
 ```bash
