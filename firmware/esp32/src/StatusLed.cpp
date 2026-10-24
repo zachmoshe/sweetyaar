@@ -161,6 +161,11 @@ void StatusLed::service(uint32_t nowMs) {
         return;
     }
 
+    if (selected.breathing) {
+        serviceBreathing(selected, nowMs);
+        return;
+    }
+
     if (selected.onMs == 0 || selected.offMs == 0) {
         return;
     }
@@ -173,6 +178,27 @@ void StatusLed::service(uint32_t nowMs) {
     _phaseStartedMs = nowMs;
     _phaseOn = !_phaseOn;
     showColor(_phaseOn ? selected.color : LedColors::OFF);
+}
+
+void StatusLed::serviceBreathing(const StatusLedPattern& pattern, uint32_t nowMs) {
+    // About 30 frames per second is smooth and keeps RMT traffic small.
+    if (nowMs - _lastBreathMs < 33) {
+        return;
+    }
+    _lastBreathMs = nowMs;
+    const uint32_t period = static_cast<uint32_t>(pattern.onMs) + pattern.offMs;
+    const uint32_t phase = (nowMs - _phaseStartedMs) % period;
+    const uint32_t rising = phase < pattern.onMs ? phase * 255U / pattern.onMs
+        : (period - phase) * 255U / pattern.offMs;
+    // Never fully dark, so breathing is distinct from a blink.
+    const uint32_t level = 12U + rising * (255U - 12U) / 255U;
+    const LedColor color = {
+        static_cast<uint8_t>(pattern.color.red * level / 255U),
+        static_cast<uint8_t>(pattern.color.green * level / 255U),
+        static_cast<uint8_t>(pattern.color.blue * level / 255U),
+        static_cast<uint8_t>(pattern.color.white * level / 255U),
+    };
+    showColor(color);
 }
 
 void StatusLed::prepareForPeripheralPowerOff() {

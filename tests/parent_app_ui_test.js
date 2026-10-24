@@ -225,6 +225,14 @@ function createContext() {
     URL,
     setTimeout,
     clearTimeout,
+    crypto: require("crypto").webcrypto,
+    localStorage: (() => {
+      const values = new Map();
+      return {
+        getItem: (key) => (values.has(key) ? values.get(key) : null),
+        setItem: (key, value) => values.set(key, String(value)),
+      };
+    })(),
     setInterval: () => 0,
     clearInterval: () => {},
     requestAnimationFrame: () => 0,
@@ -311,6 +319,10 @@ class FakeCharacteristic {
   }
 
   async writeValue(value) {
+    this.write(value);
+  }
+
+  async writeValueWithoutResponse(value) {
     this.write(value);
   }
 
@@ -516,6 +528,116 @@ function makeBleHarness(options = {}) {
   };
   chars.access = new FakeCharacteristic("access", options.accessState ?? 2, readHooks);
 
+  // A toy that implements the firmware-update protocol: restarts between
+  // normal and update mode, accepts only the next expected offset, and
+  // reports progress in the 18-byte status.
+  const ota = {
+    mode: options.firmwareMode || "normal",
+    version: options.firmwareVersion || "1.0.0",
+    board: options.board || "sweetyaar",
+    state: options.firmwareMode === "update" ? 1 : 0,
+    error: 0,
+    received: 0,
+    total: 0,
+    sha: "",
+    image: [],
+    begins: [],
+    commands: [],
+    restarts: [],
+    packets: 0,
+    mtu: options.otaMtu ?? 185
+  };
+  function otaStatusView() {
+    const bytes = new Uint8Array(18);
+    const view = new DataView(bytes.buffer);
+    bytes[0] = 1;
+    bytes[1] = ota.state;
+    bytes[2] = ota.error;
+    view.setUint32(4, ota.received, true);
+    view.setUint32(8, ota.total, true);
+    view.setUint16(16, ota.mtu, true);
+    return bytesView(bytes);
+  }
+  function firmwareJson() {
+    return JSON.stringify({ version: ota.version, board: ota.board, mode: ota.mode });
+  }
+  chars.firmware = new FakeCharacteristic("firmware", firmwareJson(), readHooks);
+  chars.otaControl = new FakeCharacteristic("otaControl", "", readHooks);
+  chars.otaData = new FakeCharacteristic("otaData", "", readHooks);
+  chars.otaStatus = new FakeCharacteristic("otaStatus", otaStatusView(), readHooks);
+  function dropLink() {
+    device.gatt.connected = false;
+    device.listeners.gattserverdisconnected?.({ target: device });
+  }
+  function restartToy(mode) {
+    ota.restarts.push(mode);
+    setTimeout(() => {
+      ota.mode = mode;
+      ota.state = mode === "update" ? 1 : 0;
+      ota.error = 0;
+      ota.received = 0;
+      ota.total = 0;
+      chars.firmware.value = firmwareJson();
+      chars.otaStatus.value = otaStatusView();
+      dropLink();
+    }, 5);
+  }
+  chars.otaControl.write = (value) => {
+    const bytes = Uint8Array.from(value);
+    if (bytes[0] === 2 && options.failBegins > 0) {
+      options.failBegins -= 1;
+      throw new Error("GATT operation failed for unknown reason.");
+    }
+    ota.commands.push(bytes[0]);
+    if (bytes[0] === 1) {
+      if (options.enterResponseLost) {
+        restartToy("update");
+        throw new Error("GATT operation failed for unknown reason.");
+      }
+      if (options.otaRefuse) {
+        ota.error = 1;
+        chars.otaStatus.value = otaStatusView();
+      } else {
+        restartToy("update");
+      }
+    } else if (bytes[0] === 2) {
+      const view = new DataView(bytes.buffer);
+      const total = view.getUint32(2, true);
+      const sha = Array.from(bytes.slice(10)).join(",");
+      ota.begins.push({ total, received: ota.received });
+      if (!(ota.state === 2 && ota.sha === sha && ota.total === total)) {
+        ota.received = 0;
+        ota.image = [];
+      }
+      Object.assign(ota, { state: 2, error: 0, total, sha });
+      chars.otaStatus.value = otaStatusView();
+    } else if (bytes[0] === 3) {
+      if (ota.state === 2 && ota.received === ota.total) {
+        ota.state = 4;
+        chars.otaStatus.value = otaStatusView();
+        ota.version = options.versionAfterInstall ?? "1.1.0";
+        restartToy("normal");
+      }
+    } else if (bytes[0] === 4 && ota.mode === "update") {
+      restartToy("normal");
+    }
+  };
+  chars.otaData.write = (value) => {
+    const bytes = Uint8Array.from(value);
+    ota.packets += 1;
+    if (ota.packets === options.dropOtaPacket) return; // lost on the air
+    if (ota.packets === options.disconnectAtPacket) {
+      dropLink();
+      return;
+    }
+    const offset = new DataView(bytes.buffer).getUint32(0, true);
+    if (ota.state === 2 && offset === ota.received) {
+      for (const byte of bytes.slice(4)) ota.image.push(byte);
+      ota.received += bytes.length - 4;
+    }
+    chars.otaStatus.emit(otaStatusView());
+  };
+
   function configValues() {
     const { enabled, startTime, endTime, theme, volumeCapPct, ...runtime } = config.bedtime;
     return {
@@ -593,7 +715,8 @@ function makeBleHarness(options = {}) {
         error.name = "NotFoundError";
         throw error;
       }
-      if (remoteInitializationGate && characteristic.name !== "status" && characteristic.name !== "access") {
+      const handshake = ["status", "access", "firmware", "otaControl", "otaData", "otaStatus"];
+      if (remoteInitializationGate && !handshake.includes(characteristic.name)) {
         await remoteInitializationGate;
       }
       return characteristic;
@@ -655,6 +778,7 @@ function makeBleHarness(options = {}) {
     config,
     publishConfigValues,
     device,
+    ota,
     reads,
     notifications,
     releaseRemoteInitialization,
@@ -689,12 +813,250 @@ async function waitUntil(predicate, label, timeoutMs = 2500) {
   throw new Error("Timed out waiting for " + label);
 }
 
+async function makeRelease({ version = "1.1.0", notes = "Bedtime songs fade out gently.", size = 6000, board = "sweetyaar" } = {}) {
+  const encoded = new Uint8Array(size);
+  for (let i = 0; i < size; i++) encoded[i] = (i * 31 + 7) & 255;
+  const fileSha256 = bytesHex(await crypto.subtle.digest("SHA-256", encoded));
+  const file = board + "-" + version + ".bin.z";
+  const manifest = {
+    format: 1, version, notes,
+    images: { [board]: { file, encoding: "zlib", size: size * 2, encodedSize: size, sha256: "ab".repeat(32), fileSha256 } }
+  };
+  const requests = [];
+  globalThis.fetch = async (url) => {
+    requests.push(url);
+    if (url === "firmware/manifest.json") return { ok: true, status: 200, json: async () => manifest };
+    if (url === "firmware/" + file) return { ok: true, status: 200, arrayBuffer: async () => encoded.slice().buffer };
+    return { ok: false, status: 404 };
+  };
+  return { manifest, encoded, requests };
+}
+
+async function waitForUpdatePhase(phase, timeoutMs = 8000) {
+  await waitUntil(() => state.update.phase === phase, "update phase " + phase, timeoutMs);
+}
+
 async function waitForSettingsLoaded() {
   await waitUntil(() => state.view === "settings" && state.settings.loading === false, "settings load");
 }
 `;
 
 const tests = [
+  ["newer release shows an update card that Later hides, and Settings keeps the update", String.raw`
+    const release = await makeRelease();
+    await connectWithFakeBle();
+    await waitUntil(() => state.releaseStatus === "ready", "release manifest");
+    assert.strictEqual(els.updateCard.hidden, false);
+    assert.strictEqual(els.updateCardTitle.textContent, "Update available");
+    assert.strictEqual(els.updateCardMessage.textContent,
+      "Version 1.1.0: Bedtime songs fade out gently. About 1 minute.");
+    assert.strictEqual(els.updateLaterButton.hidden, false);
+    assert.strictEqual(els.playSongButton.disabled, false);
+    await els.updateLaterButton.click();
+    assert.strictEqual(els.updateCard.hidden, true);
+    assert.strictEqual(localStorage.getItem("sweetyaar-update-later"), "1.1.0");
+    await els.openSettingsButton.click();
+    await waitForSettingsLoaded();
+    assert.strictEqual(els.settingsFirmwareVersion.textContent, "1.0.0");
+    assert.strictEqual(els.settingsLatestVersion.textContent, "1.1.0");
+    assert.strictEqual(els.settingsUpdateButton.hidden, false);
+    assert.strictEqual(els.settingsUpdateButton.textContent, "Update to 1.1.0");
+    await els.settingsUpdateButton.click();
+    assertVisible(els.updateView, [els.settingsView, els.readyView, els.openingView]);
+    assert.strictEqual(els.updateConfirmVersion.textContent, "Version 1.1.0: Bedtime songs fade out gently.");
+    await els.updateSecondaryButton.click(); // Not now
+    assertVisible(els.settingsView, [els.updateView]);
+    assert(release.requests.includes("firmware/manifest.json"));
+  `],
+  ["current version offers only a reinstall, in Settings", String.raw`
+    await makeRelease();
+    await connectWithFakeBle({ firmwareVersion: "1.1.0" });
+    await waitUntil(() => state.releaseStatus === "ready", "release manifest");
+    assert.strictEqual(els.updateCard.hidden, true);
+    await els.openSettingsButton.click();
+    await waitForSettingsLoaded();
+    assert.strictEqual(els.settingsUpdateButton.textContent, "Reinstall 1.1.0");
+    await els.settingsUpdateButton.click();
+    assert.strictEqual(els.updateConfirmVersion.textContent, "Reinstall version 1.1.0.");
+    assert.strictEqual(els.updatePrimaryButton.textContent, "Reinstall");
+  `],
+  ["no published release leaves Settings without an update button", String.raw`
+    globalThis.fetch = async () => ({ ok: false, status: 404 });
+    await connectWithFakeBle();
+    await waitUntil(() => state.releaseStatus === "none", "missing manifest");
+    assert.strictEqual(els.updateCard.hidden, true);
+    await els.openSettingsButton.click();
+    await waitForSettingsLoaded();
+    assert.strictEqual(els.settingsLatestVersion.textContent, "None published");
+    assert.strictEqual(els.settingsUpdateButton.hidden, true);
+    assert.strictEqual(els.settingsUpdateNote.hidden, true);
+  `],
+  ["firmware older than the app supports locks the remote until updated", String.raw`
+    await makeRelease();
+    await connectWithFakeBle({ firmwareVersion: "0.9.0" });
+    await waitUntil(() => state.releaseStatus === "ready", "release manifest");
+    assert.strictEqual(els.updateCard.hidden, false);
+    assert.strictEqual(els.updateCardTitle.textContent, "Update needed");
+    assert.strictEqual(els.updateLaterButton.hidden, true);
+    assert.strictEqual(els.updateCardButton.textContent, "Update now");
+    assert.strictEqual(els.playSongButton.disabled, true);
+    assert.strictEqual(els.volumeRange.disabled, true);
+  `],
+  ["low battery blocks starting an update until the doll charges", String.raw`
+    await makeRelease();
+    const ble = await connectWithFakeBle({ battery: 3 });
+    await waitUntil(() => state.releaseStatus === "ready", "release manifest");
+    await els.updateCardButton.click();
+    assert.strictEqual(els.updatePrimaryButton.disabled, true);
+    assert.strictEqual(els.updateBatteryWarning.hidden, false);
+    assert.strictEqual(els.updateBatteryText.textContent, "Battery too low, connect a charger");
+    assert(els.updateBatteryItem.classList.contains("battery-low"));
+    await els.updatePrimaryButton.click();
+    assert.strictEqual(state.update.active, false);
+    ble.chars.battery.emit(4);
+    assert.strictEqual(els.updatePrimaryButton.disabled, false);
+    assert.strictEqual(els.updateBatteryWarning.hidden, true);
+    assert.strictEqual(els.updateBatteryText.textContent, "Charging, all good");
+    assert(els.updateBatteryItem.classList.contains("battery-charging"));
+    assert(!els.updateBatteryItem.classList.contains("battery-low"));
+  `],
+  ["update restarts into update mode, resends a lost chunk, installs and reconnects", String.raw`
+    const release = await makeRelease();
+    const wakeLocks = [];
+    navigator.wakeLock = { request: async () => {
+      const lock = { released: false, release: async () => { lock.released = true; } };
+      wakeLocks.push(lock);
+      return lock;
+    } };
+    const ble = await connectWithFakeBle({ dropOtaPacket: 3 });
+    await waitUntil(() => state.releaseStatus === "ready", "release manifest");
+    await els.updateCardButton.click();
+    await els.updatePrimaryButton.click();
+    assert.strictEqual(state.update.active, true);
+    await waitForUpdatePhase("sending");
+    assert.strictEqual(els.updateKeepOpen.hidden, false);
+    assert(els.updateBackButton.classList.contains("placeholder"));
+    assert.strictEqual(els.updateBackButton.disabled, true);
+    await waitForUpdatePhase("done", 12000);
+    assertJsonEqual(ble.ota.commands, [1, 2, 3]);
+    assertJsonEqual(ble.ota.restarts, ["update", "normal"]);
+    assert.strictEqual(ble.ota.image.length, release.encoded.length);
+    assert(ble.ota.image.every((byte, i) => byte === release.encoded[i]), "image bytes in order");
+    assert(ble.ota.packets > Math.ceil(release.encoded.length / 178), "the lost chunk was resent");
+    assert.strictEqual(els.updateResultTitle.textContent, "SweetYaar is up to date");
+    assert.strictEqual(els.updateResultMessage.textContent, "Version 1.1.0");
+    assert.strictEqual(els.updateNotesText.textContent, "Bedtime songs fade out gently.");
+    assert.strictEqual(wakeLocks.length, 1);
+    assert.strictEqual(wakeLocks[0].released, true);
+    await waitUntil(() => state.connected && !state.remoteInitializing, "remote after update");
+    assert.strictEqual(state.firmware.version, "1.1.0");
+    await els.updatePrimaryButton.click(); // Done
+    assertVisible(els.readyView, [els.updateView, els.openingView]);
+    assert.strictEqual(els.updateCard.hidden, true);
+  `],
+  ["a lost response to enter update mode still continues the update", String.raw`
+    await makeRelease();
+    const ble = await connectWithFakeBle({ enterResponseLost: true });
+    await waitUntil(() => state.releaseStatus === "ready", "release manifest");
+    await els.updateCardButton.click();
+    await els.updatePrimaryButton.click();
+    await waitForUpdatePhase("done", 15000);
+    assertJsonEqual(ble.ota.commands, [1, 2, 3]); // the toy acted on enter despite the lost reply
+    assertJsonEqual(ble.ota.restarts, ["update", "normal"]);
+  `],
+  ["a generic Bluetooth error right after reconnecting is retried, not fatal", String.raw`
+    await makeRelease();
+    const ble = await connectWithFakeBle({ failBegins: 2 });
+    await waitUntil(() => state.releaseStatus === "ready", "release manifest");
+    await els.updateCardButton.click();
+    await els.updatePrimaryButton.click();
+    await waitForUpdatePhase("done", 15000);
+    assert.strictEqual(state.update.linkRetries, 2);
+    assertJsonEqual(ble.ota.commands, [1, 2, 3]);
+  `],
+  ["repeated Bluetooth errors end the update with the toy restarted", String.raw`
+    await makeRelease();
+    const ble = await connectWithFakeBle({ failBegins: 10 });
+    await waitUntil(() => state.releaseStatus === "ready", "release manifest");
+    await els.updateCardButton.click();
+    await els.updatePrimaryButton.click();
+    await waitForUpdatePhase("failed", 15000);
+    assert.strictEqual(state.update.linkRetries, 3);
+    await waitUntil(() => ble.ota.commands.at(-1) === 4, "cancel restarts normal firmware");
+  `],
+  ["dropped connection pauses the update and resumes from the toy's offset", String.raw`
+    await makeRelease();
+    const ble = await connectWithFakeBle({ disconnectAtPacket: 12 });
+    await waitUntil(() => state.releaseStatus === "ready", "release manifest");
+    await els.updateCardButton.click();
+    await els.updatePrimaryButton.click();
+    await waitForUpdatePhase("paused");
+    assert.strictEqual(els.updateProgressTitle.textContent.startsWith("Update paused at"), true);
+    assert.strictEqual(els.updatePrimaryButton.textContent, "Resume");
+    assert.strictEqual(els.updatePrimaryButton.hidden, false);
+    assertVisible(els.updateView, [els.openingView]);
+    await waitForUpdatePhase("done", 12000);
+    assert.strictEqual(ble.ota.begins.length, 2);
+    assert(ble.ota.begins[1].received > 0, "the second begin kept the received prefix");
+  `],
+  ["cancelling restarts the toy on its current version", String.raw`
+    await makeRelease({ size: 40000 });
+    const ble = await connectWithFakeBle();
+    const sendChunk = ble.chars.otaData.writeValueWithoutResponse.bind(ble.chars.otaData);
+    ble.chars.otaData.writeValueWithoutResponse = async (value) => {
+      await delay(2); // leave time to cancel mid-transfer
+      return sendChunk(value);
+    };
+    await waitUntil(() => state.releaseStatus === "ready", "release manifest");
+    await els.updateCardButton.click();
+    await els.updatePrimaryButton.click();
+    await waitUntil(() => state.update.phase === "sending" && state.update.received > 0, "transfer");
+    await els.updateSecondaryButton.click(); // Cancel update
+    assert.strictEqual(els.updateCancelConfirm.hidden, false);
+    assert.strictEqual(els.updateCancelMessage.textContent,
+      "SweetYaar keeps version 1.0.0 and restarts normally. You can update later.");
+    await els.updateSecondaryButton.click(); // confirm
+    assert.strictEqual(state.update.phase, "cancelled");
+    assert.strictEqual(els.updateResultTitle.textContent, "Update cancelled");
+    // Cancel is queued behind the chunk already being written.
+    await waitUntil(() => ble.ota.commands.at(-1) === 4, "cancel command");
+    await waitUntil(() => state.connected && state.firmware?.mode === "normal", "normal firmware");
+    assert.strictEqual(state.firmware.version, "1.0.0");
+    await els.updatePrimaryButton.click(); // Done
+    assertVisible(els.readyView, [els.updateView]);
+  `],
+  ["reconnecting to a toy waiting in update mode resumes the update", String.raw`
+    await makeRelease();
+    const ble = await connectWithFakeBle({ firmwareMode: "update", waitForRemoteInitialization: false });
+    assertVisible(els.updateView, [els.openingView, els.readyView]);
+    await waitForUpdatePhase("done", 12000);
+    assertJsonEqual(ble.ota.commands, [2, 3]);
+    assert.strictEqual(els.updateResultTitle.textContent, "SweetYaar is up to date");
+  `],
+  ["toy refusing update mode for its battery reports why", String.raw`
+    await makeRelease();
+    const ble = await connectWithFakeBle({ otaRefuse: true });
+    await waitUntil(() => state.releaseStatus === "ready", "release manifest");
+    await els.updateCardButton.click();
+    await els.updatePrimaryButton.click();
+    await waitForUpdatePhase("failed", 8000);
+    assert.strictEqual(els.updateResultMessage.textContent, "Battery low. Connect a charger, then try again.");
+    assertJsonEqual(ble.ota.restarts, []);
+    assert.strictEqual(els.updatePrimaryButton.textContent, "Try again");
+    await els.updateSecondaryButton.click(); // Not now
+    assertVisible(els.readyView, [els.updateView]);
+  `],
+  ["damaged download never reaches the toy", String.raw`
+    const release = await makeRelease();
+    release.manifest.images.sweetyaar.fileSha256 = "00".repeat(32);
+    const ble = await connectWithFakeBle();
+    await waitUntil(() => state.releaseStatus === "ready", "release manifest");
+    await els.updateCardButton.click();
+    await els.updatePrimaryButton.click();
+    await waitForUpdatePhase("failed");
+    assert.strictEqual(els.updateResultMessage.textContent, "The downloaded update is damaged. Try again.");
+    assertJsonEqual(ble.ota.commands, []);
+  `],
   ["battery opens live diagnostics with warning priority and independent level color", String.raw`
     const ble = await connectWithFakeBle({ battery: 1, charger: [1, 4, 3, 0x60, 0, 0] });
     assert(ble.notifications.includes("charger"));
@@ -1332,7 +1694,7 @@ const tests = [
     assert.strictEqual(els.playSongButton.disabled, true);
     assert.strictEqual(els.volumeRange.disabled, true);
     assert.strictEqual(els.openSettingsButton.disabled, true);
-    assert.deepStrictEqual(ble.reads, ["status"]);
+    assert.deepStrictEqual(ble.reads, ["firmware", "status"]);
     assert.deepStrictEqual(ble.notifications, ["status"]);
 
     ble.releaseRemoteInitialization();

@@ -9,7 +9,7 @@ The app connects directly to the toy over Bluetooth Low Energy (BLE). This is
 separate from the Classic Bluetooth connection used when SweetYaar acts as a
 speaker: the app controls audio stored on the microSD card, while a phone or
 computer connected as an audio source controls its own stream. The app does not
-upload audio files or firmware.
+upload audio files; it can install firmware updates published with it.
 
 Parents open the remote as a website and may install it on a supported device
 for an app-like launcher and offline access. There is no account, cloud service,
@@ -48,7 +48,10 @@ instead of assuming the physical pairing window was closed.
 The access diagnostic is required. Generic connection failures include a pairing
 hint without claiming that missing approval is the confirmed cause.
 
-The app then reads and subscribes to playback status and
+The app then reads the toy's firmware description (version, board and mode).
+A toy waiting in firmware-update mode opens the update screen instead of the
+remote (see [Firmware updates](#firmware-updates)). Otherwise the app reads and
+subscribes to playback status and
 opens the appropriate Ready or Bluetooth-streaming screen. Ready-screen controls
 stay briefly disabled while the remaining characteristics, current values, and
 notifications load in the background. The app also sends the phone or
@@ -257,6 +260,69 @@ This also updates the toy after travel or a timezone change. Until the firmware
 has reliable time, Bedtime mode remains inactive and the card displays
 `clock not set`; the app does not guess or force the scheduled state.
 
+## Firmware updates
+
+The toy's firmware is updated over the same BLE connection; there is no
+separate app, Wi-Fi or cable for parents. The firmware side and the protocol
+are described in [Firmware updates](firmware.md#firmware-updates).
+
+**Finding out.** After connecting, the app fetches `firmware/manifest.json`
+from its own site. It lists the latest version, its release note and the
+compressed image per published board (only the production board; the generic
+prototype is updated from a Mac and is never offered an update). When that version is newer than the toy's, the Ready screen shows an
+**Update available** card with the note, **Update** and **Later**. **Later**
+hides the card for that version on this phone (stored in `localStorage`). A toy
+older than the app's `MIN_FIRMWARE_VERSION` instead shows **Update needed**,
+without **Later**, and its remote controls stay disabled until it is updated.
+
+**Settings.** *About this doll*, at the end of Settings, always shows the toy's
+firmware version and the latest published version, with **Update to …** when
+newer or **Reinstall …** when the same, so a parent who chose **Later** (or wants
+to repair a toy) can still update. Without a published release it shows *None
+published*; when the manifest could not be fetched, it says so.
+
+**Updating.** The confirm screen lists what to expect, each with its own icon:
+keep the screen open, keep the doll nearby, no songs for about a minute, and the
+battery in plain words with a level icon ("Battery is charged, all good",
+"Enough battery for the update", "Charging, all good", or "Battery too low,
+connect a charger"). **Start update** is disabled unless the battery is good,
+medium or charging; a low battery asks for a charger, and the toy refuses
+independently. Then the app:
+
+1. downloads the compressed image and checks its SHA-256 against the manifest,
+   before touching the toy;
+2. asks the toy to restart into update mode, then reconnects to the same
+   Bluetooth device by itself, with no device chooser or pairing (about 5 s);
+3. sends the image while showing device-acknowledged progress and the time
+   left, then asks the toy to verify and install it;
+4. reconnects to the restarted toy, checks that it reports the new version,
+   shows **SweetYaar is up to date** with the release note, and loads the
+   remote as usual.
+
+Android may fail the first Bluetooth operations right after the toy restarts,
+with a generic "GATT operation failed", and may never receive the response to
+the enter-update-mode command. The app therefore waits 0.5 s after each
+reconnect, treats a missing response as the expected restart (waiting up to 12
+seconds for the link to drop), and retries a generic Bluetooth error up to three
+times by reconnecting and resuming before it reports a failure.
+
+The app holds a screen wake lock while updating, so the phone does not lock
+itself; browsers cannot keep sending in the background. If the link drops,
+including when the parent locks the phone, the screen shows **Update paused at
+N%** and keeps reconnecting; the transfer resumes from the toy's last
+acknowledged offset. The toy waits 2 minutes and then restarts its current
+firmware. After a page reload the parent connects as usual; a toy still in
+update mode resumes the update from the cached image.
+
+Switching the doll off mid-update is not resumed: the doll comes back on its
+current version in normal mode, the app shows **Update didn't finish**, and
+**Try again** starts from the beginning.
+
+**Cancel update** asks for confirmation, then the toy discards the partial
+image and restarts on its current version. Failures, a lost power supply, a
+timeout or an automatic rollback all end on **Update didn't finish**, which
+states the version the toy is still running and offers **Try again**.
+
 ## Installation and offline use
 
 SweetYaar is a Progressive Web App, which means a supported browser can place
@@ -268,7 +334,9 @@ shell, manifest, icons, and listed UI images in a local cache. Navigation uses
 a network-first strategy, falling back to the cached app when the network is
 unavailable. Static precached assets are shown immediately from cache and
 refreshed in the background. The BLE connection itself is local and does not
-need Internet access.
+need Internet access. Firmware files are not precached: the manifest is always
+fetched from the network first, and an image (whose name includes its version)
+is cached when first downloaded, so an interrupted update can resume offline.
 
 The app displays its own install banner only after the browser supplies a
 `beforeinstallprompt` event. If the banner does not appear, the app may already
@@ -293,10 +361,12 @@ or build step. Its production files are:
 | `app/public/manifest.webmanifest` | Installed-app name, scope, portrait presentation, colors, and icon declarations. |
 | `app/public/sw.js` | Offline cache contents, update version, and request strategies. |
 | `app/public/assets/` | Browser-ready artwork, control icons, favicons, and install icons. |
+| `app/public/firmware/` | Published firmware: `manifest.json` and the compressed production image, written by `make release-firmware`. Absent until the first release. |
 | `app/public/CNAME` | The custom domain published with the Pages artifact. |
 
-The interface has five screens: the opening connection screen, the Ready remote,
-the Bluetooth-streaming status screen, Settings, and Battery & charging. `index.html` owns the
+The interface has six screens: the opening connection screen, the Ready remote,
+the Bluetooth-streaming status screen, Settings, Battery & charging, and
+Update. `index.html` owns the
 transitions between them and communicates with the BLE service implemented by
 `firmware/esp32/src/BLEParentService.*`. It first reads the live characteristics used for
 volume, theme, Quiet time, status, battery state, and commands, then uses the
@@ -420,8 +490,10 @@ Forget/reconnect recovery when an old GATT table hides required characteristics.
 
 The app tests execute the real JavaScript embedded in `app/public/index.html`
 against a mocked DOM and Web Bluetooth device. They cover connection outcomes,
-live controls, Bluetooth-streaming lockout, settings scans and saves, and the
-Bedtime flow. Separate PWA checks validate the manifest, icons, design tokens,
+live controls, Bluetooth-streaming lockout, settings scans and saves, the
+Bedtime flow, and firmware updates against a simulated toy (lost chunks, a
+dropped link, cancellation, refusals, a damaged download and resuming after a
+reload). Separate PWA checks validate the manifest, icons, design tokens,
 precache contents, and offline-shell contract.
 
 Run the app-focused regression tests from the repository root:

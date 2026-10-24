@@ -10,41 +10,47 @@ StatusLedModeDefinition statusLedModeDefinition(StatusLedMode mode) {
     switch (mode) {
         case StatusLedMode::Pairing:
             return {"pairing window open", "blue",
-                    {StatusLedMode::Pairing, LedColors::BLUE, 200, 200}};
+                    {StatusLedMode::Pairing, LedColors::BLUE, 200, 200, false}};
         case StatusLedMode::PairingReset:
             return {"Bluetooth approvals cleared", "red",
-                    {StatusLedMode::PairingReset, LedColors::RED, 250, 0}};
+                    {StatusLedMode::PairingReset, LedColors::RED, 250, 0, false}};
+        case StatusLedMode::Updating:
+            return {"firmware update", "yellow breathing",
+                    {StatusLedMode::Updating, LedColors::YELLOW, 1500, 1500, true}};
         case StatusLedMode::Initializing:
             return {"initialization", "yellow",
-                    {StatusLedMode::Initializing, LedColors::YELLOW, 0, 0}};
+                    {StatusLedMode::Initializing, LedColors::YELLOW, 0, 0, false}};
         case StatusLedMode::Error:
             return {"persistent error", "red",
-                    {StatusLedMode::Error, LedColors::RED, 250, 250}};
+                    {StatusLedMode::Error, LedColors::RED, 250, 250, false}};
         case StatusLedMode::BluetoothPlaying:
             return {"BT audio playing", "blue",
-                    {StatusLedMode::BluetoothPlaying, LedColors::BLUE, 500, 500}};
+                    {StatusLedMode::BluetoothPlaying, LedColors::BLUE, 500, 500, false}};
         case StatusLedMode::BluetoothConnected:
             return {"BT connected, idle", "blue",
-                    {StatusLedMode::BluetoothConnected, LedColors::BLUE, 1000, 1000}};
+                    {StatusLedMode::BluetoothConnected, LedColors::BLUE, 1000, 1000, false}};
         case StatusLedMode::LocalPlayback:
             return {"local playback", "green",
-                    {StatusLedMode::LocalPlayback, LedColors::GREEN, 500, 500}};
+                    {StatusLedMode::LocalPlayback, LedColors::GREEN, 500, 500, false}};
         case StatusLedMode::Killswitch:
             return {"Quiet time", "purple",
-                    {StatusLedMode::Killswitch, LedColors::PURPLE, 1000, 250}};
+                    {StatusLedMode::Killswitch, LedColors::PURPLE, 1000, 250, false}};
         case StatusLedMode::Ready:
             return {"ready/idle", "green",
-                    {StatusLedMode::Ready, LedColors::GREEN, 1000, 1000}};
+                    {StatusLedMode::Ready, LedColors::GREEN, 1000, 1000, false}};
         case StatusLedMode::Off:
         default:
             return {"deep sleep/off", "off",
-                    {StatusLedMode::Off, LedColors::OFF, 0, 0}};
+                    {StatusLedMode::Off, LedColors::OFF, 0, 0, false}};
     }
 }
 
 StatusLedPattern selectStatusLedPattern(uint32_t signals) {
     if (hasSignal(signals, StatusSignal::PairingReset)) {
         return statusLedModeDefinition(StatusLedMode::PairingReset).pattern;
+    }
+    if (hasSignal(signals, StatusSignal::Updating)) {
+        return statusLedModeDefinition(StatusLedMode::Updating).pattern;
     }
     // Initialization deliberately masks faults until initialization finishes;
     // a latched Error signal then becomes visible immediately.

@@ -33,6 +33,7 @@
 #include "BatteryMonitor.h"
 #include "BQ25186Charger.h"
 #include "SleepEntryCheck.h"
+#include "OtaUpdate.h"
 
 // ---------------------------------------------------------------------------
 // Global objects
@@ -112,6 +113,9 @@ static constexpr uint32_t MAX_HEAP_RESTARTS = 3;
 // Forward declarations
 // ---------------------------------------------------------------------------
 void setupWakeState();
+void setupUpdateMode();
+void loopUpdateMode();
+bool batteryAllowsUpdate();
 void setupLoopTaskWatchdog();
 void setupPeripheralPower();
 void setAmpMuted(bool muted);
@@ -288,6 +292,12 @@ void setup() {
         currentDeviceName = DEFAULT_BT_NAME;
     }
     Serial.printf("[Device] btName=%s\n", currentDeviceName.c_str());
+    Serial.printf("[Firmware] version=%s board=%s\n", FIRMWARE_VERSION, FIRMWARE_BOARD_ID);
+
+    if (OtaUpdate::consumeUpdateModeRequest()) {
+        setupUpdateMode();
+        return;
+    }
 
     // Buttons
     buttons.begin();
@@ -340,8 +350,11 @@ void setup() {
     batteryMonitor.begin(HAS_BQ25186 && charger.charging());
 
     // BLE parent service — shares the controller already started by A2DP.
+    bool bleReady = !ENABLE_BLE_PARENT_SERVICE;
     if (ENABLE_BLE_PARENT_SERVICE) {
-        if (!bleService.begin(currentDeviceName)) reportSystemError();
+        bleReady = bleService.begin(currentDeviceName);
+        if (!bleReady) reportSystemError();
+        OtaUpdate::attach(bleService, false, batteryAllowsUpdate);
         bleService.updateThemes(bleThemesJson);
         publishBleValues();
         pollBedtimeMode();
@@ -360,14 +373,70 @@ void setup() {
     lastBleConnected = ENABLE_BLE_PARENT_SERVICE && bleService.isConnected();
     setupLoopTaskWatchdog();
 
+    // A newly installed image stays pending until here. Without a working
+    // parent service it could never be updated again, so roll back instead.
+    OtaUpdate::confirmRunningImage(bleReady);
+
     Serial.println("[Boot] Ready.");
     finishSystemSoundStartup();
+}
+
+// ---------------------------------------------------------------------------
+// setupUpdateMode() — firmware update only: BLE, LED, charger and battery.
+// No audio, SD or Classic Bluetooth, which leaves the heap for decompression.
+// ---------------------------------------------------------------------------
+void setupUpdateMode() {
+    Serial.println("[OTA] Update mode");
+    statusLed.setSignal(StatusSignal::Updating, true);
+    if (HAS_BQ25186 && !charger.begin(readLocalLogTime)) {
+        reportSystemError();
+    }
+    batteryMonitor.begin(HAS_BQ25186 && charger.charging());
+    if (!OtaUpdate::startBleOnlyController() ||
+        !bleService.begin(currentDeviceName, BLE_UPDATE_MODE_MTU)) {
+        Serial.println("[OTA] Bluetooth failed in update mode; restarting normal firmware");
+        Serial.flush();
+        esp_restart();
+    }
+    OtaUpdate::attach(bleService, true, nullptr);
+    bleService.updateStatus("Updating");
+    bleService.updateBatteryState(batteryMonitor.encodedState());
+    statusLed.setSignal(StatusSignal::Initializing, false);
+    statusLed.service(millis());
+    setupLoopTaskWatchdog();
+    Serial.printf("[OTA] Ready for an image (free=%u largest=%u)\n",
+                  heap_caps_get_free_size(MALLOC_CAP_8BIT),
+                  heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+}
+
+void loopUpdateMode() {
+    esp_task_wdt_reset();
+    if (HAS_BQ25186) charger.poll();
+    if (batteryMonitor.poll(HAS_BQ25186 && charger.charging())) {
+        bleService.updateBatteryState(batteryMonitor.encodedState());
+    }
+    bluetoothAccess.poll(bleService.hasLinks());
+    bleService.pollAdvertising(true);
+    OtaUpdate::poll(millis());
+    statusLed.service(millis());
+    delay(5);
+}
+
+// An update draws only a few mAh, but must not start on a nearly empty cell.
+bool batteryAllowsUpdate() {
+    const BatteryState state = batteryMonitor.state();
+    return state == BatteryState::Good || state == BatteryState::Medium ||
+           state == BatteryState::Charging;
 }
 
 // ---------------------------------------------------------------------------
 // loop()
 // ---------------------------------------------------------------------------
 void loop() {
+    if (OtaUpdate::updateMode()) {
+        loopUpdateMode();
+        return;
+    }
     esp_task_wdt_reset();
 
     // Process asynchronous BT events before accepting local/BLE input.
@@ -483,6 +552,7 @@ void loop() {
         bleService.pollAdvertising(!btLinkConnected || millis() - btConnectedAtMs >= BT_SETTLE_MS);
     }
     serviceSongChecks();
+    OtaUpdate::poll(millis());
     statusLed.service(millis());
     pollIdleSleep();
 
@@ -2194,6 +2264,7 @@ void printStatusLedModeLegend() {
         StatusLedMode::Error,
         StatusLedMode::Pairing,
         StatusLedMode::PairingReset,
+        StatusLedMode::Updating,
         StatusLedMode::Off,
     };
 
@@ -2203,6 +2274,10 @@ void printStatusLedModeLegend() {
         const StatusLedPattern& pattern = definition.pattern;
         if (mode == StatusLedMode::PairingReset) {
             Serial.println("[LED]   Bluetooth approvals cleared: red once for 250ms, then current state");
+        } else if (pattern.breathing) {
+            Serial.printf("[LED]   %s: %s %ums up / %ums down\n",
+                          definition.condition, definition.colorName,
+                          pattern.onMs, pattern.offMs);
         } else if (mode == StatusLedMode::Off) {
             Serial.printf("[LED]   %s: %s\n",
                           definition.condition, definition.colorName);

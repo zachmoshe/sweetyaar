@@ -46,10 +46,12 @@ private:
     bool _phaseOn = false;
     uint8_t _maxBrightnessPct = 100;
     uint32_t _phaseStartedMs = 0;
+    uint32_t _lastBreathMs = 0;
     StatusLedMode _mode = StatusLedMode::Off;
     LedColor _lastColor{0, 0, 0, 0};
 
     void showColor(LedColor color, bool force = false);
+    void serviceBreathing(const StatusLedPattern& pattern, uint32_t nowMs);
 };
 
 extern StatusLed statusLed;

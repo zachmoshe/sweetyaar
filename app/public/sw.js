@@ -1,7 +1,7 @@
 "use strict";
 
 const CACHE_PREFIX = "sweetyaar-parent";
-const CACHE_VERSION = "sweetyaar-parent-v49";
+const CACHE_VERSION = "sweetyaar-parent-v50";
 
 const PRECACHE_URLS = [
   "./",
@@ -102,6 +102,37 @@ async function networkFirst(request) {
   }
 }
 
+function isFirmwarePath(url) {
+  return url.href.startsWith(new URL("./firmware/", self.location.href).href);
+}
+
+// The manifest must be current, so it is fetched first. Images carry their
+// version in the file name and never change, so a cached copy is reused,
+// letting an interrupted update resume after a reload without a new download.
+async function firmwareRequest(request) {
+  const cache = await caches.open(CACHE_VERSION);
+  const isManifest = new URL(request.url).pathname.endsWith("/manifest.json");
+  if (!isManifest) {
+    const cached = await cache.match(request);
+    if (cached) {
+      return cached;
+    }
+  }
+  try {
+    const response = await fetch(request);
+    if (response && response.ok) {
+      await cache.put(request, response.clone());
+    }
+    return response;
+  } catch (error) {
+    const cached = await cache.match(request);
+    if (cached) {
+      return cached;
+    }
+    throw error;
+  }
+}
+
 async function staleWhileRevalidate(event) {
   const request = event.request;
   const cache = await caches.open(CACHE_VERSION);
@@ -132,7 +163,9 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   const url = new URL(event.request.url);
-  if (isNavigationRequest(event.request) || isAppShellPath(url)) {
+  if (isFirmwarePath(url)) {
+    event.respondWith(firmwareRequest(event.request));
+  } else if (isNavigationRequest(event.request) || isAppShellPath(url)) {
     event.respondWith(networkFirst(event.request));
   } else if (isPrecachedPath(url)) {
     event.respondWith(staleWhileRevalidate(event));

@@ -13,9 +13,11 @@ def test_pairing_gestures_and_identity(repo_root, tmp_path):
         pytest.skip("A C++ compiler is required.")
     src = repo_root / "firmware/esp32/src"
     led_source = (src / "StatusLed.cpp").read_text()
-    start = led_source.index("void StatusLed::service(")
-    (tmp_path / "status_led_service_under_test.inc").write_text(
-        led_source[start:led_source.index("\n}", start) + 2])
+    functions = []
+    for name in ("void StatusLed::service(", "void StatusLed::serviceBreathing("):
+        start = led_source.index(name)
+        functions.append(led_source[start:led_source.index("\n}", start) + 2])
+    (tmp_path / "status_led_service_under_test.inc").write_text("\n".join(functions))
     exe = tmp_path / "pairing_policy"
     run_checked([compiler, "-std=c++17", "-Wall", "-Wextra", "-I", src, "-I", tmp_path,
                  repo_root / "tests/pairing_policy_native_test.cpp",

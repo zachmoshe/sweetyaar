@@ -800,6 +800,7 @@ the main loop remains the only LED hardware owner.
 | Bluetooth approvals cleared | Red once for 250 ms, then restore the current state's pattern. |
 | Quiet time | Purple, 1 s on / 0.25 s off. |
 | Persistent error after initialization | Red, 0.25 s on / 0.25 s off; currently set for SD initialization/removal failures and other persistent `error` notices. |
+| Firmware update mode | Yellow breathing: fades up over 1.5 s and down over 1.5 s, never fully dark. |
 | Deep sleep | Off and unpowered. |
 
 The same canonical definitions are printed at every boot, before the remaining
@@ -816,10 +817,14 @@ subsystems initialize:
 [LED]   persistent error: red 250ms on / 250ms off
 [LED]   pairing window open: blue 200ms on / 200ms off
 [LED]   Bluetooth approvals cleared: red once for 250ms, then current state
+[LED]   firmware update: yellow breathing 1500ms up / 1500ms down
 [LED]   deep sleep/off: off
 ```
 
-Initialization intentionally outranks errors so boot stays yellow. Once boot
+Update mode sets only the `Updating` signal, which outranks every other signal.
+Breathing reuses yellow, the color that already means "busy, not ready", instead
+of adding a new color; it is refreshed about 30 times per second and stays
+distinct from the solid yellow of boot. Initialization intentionally outranks errors so boot stays yellow. Once boot
 clears `Initializing`, pairing feedback outranks playback, connections, and errors, and a latched error
 outranks other operational states. Reset feedback has highest priority for its
 single 250 ms flash, then normal state indication resumes;
@@ -892,6 +897,135 @@ There is no wait for switch closure after peripheral shutdown. Movement that
 begins after the check can cause an immediate wake instead of trapping the toy
 awake with its peripherals off.
 
+## Firmware updates
+
+The parent app can install new firmware over BLE. The parent's view of the flow
+is in [Mobile App](mobile-app.md#firmware-updates); the transfer measurements
+that led to this design are in [OTA validation](ota-validation.md).
+
+**Versions.** `FIRMWARE_VERSION` in `Config.h` (`major.minor.patch`) and
+`FIRMWARE_BOARD_ID` (the PlatformIO environment, set by `SWEETYAAR_BOARD_ID` in
+`platformio.ini`) are published in the read-only `firmware` characteristic as
+`{"version":"1.0.0","board":"sweetyaar","mode":"normal"}`. Only the production
+board is published to the app; the app offers no update to the generic
+prototype, which is updated from a Mac with `make ota-update
+PIO_ENV=sweetyaar-generic` (same protocol, any local build, no version check).
+The first firmware with this updater must be installed by wired flashing.
+
+**Update mode.** Normal firmware accepts only *enter update mode*. It refuses
+unless the battery state is `GOOD`, `MEDIUM` or `CHARGING` (`LOW` and the
+not-yet-sampled `UNKNOWN` are refused) and otherwise sets a flag in
+`RTC_NOINIT` memory and restarts. The flag is honored only after a software
+restart and cleared at once, so a crash or power loss in update mode always
+boots normal firmware. Update mode:
+
+- starts the Bluetooth controller in BLE-only mode after releasing Classic
+  memory, leaving about 65 KB of heap instead of about 19 KB, and allows a
+  517-byte ATT MTU;
+- runs the same `BLEParentService`, so the GATT table, bonds, owner checks and
+  advertising name are identical to normal mode and a phone's cached GATT
+  table stays valid across the restart;
+- skips audio, the SD card, buttons, Classic Bluetooth and sleep, but keeps the
+  charger and battery monitor running; the LED breathes yellow;
+- asks the phone for a 7.5–15 ms connection interval when an image begins;
+  throughput is about one 512-byte write per connection event, so macOS's
+  default 30 ms halves the speed;
+- restarts normal firmware after `OTA_UPDATE_MODE_IDLE_MS` (2 minutes) without
+  update traffic, for example when the parent closed the app.
+
+Every restart (into update mode, after installing, on cancel or timeout) first
+closes the BLE link and waits 150 ms. After a bare restart an Android phone
+noticed the lost link only at its supervision timeout, about 7 seconds later.
+
+**Writing the image.** The image goes to the inactive app slot
+(`esp_ota_get_next_update_partition`), erased sector by sector as data arrives
+(`OTA_WITH_SEQUENTIAL_WRITES`); the running firmware is not touched until the
+final switch. A zlib stream is inflated with the ESP32 ROM's `tinfl` and a 32 KB
+dictionary, allocated only in update mode. The decoded bytes are hashed with
+SHA-256 and compared with the hash announced by the app, then `esp_ota_end()`
+checks the image structure and its own appended hash before
+`esp_ota_set_boot_partition()` selects it. Losing power at any point boots
+either the complete old firmware or, after the switch, the complete new one.
+A power cut always ends update mode and discards the partial image: the
+inflater state lives only in RAM, and switching the doll off and on must
+always give back a normal doll. The parent starts the update again (about a
+minute).
+
+**Rollback.** The bootloader has rollback enabled. Arduino would mark a new
+image valid before `setup()`, so `OtaUpdate.cpp` overrides
+`verifyRollbackLater()`; normal `setup()` calls `confirmRunningImage()` after
+startup. A new image that resets before then, or whose BLE parent service fails
+to start (it could never be updated again), is marked invalid and the
+bootloader returns to the previous firmware.
+
+### Update protocol
+
+Four characteristics follow the access characteristic in the main service
+(UUID prefix `a1b2c3d4-e5f6-7890-abcd-ef123456`). Like the other controls, they
+require an encrypted link and the current controller; writes from anyone else
+are refused with insufficient authorization.
+
+| UUID suffix | Name | Access | Content |
+| --- | --- | --- | --- |
+| `78A2` | `firmware` | read | JSON version, board and mode. |
+| `78A3` | `otaControl` | write | One command per write (below). |
+| `78A4` | `otaData` | write, write without response | Offset in the encoded stream (u32 LE), then data. |
+| `78A5` | `otaStatus` | read, notify | 18-byte status (below). |
+
+Commands: `1` enter update mode (normal mode only); `2` begin, followed by the
+encoding (0 raw, 1 zlib), the encoded size and image size (u32 LE each) and the
+image's 32-byte SHA-256 (42 bytes in all); `3` finish (verify, install and
+restart); `4` cancel (discard and restart normal firmware). Refusals and errors
+are reported in the status, not as GATT errors. Commands may arrive as long
+(prepared) writes, since begin exceeds the default MTU; data chunks must fit
+one packet.
+
+Status, little endian: format (`1`), state (0 idle, 1 ready, 2 receiving,
+3 verifying, 4 installing, 5 failed), error (0 none, 1 battery low, 2 not
+ready, 3 bad request, 4 no memory, 5 flash, 6 decompress, 7 invalid image,
+8 checksum, 9 size, 10 wrong mode), a reserved byte, bytes received (u32), total
+encoded bytes (u32), the first four bytes of the image SHA-256 (session tag),
+and the ATT MTU (u16). It fits a notification at the minimum MTU and is
+published on change, at most every 150 ms while receiving.
+
+The device accepts a data chunk only at the next expected offset and ignores
+duplicates and chunks after a gap. The app keeps at most 16 KB beyond the last
+acknowledged offset and, when progress stalls for 2 seconds, resends from the
+offset in the status. Chunks carry up to MTU − 7 bytes (508 at a 517-byte MTU).
+A repeated begin for the same image keeps the received prefix, so a parent who
+reconnects within the 2-minute window resumes; a different image starts over.
+A failure discards the partial image; begin may be sent again.
+
+### Publishing a release
+
+Pushing commits never publishes firmware: parents are offered an update only
+when `app/public/firmware/manifest.json` names a newer version, and only
+`make release-firmware` writes it.
+
+1. Run `make create-published-firmware`. It shows the current version and the
+   commits since that version was set, proposes the next minor version (any
+   newer `major.minor.patch` may be typed instead), asks for the one-line
+   release note, writes the version to `Config.h` and the note to
+   `firmware/release-notes.json`, builds the production firmware, and prints
+   the commands for the next steps. Parents see the note as written: a person
+   writes or approves it; it is never generated from commit messages.
+2. Validate the build on your own doll, including an update from the previous
+   release with `make ota-update` (Terminal) or `make flash`, and commit the
+   version and note.
+3. Run `make release-firmware`. It builds the production board, checks that the
+   image carries the new version and its own board ID (not the generic
+   board's), fits the app slot and round-trips through compression, writes
+   `app/public/firmware/sweetyaar-<version>.bin.z` plus `manifest.json`,
+   removes the superseded image and increments `CACHE_VERSION` in
+   `app/public/sw.js`.
+4. Commit `app/public` and push to `main`. The Pages deployment offers the
+   update to parents on their next connection. To correct a published note,
+   edit it in `release-notes.json` and repeat steps 3–4.
+
+The app's `MIN_FIRMWARE_VERSION` is the oldest firmware it can control. Raise it
+only when the app drops support for older firmware; toys below it show
+**Update needed** and their remote controls stay locked until updated.
+
 ## How the firmware is organized
 
 The firmware runs as one application. A small state machine makes ownership of
@@ -934,11 +1068,14 @@ The high-level components are:
 | `firmware/esp32/src/ChargerStatus.*`   | Interprets charge phase, host enable, input power, and observation validity into a usable charging status. |
 | `firmware/esp32/src/BatteryMonitor.*`   | Coarse ADC battery bands plus the charger-reported `CHARGING` override.                   |
 | `firmware/esp32/src/StatusLed.*` and `StatusLedPolicy.*` | Semantic status priority, blink timing, brightness limiting, and the single addressable-LED/RMT owner. |
-| `firmware/esp32/src/Config.h`           | Pin assignments, BLE identifiers, and firmware fallback values.                          |
+| `firmware/esp32/src/OtaSession.*`       | Firmware-update protocol: offsets, resume, size and checksum checks, status encoding. No ESP32 APIs. |
+| `firmware/esp32/src/OtaUpdate.*`        | Update mode, BLE-only controller, flash/zlib/SHA-256 sink, restarts, timeout, and rollback confirmation. |
+| `firmware/esp32/src/Config.h`           | Pin assignments, BLE identifiers, firmware version and board ID, and fallback values.   |
 
 
-There is no Wi-Fi setup flow or over-the-air firmware updater. The only runtime
-wireless interfaces are Classic Bluetooth audio and BLE parent control.
+There is no Wi-Fi setup flow. The only runtime wireless interfaces are Classic
+Bluetooth audio and BLE parent control; firmware updates also arrive over BLE
+(see [Firmware updates](#firmware-updates)).
 
 ## Building and flashing
 
@@ -975,12 +1112,12 @@ variant and uses only the lower 8 MB. Both use the checked-in
 | `nvs` | 0x9000 | 20 KB | Settings and Bluetooth bonds |
 | `otadata` | 0xE000 | 8 KB | Selects the boot app slot |
 | `app0` (`ota_0`) | 0x10000 | 3.2 MB | Firmware |
-| `app1` (`ota_1`) | 0x340000 | 3.2 MB | Second slot for future OTA updates; unused today |
+| `app1` (`ota_1`) | 0x340000 | 3.2 MB | Second app slot; an update is written to whichever slot is not running |
 | `spiffs` | 0x670000 | 1.5 MB | Unused |
 | `coredump` | 0x7F0000 | 64 KB | Crash dumps |
 
-The partition table and bootloader are written only by wired flashing; a future
-OTA update can replace an app slot but never this layout. `nvs` keeps the same
+The partition table and bootloader are written only by wired flashing; an OTA
+update replaces only the inactive app slot, never this layout. `nvs` keeps the same
 offset and size as the previous `min_spiffs.csv` layout, so moving a device to
 this table preserves its bonds and settings.
 
@@ -1050,7 +1187,14 @@ unavailable negative-test clients as untested; host tests do not exercise SMP.
    in the remaining window. At timeout it must return to the normal playback or
    connected cadence. For each attempted connection inspect `CONNECT`/`ACL_CONNECT`,
    authentication results, and the approval decision before diagnosing an app failure.
-8. Hold both buttons continuously for 13 seconds. Expect pairing at three seconds,
+8. Firmware updates (when the update protocol or release changes): from the app,
+   update from the previous release on battery and on the charger, cancel
+   once mid-transfer, and lock the phone mid-transfer to confirm it pauses and
+   resumes. Confirm that low battery is refused, the LED breathes yellow in
+   update mode, the toy reconnects without pairing, and the new version
+   reports itself. Leave update mode idle for 2 minutes once to confirm it
+   returns to normal firmware.
+9. Hold both buttons continuously for 13 seconds. Expect pairing at three seconds,
    a single red flash at ten, both links disconnected and approvals erased, then
    the current state indication (normally green idle) after 250 ms, and no
    reopening at thirteen. Verify Quiet time and errors also remain visible after
@@ -1101,6 +1245,11 @@ Run the complete suite from the repository root:
 ```bash
 uv run python -m pytest
 ```
+
+Firmware-update tests run the real update session against a fake flash sink
+(offsets, duplicates, lost chunks, resume, size and checksum failures, cancel),
+check that only the controller's writes reach it, and check the release script.
+The app tests drive the complete update flow against a simulated toy.
 
 For a quicker host-only loop that omits the PlatformIO build:
 

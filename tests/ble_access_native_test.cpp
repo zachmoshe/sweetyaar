@@ -29,7 +29,7 @@ enum { ESP_OK, ESP_BT_STATUS_SUCCESS = 0, ESP_GATT_OK = 0, ESP_GATT_IF_NONE = -1
     ESP_GATT_INVALID_OFFSET, ESP_GATT_REQ_NOT_SUPPORTED, ESP_GATT_INVALID_ATTR_LEN, ESP_GATT_WRITE_NOT_PERMIT,
     ESP_GAP_BLE_SEC_REQ_EVT, ESP_GAP_BLE_KEY_EVT, ESP_GAP_BLE_AUTH_CMPL_EVT,
     ESP_GAP_BLE_ADV_START_COMPLETE_EVT, ESP_GAP_BLE_ADV_STOP_COMPLETE_EVT, ESP_GAP_BLE_PASSKEY_NOTIF_EVT,
-    ESP_GATTS_REG_EVT, ESP_BLE_SEC_ENCRYPT_NO_MITM };
+    ESP_GATTS_REG_EVT, ESP_BLE_SEC_ENCRYPT_NO_MITM, ESP_GATTS_MTU_EVT };
 enum { ESP_LE_AUTH_BOND = 1, ESP_LE_AUTH_REQ_SC_BOND = 9, ESP_IO_CAP_NONE = 3,
     ESP_BLE_ONLY_ACCEPT_SPECIFIED_AUTH_ENABLE = 1,
     ESP_BLE_ENC_KEY_MASK = 1, ESP_BLE_ID_KEY_MASK = 2,
@@ -43,10 +43,11 @@ struct esp_ble_gatts_cb_param_t {
     struct { uint16_t conn_id = 0, handle = 0; int status = ESP_OK; } conf;
     struct { uint16_t conn_id = 0, trans_id = 0, handle = 0, offset = 0; } read;
     struct { uint16_t conn_id = 0, trans_id = 0, handle = 0, len = 0, offset = 0;
-        bool need_rsp = true, is_prep = false; uint8_t* value = nullptr; } write;
-    struct { uint16_t conn_id = 0, trans_id = 0; int exec_write_flag = 0; } exec_write;
+        bool need_rsp = true, is_prep = false; uint8_t* value = nullptr; uint8_t bda[6] = {}; } write;
+    struct { uint16_t conn_id = 0, trans_id = 0; int exec_write_flag = 0; uint8_t bda[6] = {}; } exec_write;
     struct { uint16_t conn_id = 0; uint8_t remote_bda[6] = {}; } connect;
     struct { uint16_t conn_id = 0, reason = 0; } disconnect;
+    struct { uint16_t conn_id = 0, mtu = 23; } mtu;
 };
 struct esp_ble_gap_cb_param_t {
     struct {
@@ -83,7 +84,8 @@ struct BLE2902 {
 };
 struct BLECharacteristicCallbacks;
 struct BLECharacteristic {
-    enum { PROPERTY_READ = 1, PROPERTY_WRITE = 2, PROPERTY_NOTIFY = 4, PROPERTY_INDICATE = 8 };
+    enum { PROPERTY_READ = 1, PROPERTY_WRITE = 2, PROPERTY_NOTIFY = 4, PROPERTY_INDICATE = 8,
+        PROPERTY_WRITE_NR = 32 };
     uint16_t handle = 0;
     BLE2902 cccd;
     std::string value;
@@ -103,7 +105,7 @@ struct BLECharacteristicCallbacks {
 void BLECharacteristic::setCallbacks(BLECharacteristicCallbacks* callbacks) { delete callbacks; }
 struct BLEUUID { explicit BLEUUID(const char*) {} };
 struct BLEService {
-    std::array<BLECharacteristic, 17> characteristics;
+    std::array<BLECharacteristic, 21> characteristics;
     size_t count = 0;
     bool started = false;
     BLECharacteristic* createCharacteristic(const char*, int) { return &characteristics.at(count++); }
@@ -482,6 +484,76 @@ int main() {
     ble.handleGap(ESP_GAP_BLE_AUTH_CMPL_EVT, &noBond);
     assert(!canWrite(88) && readAccess(88) == 3);
     ble.disconnected(88);
+
+    // Firmware-update writes reach the transport only from the controller,
+    // skip Arduino's value copy, and never use prepared writes.
+    struct RecordingOta : OtaTransport {
+        std::vector<std::string> controls, chunks;
+        uint16_t mtu = 0;
+        uint8_t lastPeer = 0;
+        void control(const uint8_t* bytes, size_t length, const uint8_t* peer) override {
+            controls.emplace_back(reinterpret_cast<const char*>(bytes), length);
+            lastPeer = peer[5];
+        }
+        void data(const uint8_t* bytes, size_t length) override {
+            chunks.emplace_back(reinterpret_cast<const char*>(bytes), length);
+        }
+        void mtuChanged(uint16_t value) override { mtu = value; }
+    } ota;
+    BLECharacteristic otaChars[4];
+    for (int i = 0; i < 4; ++i) {
+        otaChars[i].handle = 60 + i * 2;
+        otaChars[i].cccd.handle = otaChars[i].handle + 1;
+        ble._securedChars[16 + i] = &otaChars[i];
+    }
+    ble._otaStatusChar = &otaChars[3];
+    ble.setOtaTransport(&ota);
+    uint8_t otaBytes[] = {2, 1, 9};
+    auto otaWrite = [&](uint16_t id, int attribute, bool needResponse, bool prepared = false) {
+        esp_ble_gatts_cb_param_t p{};
+        p.write.conn_id = id; p.write.handle = otaChars[attribute].handle; p.write.bda[5] = uint8_t(id);
+        p.write.value = otaBytes; p.write.len = sizeof(otaBytes);
+        p.write.need_rsp = needResponse; p.write.is_prep = prepared;
+        lastResponse = -1;
+        return ble.filterGatt(ESP_GATTS_WRITE_EVT, configGattsIf, &p);
+    };
+    connect(1); auth(1);
+    const int arduinoDispatches = dispatches;
+    assert(!otaWrite(1, 1, true) && lastResponse == ESP_GATT_OK);
+    assert(ota.controls.size() == 1 && ota.controls[0] == std::string("\x02\x01\x09", 3));
+    assert(ota.lastPeer == 1);  // the writer's address, for connection parameters
+    assert(!otaWrite(1, 2, false) && lastResponse == -1);  // write without response
+    assert(ota.chunks.size() == 1 && dispatches == arduinoDispatches);
+    assert(!otaWrite(1, 2, true, true) && lastResponse == ESP_GATT_REQ_NOT_SUPPORTED);
+    // A begin command longer than the default MTU arrives as a long write.
+    assert(!otaWrite(1, 1, true, true) && lastResponse == ESP_GATT_OK);
+    esp_ble_gatts_cb_param_t executeLong{};
+    executeLong.exec_write.conn_id = 1; executeLong.exec_write.exec_write_flag = ESP_GATT_PREP_WRITE_EXEC;
+    executeLong.exec_write.bda[5] = 1;
+    ble._otaControlChar = &otaChars[1];
+    assert(!ble.filterGatt(ESP_GATTS_EXEC_WRITE_EVT, configGattsIf, &executeLong) && lastResponse == ESP_GATT_OK);
+    assert(ota.controls.size() == 2 && ota.controls[1] == std::string("\x02\x01\x09", 3));
+    assert(dispatches == arduinoDispatches);
+    assert(!otaWrite(1, 0, true) && lastResponse == ESP_GATT_WRITE_NOT_PERMIT);  // firmware info is read-only
+    assert(ota.chunks.size() == 1);
+    connect(3);  // unapproved phone
+    assert(!otaWrite(3, 1, true) && lastResponse == ESP_GATT_INSUF_AUTHORIZATION);
+    assert(ota.controls.size() == 2);
+    esp_ble_gatts_cb_param_t mtuEvent{};
+    mtuEvent.mtu.conn_id = 1; mtuEvent.mtu.mtu = 517;
+    ble.filterGatt(ESP_GATTS_MTU_EVT, configGattsIf, &mtuEvent);
+    assert(ota.mtu == 517);
+    const uint8_t otaStatus[18] = {1, 2};
+    const size_t sentBefore = packets.size();
+    ble.updateOtaStatus(otaStatus, sizeof(otaStatus));
+    assert(packets.size() == sentBefore);  // not subscribed yet
+    ble.peer(1)->subscriptions |= 1UL << 19;
+    ble.updateOtaStatus(otaStatus, sizeof(otaStatus));
+    assert(packets.size() == sentBefore + 1 && packets.back().handle == otaChars[3].handle);
+    assert(packets.back().data.size() == 18 && !packets.back().indication);
+    ble.setOtaTransport(nullptr);
+    ble.disconnected(3);
+    ble.disconnected(1);
 
     // A reset blocks controls immediately, before the asynchronous disconnect.
     connect(1); auth(1);

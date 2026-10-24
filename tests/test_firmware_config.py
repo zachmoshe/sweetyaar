@@ -41,7 +41,9 @@ def platformio_build_flags(name: str) -> list[str]:
             value,
         )
 
-    return re.findall(r"-D\S+", expand(config[f"env:{name}"]["build_flags"]))
+    # PlatformIO unescapes \" in build_flags before calling the compiler.
+    flags = re.findall(r"-D\S+", expand(config[f"env:{name}"]["build_flags"]))
+    return [flag.replace('\\"', '"') for flag in flags]
 
 
 def test_sd_template_has_versioned_sleep_config() -> None:
@@ -76,6 +78,12 @@ def test_generic_board_overrides_hardware_inversions() -> None:
     assert "-DSWEETYAAR_STATUS_LED_BIT_NS=1250" in generic
     assert "-DSWEETYAAR_STATUS_LED_RESET_US=80" in generic
     assert "-DSWEETYAAR_BQ25186_ENABLED=0" in generic
+
+
+@pytest.mark.parametrize("environment", ["sweetyaar", "sweetyaar-generic"])
+def test_board_id_matches_environment(environment: str) -> None:
+    # Release images and the app's update check are keyed by this ID.
+    assert f'-DSWEETYAAR_BOARD_ID="{environment}"' in platformio_build_flags(environment)
 
 
 def test_production_board_enables_bq25186() -> None:

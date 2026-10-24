@@ -31,6 +31,7 @@ enum class StatusSignal : uint8_t {
     Ready,
     Pairing,
     PairingReset, // One red flash requested by the approval-reset action.
+    Updating,     // Firmware update mode; the only signal in that mode.
 };
 
 constexpr uint32_t statusSignalBit(StatusSignal signal) {
@@ -48,6 +49,7 @@ enum class StatusLedMode : uint8_t {
     Ready,
     Pairing,
     PairingReset,
+    Updating,
 };
 
 struct StatusLedPattern {
@@ -55,6 +57,8 @@ struct StatusLedPattern {
     LedColor color;
     uint16_t onMs;
     uint16_t offMs;
+    // Fade up over onMs and down over offMs instead of switching on and off.
+    bool breathing;
 };
 
 struct StatusLedModeDefinition {

@@ -218,6 +218,20 @@ static constexpr int     BT_A2DP_I2S_TASK_STACK_BYTES = 2048;
 static constexpr bool ENABLE_BLE_PARENT_SERVICE = true;
 
 // ---------------------------------------------------------------------------
+// Firmware version and updates
+// ---------------------------------------------------------------------------
+// Bump for every release; tools/release_firmware.py also requires a
+// human-written entry for this version in firmware/release-notes.json.
+static constexpr char FIRMWARE_VERSION[] = "1.0.0";
+#ifndef SWEETYAAR_BOARD_ID
+#define SWEETYAAR_BOARD_ID "sweetyaar"
+#endif
+// Identifies which release image fits this board (one per PlatformIO env).
+static constexpr char FIRMWARE_BOARD_ID[] = SWEETYAAR_BOARD_ID;
+// Update mode returns to normal firmware after this long without update traffic.
+static constexpr uint32_t OTA_UPDATE_MODE_IDLE_MS = 2UL * 60UL * 1000UL;
+
+// ---------------------------------------------------------------------------
 // SD file paths
 // ---------------------------------------------------------------------------
 static constexpr char SD_MOUNT_POINT[] = "/sd";  // VFS prefix for POSIX directory listing
@@ -246,6 +260,15 @@ static constexpr char BLE_NOTICE_UUID[]          = "A1B2C3D4-E5F6-7890-ABCD-EF12
 static constexpr char BLE_BATTERY_UUID[]         = "A1B2C3D4-E5F6-7890-ABCD-EF123456789A";
 static constexpr char BLE_CHARGER_UUID[]         = "A1B2C3D4-E5F6-7890-ABCD-EF12345678A0";
 static constexpr char BLE_ACCESS_UUID[]          = "A1B2C3D4-E5F6-7890-ABCD-EF12345678A1";
+// Firmware updates (see "Firmware updates" in firmware.md). The GATT table is
+// identical in normal and update mode so phones' cached tables stay valid.
+static constexpr char BLE_FIRMWARE_UUID[]        = "A1B2C3D4-E5F6-7890-ABCD-EF12345678A2";
+static constexpr char BLE_OTA_CONTROL_UUID[]     = "A1B2C3D4-E5F6-7890-ABCD-EF12345678A3";
+static constexpr char BLE_OTA_DATA_UUID[]        = "A1B2C3D4-E5F6-7890-ABCD-EF12345678A4";
+static constexpr char BLE_OTA_STATUS_UUID[]      = "A1B2C3D4-E5F6-7890-ABCD-EF12345678A5";
+static constexpr uint16_t BLE_LOCAL_MTU = 185;
+// Update mode runs without Classic Bluetooth, so larger packets fit its heap.
+static constexpr uint16_t BLE_UPDATE_MODE_MTU = 517;
 static constexpr size_t BLE_THEMES_MAX_BYTES = 512;
 static constexpr int BLE_MAX_THEMES = 16;
 static constexpr size_t BLE_CONFIG_MAX_BYTES = 512;

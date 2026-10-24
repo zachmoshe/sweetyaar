@@ -123,6 +123,21 @@ explicitly says to reuse an existing branch or worktree (or to work on `main`).
 - On the generic prototype board GPIO13 only drives an indicator LED, so the SD
   card and amp stay powered in sleep and its sleep current is not representative.
 
+## Firmware releases and updates
+
+- Firmware updates go over BLE through the parent app (see "Firmware updates"
+  in firmware.md). Releases are manual: `make create-published-firmware`
+  (version, note, build), then `make release-firmware` (publish); a push alone
+  never publishes firmware. Every release needs a short release note in
+  `firmware/release-notes.json`, shown to parents as-is. Ask the user for that
+  text or for approval of a draft; never generate it from commit messages or
+  diffs. `make release-firmware` refuses to run without it.
+- The GATT table must stay identical in normal and update mode, and the
+  version check plus update commands must keep working for every older
+  release, or a newer app could not update an older toy.
+- The first firmware with the updater, and any partition or bootloader change,
+  needs wired flashing.
+
 ## Content and app notes
 
 - WAVs are 44.1 kHz, 16-bit PCM, mono or stereo. Keep the shared I2S output

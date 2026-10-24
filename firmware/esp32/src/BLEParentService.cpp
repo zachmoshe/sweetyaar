@@ -6,7 +6,13 @@ esp_gatt_if_t configGattsIf = ESP_GATT_IF_NONE;
 }
 BLEParentService* BLEParentService::_instance = nullptr;
 
-bool BLEParentService::begin(const String& deviceName) {
+bool BLEParentService::writableIndex(int index) {
+    // volume, killswitch, theme, command, configCommand, otaControl, otaData
+    return index == 0 || index == 1 || index == 2 || index == 5 || index == 6 ||
+           index == 17 || index == 18;
+}
+
+bool BLEParentService::begin(const String& deviceName, uint16_t localMtu) {
     BLEDevice::init(deviceName.c_str());
     // SC_BOND advertises support but permits legacy fallback unless strict
     // acceptance is enabled. Set both key bounds; Arduino's setKeySize only
@@ -52,7 +58,7 @@ bool BLEParentService::begin(const String& deviceName) {
             configGattsIf = interface;
         }
     });
-    esp_err_t mtuResult = BLEDevice::setMTU(185);
+    esp_err_t mtuResult = BLEDevice::setMTU(localMtu);
     if (mtuResult != ESP_OK) {
         Serial.printf("[BLE] MTU request failed: %d\n", mtuResult);
     }
@@ -60,10 +66,10 @@ bool BLEParentService::begin(const String& deviceName) {
     _server = BLEDevice::createServer();
     _server->setCallbacks(new ServerCB(this));
 
-    // Seventeen characteristics plus descriptors need more than the Arduino BLE
-    // default of 15 handles. Under-allocating here can boot fine
+    // Twenty-one characteristics plus descriptors need more than the Arduino
+    // BLE default of 15 handles. Under-allocating here can boot fine
     // and then crash Bluedroid when a central connects.
-    BLEService* svc = _server->createService(BLEUUID(BLE_SERVICE_UUID), 68);
+    BLEService* svc = _server->createService(BLEUUID(BLE_SERVICE_UUID), 80);
 
     // --- Volume characteristic (read/write/notify) -------------------------
     _volChar = svc->createCharacteristic(
@@ -160,15 +166,30 @@ bool BLEParentService::begin(const String& deviceName) {
     _chargerChar->addDescriptor(new BLE2902());
     updateChargerStatus(ChargerStatus::Snapshot{});
 
+    // --- Firmware updates ---------------------------------------------------
+    // Present in normal and update mode alike, so the GATT table a phone may
+    // have cached never changes across the update-mode restart.
+    _firmwareChar = svc->createCharacteristic(BLE_FIRMWARE_UUID, BLECharacteristic::PROPERTY_READ);
+    _firmwareChar->setValue("{}");
+    _otaControlChar = svc->createCharacteristic(BLE_OTA_CONTROL_UUID, BLECharacteristic::PROPERTY_WRITE);
+    _otaDataChar = svc->createCharacteristic(BLE_OTA_DATA_UUID,
+        BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR);
+    _otaStatusChar = svc->createCharacteristic(BLE_OTA_STATUS_UUID,
+        BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
+    _otaStatusChar->addDescriptor(new BLE2902());
+
     BLECharacteristic* secured[] = {_volChar, _killChar, _themeChar, _statusChar,
         _themesChar, _commandChar, _configCommandChar, _configResponseChar,
         _configAttributes[0], _configAttributes[1], _configAttributes[2],
-        _configAttributes[3], _configAttributes[4], _noticeChar, _batteryChar, _chargerChar};
-    for (size_t i = 0; i < 16; ++i) {
+        _configAttributes[3], _configAttributes[4], _noticeChar, _batteryChar, _chargerChar,
+        _firmwareChar, _otaControlChar, _otaDataChar, _otaStatusChar};
+    static_assert(sizeof(secured) / sizeof(secured[0]) == SECURED_CHAR_COUNT, "secured list");
+    for (size_t i = 0; i < SECURED_CHAR_COUNT; ++i) {
         _securedChars[i] = secured[i];
-        const bool writable = i == 0 || i == 1 || i == 2 || i == 5 || i == 6;
+        const bool writable = writableIndex(int(i));
+        const bool writeOnly = i == 5 || i == 17 || i == 18;
         secured[i]->setAccessPermissions(static_cast<esp_gatt_perm_t>(
-            (i == 5 ? 0 : ESP_GATT_PERM_READ_ENCRYPTED) |
+            (writeOnly ? 0 : ESP_GATT_PERM_READ_ENCRYPTED) |
             (writable ? ESP_GATT_PERM_WRITE_ENCRYPTED : 0)));
         auto* cccd = secured[i]->getDescriptorByUUID("2902");
         if (cccd) cccd->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
@@ -275,6 +296,17 @@ void BLEParentService::updateChargerStatus(const ChargerStatus::Snapshot& snapsh
     _chargerChar->setValue(bytes, sizeof(bytes));
     // The entire snapshot fits in the minimum ATT notification payload (20 B).
     notifyOwner(_chargerChar);
+}
+
+void BLEParentService::updateFirmwareInfo(const String& json) {
+    if (_firmwareChar) _firmwareChar->setValue(json.c_str());
+}
+
+void BLEParentService::updateOtaStatus(const uint8_t* status, size_t length) {
+    if (!_otaStatusChar) return;
+    // The whole status fits a minimum-MTU notification (20 bytes).
+    _otaStatusChar->setValue(const_cast<uint8_t*>(status), length);
+    notifyOwner(_otaStatusChar);
 }
 
 void BLEParentService::updateDeviceName(const String& deviceName) {
@@ -652,7 +684,7 @@ void BLEParentService::handleGap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_pa
 }
 
 int BLEParentService::characteristicIndex(uint16_t handle, bool descriptor) {
-    for (int i = 0; i < 16; ++i) {
+    for (int i = 0; i < int(SECURED_CHAR_COUNT); ++i) {
         if (!_securedChars[i]) continue;
         if (!descriptor && _securedChars[i]->getHandle() == handle) return i;
         auto* cccd = _securedChars[i]->getDescriptorByUUID("2902");
@@ -663,6 +695,7 @@ int BLEParentService::characteristicIndex(uint16_t handle, bool descriptor) {
 
 bool BLEParentService::filterGatt(esp_gatts_cb_event_t event, esp_gatt_if_t interface,
                                  esp_ble_gatts_cb_param_t* param) {
+    if (event == ESP_GATTS_MTU_EVT && _ota) _ota->mtuChanged(param->mtu.mtu);
     if (event == ESP_GATTS_CONF_EVT && _noticeChar && param->conf.handle == _noticeChar->getHandle()) {
         portENTER_CRITICAL(&_mux);
         if (auto* p = peer(param->conf.conn_id)) p->noticeConfirmed = param->conf.status == ESP_GATT_OK;
@@ -712,7 +745,11 @@ bool BLEParentService::filterGatt(esp_gatts_cb_event_t event, esp_gatt_if_t inte
     if (event == ESP_GATTS_EXEC_WRITE_EVT) {
         const bool execute = param->exec_write.exec_write_flag == ESP_GATT_PREP_WRITE_EXEC;
         esp_gatt_status_t status = ESP_GATT_OK;
-        if (execute && _preparedOwner == connection) {
+        if (execute && _preparedOwner == connection && _ota && _otaControlChar &&
+            _preparedHandle == _otaControlChar->getHandle()) {
+            // A 42-byte begin command arrives as a long write at the default MTU.
+            _ota->control(_preparedValue, _preparedLength, param->exec_write.bda);
+        } else if (execute && _preparedOwner == connection) {
             esp_ble_gatts_cb_param_t write{};
             write.write.conn_id = connection;
             write.write.handle = _preparedHandle;
@@ -729,7 +766,7 @@ bool BLEParentService::filterGatt(esp_gatts_cb_event_t event, esp_gatt_if_t inte
         const auto& write = param->write;
         const int index = characteristicIndex(write.handle, true);
         const int attribute = characteristicIndex(write.handle);
-        const bool writable = attribute == 0 || attribute == 1 || attribute == 2 || attribute == 5 || attribute == 6;
+        const bool writable = writableIndex(attribute);
         if (index < 0 && !writable) {
             if (response) esp_ble_gatts_send_response(interface, connection, transaction, ESP_GATT_WRITE_NOT_PERMIT, nullptr);
             return false;
@@ -738,7 +775,8 @@ bool BLEParentService::filterGatt(esp_gatts_cb_event_t event, esp_gatt_if_t inte
             // Arduino's prepared-value buffer is shared across connections.
             // Own it here so a takeover cannot commit the previous phone's data.
             esp_gatt_status_t status = ESP_GATT_OK;
-            if (index >= 0 || characteristicIndex(write.handle) < 0) status = ESP_GATT_REQ_NOT_SUPPORTED;
+            // Update data must fit one packet; commands may be long writes.
+            if (index >= 0 || attribute < 0 || attribute == 18) status = ESP_GATT_REQ_NOT_SUPPORTED;
             else if (write.offset + write.len > sizeof(_preparedValue)) status = ESP_GATT_INVALID_ATTR_LEN;
             else if (write.offset != 0 && (_preparedOwner != connection ||
                      _preparedHandle != write.handle || write.offset != _preparedLength)) status = ESP_GATT_INVALID_OFFSET;
@@ -755,6 +793,13 @@ bool BLEParentService::filterGatt(esp_gatts_cb_event_t event, esp_gatt_if_t inte
             if (write.len <= sizeof(reply.attr_value.value)) memcpy(reply.attr_value.value, write.value, write.len);
             else status = ESP_GATT_INVALID_ATTR_LEN;
             if (response) esp_ble_gatts_send_response(interface, connection, transaction, status, &reply);
+            return false;
+        }
+        if (attribute == 17 || attribute == 18) {
+            // Firmware-update traffic bypasses Arduino's per-write value copy.
+            if (_ota && attribute == 17) _ota->control(write.value, write.len, write.bda);
+            else if (_ota) _ota->data(write.value, write.len);
+            if (response) esp_ble_gatts_send_response(interface, connection, transaction, ESP_GATT_OK, nullptr);
             return false;
         }
         if (index >= 0 && write.len == 2) {

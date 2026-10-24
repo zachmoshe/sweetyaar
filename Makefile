@@ -17,7 +17,7 @@ PYTHON ?= $(VENV_DIR)/bin/python
 PIO ?= $(VENV_DIR)/bin/pio
 UV ?= uv
 
-.PHONY: help setup app build flash monitor flash-monitor clean test test-unit test-device test-app test-firmware check-python check-pio animals
+.PHONY: help setup app build flash monitor flash-monitor clean test test-unit test-device test-app test-firmware check-python check-pio animals create-published-firmware release-firmware ota-update
 
 help: ## Show the available project commands.
 	@printf 'SweetYaar project commands\n\n'
@@ -52,6 +52,16 @@ flash-monitor: ## Flash firmware and then open the serial monitor.
 clean: check-pio ## Remove generated PlatformIO build output.
 	cd "$(FIRMWARE_DIR)" && "$(PIO)" run -e "$(PIO_ENV)" -t clean
 
+create-published-firmware: check-pio ## Prepare the next release: version, release note, build, test instructions.
+	PIO="$(PIO)" "$(PYTHON)" "$(ROOT_DIR)/tools/create_published_firmware.py"
+
+release-firmware: check-pio ## Build the production board and publish its update for the app (needs a release note).
+	"$(PYTHON)" "$(ROOT_DIR)/tools/release_firmware.py" --build
+
+IMAGE ?= $(FIRMWARE_DIR)/.pio/build/$(PIO_ENV)/firmware.bin
+ota-update: check-python ## Install a local build over BLE from this Mac, any board (run in Terminal; IMAGE=<firmware.bin>).
+	"$(PYTHON)" "$(ROOT_DIR)/tools/ota_update.py" --image "$(IMAGE)" --board "$(PIO_ENV)"
+
 PROFILE ?= default
 SDCARD ?=
 
@@ -74,7 +84,7 @@ test-app: check-python ## Run the parent-app and PWA regression tests.
 	cd "$(ROOT_DIR)" && "$(PYTHON)" -m pytest tests/test_parent_app.py tests/test_parent_app_pwa.py
 
 test-firmware: check-python ## Run firmware configuration, native-code, and build tests.
-	cd "$(ROOT_DIR)" && "$(PYTHON)" -m pytest tests/test_firmware_config.py tests/test_battery_monitor.py tests/test_charger_status.py tests/test_ble_transport.py tests/test_bluetooth_access.py tests/test_bluetooth_reopen.py tests/test_state_machine.py tests/test_settings_runtime.py tests/test_audio_handoff.py tests/test_wav_pcm.py tests/test_wav_catalog.py tests/test_mono_assets.py tests/test_system_sounds.py tests/test_firmware_build.py
+	cd "$(ROOT_DIR)" && "$(PYTHON)" -m pytest tests/test_firmware_config.py tests/test_battery_monitor.py tests/test_charger_status.py tests/test_ble_transport.py tests/test_bluetooth_access.py tests/test_bluetooth_reopen.py tests/test_state_machine.py tests/test_settings_runtime.py tests/test_audio_handoff.py tests/test_wav_pcm.py tests/test_wav_catalog.py tests/test_mono_assets.py tests/test_system_sounds.py tests/test_ota_update.py tests/test_firmware_build.py
 
 check-python:
 	@test -x "$(PYTHON)" || { printf 'Python environment not found at %s. Run make setup first.\n' '$(PYTHON)' >&2; exit 1; }

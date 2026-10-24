@@ -1474,6 +1474,196 @@
     .charger-empty { margin: 0; }
     .charger-update-note { margin: 0 8px; text-align: center; }
 
+    .settings-back.placeholder {
+      visibility: hidden;
+    }
+
+    .screen.update {
+      margin-top: -48px;
+      padding-top: 0;
+      padding-bottom: 34px;
+    }
+
+    .update-card {
+      display: grid;
+      gap: 10px;
+      padding: 14px 16px;
+      border-color: #bfe6df;
+      background: #f0faf8;
+    }
+
+    .update-card.required {
+      border-color: #f3dcc0;
+      background: #fff7ec;
+    }
+
+    .update-card h2,
+    .update-panel h2 {
+      margin: 0;
+      color: var(--ink);
+      font-size: clamp(16px, 4.3vw, 18px);
+      line-height: 1.2;
+      font-weight: 830;
+    }
+
+    .update-card p,
+    .update-panel p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: clamp(13px, 3.5vw, 15px);
+      line-height: 1.4;
+    }
+
+    .update-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 8px;
+    }
+
+    .update-button {
+      min-height: 44px;
+      border: 1px solid #cfe9e4;
+      border-radius: 12px;
+      background: #ffffff;
+      color: var(--teal-dark);
+      cursor: pointer;
+      font-size: clamp(14px, 3.8vw, 16px);
+      font-weight: 800;
+    }
+
+    .update-button.primary {
+      border-color: transparent;
+      background: var(--teal);
+      color: #ffffff;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .update-button.danger {
+      border-color: #f2cdd8;
+      color: #b23a5c;
+    }
+
+    .update-button:disabled {
+      cursor: default;
+      border-color: transparent;
+      background: #e7e2db;
+      color: #8f8a84;
+      box-shadow: none;
+    }
+
+    .update-panel {
+      padding: 18px 16px;
+    }
+
+    .update-panel.centered {
+      display: grid;
+      justify-items: center;
+      text-align: center;
+    }
+
+    .update-checklist {
+      display: grid;
+      gap: 9px;
+      margin: 12px 0 0;
+      padding: 0;
+      list-style: none;
+      color: var(--ink);
+      font-size: clamp(14px, 3.8vw, 16px);
+      font-weight: 700;
+    }
+
+    .update-checklist li {
+      display: grid;
+      grid-template-columns: 26px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .update-checklist svg {
+      display: block;
+      width: 24px;
+      height: 24px;
+      color: var(--teal-dark);
+    }
+
+    .update-checklist .battery-good svg,
+    .update-checklist .battery-charging svg { color: var(--green); }
+    .update-checklist .battery-medium svg { color: #d97a12; }
+    .update-checklist .battery-low svg { color: var(--pink); }
+    .update-checklist .battery-unknown svg { color: var(--muted); }
+
+    .update-alert {
+      padding: 12px 14px;
+      border-color: #f2cdd8;
+      background: #fff3f6;
+      color: #8f2f4c;
+      font-size: clamp(13px, 3.5vw, 15px);
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .update-alert.info {
+      border-color: #cfe2fb;
+      background: #eef5fe;
+      color: var(--blue-dark);
+    }
+
+    .update-ring {
+      --progress: 0%;
+      display: grid;
+      place-items: center;
+      width: 132px;
+      height: 132px;
+      margin: 2px auto 12px;
+      border-radius: 50%;
+      background: conic-gradient(var(--teal) var(--progress), var(--line) 0);
+    }
+
+    .update-ring span {
+      display: grid;
+      place-items: center;
+      width: 106px;
+      height: 106px;
+      border-radius: 50%;
+      background: var(--card);
+      color: var(--ink);
+      font-size: 26px;
+      font-weight: 850;
+    }
+
+    .update-result-icon {
+      display: grid;
+      place-items: center;
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 10px;
+      border-radius: 50%;
+      background: var(--green);
+      color: #ffffff;
+      font-size: 26px;
+      font-weight: 900;
+    }
+
+    .update-result-icon.failed {
+      background: var(--pink);
+    }
+
+    .settings-about-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 0;
+      border-top: 1px solid #f1ebe3;
+      color: var(--ink);
+      font-size: clamp(14px, 3.8vw, 16px);
+      font-weight: 720;
+    }
+
+    .settings-about-row:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
     .settings-toolbar {
       display: grid;
       grid-template-columns: auto 1fr auto;
@@ -2270,6 +2460,17 @@
           </div>
         </div>
 
+        <article class="card update-card" id="updateCard" aria-label="Firmware update" hidden>
+          <div>
+            <h2 id="updateCardTitle">Update available</h2>
+            <p id="updateCardMessage"></p>
+          </div>
+          <div class="update-actions">
+            <button class="update-button primary" id="updateCardButton" type="button">Update</button>
+            <button class="update-button" id="updateLaterButton" type="button">Later</button>
+          </div>
+        </article>
+
         <section class="actions" aria-label="Playback">
           <button class="action-button song" id="playSongButton" type="button">
             <img src="assets/icon-song.png" alt="">
@@ -2538,6 +2739,82 @@
           <p class="settings-error-line" id="settingsSongErrors" hidden></p>
           <div class="song-list" id="settingsSongList"></div>
         </section>
+
+        <section class="card settings-section" aria-label="About this doll">
+          <h2>About this doll</h2>
+          <div class="settings-fields">
+            <div>
+              <div class="settings-about-row"><span>Firmware</span><span id="settingsFirmwareVersion">—</span></div>
+              <div class="settings-about-row"><span>Latest</span><span id="settingsLatestVersion">—</span></div>
+            </div>
+            <button class="update-button primary" id="settingsUpdateButton" type="button" hidden>Update</button>
+            <p class="settings-note" id="settingsUpdateNote" hidden></p>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="screen update" id="updateView" aria-label="Update SweetYaar" hidden>
+      <div class="stack">
+        <div class="settings-toolbar">
+          <button class="settings-back" id="updateBackButton" type="button">
+            <span class="button-glyph" aria-hidden="true"></span>
+            <span>Back</span>
+          </button>
+          <h1 class="settings-title" id="updateTitle" tabindex="-1">Update SweetYaar</h1>
+          <span aria-hidden="true"></span>
+        </div>
+
+        <article class="card update-panel" id="updateConfirmPanel">
+          <h2>Before you start</h2>
+          <p id="updateConfirmVersion"></p>
+          <ul class="update-checklist">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>
+              <span>Keep this screen open</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7l10 10-5 5V2l5 5L7 17"/></svg>
+              <span>Keep the doll near you</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+              <span>No songs for about a minute</span>
+            </li>
+            <li id="updateBatteryItem" class="battery-good">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="7" width="17" height="10" rx="2"/><path d="M22 10.5v3"/><rect id="updateBatteryLevel" x="5" y="9.5" width="12" height="5" rx="0.8" fill="currentColor" stroke="none"/></svg>
+              <span id="updateBatteryText">Battery is charged, all good</span>
+            </li>
+          </ul>
+        </article>
+        <article class="card update-alert" id="updateBatteryWarning" role="status" hidden>Battery low. Connect a charger to update.</article>
+
+        <article class="card update-panel centered" id="updateProgressPanel" hidden>
+          <div class="update-ring" id="updateRing" aria-hidden="true"><span id="updatePercent">0%</span></div>
+          <h2 id="updateProgressTitle">Getting ready</h2>
+          <p id="updateProgressMessage"></p>
+        </article>
+        <article class="card update-alert info" id="updateKeepOpen" hidden>Keep this screen open until it finishes.</article>
+
+        <article class="card update-panel centered" id="updateCancelConfirm" hidden>
+          <h2>Cancel the update?</h2>
+          <p id="updateCancelMessage"></p>
+        </article>
+
+        <article class="card update-panel centered" id="updateResultPanel" hidden>
+          <div class="update-result-icon" id="updateResultIcon" aria-hidden="true">✓</div>
+          <h2 id="updateResultTitle"></h2>
+          <p id="updateResultMessage"></p>
+        </article>
+        <article class="card update-panel" id="updateNotesCard" hidden>
+          <h2>What's new</h2>
+          <p id="updateNotesText"></p>
+        </article>
+
+        <div class="update-actions" id="updateActions">
+          <button class="update-button primary" id="updatePrimaryButton" type="button">Start update</button>
+          <button class="update-button" id="updateSecondaryButton" type="button">Not now</button>
+        </div>
       </div>
     </section>
 
@@ -2747,6 +3024,10 @@
       battery: "a1b2c3d4-e5f6-7890-abcd-ef123456789a",
       charger: "a1b2c3d4-e5f6-7890-abcd-ef12345678a0",
       access: "a1b2c3d4-e5f6-7890-abcd-ef12345678a1",
+      firmware: "a1b2c3d4-e5f6-7890-abcd-ef12345678a2",
+      otaControl: "a1b2c3d4-e5f6-7890-abcd-ef12345678a3",
+      otaData: "a1b2c3d4-e5f6-7890-abcd-ef12345678a4",
+      otaStatus: "a1b2c3d4-e5f6-7890-abcd-ef12345678a5",
       configGeneral: "a1b2c3d4-e5f6-7890-abcd-ef123456789b",
       configSleep: "a1b2c3d4-e5f6-7890-abcd-ef123456789c",
       configBedtime: "a1b2c3d4-e5f6-7890-abcd-ef123456789d",
@@ -2860,7 +3141,42 @@
       settingsFilterAll: document.querySelector("#settingsFilterAll"),
       settingsFilterEnabled: document.querySelector("#settingsFilterEnabled"),
       settingsSongErrors: document.querySelector("#settingsSongErrors"),
-      settingsSongList: document.querySelector("#settingsSongList")
+      settingsSongList: document.querySelector("#settingsSongList"),
+      settingsFirmwareVersion: document.querySelector("#settingsFirmwareVersion"),
+      settingsLatestVersion: document.querySelector("#settingsLatestVersion"),
+      settingsUpdateButton: document.querySelector("#settingsUpdateButton"),
+      settingsUpdateNote: document.querySelector("#settingsUpdateNote"),
+      updateCard: document.querySelector("#updateCard"),
+      updateCardTitle: document.querySelector("#updateCardTitle"),
+      updateCardMessage: document.querySelector("#updateCardMessage"),
+      updateCardButton: document.querySelector("#updateCardButton"),
+      updateLaterButton: document.querySelector("#updateLaterButton"),
+      updateView: document.querySelector("#updateView"),
+      updateTitle: document.querySelector("#updateTitle"),
+      updateBackButton: document.querySelector("#updateBackButton"),
+      updateConfirmPanel: document.querySelector("#updateConfirmPanel"),
+      updateConfirmVersion: document.querySelector("#updateConfirmVersion"),
+      updateBatteryItem: document.querySelector("#updateBatteryItem"),
+      updateBatteryText: document.querySelector("#updateBatteryText"),
+      updateBatteryLevel: document.querySelector("#updateBatteryLevel"),
+      updateBatteryWarning: document.querySelector("#updateBatteryWarning"),
+      updateProgressPanel: document.querySelector("#updateProgressPanel"),
+      updateRing: document.querySelector("#updateRing"),
+      updatePercent: document.querySelector("#updatePercent"),
+      updateProgressTitle: document.querySelector("#updateProgressTitle"),
+      updateProgressMessage: document.querySelector("#updateProgressMessage"),
+      updateKeepOpen: document.querySelector("#updateKeepOpen"),
+      updateCancelConfirm: document.querySelector("#updateCancelConfirm"),
+      updateCancelMessage: document.querySelector("#updateCancelMessage"),
+      updateResultPanel: document.querySelector("#updateResultPanel"),
+      updateResultIcon: document.querySelector("#updateResultIcon"),
+      updateResultTitle: document.querySelector("#updateResultTitle"),
+      updateResultMessage: document.querySelector("#updateResultMessage"),
+      updateNotesCard: document.querySelector("#updateNotesCard"),
+      updateNotesText: document.querySelector("#updateNotesText"),
+      updateActions: document.querySelector("#updateActions"),
+      updatePrimaryButton: document.querySelector("#updatePrimaryButton"),
+      updateSecondaryButton: document.querySelector("#updateSecondaryButton")
     };
 
     const textDecoder = new TextDecoder("utf-8");
@@ -2917,6 +3233,35 @@
       installPromptEvent: null,
       installDismissed: false,
       appInstalled: false,
+      // Firmware description read on every connection: {version, board, mode}.
+      firmware: null,
+      // Release manifest published with the app (firmware/manifest.json).
+      release: null,
+      releaseStatus: "idle", // idle | loading | ready | none | unavailable
+      updateLater: readUpdateLater(),
+      wakeLock: null,
+      update: {
+        // confirm | preparing | sending | paused | installing | done | failed | cancelled
+        phase: "idle",
+        active: false,
+        device: null,
+        returnView: "remote",
+        target: null,
+        fromVersion: "",
+        encoded: null,
+        encodedFor: "",
+        enterRequested: false,
+        cancelConfirm: false,
+        received: 0,
+        total: 0,
+        otaState: "idle",
+        otaError: 0,
+        rateStart: null,
+        reconnectToken: 0,
+        reconnecting: false,
+        linkRetries: 0,
+        message: ""
+      },
       settings: {
         loading: false,
         dirty: false,
@@ -3075,7 +3420,8 @@
     }
 
     function controlsDisabled() {
-      return state.busy || state.remoteInitializing || !state.connected || isBtConnected();
+      return state.busy || state.remoteInitializing || !state.connected || isBtConnected() ||
+        firmwareUpdateRequired();
     }
 
     function settingsBusy() {
@@ -4220,6 +4566,7 @@
       state.settings.bedtimeThemeOpen = false;
       state.settings.message = "";
       render();
+      if (state.releaseStatus === "unavailable") void loadRelease();
       // Already scanned this session — render from cache instantly. The SD
       // content can't change without a restart, and our own edits are tracked
       // locally, so there's nothing to re-read.
@@ -4649,10 +4996,12 @@
 
       renderSettingsThemes();
       renderSettingsSongs();
+      renderSettingsAbout();
     }
 
     function render() {
-      const opening = !state.connected;
+      const updating = updateViewVisible();
+      const opening = !state.connected && !updating;
       const settings = state.connected && state.view === "settings";
       const streaming = state.connected && state.view === "remote" && isBtConnected();
       const ready = state.connected && state.view === "remote" && !isBtConnected();
@@ -4663,6 +5012,7 @@
       els.readyView.hidden = !ready;
       els.settingsView.hidden = !settings;
       els.chargerView.hidden = !(state.connected && state.view === "charger");
+      els.updateView.hidden = !updating;
       els.readyView.setAttribute("aria-busy", state.remoteInitializing ? "true" : "false");
       els.brandName.textContent = displayDeviceName();
       els.openingView.setAttribute("aria-label", `Connect to ${displayDeviceName()}`);
@@ -4761,6 +5111,8 @@
       els.appConnectionErrorMessage.textContent = state.chargerTransportError;
       renderBatteryStatus();
       renderChargerStatus();
+      renderUpdateCard();
+      if (updating) renderUpdateView();
 
       if (settings) {
         renderSettings();
@@ -5147,6 +5499,7 @@
     async function discoverRemoteCharacteristics(service) {
       const statusChar = state.chars.status || await getCharacteristic(service, "status");
       state.chars = {
+        ...firmwareCharacteristics(),
         volume: await getCharacteristic(service, "volume"),
         killswitch: await getCharacteristic(service, "killswitch"),
         theme: await getCharacteristic(service, "theme"),
@@ -5192,6 +5545,814 @@
       state.message = "Loading controls...";
       render();
       void initializeRemoteConnection(server, knownService);
+    }
+
+    // ---------------------------------------------------------------------
+    // Firmware updates. See "Firmware updates" in docs/engineering/firmware.md
+    // for the device side and protocol; the app streams the image with a
+    // bounded window and resends from the offset the toy acknowledges.
+    // ---------------------------------------------------------------------
+    const MIN_FIRMWARE_VERSION = "1.0.0";
+    const UPDATE_LATER_KEY = "sweetyaar-update-later";
+    // The toy returns to normal firmware after two minutes without updates.
+    const UPDATE_RECONNECT_MS = 130000;
+    const UPDATE_RECONNECT_DELAY_MS = 800;
+    const UPDATE_RECONNECT_RETRY_MS = 1500;
+    const UPDATE_WINDOW_BYTES = 16 * 1024;
+    const UPDATE_STALL_MS = 2000;
+    // Android can fail the first operations after a reconnect while it is
+    // still finishing encryption and MTU exchange.
+    const UPDATE_SETTLE_MS = 500;
+    const UPDATE_LINK_RETRIES = 3;
+    const OTA_STATES = ["idle", "ready", "receiving", "verifying", "installing", "failed"];
+    const OTA_COMMAND = { enterUpdateMode: 1, begin: 2, finish: 3, cancel: 4 };
+    const UPDATE_DOWNLOAD_ERROR = "Couldn't download the update. Check your internet connection and try again.";
+
+    function readUpdateLater() {
+      try {
+        return localStorage.getItem(UPDATE_LATER_KEY) || "";
+      } catch {
+        return "";
+      }
+    }
+
+    function parseVersion(text) {
+      const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(text || ""));
+      return match ? match.slice(1).map(Number) : null;
+    }
+
+    function compareVersions(left, right) {
+      const a = parseVersion(left);
+      const b = parseVersion(right);
+      if (!a || !b) return 0;
+      for (let i = 0; i < 3; i++) {
+        if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1;
+      }
+      return 0;
+    }
+
+    function firmwareUpdateRequired() {
+      return !!state.firmware && compareVersions(state.firmware.version, MIN_FIRMWARE_VERSION) < 0;
+    }
+
+    function releaseImage() {
+      const image = state.release?.images?.[state.firmware?.board];
+      return image && image.encoding === "zlib" && Number.isInteger(image.size) &&
+        Number.isInteger(image.encodedSize) && /^[0-9a-f]{64}$/.test(image.sha256 || "") &&
+        /^[0-9a-f]{64}$/.test(image.fileSha256 || "") && typeof image.file === "string" ? image : null;
+    }
+
+    function updateAvailable() {
+      return !!releaseImage() && compareVersions(state.release.version, state.firmware?.version) > 0;
+    }
+
+    function updateBatteryAllowed() {
+      return state.battery === "good" || state.battery === "medium" || state.battery === "charging";
+    }
+
+    function updateResultPhase() {
+      return ["done", "failed", "cancelled"].includes(state.update.phase);
+    }
+
+    function updateViewVisible() {
+      return state.view === "update" &&
+        (state.connected || state.update.active || updateResultPhase());
+    }
+
+    async function loadRelease() {
+      if (typeof fetch !== "function") {
+        state.releaseStatus = "unavailable";
+        return;
+      }
+      state.releaseStatus = "loading";
+      render();
+      try {
+        const response = await fetch("firmware/manifest.json", { cache: "no-cache" });
+        if (response.status === 404) {
+          state.release = null;
+          state.releaseStatus = "none";
+        } else {
+          if (!response.ok) throw new Error(`Release manifest HTTP ${response.status}`);
+          const manifest = await response.json();
+          if (manifest?.format !== 1 || !parseVersion(manifest.version) ||
+              typeof manifest.notes !== "string" || typeof manifest.images !== "object") {
+            throw new Error("Unsupported release manifest");
+          }
+          state.release = manifest;
+          state.releaseStatus = "ready";
+        }
+      } catch (error) {
+        console.warn("[SweetYaar update] Release manifest unavailable", error);
+        state.release = null;
+        state.releaseStatus = "unavailable";
+      }
+      render();
+    }
+
+    function decodeOtaStatus(value) {
+      if (value.byteLength < 18 || value.getUint8(0) !== 1) throw new Error("Unsupported update status");
+      return {
+        state: OTA_STATES[value.getUint8(1)] || "failed",
+        error: value.getUint8(2),
+        received: value.getUint32(4, true),
+        total: value.getUint32(8, true),
+        mtu: value.getUint16(16, true)
+      };
+    }
+
+    function applyOtaStatus(status) {
+      const update = state.update;
+      update.otaState = status.state;
+      update.otaError = status.error;
+      if (status.state === "receiving" || status.state === "verifying" || status.state === "installing") {
+        update.received = status.received;
+      }
+      update.statusWaiter?.();
+      update.statusWaiter = null;
+    }
+
+    async function readOtaStatus() {
+      const status = decodeOtaStatus(await readCharacteristic(state.chars.otaStatus));
+      applyOtaStatus(status);
+      return status;
+    }
+
+    function waitForOtaStatus(timeoutMs) {
+      return new Promise((resolve) => {
+        const timer = setTimeout(() => {
+          state.update.statusWaiter = null;
+          resolve(false);
+        }, timeoutMs);
+        state.update.statusWaiter = () => {
+          clearTimeout(timer);
+          resolve(true);
+        };
+      });
+    }
+
+    async function subscribeOtaStatus() {
+      await subscribe("otaStatus", (event) => {
+        try {
+          applyOtaStatus(decodeOtaStatus(event.target.value));
+          if (state.update.active) render();
+        } catch (error) {
+          console.warn("[SweetYaar update] Ignoring malformed status", error);
+        }
+      });
+    }
+
+    async function discoverFirmwareCharacteristics(service) {
+      for (const name of ["firmware", "otaControl", "otaData", "otaStatus"]) {
+        state.chars[name] = await getCharacteristic(service, name);
+      }
+    }
+
+    function firmwareCharacteristics() {
+      const { firmware, otaControl, otaData, otaStatus } = state.chars;
+      return { firmware, otaControl, otaData, otaStatus };
+    }
+
+    async function readFirmwareInfo() {
+      let info = null;
+      try {
+        info = JSON.parse(readText(await readCharacteristic(state.chars.firmware)) || "{}");
+      } catch {
+        info = null;
+      }
+      if (!parseVersion(info?.version) || typeof info.board !== "string" ||
+          (info.mode !== "normal" && info.mode !== "update")) {
+        throw connectionMessageError("Please upgrade device firmware.");
+      }
+      state.firmware = info;
+      return info;
+    }
+
+    function writeOtaControl(bytes) {
+      return writeCharacteristic(state.chars.otaControl, Uint8Array.from(bytes));
+    }
+
+    function hexBytes(hex) {
+      return Uint8Array.from(hex.match(/../g).map((pair) => parseInt(pair, 16)));
+    }
+
+    function bytesHex(buffer) {
+      return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    }
+
+    function updateUserError(message) {
+      const error = new Error(message);
+      error.userMessage = message;
+      return error;
+    }
+
+    async function loadUpdateFile() {
+      const update = state.update;
+      const image = update.target.image;
+      if (update.encoded && update.encodedFor === image.fileSha256) return;
+      let bytes;
+      try {
+        const response = await fetch(`firmware/${image.file}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        bytes = new Uint8Array(await response.arrayBuffer());
+      } catch (error) {
+        console.warn("[SweetYaar update] Download failed", error);
+        throw updateUserError(UPDATE_DOWNLOAD_ERROR);
+      }
+      const digest = bytesHex(await crypto.subtle.digest("SHA-256", bytes));
+      if (bytes.length !== image.encodedSize || digest !== image.fileSha256) {
+        throw updateUserError("The downloaded update is damaged. Try again.");
+      }
+      update.encoded = bytes;
+      update.encodedFor = image.fileSha256;
+    }
+
+    function beginPayload() {
+      const image = state.update.target.image;
+      const payload = new Uint8Array(42);
+      const view = new DataView(payload.buffer);
+      payload[0] = OTA_COMMAND.begin;
+      payload[1] = 1; // zlib
+      view.setUint32(2, state.update.encoded.length, true);
+      view.setUint32(6, image.size, true);
+      payload.set(hexBytes(image.sha256), 10);
+      return payload;
+    }
+
+    async function acquireWakeLock() {
+      if (state.wakeLock || !navigator.wakeLock?.request) return;
+      try {
+        const lock = await navigator.wakeLock.request("screen");
+        state.wakeLock = lock;
+        lock.addEventListener?.("release", () => {
+          if (state.wakeLock === lock) state.wakeLock = null;
+        });
+      } catch (error) {
+        console.warn("[SweetYaar update] Screen wake lock unavailable", error);
+      }
+    }
+
+    function releaseWakeLock() {
+      const lock = state.wakeLock;
+      state.wakeLock = null;
+      lock?.release?.()?.catch?.(() => {});
+    }
+
+    function openUpdate() {
+      if (!state.connected || state.update.active || !releaseImage() ||
+          compareVersions(state.release.version, state.firmware?.version) < 0) return;
+      const update = state.update;
+      update.returnView = state.view === "settings" ? "settings" : "remote";
+      update.phase = "confirm";
+      update.cancelConfirm = false;
+      update.message = "";
+      state.themeOpen = false;
+      state.view = "update";
+      render();
+      els.updateTitle.focus?.();
+    }
+
+    function closeUpdate() {
+      const update = state.update;
+      if (update.active) return;
+      state.view = state.connected ? update.returnView : "remote";
+      update.phase = "idle";
+      update.message = "";
+      render();
+    }
+
+    async function startUpdate() {
+      const update = state.update;
+      const image = releaseImage();
+      if (update.active || !state.connected || !image || !updateBatteryAllowed()) return;
+      Object.assign(update, {
+        active: true,
+        phase: "preparing",
+        device: state.device,
+        target: { version: state.release.version, notes: state.release.notes, image },
+        fromVersion: state.firmware.version,
+        enterRequested: false,
+        cancelConfirm: false,
+        linkRetries: 0,
+        received: 0,
+        total: image.encodedSize,
+        otaState: "idle",
+        otaError: 0,
+        rateStart: null,
+        message: ""
+      });
+      render();
+      void acquireWakeLock();
+      try {
+        await loadUpdateFile();
+        if (!update.active) return;
+        await subscribeOtaStatus();
+        await continueUpdate(state.firmware, state.server, null);
+      } catch (error) {
+        await failUpdate(error);
+      }
+    }
+
+    // Called with the firmware description after every (re)connection while
+    // an update is in progress.
+    async function continueUpdate(info, server, service) {
+      const update = state.update;
+      if (!update.active) return;
+      if (info.mode === "update") {
+        await transferImage();
+        return;
+      }
+      if (update.phase === "installing") {
+        if (info.version === update.target.version) {
+          finishUpdate("done");
+        } else {
+          finishUpdate("failed", `The new version didn't start, so SweetYaar went back to version ${info.version}. It works normally.`);
+        }
+      } else if (update.phase === "preparing" && !update.enterRequested) {
+        await requestUpdateMode();
+        return;
+      } else {
+        // The toy restarted normal firmware: cancelled, timed out or lost power.
+        finishUpdate("failed");
+      }
+      if (server && service) await completeNormalConnection(server, service, state.device);
+    }
+
+    async function requestUpdateMode() {
+      const update = state.update;
+      const device = state.device;
+      update.enterRequested = true;
+      render();
+      try {
+        await writeOtaControl([OTA_COMMAND.enterUpdateMode]);
+      } catch (error) {
+        // The toy restarts about 0.4 s after this command; on some phones its
+        // write response never arrives. Whether it restarted decides below.
+        console.warn("[SweetYaar update] No response to enter update mode", error);
+      }
+      // The toy restarts within half a second and closes the link first; a
+      // phone that misses that notices only at its supervision timeout. A
+      // refusal leaves the toy connected and reports why in its status, so
+      // check it once the restart would already have closed the link.
+      const linked = () => update.active && state.device === device && state.connected;
+      const refusalCheckAt = Date.now() + 1000;
+      const deadline = Date.now() + 12000;
+      let status = null;
+      while (linked() && Date.now() < deadline) {
+        if (!status && Date.now() >= refusalCheckAt) {
+          try {
+            status = await readOtaStatus();
+          } catch (error) {
+            break; // no answer: the toy is restarting
+          }
+          if (status.error !== 0) break;
+        }
+        await delay(100);
+      }
+      if (!linked()) return;
+      if (!status || status.error === 0) {
+        // Silent or still restarting: reconnect as after any drop.
+        console.warn("[SweetYaar update] Toy silent after enter update mode");
+        if (device.gatt?.connected) device.gatt.disconnect();
+        if (state.device === device) onDisconnected({ target: device });
+        return;
+      }
+      if (status.error === 1) {
+        throw updateUserError("Battery low. Connect a charger, then try again.");
+      }
+      throw updateUserError("SweetYaar couldn't start the update. Try again in a moment.");
+    }
+
+    async function transferImage() {
+      const update = state.update;
+      const device = state.device;
+      const encoded = update.encoded;
+      update.phase = "sending";
+      render();
+      await writeOtaControl(beginPayload());
+      const status = await readOtaStatus();
+      if (status.state !== "receiving") throw new Error(`Update not accepted (error ${status.error})`);
+      update.received = status.received;
+      update.rateStart = { at: Date.now(), received: status.received };
+      const chunkSize = Math.max(20, Math.min(508, status.mtu - 3 - 4));
+      let offset = status.received;
+      let lastAck = status.received;
+      let lastAckAt = Date.now();
+      const linkActive = () => update.active && !update.cancelRequested &&
+        state.device === device && state.connected;
+      while (linkActive()) {
+        if (update.otaState === "failed") throw new Error(`Update failed on the toy (error ${update.otaError})`);
+        const acked = update.received;
+        if (acked >= encoded.length) break;
+        if (acked !== lastAck) {
+          lastAck = acked;
+          lastAckAt = Date.now();
+        } else if (Date.now() - lastAckAt > UPDATE_STALL_MS) {
+          // A chunk was lost: the toy ignores everything after the gap.
+          await readOtaStatus();
+          offset = update.received;
+          lastAckAt = Date.now();
+        }
+        if (offset < encoded.length && offset - acked < UPDATE_WINDOW_BYTES) {
+          const payload = encoded.subarray(offset, offset + chunkSize);
+          const packet = new Uint8Array(4 + payload.length);
+          new DataView(packet.buffer).setUint32(0, offset, true);
+          packet.set(payload, 4);
+          await gattOperation(() => state.chars.otaData.writeValueWithoutResponse(packet));
+          offset += payload.length;
+        } else if (!await waitForOtaStatus(400) && linkActive()) {
+          await readOtaStatus();
+        }
+      }
+      // Disconnected: the reconnect loop resumes from the toy's offset.
+      if (!linkActive()) return;
+      update.phase = "installing";
+      render();
+      await writeOtaControl([OTA_COMMAND.finish]);
+      // The toy verifies, then restarts into the new firmware. A failure
+      // leaves it connected in update mode.
+      try {
+        const after = await readOtaStatus();
+        if (after.state === "failed") throw new Error(`Update rejected by the toy (error ${after.error})`);
+      } catch (error) {
+        if (state.connected && state.device === device && update.otaState === "failed") throw error;
+      }
+    }
+
+    async function connectForUpdate(device) {
+      state.device = device;
+      state.disconnectReason = "";
+      const server = await device.gatt.connect();
+      const service = await server.getPrimaryService(UUIDS.service);
+      state.server = server;
+      await checkConnectionAccess(service, device);
+      state.chars = {};
+      await discoverFirmwareCharacteristics(service);
+      const info = await readFirmwareInfo();
+      await subscribeOtaStatus();
+      state.connected = true;
+      await delay(UPDATE_SETTLE_MS);
+      return { server, service, info };
+    }
+
+    async function reconnectForUpdate() {
+      const update = state.update;
+      const token = ++update.reconnectToken;
+      const device = update.device;
+      const deadline = Date.now() + UPDATE_RECONNECT_MS;
+      update.reconnecting = true;
+      render();
+      await delay(UPDATE_RECONNECT_DELAY_MS);
+      while (update.active && token === update.reconnectToken && Date.now() < deadline) {
+        try {
+          const { server, service, info } = await connectForUpdate(device);
+          if (token !== update.reconnectToken || !update.active) return;
+          update.reconnecting = false;
+          render();
+          await continueUpdate(info, server, service);
+          return;
+        } catch (error) {
+          if (token !== update.reconnectToken || !update.active) return;
+          if (!updateLinkLost() && state.device === device) {
+            await recoverOrFailUpdate(error, device);
+            return;
+          }
+          console.warn("[SweetYaar update] Reconnect attempt failed", error);
+          await delay(UPDATE_RECONNECT_RETRY_MS);
+        }
+      }
+      if (update.active && token === update.reconnectToken) {
+        finishUpdate("failed", "SweetYaar didn't reconnect. Make sure it's on and nearby, then connect again.");
+      }
+    }
+
+    // After a result, bring the remote back without asking the parent to
+    // choose the toy again.
+    async function reconnectAfterUpdate() {
+      const update = state.update;
+      const token = ++update.reconnectToken;
+      const device = update.device;
+      const deadline = Date.now() + 30000;
+      await delay(UPDATE_RECONNECT_DELAY_MS);
+      while (!update.active && !state.connected && token === update.reconnectToken && Date.now() < deadline) {
+        try {
+          const { server, service, info } = await connectForUpdate(device);
+          if (info.mode === "update") {
+            // A failed transfer leaves the toy in update mode: restart it.
+            await writeOtaControl([OTA_COMMAND.cancel]).catch(() => {});
+            await delay(UPDATE_RECONNECT_RETRY_MS);
+            continue;
+          }
+          await completeNormalConnection(server, service, device);
+          return;
+        } catch (error) {
+          console.warn("[SweetYaar update] Reconnect after update failed", error);
+          await delay(UPDATE_RECONNECT_RETRY_MS);
+        }
+      }
+    }
+
+    function finishUpdate(phase, message = "") {
+      const update = state.update;
+      update.active = false;
+      update.phase = phase;
+      update.message = message;
+      update.cancelConfirm = false;
+      update.cancelRequested = false;
+      update.reconnecting = false;
+      update.reconnectToken++;
+      if (phase === "done") {
+        state.updateLater = "";
+      }
+      releaseWakeLock();
+      state.view = "update";
+      render();
+      if (!state.connected && update.device) void reconnectAfterUpdate();
+    }
+
+    // A generic Bluetooth error while connected drops the link and resumes
+    // from the toy's offset, as after any disconnect. Errors the toy reports,
+    // or repeated ones, end the update.
+    async function recoverOrFailUpdate(error, device) {
+      const update = state.update;
+      const toyFailed = update.otaState === "failed" || !!error?.userMessage;
+      if (!toyFailed && update.active && device && update.linkRetries < UPDATE_LINK_RETRIES) {
+        update.linkRetries++;
+        console.warn("[SweetYaar update] Retrying after a Bluetooth error", error);
+        if (device.gatt?.connected) device.gatt.disconnect();
+        if (state.device === device) onDisconnected({ target: device });
+        return;
+      }
+      await failUpdate(error);
+    }
+
+    function updateLinkLost() {
+      return !state.connected || state.device?.gatt?.connected === false;
+    }
+
+    async function failUpdate(error) {
+      if (state.update.active && updateLinkLost()) return; // reconnecting resumes it
+      console.warn("[SweetYaar update] Update failed", error?.technicalMessage || error);
+      const inUpdateMode = state.connected && state.firmware?.mode === "update";
+      finishUpdate("failed", error?.userMessage || "");
+      if (inUpdateMode) {
+        // Restart normal firmware now instead of waiting for its timeout.
+        await writeOtaControl([OTA_COMMAND.cancel]).catch(() => {});
+      }
+    }
+
+    async function cancelUpdate() {
+      const update = state.update;
+      if (!update.active) return;
+      update.cancelRequested = true;
+      const inUpdateMode = state.connected && state.firmware?.mode === "update";
+      finishUpdate("cancelled");
+      if (inUpdateMode) await writeOtaControl([OTA_COMMAND.cancel]).catch(() => {});
+    }
+
+    async function resumeAfterReloadInUpdateMode(server, service, device) {
+      // The page was reloaded (or reopened) while the toy waited in update mode.
+      const update = state.update;
+      state.server = server;
+      state.connected = true;
+      state.busy = false;
+      state.view = "update";
+      await subscribeOtaStatus();
+      if (!update.active) {
+        if (state.releaseStatus !== "ready") await loadRelease();
+        const image = releaseImage();
+        Object.assign(update, {
+          active: true,
+          phase: "preparing",
+          device,
+          returnView: "remote",
+          target: image ? { version: state.release.version, notes: state.release.notes, image } : null,
+          fromVersion: "",
+          enterRequested: true,
+          cancelConfirm: false,
+          linkRetries: 0,
+          received: 0,
+          total: image ? image.encodedSize : 0,
+          rateStart: null,
+          message: ""
+        });
+        render();
+        if (!image) {
+          await failUpdate(updateUserError(UPDATE_DOWNLOAD_ERROR));
+          return;
+        }
+      }
+      void acquireWakeLock();
+      try {
+        await loadUpdateFile();
+        await continueUpdate(state.firmware, server, service);
+      } catch (error) {
+        await recoverOrFailUpdate(error, device);
+      }
+    }
+
+    function updateTimeLeftText() {
+      const update = state.update;
+      const start = update.rateStart;
+      if (!start || update.received <= start.received) return "Starting…";
+      const seconds = (Date.now() - start.at) / 1000;
+      if (seconds < 2) return "Starting…";
+      const rate = (update.received - start.received) / seconds;
+      const left = (update.total - update.received) / rate;
+      if (left < 10) return "A few seconds left";
+      if (left < 55) return `About ${Math.max(10, Math.round(left / 10) * 10)} seconds left`;
+      const minutes = Math.round(left / 60);
+      return minutes <= 1 ? "About a minute left" : `About ${minutes} minutes left`;
+    }
+
+    function renderUpdateCard() {
+      const required = firmwareUpdateRequired();
+      const visible = state.connected && state.view === "remote" && !state.update.active &&
+        state.firmware?.mode === "normal" &&
+        (required || (updateAvailable() && state.updateLater !== state.release.version));
+      els.updateCard.hidden = !visible;
+      if (!visible) return;
+      const image = releaseImage();
+      els.updateCard.classList.toggle("required", required);
+      els.updateCardTitle.textContent = required ? "Update needed" : "Update available";
+      if (required) {
+        els.updateCardMessage.textContent = image
+          ? `This app needs SweetYaar ${MIN_FIRMWARE_VERSION} or newer. Update to version ${state.release.version} to use the remote. About 1 minute.`
+          : `This app needs SweetYaar ${MIN_FIRMWARE_VERSION} or newer. Connect to the internet to get the update.`;
+      } else {
+        els.updateCardMessage.textContent = `Version ${state.release.version}: ${state.release.notes} About 1 minute.`;
+      }
+      els.updateCardButton.textContent = required ? "Update now" : "Update";
+      els.updateCardButton.hidden = !image;
+      els.updateCardButton.disabled = state.busy;
+      els.updateLaterButton.hidden = required;
+    }
+
+    function renderSettingsAbout() {
+      const firmware = state.firmware;
+      const image = releaseImage();
+      els.settingsFirmwareVersion.textContent = firmware?.version || "—";
+      const latest = {
+        loading: "Checking…",
+        none: "None published",
+        unavailable: "Unavailable",
+        idle: "—"
+      }[state.releaseStatus] ?? (image ? state.release.version : "None for this board");
+      els.settingsLatestVersion.textContent = latest;
+      const order = image ? compareVersions(state.release.version, firmware?.version) : -1;
+      els.settingsUpdateButton.hidden = order < 0;
+      els.settingsUpdateButton.textContent = order > 0
+        ? `Update to ${state.release.version}`
+        : `Reinstall ${image ? state.release.version : ""}`;
+      els.settingsUpdateButton.disabled = state.busy || !state.connected;
+      const note = state.releaseStatus === "unavailable"
+        ? "Couldn't check for updates. Check your internet connection."
+        : "";
+      els.settingsUpdateNote.hidden = note === "";
+      els.settingsUpdateNote.textContent = note;
+    }
+
+    function setUpdateButton(button, label, variant, visible = true, disabled = false) {
+      button.hidden = !visible;
+      button.textContent = label;
+      button.disabled = disabled;
+      button.classList.toggle("primary", variant === "primary");
+      button.classList.toggle("danger", variant === "danger");
+    }
+
+    function renderUpdateView() {
+      const update = state.update;
+      const phase = update.phase;
+      const target = update.target || (releaseImage()
+        ? { version: state.release.version, notes: state.release.notes } : null);
+      const confirm = phase === "confirm";
+      const progress = ["preparing", "sending", "paused", "installing"].includes(phase);
+      const result = updateResultPhase();
+      const cancelConfirm = update.cancelConfirm && update.active;
+      els.updateTitle.textContent = `Update ${displayDeviceName()}`;
+      // Keep the toolbar's three columns so the title stays centered.
+      els.updateBackButton.classList.toggle("placeholder", !confirm);
+      els.updateBackButton.disabled = !confirm;
+      els.updateConfirmPanel.hidden = !confirm || cancelConfirm;
+      els.updateProgressPanel.hidden = !progress || cancelConfirm;
+      els.updateKeepOpen.hidden = !(phase === "preparing" || phase === "sending") || cancelConfirm;
+      els.updateCancelConfirm.hidden = !cancelConfirm;
+      els.updateResultPanel.hidden = !result;
+      els.updateNotesCard.hidden = phase !== "done" || !target?.notes;
+
+      if (confirm) {
+        const reinstall = compareVersions(target?.version, state.firmware?.version) === 0;
+        els.updateConfirmVersion.textContent = reinstall
+          ? `Reinstall version ${target.version}.`
+          : `Version ${target?.version}: ${target?.notes}`;
+        const allowed = updateBatteryAllowed();
+        const battery = {
+          good: { text: "Battery is charged, all good", level: 12 },
+          charging: { text: "Charging, all good", level: 12 },
+          medium: { text: "Enough battery for the update", level: 7 },
+          low: { text: "Battery too low, connect a charger", level: 2 }
+        }[state.battery] || { text: "Checking the battery…", level: 0 };
+        els.updateBatteryText.textContent = battery.text;
+        els.updateBatteryLevel.setAttribute("width", String(battery.level));
+        for (const level of ["good", "charging", "medium", "low", "unknown"]) {
+          els.updateBatteryItem.classList.toggle(`battery-${level}`,
+            level === (["good", "charging", "medium", "low"].includes(state.battery) ? state.battery : "unknown"));
+        }
+        els.updateBatteryWarning.hidden = state.battery !== "low";
+        setUpdateButton(els.updatePrimaryButton, reinstall ? "Reinstall" : "Start update", "primary", true, !allowed || state.busy);
+        setUpdateButton(els.updateSecondaryButton, "Not now", "secondary");
+      } else {
+        els.updateBatteryWarning.hidden = true;
+      }
+
+      if (progress) {
+        const percent = update.total ? Math.min(100, Math.floor(update.received * 100 / update.total)) : 0;
+        els.updateRing.style.setProperty("--progress", `${percent}%`);
+        els.updatePercent.textContent = `${percent}%`;
+        if (phase === "preparing") {
+          els.updateProgressTitle.textContent = "Getting ready";
+          els.updateProgressMessage.textContent = update.enterRequested
+            ? "Restarting the doll in update mode…"
+            : "Downloading the update…";
+        } else if (phase === "sending") {
+          els.updateProgressTitle.textContent = `Updating to ${target?.version || "the new version"}`;
+          els.updateProgressMessage.textContent = updateTimeLeftText();
+        } else if (phase === "paused") {
+          els.updateProgressTitle.textContent = `Update paused at ${percent}%`;
+          els.updateProgressMessage.textContent = "Reconnecting to the doll…";
+        } else {
+          els.updateProgressTitle.textContent = "Installing";
+          els.updateProgressMessage.textContent = "The doll is restarting with the new version…";
+        }
+      }
+
+      if (cancelConfirm) {
+        els.updateCancelMessage.textContent =
+          `${displayDeviceName()} keeps version ${update.fromVersion || "its current version"} and restarts normally. You can update later.`;
+        setUpdateButton(els.updatePrimaryButton, "Keep updating", "secondary");
+        setUpdateButton(els.updateSecondaryButton, "Cancel update", "danger");
+      } else if (progress) {
+        setUpdateButton(els.updatePrimaryButton, "Resume", "primary", phase === "paused");
+        setUpdateButton(els.updateSecondaryButton, phase === "preparing" ? "Cancel" : "Cancel update",
+          "danger", phase !== "installing");
+      }
+
+      if (result) {
+        const from = update.fromVersion;
+        els.updateResultIcon.textContent = phase === "done" ? "✓" : "!";
+        els.updateResultIcon.classList.toggle("failed", phase !== "done");
+        if (phase === "done") {
+          els.updateResultTitle.textContent = `${displayDeviceName()} is up to date`;
+          els.updateResultMessage.textContent = `Version ${target?.version}`;
+          els.updateNotesText.textContent = target?.notes || "";
+        } else if (phase === "cancelled") {
+          els.updateResultTitle.textContent = "Update cancelled";
+          els.updateResultMessage.textContent = from
+            ? `${displayDeviceName()} keeps version ${from} and works normally.`
+            : `${displayDeviceName()} keeps its current version and works normally.`;
+        } else {
+          els.updateResultTitle.textContent = "Update didn't finish";
+          els.updateResultMessage.textContent = update.message || (from
+            ? `${displayDeviceName()} is still on version ${from} and works normally.`
+            : `${displayDeviceName()} keeps its current version and works normally.`);
+        }
+        const canRetry = phase === "failed" && state.connected && state.firmware?.mode === "normal" && !!releaseImage();
+        setUpdateButton(els.updatePrimaryButton, canRetry ? "Try again" : "Done", "primary");
+        setUpdateButton(els.updateSecondaryButton, "Not now", "secondary", canRetry);
+      }
+      els.updateActions.hidden = phase === "installing" && !cancelConfirm;
+    }
+
+    function handleUpdatePrimary() {
+      const update = state.update;
+      if (update.cancelConfirm) {
+        update.cancelConfirm = false;
+        render();
+      } else if (update.phase === "confirm") {
+        void startUpdate();
+      } else if (update.phase === "paused") {
+        void reconnectForUpdate();
+      } else if (update.phase === "failed" && els.updatePrimaryButton.textContent === "Try again") {
+        update.phase = "confirm";
+        render();
+      } else if (updateResultPhase()) {
+        closeUpdate();
+      }
+    }
+
+    function handleUpdateSecondary() {
+      const update = state.update;
+      if (update.cancelConfirm) {
+        void cancelUpdate();
+      } else if (update.active) {
+        if (update.phase === "preparing" && !update.enterRequested) {
+          void cancelUpdate();
+        } else {
+          update.cancelConfirm = true;
+          render();
+        }
+      } else {
+        closeUpdate();
+      }
     }
 
     async function registerServiceWorker() {
@@ -5289,22 +6450,36 @@
 
         state.server = server;
         await checkConnectionAccess(service, device);
-        const statusChar = await getCharacteristic(service, "status");
-        state.chars = { status: statusChar };
-        await subscribeToStatusNotifications();
-        const statusValue = await readCharacteristic(statusChar);
+        state.chars = {};
+        await discoverFirmwareCharacteristics(service);
+        const info = await readFirmwareInfo();
         if (state.device !== device || state.disconnectReason) return;
-        state.status = readText(statusValue) || "Idle";
-        state.connected = true;
+        if (info.mode === "update") {
+          await resumeAfterReloadInUpdateMode(server, service, device);
+          return;
+        }
         state.view = "remote";
-        state.busy = false;
-        beginRemoteInitialization(server, service);
+        await completeNormalConnection(server, service, device);
       } catch (error) {
         disconnectWithReason(state.disconnectReason || describeConnectionError(error));
       } finally {
         state.busy = false;
         render();
       }
+    }
+
+    // Status first: it alone opens the remote; controls load in the background.
+    async function completeNormalConnection(server, service, device) {
+      const statusChar = await getCharacteristic(service, "status");
+      state.chars.status = statusChar;
+      await subscribeToStatusNotifications();
+      const statusValue = await readCharacteristic(statusChar);
+      if (state.device !== device || state.disconnectReason) return;
+      state.status = readText(statusValue) || "Idle";
+      state.connected = true;
+      state.busy = false;
+      beginRemoteInitialization(server, service);
+      void loadRelease();
     }
 
     function disconnectWithReason(message) {
@@ -5328,7 +6503,9 @@
       state.configValues = {};
       state.server = null;
       state.chars = {};
-      state.view = "remote";
+      const updateDevice = state.update.device;
+      const keepUpdateView = state.update.active || (state.view === "update" && updateResultPhase());
+      state.view = keepUpdateView ? "update" : "remote";
       state.configError = null;
       state.remoteInitializing = false;
       state.status = "Disconnected";
@@ -5352,7 +6529,16 @@
       state.settings.sessionScanned = false;
       state.settings.songsByTheme = {};
       state.message = state.disconnectReason || "Remote disconnected.";
+      if (state.update.active) {
+        // The toy restarted or the link dropped: resume from its offset.
+        if (state.update.phase === "sending") state.update.phase = "paused";
+        state.message = "";
+        render();
+        void reconnectForUpdate();
+        return;
+      }
       render();
+      if (keepUpdateView && updateDevice) void reconnectAfterUpdate();
     }
 
     async function safeWrite(action, successMessage, blocked, onError) {
@@ -5388,6 +6574,24 @@
       els.batteryIndicator.focus?.();
     });
     els.bedtimeToggleButton.addEventListener("click", toggleBedtimeMode);
+    els.updateCardButton.addEventListener("click", openUpdate);
+    els.updateLaterButton.addEventListener("click", () => {
+      state.updateLater = state.release?.version || "";
+      try {
+        localStorage.setItem(UPDATE_LATER_KEY, state.updateLater);
+      } catch {
+        // Private browsing: the card stays hidden for this session only.
+      }
+      render();
+    });
+    els.settingsUpdateButton.addEventListener("click", openUpdate);
+    els.updateBackButton.addEventListener("click", closeUpdate);
+    els.updatePrimaryButton.addEventListener("click", handleUpdatePrimary);
+    els.updateSecondaryButton.addEventListener("click", handleUpdateSecondary);
+    document.addEventListener?.("visibilitychange", () => {
+      // The browser drops the wake lock whenever the page is hidden.
+      if (document.visibilityState === "visible" && state.update.active) void acquireWakeLock();
+    });
     els.settingsBackButton.addEventListener("click", returnToRemote);
     els.settingsSaveButton.addEventListener("click", saveSettings);
 

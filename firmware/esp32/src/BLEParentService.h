@@ -26,6 +26,8 @@
 //   battery    (uint8, read/notify)          — 0=unknown, 1=good, 2=medium,
 //                                              3=low, 4=charging
 //   charger    (6 bytes, read/notify)        — versioned activity/conditions/events
+//   firmware   (JSON string, read)           — version, board and mode
+//   otaControl / otaData (write) and otaStatus (read/notify) — firmware updates
 //
 // Callbacks fire in a BLE stack task; they set thread-safe flags that the
 // main loop reads via the pollXxx() methods.
@@ -41,13 +43,24 @@
 //   if (String t; ble.pollThemeChange(t))     { ... switch theme ... }
 // ---------------------------------------------------------------------------
 
+// Receives firmware-update writes from the authorized controller. Called on
+// the Bluetooth task; implementations must not block for long.
+class OtaTransport {
+public:
+    virtual ~OtaTransport() = default;
+    // |peer| is the writer's address, for connection-parameter requests.
+    virtual void control(const uint8_t* data, size_t length, const uint8_t* peer) = 0;
+    virtual void data(const uint8_t* data, size_t length) = 0;
+    virtual void mtuChanged(uint16_t mtu) = 0;
+};
+
 class BLEParentService {
 public:
     BLEParentService() = default;
 
     // Call once after NVS is ready. On security configuration failure, returns
     // false without creating the GATT service or starting advertising.
-    bool begin(const String& deviceName);
+    bool begin(const String& deviceName, uint16_t localMtu = BLE_LOCAL_MTU);
 
     // Push current values to the subscribed, authenticated controller.
     void updateVolume(uint8_t volumePct);
@@ -62,6 +75,10 @@ public:
     void updateBatteryState(uint8_t state);
     void updateChargerStatus(const ChargerStatus::Snapshot& snapshot);
     void updateDeviceName(const String& deviceName);
+    // Read-only firmware description; it does not change while running.
+    void updateFirmwareInfo(const String& json);
+    void updateOtaStatus(const uint8_t* status, size_t length);
+    void setOtaTransport(OtaTransport* transport) { _ota = transport; }
 
     // Push a one-shot notice for the app to display. |noticeJson| is the full
     // payload, e.g. {"severity":"error","message":"..."}. The app shows it on
@@ -108,6 +125,11 @@ private:
     BLECharacteristic* _batteryChar = nullptr;
     BLECharacteristic* _chargerChar = nullptr;
     BLECharacteristic* _accessChar = nullptr;
+    BLECharacteristic* _firmwareChar = nullptr;
+    BLECharacteristic* _otaControlChar = nullptr;
+    BLECharacteristic* _otaDataChar = nullptr;
+    BLECharacteristic* _otaStatusChar = nullptr;
+    OtaTransport* _ota = nullptr;
     uint8_t _lastChargerValue[ChargerStatus::ENCODED_SIZE] = {};
     bool _hasChargerValue = false;
     BLECharacteristic* _configAttributes[BLE_CONFIG_ATTRIBUTE_COUNT] = {};
@@ -169,7 +191,9 @@ private:
     uint16_t _preparedHandle = 0;
     uint16_t _preparedLength = 0;
     uint8_t _preparedValue[512] = {};
-    BLECharacteristic* _securedChars[16] = {};
+    static constexpr size_t SECURED_CHAR_COUNT = 20;
+    static bool writableIndex(int index);
+    BLECharacteristic* _securedChars[SECURED_CHAR_COUNT] = {};
     Peer* peer(uint16_t id);
     Peer* peerByAddress(const uint8_t* address);
     int characteristicIndex(uint16_t handle, bool descriptor = false);
