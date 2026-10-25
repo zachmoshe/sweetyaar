@@ -2828,7 +2828,7 @@
             <div class="settings-field">
               <div class="settings-volume-line">
                 <span class="settings-field-title">Volume cap</span>
-                <output class="volume-value" id="settingsBedtimeVolumeValue" for="settingsBedtimeVolumeRange">45%</output>
+                <output class="volume-value" id="settingsBedtimeVolumeValue" for="settingsBedtimeVolumeRange">65%</output>
               </div>
               <input class="volume-range" id="settingsBedtimeVolumeRange" type="range" min="0" max="100" value="45" step="1">
             </div>
@@ -3371,7 +3371,7 @@
         startTime: "18:30",
         endTime: "06:30",
         theme: "lullabies",
-        volumeCapPct: 45,
+        volumeCapPct: 65,
         timeKnown: false,
         currentTime: "",
         currentSecondOfDay: null,
@@ -4168,7 +4168,7 @@
         endTime: normalizeTimeString(source.endTime, "06:30"),
         theme: `${source.theme || "lullabies"}`.trim() || "lullabies",
         volumeCapPct: clampVolume(
-          Object.prototype.hasOwnProperty.call(source, "volumeCapPct") ? source.volumeCapPct : 45),
+          Object.prototype.hasOwnProperty.call(source, "volumeCapPct") ? source.volumeCapPct : 65),
         timeKnown: !!source.timeKnown,
         currentTime: normalizeTimeString(source.currentTime, ""),
         currentSecondOfDay: normalizeSecondOfDay(source.currentSecondOfDay),

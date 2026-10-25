@@ -234,7 +234,7 @@ configuration API:
     "startTime": "18:30",
     "endTime": "06:30",
     "theme": "lullabies",
-    "volumeCapPct": 45
+    "volumeCapPct": 65
   }
 }
 ```
