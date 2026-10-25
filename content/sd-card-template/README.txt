@@ -52,7 +52,7 @@ config.json schema:
       "startTime": "18:30",
       "endTime": "06:30",
       "theme": "classical-music",
-      "volumeCapPct": 45
+      "volumeCapPct": 65
     },
     "sleep": {
       "enabled": true,
