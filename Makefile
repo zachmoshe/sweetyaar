@@ -64,9 +64,11 @@ ota-update: check-python ## Install a local build over BLE from this Mac, any bo
 
 PROFILE ?= default
 SDCARD ?=
+OUT ?=
+TTS ?=
 
-animals: check-python ## Build the SD-card /animals WAVs for PROFILE (SDCARD=<card> also syncs the card).
-	"$(PYTHON)" "$(ROOT_DIR)/tools/animals/build_animals.py" "$(PROFILE)" $(if $(SDCARD),--sdcard "$(SDCARD)",)
+animals: check-python ## Build the SD-card /animals WAVs for PROFILE (OUT=<folder> output, TTS=<folder> own recordings, SDCARD=<card> also syncs the card).
+	"$(PYTHON)" "$(ROOT_DIR)/tools/animals/build_animals.py" "$(PROFILE)" $(if $(OUT),--out "$(OUT)",) $(if $(TTS),--tts "$(TTS)",) $(if $(SDCARD),--sdcard "$(SDCARD)",)
 
 test: check-python ## Run the complete pytest suite.
 	cd "$(ROOT_DIR)" && "$(PYTHON)" -m pytest

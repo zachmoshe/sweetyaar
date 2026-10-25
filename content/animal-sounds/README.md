@@ -23,20 +23,29 @@ The questions come from outside this repo. Drop one folder per theme into `tts/`
 ## Workflow
 
 ```sh
-make animals PROFILE=default
-make animals PROFILE=he_mom SDCARD=/Volumes/SWEETYAAR     # then syncs the card
+make animals PROFILE=default                                   # scratch build in build/default/animals/
+make animals PROFILE=default OUT=~/Desktop/animals             # write into a folder you choose
+make animals TTS=~/my_voice OUT=~/Desktop/animals              # your own recordings (dog.wav, cat.wav, ...)
+make animals PROFILE=he_mom SDCARD=/Volumes/SWEETYAAR          # then syncs the card
 ```
 
-Build without `SDCARD` first and check `build/<profile>/animals/`. With `SDCARD`, the card's `/animals`
-folder is made identical to the build: its files are copied and everything else in that folder is
-deleted (only `/animals`; songs and `config.json` are untouched). If files were missing, the build is
-still copied, and the log ends with `!! INCOMPLETE` and the names of the animals left out.
+`OUT` is created if it does not exist and nothing in it is deleted (same-named files are replaced);
+the script never writes to `content/sd-card-template`, and refuses an `OUT` inside it. Without `OUT`
+the build goes to the Git-ignored `build/<profile>/animals/`, which is cleared on every run. Copy the
+result to the card's `/animals` folder.
+
+`TTS` is a folder with one recording per animal (`dog.wav`, `cat.wav`, ...). It replaces the profile's
+`tts/<theme>` folder; the profile still decides which animals to build.
+
+With `SDCARD`, the card's `/animals` folder is made identical to the build: its files are copied and
+everything else in that folder is deleted (only `/animals`; songs and `config.json` are untouched). If
+files were missing, the build is still copied, and the log ends with `!! INCOMPLETE` and the names of
+the animals left out.
 
 A new toy or language = add `tts/<theme>/`, copy `profiles/default.json` to `profiles/<name>.json` and
 set `tts` to the theme folder name. Per-toy tweaks go in `overrides`, e.g.
 `{"duck": {"pause_after_prompt_sec": 1.0, "animal_gain_db": -2}}`. The build also writes
-`metadata.json` (from `sd-card-template/animals/`). Songs, `config.json` and everything else still
-come from `sd-card-template/`.
+`metadata.json` (built into the script). Songs and `config.json` come from `sd-card-template/`.
 
 ## Rules
 
