@@ -134,7 +134,7 @@ app width, and the grass continues to the bottom edge (including under the
 phone's home indicator) by stretching the artwork's own last pixel row.
 Scrolled content fades out behind the toys.
 
-A pink bead on the teddy's ear means the Doll tab needs a look: an optional
+A pink bead with a white ring beside the teddy's ear means the Doll tab needs a look: an optional
 firmware update that this phone has not seen yet, a low battery, or a charger
 error. Opening the Doll tab marks the update as seen. The tabs are hidden on the
 opening screen and on the firmware-update screen.
