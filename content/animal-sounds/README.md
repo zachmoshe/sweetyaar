@@ -26,6 +26,7 @@ The questions come from outside this repo. Drop one folder per theme into `tts/`
 make animals PROFILE=default                                   # scratch build in build/default/animals/
 make animals PROFILE=default OUT=~/Desktop/animals             # write into a folder you choose
 make animals TTS=~/my_voice OUT=~/Desktop/animals              # your own recordings (dog.wav, cat.wav, ...)
+make animals OUT=~/Desktop/animals PAUSE=1.0 ANIMALS="dog cat"   # longer pause, only some animals
 make animals PROFILE=he_mom SDCARD=/Volumes/SWEETYAAR          # then syncs the card
 ```
 
