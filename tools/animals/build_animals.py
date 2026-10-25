@@ -12,8 +12,15 @@ only silence at the edges and the timing is identical for every animal.
     content/animal-sounds/build.json                           global timing/gain defaults
 
     build_animals.py default                      -> content/animal-sounds/build/default/animals/
+    build_animals.py default --out ~/Desktop/animals          write into a folder you choose
+    build_animals.py default --tts ~/my_voice --out ~/Desktop/animals   use your own recordings
     build_animals.py he_mom --pause 1.0
     build_animals.py default --sdcard /Volumes/SWEETYAAR   (then syncs <card>/animals to the build)
+
+--out never deletes anything: it creates the folder if needed and writes the animal WAVs plus
+metadata.json into it (same-named files are replaced). Nothing is written to content/sd-card-template.
+--tts takes a folder with one recording per animal (dog.wav, cat.wav, ...) instead of the profile's
+tts/<theme> folder. Copy the result to the card's /animals folder.
 
 Prompts may be any sample rate, mono/stereo, 16/24/32-bit or float WAV; they are converted.
 Profile "overrides" use the same keys as build.json "animals" entries, e.g. {"duck": {"animal_gain_db": -2}},
@@ -34,7 +41,9 @@ import audio_clean as ac
 
 ROOT = Path(__file__).resolve().parents[2]
 CONTENT = ROOT / "content" / "animal-sounds"
-TEMPLATE_META = ROOT / "content" / "sd-card-template" / "animals" / "metadata.json"
+# Written next to the WAVs so the card's /animals folder is complete. Kept here (not read from
+# content/sd-card-template) so this script never depends on, or touches, the template.
+ANIMALS_METADATA = {"schemaVersion": 2, "name": "Animals", "shuffle": True, "disabledSongs": []}
 
 
 def load_wav(path, target_sr):
@@ -170,7 +179,12 @@ def sync_to_card(src, dest):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("profile", help="name of a file in content/animal-sounds/profiles/ (without .json)")
+    ap.add_argument("profile", nargs="?", default="default",
+                    help="name of a file in content/animal-sounds/profiles/ (without .json); default: default")
+    ap.add_argument("--tts", help="folder with your spoken questions, one WAV per animal (dog.wav, cat.wav, ...); "
+                    "replaces the profile's tts/<theme> folder")
+    ap.add_argument("--out", help="folder to write the animal WAVs and metadata.json into (created if missing; "
+                    "nothing in it is deleted). Default: content/animal-sounds/build/<profile>/animals")
     ap.add_argument("--animals", nargs="*", help="only these animals")
     ap.add_argument("--pause", type=float, help="override pause_after_prompt_sec for this run")
     ap.add_argument("--sdcard", help="after building, make <SDCARD>/animals identical to the build output "
@@ -182,20 +196,33 @@ def main():
     profile = json.loads((CONTENT / "profiles" / f"{args.profile}.json").read_text())
     cfg = json.loads((CONTENT / "build.json").read_text())
     cfg.update(profile.get("settings", {}))
-    theme = profile["tts"]
-    prompt_dir = CONTENT / "tts" / theme
-    if not prompt_dir.is_dir():
-        sys.exit(f"No prompts at {prompt_dir.relative_to(ROOT)}")
+    if args.tts:
+        prompt_dir = Path(args.tts).expanduser().resolve()
+        if not prompt_dir.is_dir():
+            sys.exit(f"Recordings folder not found: {prompt_dir}")
+        source_label = str(prompt_dir)
+    else:
+        prompt_dir = CONTENT / "tts" / profile["tts"]
+        if not prompt_dir.is_dir():
+            sys.exit(f"No prompts at {prompt_dir.relative_to(ROOT)}")
+        source_label = f"tts/{profile['tts']}"
 
-    out_dir = CONTENT / "build" / args.profile / "animals"
-    shutil.rmtree(out_dir, ignore_errors=True)
-    out_dir.mkdir(parents=True)
+    if args.out:
+        out_dir = Path(args.out).expanduser().resolve()
+        template_dir = (ROOT / "content" / "sd-card-template").resolve()
+        if out_dir == template_dir or template_dir in out_dir.parents:
+            sys.exit("--out must not be inside content/sd-card-template; choose another folder")
+        out_dir.mkdir(parents=True, exist_ok=True)   # existing files are never deleted
+    else:
+        out_dir = CONTENT / "build" / args.profile / "animals"   # git-ignored scratch folder
+        shutil.rmtree(out_dir, ignore_errors=True)
+        out_dir.mkdir(parents=True)
     animals = args.animals or profile["animals"]
-    print(f"Building profile '{args.profile}' (tts/{theme}) -> {out_dir.relative_to(ROOT)}")
+    print(f"Building profile '{args.profile}' ({source_label}) -> {out_dir}")
     built, missing = [], []
     for a in animals:
         (built if build_one(a, prompt_dir, out_dir, cfg, profile.get("overrides", {}), args.pause) else missing).append(a)
-    shutil.copy(TEMPLATE_META, out_dir / "metadata.json")
+    (out_dir / "metadata.json").write_text(json.dumps(ANIMALS_METADATA, indent=2, ensure_ascii=False) + "\n")
     print(f"Done: {len(built)}/{len(animals)} built.")
     if missing:
         print(f"\n!! INCOMPLETE: {len(missing)} animal(s) not built, missing files: {', '.join(missing)}")

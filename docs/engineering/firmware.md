@@ -802,7 +802,7 @@ the main loop remains the only LED hardware owner.
 | Bluetooth approvals cleared | Red once for 250 ms, then restore the current state's pattern. |
 | Quiet time | Purple, 1 s on / 0.25 s off. |
 | Persistent error after initialization | Red, 0.25 s on / 0.25 s off; currently set for SD initialization/removal failures and other persistent `error` notices. |
-| Firmware update mode | Yellow breathing: fades up over 1.5 s and down over 1.5 s, never fully dark. |
+| Firmware update mode | Yellow, 0.5 s on / 0.5 s off. |
 | Deep sleep | Off and unpowered. |
 
 The same canonical definitions are printed at every boot, before the remaining
@@ -819,14 +819,14 @@ subsystems initialize:
 [LED]   persistent error: red 250ms on / 250ms off
 [LED]   pairing window open: blue 200ms on / 200ms off
 [LED]   Bluetooth approvals cleared: red once for 250ms, then current state
-[LED]   firmware update: yellow breathing 1500ms up / 1500ms down
+[LED]   firmware update: yellow 500ms on / 500ms off
 [LED]   deep sleep/off: off
 ```
 
 Update mode sets only the `Updating` signal, which outranks every other signal.
-Breathing reuses yellow, the color that already means "busy, not ready", instead
-of adding a new color; it is refreshed about 30 times per second and stays
-distinct from the solid yellow of boot. Initialization intentionally outranks errors so boot stays yellow. Once boot
+Update mode reuses yellow, the color that already means "busy, not ready", instead
+of adding a new color; its 0.5 s blink keeps it distinct from the solid yellow of
+boot. Initialization intentionally outranks errors so boot stays yellow. Once boot
 clears `Initializing`, pairing feedback outranks playback, connections, and errors, and a latched error
 outranks other operational states. Reset feedback has highest priority for its
 single 250 ms flash, then normal state indication resumes;
@@ -928,7 +928,7 @@ boots normal firmware. Update mode:
   advertising name are identical to normal mode and a phone's cached GATT
   table stays valid across the restart;
 - skips audio, the SD card, buttons, Classic Bluetooth and sleep, but keeps the
-  charger and battery monitor running; the LED breathes yellow;
+  charger and battery monitor running; the LED blinks yellow;
 - asks the phone for a 7.5–15 ms connection interval when an image begins;
   throughput is about one 512-byte write per connection event, so macOS's
   default 30 ms halves the speed;
@@ -1192,7 +1192,7 @@ unavailable negative-test clients as untested; host tests do not exercise SMP.
 8. Firmware updates (when the update protocol or release changes): from the app,
    update from the previous release on battery and on the charger, cancel
    once mid-transfer, and lock the phone mid-transfer to confirm it pauses and
-   resumes. Confirm that low battery is refused, the LED breathes yellow in
+   resumes. Confirm that low battery is refused, the LED blinks yellow in
    update mode, the toy reconnects without pairing, and the new version
    reports itself. Leave update mode idle for 2 minutes once to confirm it
    returns to normal firmware.
