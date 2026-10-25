@@ -57,8 +57,6 @@ struct StatusLedPattern {
     LedColor color;
     uint16_t onMs;
     uint16_t offMs;
-    // Fade up over onMs and down over offMs instead of switching on and off.
-    bool breathing;
 };
 
 struct StatusLedModeDefinition {

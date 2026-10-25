@@ -2276,10 +2276,6 @@ void printStatusLedModeLegend() {
         const StatusLedPattern& pattern = definition.pattern;
         if (mode == StatusLedMode::PairingReset) {
             Serial.println("[LED]   Bluetooth approvals cleared: red once for 250ms, then current state");
-        } else if (pattern.breathing) {
-            Serial.printf("[LED]   %s: %s %ums up / %ums down\n",
-                          definition.condition, definition.colorName,
-                          pattern.onMs, pattern.offMs);
         } else if (mode == StatusLedMode::Off) {
             Serial.printf("[LED]   %s: %s\n",
                           definition.condition, definition.colorName);

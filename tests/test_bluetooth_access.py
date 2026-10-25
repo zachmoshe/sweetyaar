@@ -14,7 +14,7 @@ def test_pairing_gestures_and_identity(repo_root, tmp_path):
     src = repo_root / "firmware/esp32/src"
     led_source = (src / "StatusLed.cpp").read_text()
     functions = []
-    for name in ("void StatusLed::service(", "void StatusLed::serviceBreathing("):
+    for name in ("void StatusLed::service(",):
         start = led_source.index(name)
         functions.append(led_source[start:led_source.index("\n}", start) + 2])
     (tmp_path / "status_led_service_under_test.inc").write_text("\n".join(functions))

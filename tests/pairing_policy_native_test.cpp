@@ -11,37 +11,42 @@ using Action = PairingPolicy::Action;
 // Exercise the real LED scheduler; replace only the physical pixel write.
 struct StatusLed {
     bool _initialized = true, _phaseOn = false;
-    uint32_t _phaseStartedMs = 0, _lastBreathMs = 0;
+    uint32_t _phaseStartedMs = 0;
     std::atomic<uint32_t> _signals{0};
     StatusLedMode _mode = StatusLedMode::Off;
     LedColor color = LedColors::OFF;
     int writes = 0;
     void showColor(LedColor next) { color = next; ++writes; }
     void service(uint32_t);
-    void serviceBreathing(const StatusLedPattern&, uint32_t);
 };
 #include "status_led_service_under_test.inc"
 
-// Update mode breathes yellow: it fades without ever going dark and never
-// switches to another color while the update signal is set.
-void testUpdateBreathing() {
+// Update mode blinks yellow, 500 ms on / 500 ms off, and never switches to
+// another color while the update signal is set (an error signal does not win).
+void testUpdateBlinks() {
     StatusLed led;
     led._signals = statusSignalBit(StatusSignal::Updating) | statusSignalBit(StatusSignal::Error);
-    uint8_t minimum = 255, maximum = 0;
+    int onSamples = 0, offSamples = 0;
     for (uint32_t now = 0; now <= 6000; now += 10) {
         led.service(now);
         assert(led._mode == StatusLedMode::Updating);
-        assert(led.color.red == led.color.green && led.color.blue == 0);
-        if (led.color.red < minimum) minimum = led.color.red;
-        if (led.color.red > maximum) maximum = led.color.red;
+        const bool on = led.color.red != 0 || led.color.green != 0;
+        if (on) {
+            // Only yellow (red and green equal, no blue) is ever shown.
+            assert(led.color.red == led.color.green && led.color.blue == 0);
+            ++onSamples;
+        } else {
+            ++offSamples;
+        }
     }
-    assert(minimum > 0 && minimum < 30 && maximum > 240);
-    // Frames are rate-limited rather than sent on every loop pass.
-    assert(led.writes < 6000 / 10);
+    // Equal on and off time over six full 1 s cycles; the LED really goes dark.
+    assert(onSamples > 250 && offSamples > 250);
+    // One write per phase change, not one per loop pass.
+    assert(led.writes <= 14);
 }
 
 int main() {
-    testUpdateBreathing();
+    testUpdateBlinks();
     PairingPolicy p;
     assert(!p.open());
     assert(p.update(0, false, true) == Action::None);
