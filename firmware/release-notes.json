@@ -1,1 +1,3 @@
-{}
+{
+  "1.1.0": "Stability update. Fixes a crash in Settings and makes reconnecting reliable after a Bluetooth reset."
+}

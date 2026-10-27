@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "version": "1.1.0",
+  "notes": "Stability update. Fixes a crash in Settings and makes reconnecting reliable after a Bluetooth reset.",
+  "images": {
+    "sweetyaar": {
+      "file": "sweetyaar-1.1.0.bin.z",
+      "encoding": "zlib",
+      "size": 1941920,
+      "encodedSize": 1206480,
+      "sha256": "7ad344b9f2c57370631a9cfcf907dc235cfe4d1f77e880ccf2afd4cc981382a4",
+      "fileSha256": "d70854bfe75d66330e9fbc0a5bdd1c4a2816723057b0664a8fcc36428418e199"
+    }
+  }
+}

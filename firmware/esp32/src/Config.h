@@ -222,7 +222,7 @@ static constexpr bool ENABLE_BLE_PARENT_SERVICE = true;
 // ---------------------------------------------------------------------------
 // Bump for every release; tools/release_firmware.py also requires a
 // human-written entry for this version in firmware/release-notes.json.
-static constexpr char FIRMWARE_VERSION[] = "1.0.0";
+static constexpr char FIRMWARE_VERSION[] = "1.1.0";
 #ifndef SWEETYAAR_BOARD_ID
 #define SWEETYAAR_BOARD_ID "sweetyaar"
 #endif
