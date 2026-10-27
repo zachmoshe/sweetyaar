@@ -23,9 +23,10 @@ struct Fixture {
     unsigned songs = 0, animals = 0, stops = 0, opens = 0, forgets = 0;
     bool ignorePlayback = false;
 
-    explicit Fixture(uint32_t start = 100) {
+    explicit Fixture(uint32_t start = 100, bool held1 = false, bool held2 = false) {
         g_fakeMillis = start;
-        down1 = down2 = false;
+        down1 = held1;
+        down2 = held2;
         buttons.begin();
         poll();
     }
@@ -55,6 +56,30 @@ struct Fixture {
         poll();
     }
 };
+
+// The restart after a bond reset can boot with both buttons still held: that
+// hold must not open pairing, reset again, or count as a press.
+static void testHoldFromBeforeBoot() {
+    Fixture f(100, true, true);
+    f.wait(20000);
+    assert(f.opens == 0 && f.forgets == 0);
+    assert(f.songs == 0 && f.animals == 0 && f.stops == 0);
+    f.press(false, false);
+    f.wait(DEBOUNCE_MS);
+    f.press(true, true);
+    f.wait(3000 + DEBOUNCE_MS);
+    assert(f.opens == 1 && f.stops == 1);  // a fresh hold works normally
+    Fixture single(100, true, false);
+    single.wait(2000);
+    assert(single.songs == 0);  // nor does one button held at boot play
+    single.press(false, false);
+    single.wait(DEBOUNCE_MS);
+    single.press(true, false);
+    single.wait(DEBOUNCE_MS);
+    single.press(false, false);
+    single.wait(DEBOUNCE_MS);
+    assert(single.songs == 1);
+}
 
 static void testStaggeredChords() {
     for (bool songFirst : {false, true}) {
@@ -182,6 +207,7 @@ static void testIgnoredPlaybackKeepsPairingGesture() {
 }
 
 int main() {
+    testHoldFromBeforeBoot();
     testStaggeredChords();
     testSinglePressAndQuickTaps();
     testSeparateButtonsAreNotAChord();

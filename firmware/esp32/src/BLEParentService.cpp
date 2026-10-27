@@ -231,6 +231,16 @@ bool BLEParentService::begin(const String& deviceName, uint16_t localMtu) {
     computeGattLayout(svc);
 
     BLEAdvertising* adv = BLEDevice::getAdvertising();
+    uint8_t address[6];
+    if (BluetoothAccess::storedBleAddress(address)) {
+        // Must precede advertising: Bluedroid refuses a new random address
+        // while advertising, and then uses it as the identity in pairing.
+        adv->setDeviceAddress(address, BLE_ADDR_TYPE_RANDOM);
+        Serial.printf("[BLE] Address %02X:%02X:%02X:%02X:%02X:%02X (random static, from the last bond reset)\n",
+                      address[0], address[1], address[2], address[3], address[4], address[5]);
+    } else {
+        Serial.println("[BLE] Address: public (no bond reset yet)");
+    }
     adv->addServiceUUID(BLE_SERVICE_UUID);
     adv->setScanResponse(true);
     adv->setMinPreferred(0x06);   // help iPhone connections (min connection interval hint)

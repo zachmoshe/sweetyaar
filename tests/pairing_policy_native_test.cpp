@@ -73,15 +73,27 @@ int main() {
     assert(p.update(104999, false, true) == Action::None && p.open());
     assert(p.update(105000, false, true) == Action::Close && !p.open());
 
+    // A hold already in progress at boot (the restart after a bond reset)
+    // never opens pairing or resets again until both buttons are released.
+    PairingPolicy booted;
+    assert(booted.update(0, true, false) == Action::None);
+    assert(booted.update(3000, true, false) == Action::None);
+    assert(booted.update(20000, true, false) == Action::None);
+    booted.update(20100, false, true);
+    booted.update(20200, true, false);
+    assert(booted.update(23200, true, false) == Action::Open);
+
     PairingPolicy wrap;
     const uint32_t start = 0xfffff000;
+    wrap.update(start - 100, false, true);
     wrap.update(start, true, false);
     assert(wrap.update(start + 3000, true, false) == Action::Open);
     wrap.update(start + 3100, false, true);
     assert(wrap.update(start + 63000, false, true) == Action::Close);
     PairingPolicy skipped;
-    skipped.update(0, true, false);
-    assert(skipped.update(13000, true, false) == Action::Forget); // never briefly reopen
+    skipped.update(0, false, true);
+    skipped.update(1, true, false);
+    assert(skipped.update(13001, true, false) == Action::Forget); // never briefly reopen
 
     const auto pairing = statusSignalBit(StatusSignal::Pairing);
     auto pattern = selectStatusLedPattern(pairing | statusSignalBit(StatusSignal::Ready));

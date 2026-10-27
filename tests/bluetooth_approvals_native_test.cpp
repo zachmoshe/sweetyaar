@@ -67,6 +67,10 @@ void addBle(uint8_t id, uint8_t identity = 0) {
         address(bond.bond_key.pid_key.static_addr, identity);
     }
 }
+uint8_t nextRandom = 0;
+void esp_fill_random(void* buffer, size_t length) {
+    for (size_t i = 0; i < length; ++i) static_cast<uint8_t*>(buffer)[i] = nextRandom++;
+}
 class Preferences {
 public:
     static inline std::map<std::string, std::vector<uint8_t>> saved;
@@ -78,6 +82,11 @@ public:
     size_t putBool(const char* key, bool value) {
         if (failWrites) return 0;
         saved[key] = {uint8_t(value)}; ++writes; return 1;
+    }
+    size_t putBytes(const char* key, const void* value, size_t size) {
+        if (failWrites) return 0;
+        auto bytes = static_cast<const uint8_t*>(value);
+        saved[key].assign(bytes, bytes + size); ++writes; return size;
     }
     size_t getBytesLength(const char* key) { return isKey(key) ? saved[key].size() : 0; }
     size_t getBytes(const char* key, void* value, size_t size) {
@@ -153,6 +162,35 @@ int main() {
     assert(classic.empty() && ble.empty());
     assert(Preferences::saved["clearPending"][0] == 0);
     assert(Serial.output.find("[Pairing] All bonds cleared") != std::string::npos);
+    // The reset gave the parent service a new static random BLE address, once.
+    uint8_t first[6] = {};
+    assert(BluetoothAccess::storedBleAddress(first) && (first[0] & 0xc0) == 0xc0);
+    assert(midReset.takeIdentityChange() && !midReset.takeIdentityChange());
+    assert(!reboot.takeIdentityChange());  // an unfinished reset changes nothing
+    BluetoothAccess again;
+    again.begin();
+    assert(poll(again));
+    assert(again.forgetBonds());
+    assert(poll(again));
+    uint8_t second[6] = {};
+    assert(BluetoothAccess::storedBleAddress(second) && memcmp(first, second, 6) != 0);
+    assert(again.takeIdentityChange());
+    // A reset whose new address cannot be stored is not committed.
+    assert(again.forgetBonds());
+    Preferences::failWrites = true;
+    assert(!poll(again) && !again.ready() && !again.takeIdentityChange());
+    Preferences::failWrites = false;
+    assert(poll(again) && again.takeIdentityChange());
+    // Address rules: the two top bits set, the 46 random bits neither all 0 nor all 1.
+    const uint8_t zeros[6] = {}, ones[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+    uint8_t made[6];
+    makeStaticRandomAddress(zeros, made);
+    assert(isStaticRandomAddress(made) && made[0] == 0xc0);
+    makeStaticRandomAddress(ones, made);
+    assert(isStaticRandomAddress(made) && made[5] == 0xfe);
+    assert(!isStaticRandomAddress(ones) && !isStaticRandomAddress(zeros));
+    Preferences::saved["bleAddr"] = {0x40, 1, 2, 3, 4, 5};  // not static random: ignored
+    assert(!BluetoothAccess::storedBleAddress(made));
 
     // A failed reset-marker write still deletes keys but never reports ready.
     BluetoothAccess failedReset;

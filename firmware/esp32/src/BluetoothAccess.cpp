@@ -4,6 +4,7 @@
 #include <Preferences.h>
 #include <esp_gap_ble_api.h>
 #include <esp_gap_bt_api.h>
+#include <esp_random.h>
 #include <mbedtls/aes.h>
 #include <memory>
 #include <new>
@@ -92,6 +93,12 @@ bool BluetoothAccess::bleBonded(const uint8_t* address) const {
     uint8_t identity[6];
     return ready() && bleIdentity(address, identity);
 }
+bool BluetoothAccess::storedBleAddress(uint8_t* address) {
+    Preferences prefs;
+    if (!prefs.begin("sy-access", true)) return false;
+    return prefs.getBytes("bleAddr", address, 6) == 6 && isStaticRandomAddress(address);
+}
+
 bool BluetoothAccess::forgetBonds() {
     closePairing();
     _ready = false;
@@ -130,11 +137,22 @@ bool BluetoothAccess::poll(bool linksActive) {
     if (pending || !_storageOk) return false;
     // Deletion is asynchronous. Only commit after a later snapshot proves it
     // finished and no old live link can recreate a bond after the commit.
+    // Store the new BLE identity first: a reboot before the commit repeats
+    // the reset and draws another address, never keeping the old one.
+    if (reset) {
+        uint8_t random[6], address[6];
+        esp_fill_random(random, sizeof(random));
+        makeStaticRandomAddress(random, address);
+        if (prefs.putBytes("bleAddr", address, sizeof(address)) != sizeof(address)) return false;
+    }
     if (reset && prefs.putBool("clearPending", false) != 1) return false;
     _maintenance = Maintenance::None;
     _ready = true;
     Serial.printf("[Access] Bonds ready classic=%d ble=%d pairing=closed\n",
         esp_bt_gap_get_bond_device_num(), esp_ble_get_bond_device_num());
-    if (reset) Serial.println("[Pairing] All bonds cleared");
+    if (reset) {
+        Serial.println("[Pairing] All bonds cleared");
+        _identityChanged = true;
+    }
     return true;
 }

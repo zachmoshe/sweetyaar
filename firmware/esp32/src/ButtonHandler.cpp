@@ -1,8 +1,19 @@
 #include "ButtonHandler.h"
+#include <utility>
 
 void ButtonHandler::begin() {
     pinMode(PIN_BTN1, INPUT_PULLUP);
     pinMode(PIN_BTN2, INPUT_PULLUP);
+    // Start from the real levels, not "released": a button still held from
+    // before boot (the restart after a bond reset) is not a new press, and
+    // must not briefly read as released, which would arm the pairing gesture.
+    const uint32_t now = millis();
+    for (auto [state, pin] : {std::pair<BtnState*, int>{&_b1, PIN_BTN1}, {&_b2, PIN_BTN2}}) {
+        state->raw = state->debounced = digitalRead(pin) == LOW;
+        state->lastChangeMs = now;
+    }
+    // No events until both are released, as after a chord.
+    _bothPressActive = _b1.debounced || _b2.debounced;
 }
 
 // ---------------------------------------------------------------------------

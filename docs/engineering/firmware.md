@@ -28,9 +28,11 @@ The two buttons deliberately have a small, predictable set of actions:
 | Press the other button during playback | Switch immediately between song and animal playback.                                                 |
 | Press both buttons together            | Stop local playback.                                                                                 |
 | Hold both buttons for 3 seconds        | Open Bluetooth pairing for 60 seconds. |
-| Continue the same hold to 10 seconds   | Forget all Bluetooth approvals, disconnect both transports, flash red once, then restore the current state's indicator. |
+| Continue the same hold to 10 seconds   | Forget all Bluetooth approvals, disconnect both transports, flash red once, give the parent service a new BLE address and restart. |
 
-Physical presses are debounced for 50 ms. A single held button waits another
+Physical presses are debounced for 50 ms. Buttons start from their real
+levels at boot: a button still held from before a restart is not a press, and
+no button event or pairing gesture counts until both are released. A single held button waits another
 250 ms for the second button before starting playback; releasing a short tap
 resolves it sooner. When both buttons are down, pending individual actions are
 canceled and Stop fires once. If the second press comes after the grace period,
@@ -621,11 +623,12 @@ green, and Quiet time remains purple. Normal blue indicates Classic audio.
 
 The ten-second gesture is measured from the start of the same hold. It cancels
 the window, deletes the stack bonds, and disconnects both
-transports. The indicator flashes red for 250 ms and then resumes the current
-state's pattern, normally green idle. Quiet time, playback, and errors remain
-visible afterward, even if both buttons are still held. Both buttons must be
-released before another hold can begin: holding continuously for 13 seconds
-only performs the reset once.
+transports. The indicator flashes red for 250 ms. Once deletion is committed,
+the toy stores a new BLE address for the parent service and restarts (see "BLE
+identity after a bond reset"); playback and Quiet time end with the restart.
+Both buttons must be released before another hold can begin, and a hold that
+is still in progress when the toy boots never counts, so holding continuously
+past the restart only performs the reset once.
 These gestures also work during Classic audio and Quiet time. The toy stays
 awake while pairing is open or both buttons are held.
 
@@ -635,8 +638,36 @@ This ESP32 stack does not automatically enroll one transport by pairing the othe
 phone once through its Bluetooth audio settings and once through the parent
 app, during the same window or separate windows. Bonds survive reboot and
 SD-card changes; their capacity and replacement are managed by the stack.
-After a reset, the phone may also need to forget the old pairing before enrolling
-again.
+After a reset, a phone used for Classic audio must forget the old pairing before
+enrolling again, as with any Bluetooth speaker. The parent app does not need
+this: the toy's BLE address is new, so the app pairs it as a new device.
+
+### BLE identity after a bond reset
+
+A bond reset deletes the toy's keys but not those of the phones and computers
+it was paired with. When such a device reconnects, its Bluetooth stack starts
+encrypting with the old key before any GATT traffic, the toy's controller
+reports the key missing, and the central decides what to do. macOS drops the
+link silently for bonds created through Chrome, and System Settings > Forget
+does not reliably remove those bonds, so the parent app could not reconnect.
+
+The parent service therefore advertises from a BLE static random address
+(the two most significant bits set) that a bond reset replaces. The new
+address is drawn from the hardware random generator and stored in NVS
+(`sy-access/bleAddr`) before the reset is committed, so a reboot mid-reset
+draws another one rather than keeping the old. Bluedroid accepts a random
+address only while advertising is stopped, so the firmware restarts once the
+reset is committed (`[BLE] New BLE address after bond reset; restarting`) and
+sets the address before advertising (`[BLE] Address ... (random static, from
+the last bond reset)`). Bluedroid also distributes that static address as the
+toy's identity during pairing, so every central stores the new bond under it
+and sees a new device: no stale keys and no stale GATT cache. The app finds the
+toy by its service UUID, not its address, and keeps no device ID.
+
+A toy that was never reset keeps its public address (`[BLE] Address: public`),
+so a firmware update does not force parents to pair again. Classic Bluetooth
+always keeps its public address. The old entries on phones and computers
+remain as unused records.
 
 New BLE bonds require LE Secure Connections with a full 16-byte encryption key.
 Firmware enables strict security-mode acceptance and sets both minimum and
@@ -1279,13 +1310,14 @@ unavailable negative-test clients as untested; host tests do not exercise SMP.
    update mode, the toy reconnects without pairing, and the new version
    reports itself. Leave update mode idle for 2 minutes once to confirm it
    returns to normal firmware.
-9. Hold both buttons continuously for 13 seconds. Expect pairing at three seconds,
+9. Hold both buttons continuously for 15 seconds. Expect pairing at three seconds,
    a single red flash at ten, both links disconnected and approvals erased, then
-   the current state indication (normally green idle) after 250 ms, and no
-   reopening at thirteen. Verify Quiet time and errors also remain visible after
-   the flash. Releasing only one button must not rearm; release
-   both before trying another three-second hold. Confirm old phones require
-   enrollment again, including after a reboot.
+   `[BLE] New BLE address after bond reset; restarting`, a restart with a new
+   `[BLE] Address ... (random static ...)`, and no pairing or second reset while
+   the buttons stay held after boot. Releasing only one button must not rearm;
+   release both before trying another three-second hold. Confirm the parent app
+   pairs again without removing anything from the computer or phone, and that
+   phones used for Classic audio must forget the toy before enrolling again.
 
 #### macOS recovery when characteristics are missing
 
@@ -1307,6 +1339,8 @@ off, pass `ADDRESS=<address>` from its boot log (`[BT] Classic BT address`).
 The script relies on undocumented macOS storage; after a macOS upgrade, check
 the layout with `sudo /usr/bin/python3 -I tools/reset_mac_bluetooth.py --inspect`.
 Then clear the toy's bonds (hold both buttons for ten seconds) and pair again.
+Since the toy takes a new BLE address on every bond reset, this is needed only
+for records from before that change or from a toy that was never reset.
 
 1. Disconnect the app and close its tabs or installed-app window. Power the toy
    off while removing its remembered connection.

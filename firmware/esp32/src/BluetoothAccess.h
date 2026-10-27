@@ -20,6 +20,12 @@ public:
     // and a reboot resumes it; access stays closed until deletion completes.
     bool forgetBonds();
     static bool bleIdentity(const uint8_t* address, uint8_t* identity);
+    // The parent service's static random address since the last bond reset;
+    // false while the toy has never been reset (it then uses its public address).
+    static bool storedBleAddress(uint8_t* address);
+    // True once after a bond reset stored a new BLE address. It applies only
+    // before advertising starts, so the caller restarts the firmware.
+    bool takeIdentityChange() { return _identityChanged.exchange(false); }
 private:
     enum class Maintenance { Reset, None };
     Maintenance _maintenance = Maintenance::None;
@@ -27,6 +33,7 @@ private:
     uint32_t _lastPoll = 0;
     std::atomic<bool> _ready{false};
     std::atomic<bool> _pairing{false};
+    std::atomic<bool> _identityChanged{false};
     std::atomic<uint32_t> _openedAt{0};
 };
 

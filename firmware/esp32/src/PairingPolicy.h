@@ -44,7 +44,10 @@ public:
     bool open() const { return _open; }
 private:
     bool _timing = false;
-    bool _consumed = false;
+    // A hold that began before boot never counts: the firmware restarts after
+    // a bond reset, and buttons still held must not reset it again. The first
+    // release of both buttons arms the gesture.
+    bool _consumed = true;
     bool _openedThisHold = false;
     bool _open = false;
     uint32_t _heldSince = 0;

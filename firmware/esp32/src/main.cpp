@@ -170,6 +170,7 @@ uint16_t parseBedtimeTimeString(const char* value, uint16_t fallback);
 void markActivity(const char* reason);
 void markBleActivity(const char* reason);
 void logHeap(const char* where);
+void restartIfBleIdentityChanged();
 void pollBleConnectionState();
 uint32_t currentSleepTimeoutMs();
 uint32_t readSleepSeconds(JsonObjectConst sleep, const char* key, uint32_t fallbackMs);
@@ -366,6 +367,7 @@ void setup() {
 
     if (bluetoothAccess.poll(ClassicBluetooth::hasLinks() ||
             (ENABLE_BLE_PARENT_SERVICE && bleService.hasLinks()))) btSink->refreshAccess();
+    restartIfBleIdentityChanged();
 
     updateStatusSignalsForState(sm.currentState());
     statusLed.setSignal(StatusSignal::Initializing, false);
@@ -419,6 +421,7 @@ void loopUpdateMode() {
         bleService.updateBatteryState(batteryMonitor.encodedState());
     }
     bluetoothAccess.poll(bleService.hasLinks());
+    restartIfBleIdentityChanged();
     bleService.pollAdvertising(true);
     OtaUpdate::poll(millis());
     statusLed.service(millis());
@@ -549,6 +552,7 @@ void loop() {
     if (bluetoothAccess.poll(ClassicBluetooth::hasLinks() ||
             (ENABLE_BLE_PARENT_SERVICE && bleService.hasLinks())) && btSink && !btReopenPending)
         btSink->refreshAccess();
+    restartIfBleIdentityChanged();
     pollBluetoothReopen();
     applyPendingBtNameIfPossible();
     if (ENABLE_BLE_PARENT_SERVICE) {
@@ -734,6 +738,21 @@ void pollBleConnectionState() {
         if (connected) publishConfigAttributes(); // Fresh clock sample on reconnect.
         logHeap(connected ? "BLE controller connected" : "BLE controller disconnected");
     }
+}
+
+// ---------------------------------------------------------------------------
+// restartIfBleIdentityChanged()
+// ---------------------------------------------------------------------------
+// A bond reset stores a new BLE address, which Bluedroid accepts only before
+// advertising starts. Restart so every phone and computer sees a new device
+// instead of reusing keys and a GATT cache the toy no longer has. Classic
+// Bluetooth keeps its public address.
+void restartIfBleIdentityChanged() {
+    if (!bluetoothAccess.takeIdentityChange()) return;
+    Serial.println("[BLE] New BLE address after bond reset; restarting");
+    Serial.flush();
+    delay(200);
+    esp_restart();
 }
 
 // ---------------------------------------------------------------------------

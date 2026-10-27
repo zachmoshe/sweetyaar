@@ -152,7 +152,11 @@ struct BLEServerCallbacks {
     virtual void onDisconnect(BLEServer*, esp_ble_gatts_cb_param_t*) {}
 };
 void BLEServer::setCallbacks(BLEServerCallbacks* callbacks) { delete callbacks; }
+enum { BLE_ADDR_TYPE_PUBLIC, BLE_ADDR_TYPE_RANDOM };
 struct BLEAdvertising {
+    uint8_t address[6] = {};
+    int addressType = BLE_ADDR_TYPE_PUBLIC;
+    void setDeviceAddress(uint8_t* next, int type) { memcpy(address, next, 6); addressType = type; }
     void addServiceUUID(const char*) {}
     void setScanResponse(bool) {}
     void setMinPreferred(int) {}
@@ -222,6 +226,12 @@ struct BluetoothAccess {
     bool ready() { return available; }
     bool pairingOpen() { return available && open; }
     bool bleBonded(const uint8_t* address) { return available && bonds.count(address[5]); }
+    static inline bool hasStoredAddress = false;
+    static bool storedBleAddress(uint8_t* address) {
+        static const uint8_t stored[6] = {0xc4, 1, 2, 3, 4, 5};
+        if (hasStoredAddress) memcpy(address, stored, 6);
+        return hasStoredAddress;
+    }
     static bool bleIdentity(const uint8_t* address, uint8_t* identity) {
         memcpy(identity, address, 6); return bonds.count(address[5]);
     }
@@ -256,7 +266,12 @@ int main() {
     securityFailureAt = -1;
     securityParameters.clear();
     BLEParentService initialized;
+    assert(BLEDevice::getAdvertising()->addressType == BLE_ADDR_TYPE_PUBLIC);
+    BluetoothAccess::hasStoredAddress = true;  // the toy had a bond reset
     assert(initialized.begin("SweetYaar"));
+    assert(BLEDevice::getAdvertising()->addressType == BLE_ADDR_TYPE_RANDOM);
+    assert(BLEDevice::getAdvertising()->address[0] == 0xc4);
+    assert(Serial.output.find("[BLE] Address C4:01:02:03:04:05 (random static") != std::string::npos);
     assert(securityParameters.at(ESP_BLE_SM_AUTHEN_REQ_MODE) == ESP_LE_AUTH_REQ_SC_BOND);
     assert(securityParameters.at(ESP_BLE_SM_ONLY_ACCEPT_SPECIFIED_SEC_AUTH) == ESP_BLE_ONLY_ACCEPT_SPECIFIED_AUTH_ENABLE);
     assert(securityParameters.at(ESP_BLE_SM_IOCAP_MODE) == ESP_IO_CAP_NONE);
