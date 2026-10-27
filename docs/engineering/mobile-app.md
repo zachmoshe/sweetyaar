@@ -118,8 +118,14 @@ playback problems, rather than silently leaving the controls out of sync.
 
 When another device is connected through Classic Bluetooth, the app changes to
 the **Used as a speaker** screen. Local playback, theme, volume, loop, and Quiet
-time controls remain unavailable until that audio connection ends. Stream
-volume belongs to the phone, tablet, or computer sending the audio.
+time controls remain unavailable until that audio connection ends. The
+Settings tab shows the same screen and sends no settings scans or saves: with
+Classic audio running, the toy's heap fell to a few hundred bytes during a
+settings scan on real hardware. Settings load when the audio connection ends if
+the tab is still open. The Remote and Settings tab icons turn black-and-white
+while locked, so the state is visible on a phone without hover. The Doll tab
+stays available, since it only shows status.
+Stream volume belongs to the phone, tablet, or computer sending the audio.
 
 ### Navigation
 

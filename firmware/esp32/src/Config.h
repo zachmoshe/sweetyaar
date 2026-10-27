@@ -272,6 +272,12 @@ static constexpr uint16_t BLE_UPDATE_MODE_MTU = 517;
 static constexpr size_t BLE_THEMES_MAX_BYTES = 512;
 static constexpr int BLE_MAX_THEMES = 16;
 static constexpr size_t BLE_CONFIG_MAX_BYTES = 512;
+// Free contiguous heap a BLE value update must leave behind: the client's read
+// of that value makes another copy of up to 512 bytes, and Bluedroid needs
+// buffers for notifications. Below this the update is refused, not attempted.
+static constexpr size_t BLE_VALUE_HEAP_RESERVE = 2048;
+// The short low-memory error reply needs only room for its own copies.
+static constexpr size_t BLE_ERROR_REPLY_HEAP_RESERVE = 256;
 static constexpr size_t BLE_CONFIG_COMMAND_MAX_BYTES = 383;
 static constexpr char BLE_CONFIG_GENERAL_UUID[] = "A1B2C3D4-E5F6-7890-ABCD-EF123456789B";
 static constexpr char BLE_CONFIG_SLEEP_UUID[] = "A1B2C3D4-E5F6-7890-ABCD-EF123456789C";

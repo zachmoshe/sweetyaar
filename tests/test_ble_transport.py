@@ -97,8 +97,10 @@ def test_config_transport_preserves_themes(repo_root, tmp_path):
     program.write_text(r'''
 #include <cassert>
 #include <cstdint>
+#include <cstdio>
 #include <string>
 using String = std::string;
+constexpr size_t BLE_ERROR_REPLY_HEAP_RESERVE = 256;
 #define portENTER_CRITICAL(mux) ((void)(mux))
 #define portEXIT_CRITICAL(mux) ((void)(mux))
 struct BLECharacteristic {
@@ -122,6 +124,10 @@ public:
     char _pendingConfigCommand[384] = {};
     bool _newConfigCommand = false;
     void notifyChanged(BLECharacteristic* c) { if (hasController) c->notify(); }
+    // Heap checks are covered by ble_access_native_test; here values always fit.
+    bool storeValue(BLECharacteristic* c, const String& v) { c->setValue(v.c_str()); return true; }
+    bool storeValue(BLECharacteristic* c, const char* d, size_t n, size_t = 0) { c->value.assign(d, n); return true; }
+    static uint32_t responseRequestId(const String&) { return 0; }
     void updateThemes(const String&);
     void updateConfigResponse(const String&);
 ''' + command_callback + "\n};\n" + "\n".join(methods) + r'''
@@ -195,6 +201,8 @@ struct BLECharacteristic {
     String value;
     void setValue(const char* text) { value = text; }
     String getValue() { return value; }
+    uint8_t* getData() { return reinterpret_cast<uint8_t*>(value.data()); }
+    size_t getLength() { return value.size(); }
     BLE2902* getDescriptorByUUID(const char*) { return &descriptor; }
     uint16_t getHandle() { return 42; }
 };
@@ -218,6 +226,7 @@ public:
         esp_ble_gatts_send_indicate(configGattsIf, 12, c->getHandle(), 1, &changed, false);
     }
     BLECharacteristic* _configAttributes[BLE_CONFIG_ATTRIBUTE_COUNT] = {};
+    bool storeValue(BLECharacteristic* c, const String& v) { c->setValue(v.c_str()); return true; }
     void notifyChanged(BLECharacteristic* characteristic);
     void updateConfigAttribute(size_t index, const String& value);
 };

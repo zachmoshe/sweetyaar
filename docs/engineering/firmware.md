@@ -112,6 +112,23 @@ as unknown. The listing deletes macOS Finder metadata files (`._*` and
 cost time only once. Files added or removed manually are picked up after a
 restart; changes made through the app also update the live catalog.
 
+The catalog keeps no song names in RAM. Each theme keeps its id, name, credit
+and flags, plus a 12-byte state per song (size, duration, playable, disabled,
+checked) in the order of the theme folder's sorted, filtered listing. That
+position identifies the song: playback, the background header check, the
+app's song pages and `setSong` list the theme folder again (6–21 ms per theme
+on a 171-file card) and match positions to names. Boot and later listings
+apply the same rules (WAV names only, sorted, oversized names dropped), and the
+card is not changed while the toy runs. If a folder no longer has the number
+of songs it had at boot, the toy logs `[Catalog] <theme> changed since boot`,
+skips it in the background check, refuses to play from that list, and answers a
+song-page request with `Songs on the SD card changed. Restart the toy.`. The
+error text of an unplayable song is read again from its header when the app
+pages through the theme. Keeping every name and error as a heap `String` cost
+about 20 KB of heap on a 171-file card (free heap fell from 62.5 KB to 42.5 KB
+during the build, leaving 9.4 KB at ready), which left too little for a fresh
+BLE pairing.
+
 The SD mount permits two simultaneous regular files: one for WAV playback and
 one for settings operations, which open their read, write, and verification files
 sequentially.
@@ -154,6 +171,32 @@ streaming authenticated without a reboot, with about 10.8 KB free (largest block
 5.6 KB) after audio restarted with the remote connected. A refused pairing
 reports access state `5`, and the app asks the parent to pause the music and
 pair again.
+
+BLE values must never abort the firmware when the heap runs out. Arduino BLE
+copies every value into a `std::string`, and a failed copy throws
+`std::bad_alloc`; with no emergency exception pool that used to end in
+`abort()`. A production board crashed this way after a fresh BLE pairing, when
+the Settings page requested the theme list (`updateConfigResponse` →
+`BLECharacteristic::setValue` → `operator new`). Every variable-length value
+therefore goes through `storeValue`, which refuses the update unless the
+largest free block exceeds its length plus `BLE_VALUE_HEAP_RESERVE` (2 KB: the
+client's read makes another copy, and Bluedroid needs notification buffers).
+A refused settings reply is replaced by a short error built on the stack (`The
+toy is low on memory. Try again.`), so the app is answered instead of waiting
+for its timeout. That error needs only `BLE_ERROR_REPLY_HEAP_RESERVE` (256 bytes)
+beyond its length: on hardware a refused page saw a 1,908-byte largest block,
+which the full reserve would have refused too. The app does not scan settings
+while Classic audio streams (heap fell to 816 bytes when it did). A `catch` remains as a backstop, and the GATT callback catches
+the same failure in Arduino's read and write handlers and answers the request
+with `ESP_GATT_NO_RESOURCES`. Unchanged config attributes are compared in place
+instead of through an allocating copy. A refusal logs `[BLE] Low memory: value
+not updated (len=... free=... largest=...)`.
+
+Heap milestones are logged as `[Heap] <where> free=... largest=... min=...`
+before and after the SD catalog is built, at boot-ready, when a controller
+connects or disconnects and before each settings command; `[BLE] CONTROL`
+also reports free and largest. Compare the two catalog lines to measure the
+catalog's cost; see the catalog description above for why it keeps no names.
 
 After each Classic session, once the 1.5-second cooldown ends in idle, the
 firmware logs `[BT] Post-session heap: free=... largest=... min=...` and
@@ -679,12 +722,52 @@ are:
 | `[BT] A2DP_CONNECTION` / `A2DP_REJECT` | Audio-profile connection progress or approval rejection. |
 | `[BT] SCAN_MODE` | Whether Classic accepts connections and permits discovery/pairing. |
 | `[BLE] ADVERTISING ... failed` | BLE advertising could not start/stop; includes the stack status. |
+| `[BLE] GATT layout` | Boot fingerprint of the running GATT table (see below). |
+| `[BLE] SERVICE_CHANGED_REQUEST` / `SERVICE_CHANGED` | A Service Changed indication for an outdated client cache, and its result. |
 
 No keys or passcodes are printed. Attribute reads/writes, key-exchange steps,
 and successful advertising callbacks are not logged. Requests rejected by the
 phone or controller before a link/security callback reaches the application
 cannot produce an application connection log; absence of `CONNECT`/`ACL_CONNECT`
 alone does not identify the cause on the phone.
+
+### GATT table changes and Service Changed
+
+Bonded clients cache the GATT table by handle; macOS keeps that cache even
+across System Settings > Forget. A firmware build whose table moved (a
+characteristic added, removed or reordered; Arduino also assigns handles at
+runtime) then makes a cached client read the wrong attributes and write to
+handles that are not writable, which Chrome reports as `NotSupportedError: GATT
+operation failed for unknown reason` (ATT error 0x03).
+
+ESP-IDF 4.4.7's Bluedroid never tells a bonded client after a reboot: in its
+default automatic mode it only notifies clients connected while services are
+added, and its persistence call-out (`bta_gatts_co_srv_chg`) is a stub. The
+firmware therefore:
+
+1. switches Bluedroid to manual Service Changed mode at startup through the
+   exported but undocumented `BTA_GATTS_SetServiceChangeMode` (revalidate it
+   before any SDK upgrade, like the other private Bluedroid ABI);
+2. fingerprints the running table at boot (`[BLE] GATT layout=...`): UUIDs,
+   value and CCCD handles, and write access of every parent-service
+   characteristic;
+3. after a connection is authenticated, compares the fingerprint with the one
+   last delivered to that bonded identity (NVS namespace `sy-gatt`, one 32-bit
+   value per identity, no keys) and sends a Service Changed indication for
+   the whole handle range when it differs, when none is recorded, or when the
+   connection just created new keys;
+4. records the fingerprint only after the stack reports the indication sent; a
+   failure or a 5-second timeout retries on the next connection.
+
+The record is not an approval list: bonds alone still decide access.
+
+Verified on macOS 26 with Chrome: macOS enables Service Changed indications
+on the toy's built-in GATT service at connect, invalidates its cached table when
+the indication arrives, and Chrome then fails the call in flight with
+`InvalidStateError: GATT Service no longer exists`, or, for a call already in
+flight, `NotSupportedError: GATT operation failed for unknown reason`. The
+parent app treats either as a rediscovery request: it sets the connection up again on the same
+link, once per connection (a second occurrence disconnects as before).
 
 ## Bluetooth speaker mode
 
@@ -1206,9 +1289,24 @@ unavailable negative-test clients as untested; host tests do not exercise SMP.
 
 #### macOS recovery when characteristics are missing
 
-Use this during deployment when the GATT table has changed or the app reports
-missing characteristics despite the correct firmware being installed. Routine
-flashes with an unchanged GATT table do not require forgetting the device.
+Use this during deployment when the app reports missing characteristics or
+GATT errors despite the correct firmware being installed. Routine flashes,
+including ones that change the table, should not need it: the firmware sends
+Service Changed (see "GATT table changes and Service Changed").
+
+On a development Mac, `make reset-mac-bluetooth` replaces steps 1–2 and 4. It
+first scans for powered toys by the parent service UUID (never by name, which
+parents change), then, with `sudo` and Full Disk Access for the terminal app,
+removes every record macOS keeps for those boards: the LE bond in the System
+keychain, Classic link keys and device rows under `/Library/Bluetooth`. It
+lists what it will delete, asks first and restarts `bluetoothd`. Quit Chrome
+completely first: a Chrome left running did not recover from the restart (its
+connections stalled before pairing until it was relaunched). The scan needs
+the toy powered and Bluetooth permission for the terminal app; when the toy is
+off, pass `ADDRESS=<address>` from its boot log (`[BT] Classic BT address`).
+The script relies on undocumented macOS storage; after a macOS upgrade, check
+the layout with `sudo /usr/bin/python3 -I tools/reset_mac_bluetooth.py --inspect`.
+Then clear the toy's bonds (hold both buttons for ten seconds) and pair again.
 
 1. Disconnect the app and close its tabs or installed-app window. Power the toy
    off while removing its remembered connection.
@@ -1229,11 +1327,13 @@ flashes with an unchanged GATT table do not require forgetting the device.
 These are recovery steps, not a guaranteed per-device GATT-cache flush: Apple's
 Forget documentation does not promise one. Removing a browser's Bluetooth
 permission or updating the app's service-worker cache also does not establish
-that CoreBluetooth rediscovered the device's services. For future GATT schema
-changes, validate the standard **Service Changed** indication on macOS; Apple
-recommends it for accessories that support GATT caching
+that CoreBluetooth rediscovered the device's services. Apple recommends the
+standard **Service Changed** indication for accessories that support GATT
+caching
 ([Core Bluetooth, WWDC 2017, slide 88](https://devstreaming-cdn.apple.com/videos/wwdc/2017/712jqzhsxoww3zn/712/712_whats_new_in_core_bluetooth.pdf)).
-This checklist does not claim that the current firmware sends that indication.
+macOS records whether a device enabled it (`GATTServiceChangeConfig`); confirm
+on real hardware that macOS rediscovers the table after the firmware's
+indication before relying on it.
 
 ## Testing changes
 

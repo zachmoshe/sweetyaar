@@ -37,6 +37,7 @@ explicitly says to reuse an existing branch or worktree (or to work on `main`).
 - `make help` lists targets. Common ones: `make build`, `make flash`,
   `make monitor`, `make app`, `make test` (everything), `make test-unit`
   (host only, never touches hardware), `make animals` (build SD-card animal WAVs from `content/animal-sounds`; `OUT=<folder>`, `TTS=<folder>`),
+  `make reset-mac-bluetooth` (make this Mac forget nearby toys, found by BLE service; sudo),
   `make test-device` (approved real-device
   run; needs `DEVICE_TEST_APPROVED=1`, `PIO_ENV` and `SERIAL_PORT`).
 - PlatformIO environments (in `firmware/esp32/platformio.ini`):

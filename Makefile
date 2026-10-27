@@ -17,7 +17,7 @@ PYTHON ?= $(VENV_DIR)/bin/python
 PIO ?= $(VENV_DIR)/bin/pio
 UV ?= uv
 
-.PHONY: help setup app build flash monitor flash-monitor clean test test-unit test-device test-app test-firmware check-python check-pio animals create-published-firmware release-firmware ota-update
+.PHONY: help setup app build flash monitor flash-monitor clean test test-unit test-device test-app test-firmware check-python check-pio animals create-published-firmware release-firmware ota-update reset-mac-bluetooth
 
 help: ## Show the available project commands.
 	@printf 'SweetYaar project commands\n\n'
@@ -61,6 +61,13 @@ release-firmware: check-pio ## Build the production board and publish its update
 IMAGE ?= $(FIRMWARE_DIR)/.pio/build/$(PIO_ENV)/firmware.bin
 ota-update: check-python ## Install a local build over BLE from this Mac, any board (run in Terminal; IMAGE=<firmware.bin>).
 	"$(PYTHON)" "$(ROOT_DIR)/tools/ota_update.py" --image "$(IMAGE)" --board "$(PIO_ENV)"
+
+ADDRESS ?=
+reset-mac-bluetooth: check-python ## Make this Mac forget nearby SweetYaar toys (scan, then sudo; ADDRESS=<toy BT address> if it is off).
+	@ids="$$("$(PYTHON)" "$(ROOT_DIR)/tools/reset_mac_bluetooth.py" --scan)" || exit 1; \
+	sudo /usr/bin/python3 -I "$(ROOT_DIR)/tools/reset_mac_bluetooth.py" \
+		$$(for id in $$ids; do printf -- '--identifier %s ' "$$id"; done) \
+		$(if $(ADDRESS),--address "$(ADDRESS)",)
 
 PROFILE ?= default
 SDCARD ?=

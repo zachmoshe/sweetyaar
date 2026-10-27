@@ -96,7 +96,7 @@ bool WavPlayer::sdAvailable() {
 void WavPlayer::refreshSongList(const String& theme) {
     if (_idle || _animalMode) return;  // only relevant while a song is playing
 
-    const String current = _currentPath;
+    const int current = _currentSong;
     const ContentCatalog::CachedTheme* t = ContentCatalog::findTheme(theme);
     bool shuffle = t ? t->shuffle : false;
     buildSongList(theme, shuffle);     // rebuilt from cache; excludes disabled songs
@@ -106,7 +106,7 @@ void WavPlayer::refreshSongList(const String& theme) {
     // and the current file simply finishes before a valid one is chosen.
     _songCursor = 0;
     for (int i = 0; i < _songCount; i++) {
-        if (_songFiles[_songOrder[i]] == current) {
+        if (_songIndex[_songOrder[i]] == current) {
             _songCursor = i;
             break;
         }
@@ -145,7 +145,10 @@ void WavPlayer::loop() {
 // ---------------------------------------------------------------------------
 bool WavPlayer::openCurrentSong() {
     for (int attempts = 0; attempts < _songCount; attempts++) {
-        if (openFile(_songFiles[_songOrder[_songCursor]])) {
+        const int index = _songIndex[_songOrder[_songCursor]];
+        const String path = ContentCatalog::songPath(_songTheme, index);
+        if (!path.isEmpty() && openFile(path)) {
+            _currentSong = index;
             return true;
         }
         _songCursor = (_songCursor + 1) % _songCount;
@@ -159,7 +162,8 @@ bool WavPlayer::openCurrentSong() {
 // ---------------------------------------------------------------------------
 bool WavPlayer::openCurrentAnimal() {
     for (int attempts = 0; attempts < _animalCount; attempts++) {
-        if (openFile(_animalFiles[_animalOrder[_animalCursor]])) {
+        const String path = ContentCatalog::songPath(ANIMALS_THEME_ID, _animalIndex[_animalOrder[_animalCursor]]);
+        if (!path.isEmpty() && openFile(path)) {
             return true;
         }
         _animalCursor = (_animalCursor + 1) % _animalCount;
@@ -233,19 +237,18 @@ void WavPlayer::teardown() {
     _remainingPcmBytes = 0;
     _pcmOutput.reset();
     _currentPath = "";
+    _currentSong = -1;
 }
 
 // ---------------------------------------------------------------------------
 void WavPlayer::buildSongList(const String& theme, bool shuffle) {
     _songCount = 0;
+    _songTheme = theme;
     const ContentCatalog::CachedTheme* t = ContentCatalog::findTheme(theme);
     if (t != nullptr) {
-        String base = String(SONGS_ROOT) + "/" + theme + "/";
-        for (const ContentCatalog::CachedSong& s : t->songs) {
-            if (_songCount >= MAX_SONGS) break;
-            if (s.supported && !s.disabled) {
-                _songFiles[_songCount++] = base + s.file;
-            }
+        for (size_t i = 0; i < t->songs.size() && _songCount < MAX_SONGS; i++) {
+            const ContentCatalog::CachedSong& s = t->songs[i];
+            if (s.supported && !s.disabled) _songIndex[_songCount++] = int(i);
         }
     }
 
@@ -261,12 +264,9 @@ void WavPlayer::buildAnimalList() {
     const ContentCatalog::CachedTheme* t = ContentCatalog::findTheme(ANIMALS_THEME_ID);
     bool shuffle = t ? t->shuffle : true;
     if (t != nullptr) {
-        String base = String(ANIMALS_PATH) + "/";
-        for (const ContentCatalog::CachedSong& s : t->songs) {
-            if (_animalCount >= MAX_ANIMALS) break;
-            if (s.supported && !s.disabled) {
-                _animalFiles[_animalCount++] = base + s.file;
-            }
+        for (size_t i = 0; i < t->songs.size() && _animalCount < MAX_ANIMALS; i++) {
+            const ContentCatalog::CachedSong& s = t->songs[i];
+            if (s.supported && !s.disabled) _animalIndex[_animalCount++] = int(i);
         }
     }
 

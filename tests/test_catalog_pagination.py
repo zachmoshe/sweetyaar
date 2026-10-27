@@ -45,9 +45,10 @@ def catalog_scan_exe(repo_root, tmp_path_factory):
             "jsonEscape", "isAnimalsTheme", "appendThemeRow", "appendSongRow",
             "mutableFindTheme", "themeCount", "themeAt", "findTheme",
             "scanThemeStats", "scanPageHeader", "scanPageTail", "songPageHeader",
-            "scanSizeError", "buildThemesPageJson", "buildSongsPageJson",
+            "scanSizeError", "scanChangedError", "buildThemesPageJson", "buildSongsPageJson",
             "validThemeId", "worstCaseStats", "themeEntryFits", "songEntryFits",
-            "utf8Prefix", "recordOversizedEntry", "sanitizeAttribution", "validateCatalog",
+            "utf8Prefix", "recordOversizedEntry", "sanitizeAttribution", "dropOversizedSongs",
+            "validateCatalog",
             "catalogWarning",
         )
     ))

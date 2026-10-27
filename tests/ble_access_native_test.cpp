@@ -4,10 +4,12 @@
 #include <cstring>
 #include <iostream>
 #include <map>
+#include <new>
 #include <set>
 #include <string>
 #include <vector>
 #include "ChargerStatus.h"
+#include "GattLayout.h"
 #include "recording_serial.h"
 
 using String = std::string;
@@ -29,7 +31,8 @@ enum { ESP_OK, ESP_BT_STATUS_SUCCESS = 0, ESP_GATT_OK = 0, ESP_GATT_IF_NONE = -1
     ESP_GATT_INVALID_OFFSET, ESP_GATT_REQ_NOT_SUPPORTED, ESP_GATT_INVALID_ATTR_LEN, ESP_GATT_WRITE_NOT_PERMIT,
     ESP_GAP_BLE_SEC_REQ_EVT, ESP_GAP_BLE_KEY_EVT, ESP_GAP_BLE_AUTH_CMPL_EVT,
     ESP_GAP_BLE_ADV_START_COMPLETE_EVT, ESP_GAP_BLE_ADV_STOP_COMPLETE_EVT, ESP_GAP_BLE_PASSKEY_NOTIF_EVT,
-    ESP_GATTS_REG_EVT, ESP_BLE_SEC_ENCRYPT_NO_MITM, ESP_GATTS_MTU_EVT };
+    ESP_GATTS_REG_EVT, ESP_BLE_SEC_ENCRYPT_NO_MITM, ESP_GATTS_MTU_EVT,
+    ESP_GATT_NO_RESOURCES, MALLOC_CAP_8BIT, ESP_GATTS_SEND_SERVICE_CHANGE_EVT };
 enum { ESP_LE_AUTH_BOND = 1, ESP_LE_AUTH_REQ_SC_BOND = 9, ESP_IO_CAP_NONE = 3,
     ESP_BLE_ONLY_ACCEPT_SPECIFIED_AUTH_ENABLE = 1,
     ESP_BLE_ENC_KEY_MASK = 1, ESP_BLE_ID_KEY_MASK = 2,
@@ -41,13 +44,14 @@ enum { ESP_BLE_SM_AUTHEN_REQ_MODE, ESP_BLE_SM_ONLY_ACCEPT_SPECIFIED_SEC_AUTH,
 struct esp_ble_gatts_cb_param_t {
     struct { int status = ESP_OK; } reg;
     struct { uint16_t conn_id = 0, handle = 0; int status = ESP_OK; } conf;
-    struct { uint16_t conn_id = 0, trans_id = 0, handle = 0, offset = 0; } read;
+    struct { uint16_t conn_id = 0, trans_id = 0, handle = 0, offset = 0; bool need_rsp = true; } read;
     struct { uint16_t conn_id = 0, trans_id = 0, handle = 0, len = 0, offset = 0;
         bool need_rsp = true, is_prep = false; uint8_t* value = nullptr; uint8_t bda[6] = {}; } write;
     struct { uint16_t conn_id = 0, trans_id = 0; int exec_write_flag = 0; uint8_t bda[6] = {}; } exec_write;
     struct { uint16_t conn_id = 0; uint8_t remote_bda[6] = {}; } connect;
     struct { uint16_t conn_id = 0, reason = 0; } disconnect;
     struct { uint16_t conn_id = 0, mtu = 23; } mtu;
+    struct { int status = ESP_OK; } service_change;
 };
 struct esp_ble_gap_cb_param_t {
     struct {
@@ -76,6 +80,9 @@ int esp_ble_gap_set_security_param(esp_ble_sm_param_t param, void* value, uint8_
     return fail ? -1 : ESP_OK;
 }
 uint32_t fakeMillis = 0;
+size_t fakeLargestBlock = 100000;
+size_t heap_caps_get_largest_free_block(int) { return fakeLargestBlock; }
+size_t heap_caps_get_free_size(int) { return fakeLargestBlock + 1000; }
 uint32_t millis() { return fakeMillis; }
 struct BLE2902 {
     uint16_t handle = 0;
@@ -89,11 +96,20 @@ struct BLECharacteristic {
     uint16_t handle = 0;
     BLE2902 cccd;
     std::string value;
+    std::string uuid;
     uint16_t getHandle() { return handle; }
+    struct BLEUUID getUUID();
     BLE2902* getDescriptorByUUID(const char*) { return &cccd; }
-    std::string getValue() { return value; }
+    std::string getValue() { ++valueCopies; return value; }
+    uint8_t* getData() { return reinterpret_cast<uint8_t*>(value.data()); }
+    size_t getLength() { return value.size(); }
+    static inline int valueCopies = 0;
+    static inline bool throwOnSet = false;
     void setValue(const char* next) { value = next; }
-    void setValue(uint8_t* next, size_t length) { value.assign(reinterpret_cast<char*>(next), length); }
+    void setValue(uint8_t* next, size_t length) {
+        if (throwOnSet) throw std::bad_alloc();
+        value.assign(reinterpret_cast<char*>(next), length);
+    }
     void addDescriptor(BLE2902* descriptor) { delete descriptor; }
     void setCallbacks(BLECharacteristicCallbacks*);
     void setAccessPermissions(int) {}
@@ -103,12 +119,23 @@ struct BLECharacteristicCallbacks {
     virtual void onWrite(BLECharacteristic*) {}
 };
 void BLECharacteristic::setCallbacks(BLECharacteristicCallbacks* callbacks) { delete callbacks; }
-struct BLEUUID { explicit BLEUUID(const char*) {} };
+struct BLEUUID {
+    std::string text;
+    explicit BLEUUID(const char* value) : text(value) {}
+    std::string toString() { return text; }
+};
+BLEUUID BLECharacteristic::getUUID() { return BLEUUID(uuid.c_str()); }
 struct BLEService {
     std::array<BLECharacteristic, 21> characteristics;
     size_t count = 0;
     bool started = false;
-    BLECharacteristic* createCharacteristic(const char*, int) { return &characteristics.at(count++); }
+    uint16_t getHandle() { return 40; }
+    BLECharacteristic* createCharacteristic(const char* uuid, int) {
+        auto& characteristic = characteristics.at(count++);
+        characteristic.uuid = uuid;
+        characteristic.handle = uint16_t(41 + 3 * count);
+        return &characteristic;
+    }
     void start() { started = true; }
 };
 struct BLEServerCallbacks;
@@ -170,6 +197,24 @@ int esp_ble_gatts_send_indicate(int, uint16_t connection, uint16_t handle, size_
     packets.push_back({connection, handle, std::string(reinterpret_cast<char*>(data), length), indication});
     return ESP_OK;
 }
+int serviceChangeMode = -1;
+extern "C" uint8_t BTA_GATTS_SetServiceChangeMode(uint8_t mode) { serviceChangeMode = mode; return 0; }
+std::vector<uint8_t> serviceChanges; // last address byte of each indication request
+int esp_ble_gatts_send_service_change_indication(int, uint8_t* address) {
+    serviceChanges.push_back(address[5]);
+    return ESP_OK;
+}
+std::map<std::string, uint32_t> storedLayouts;
+struct Preferences {
+    bool begin(const char* name, bool) { assert(std::string(name) == GATT_LAYOUT_NAMESPACE); return true; }
+    void end() {}
+    bool isKey(const char* key) { return storedLayouts.count(key); }
+    uint32_t getULong(const char* key, uint32_t fallback) {
+        auto found = storedLayouts.find(key);
+        return found == storedLayouts.end() ? fallback : found->second;
+    }
+    size_t putULong(const char* key, uint32_t value) { storedLayouts[key] = value; return sizeof(value); }
+};
 struct BluetoothAccess {
     bool open = false;
     bool available = true;
@@ -221,6 +266,14 @@ int main() {
     assert(securityParameters.at(ESP_BLE_SM_SET_RSP_KEY) == (ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK));
     assert(initialized._server->service.started && BLEDevice::servers == 1 && BLEDevice::starts == 1);
     assert(callbackRegistrations == 2 && !initialized.isConnected());
+    // Bonded clients learn about a changed table only through manual mode.
+    assert(serviceChangeMode == 1 && initialized._gattLayout != 0);
+    const uint32_t bootLayout = initialized._gattLayout;
+    initialized.computeGattLayout(&initialized._server->service);
+    assert(initialized._gattLayout == bootLayout);
+    initialized._configCommandChar->handle += 2; // the table moved
+    initialized.computeGattLayout(&initialized._server->service);
+    assert(initialized._gattLayout != bootLayout);
     Serial.output.clear();
 
     BLEParentService ble;
@@ -571,6 +624,85 @@ int main() {
     assert(ble.hasLinks());
     ble.disconnected(1);
     assert(!ble.hasLinks());
+
+    // Low memory: refuse value updates instead of aborting, and still answer.
+    {
+        BLECharacteristic response, attribute;
+        ble._configResponseChar = &response;
+        ble._configAttributes[0] = &attribute;
+        // A full-size page: too big for the heap, while the short error fits.
+        const String reply = "{\"id\":42,\"ok\":true,\"op\":\"scanThemes\",\"themes\":[\"" +
+            std::string(400, 'x') + "\"]}";
+        fakeLargestBlock = reply.size() + BLE_VALUE_HEAP_RESERVE - 1;
+        ble.updateConfigResponse(reply);
+        assert(response.value == "{\"id\":42,\"ok\":false,\"error\":\"The toy is low on memory. Try again.\"}");
+        assert(Serial.output.find("Low memory: value not updated") != std::string::npos);
+        // On hardware a refused reply saw largest=1908: the error must still fit.
+        response.value = "old";
+        fakeLargestBlock = 1908;
+        ble.updateConfigResponse(reply);
+        assert(response.value.find("low on memory") != std::string::npos);
+        fakeLargestBlock = 100;  // not even the short error fits: keep the old value
+        response.value = "old";
+        ble.updateConfigResponse(reply);
+        assert(response.value == "old");
+        fakeLargestBlock = 100000;
+        BLECharacteristic::throwOnSet = true;  // the backstop when the check passes
+        ble.updateConfigResponse(reply);
+        assert(response.value == "old");
+        BLECharacteristic::throwOnSet = false;
+        ble.updateConfigResponse(reply);
+        assert(response.value == reply);
+        // Unchanged attributes are compared in place, without a value copy.
+        ble.updateConfigAttribute(0, "{\"a\":1}");
+        const int copies = BLECharacteristic::valueCopies;
+        ble.updateConfigAttribute(0, "{\"a\":1}");
+        assert(BLECharacteristic::valueCopies == copies && attribute.value == "{\"a\":1}");
+        assert(BLEParentService::responseRequestId("{\"id\":7,\"ok\":true}") == 7);
+        assert(BLEParentService::responseRequestId("{}") == 0);
+        ble._configResponseChar = nullptr;
+        ble._configAttributes[0] = nullptr;
+    }
+    // Service Changed: once per bonded identity and GATT layout.
+    bluetoothAccess.available = true;
+    ble._layoutPending = false;
+    ble._gattLayout = 0x1234;
+    serviceChanges.clear();
+    storedLayouts.clear();
+    auto layoutResult = [&](int status) {
+        esp_ble_gatts_cb_param_t p{};
+        p.service_change.status = status;
+        assert(!ble.filterGatt(ESP_GATTS_SEND_SERVICE_CHANGE_EVT, configGattsIf, &p));
+        ble.pollAdvertising();
+    };
+    connect(1); auth(1);
+    ble.pollAdvertising();
+    assert(serviceChanges == std::vector<uint8_t>{1});
+    ble.pollAdvertising();
+    assert(serviceChanges.size() == 1); // one request per authentication
+    layoutResult(ESP_OK);
+    assert(storedLayouts.at("000000000001") == 0x1234);
+    ble.disconnected(1);
+    connect(1); auth(1); ble.pollAdvertising();
+    assert(serviceChanges.size() == 1); // this client already has the table
+    ble.peer(1)->newKeys = true;  // a fresh bond may still use an old cache
+    ble.peer(1)->layoutCheck = true;
+    ble.pollAdvertising();
+    assert(serviceChanges.size() == 2);
+    layoutResult(ESP_OK);
+    ble.disconnected(1);
+    ble._gattLayout = 0x5678;
+    connect(1); auth(1); ble.pollAdvertising();
+    assert(serviceChanges.size() == 3);
+    layoutResult(1); // not delivered: keep the old record and retry next time
+    assert(storedLayouts.at("000000000001") == 0x1234);
+    ble.disconnected(1);
+    connect(1); auth(1); ble.pollAdvertising();
+    assert(serviceChanges.size() == 4);
+    fakeMillis += 5000; ble.pollAdvertising();
+    assert(!ble._layoutPending && storedLayouts.at("000000000001") == 0x1234);
+    assert(Serial.output.find("SERVICE_CHANGED conn=1 status=timeout") != std::string::npos);
+    ble.disconnected(1);
 
     std::cout << "BLE authorization and takeover tests passed\n";
 }

@@ -363,6 +363,9 @@ String formatWavDetails(const WavInfo& info) {
 // ---------------------------------------------------------------------------
 // In-RAM catalog (built once at boot by buildCatalog())
 // ---------------------------------------------------------------------------
+void recordOversizedEntry(const String& kind, const String& name);
+void dropOversizedSongs(const CachedTheme& theme, std::vector<String>& names, bool report);
+
 namespace {
 
 std::vector<CachedTheme> g_themes;
@@ -370,15 +373,15 @@ unsigned g_oversizedEntries = 0;
 String g_firstOversizedEntry;  // song themes sorted by id, Animals last
 bool g_catalogReady = false;
 
-void sortSongsByName(std::vector<CachedSong>& songs) {
-    for (size_t i = 1; i < songs.size(); i++) {
-        CachedSong key = std::move(songs[i]);
+void sortNames(std::vector<String>& names) {
+    for (size_t i = 1; i < names.size(); i++) {
+        String key = std::move(names[i]);
         size_t j = i;
-        while (j > 0 && songs[j - 1].file.compareTo(key.file) > 0) {
-            songs[j] = std::move(songs[j - 1]);
+        while (j > 0 && names[j - 1].compareTo(key) > 0) {
+            names[j] = std::move(names[j - 1]);
             j--;
         }
-        songs[j] = std::move(key);
+        names[j] = std::move(key);
     }
 }
 
@@ -444,12 +447,39 @@ std::vector<DirEntry> listDirectory(const String& path, unsigned& removed) {
     return entries;
 }
 
-// List one theme directory: read its metadata and record its WAV names. Headers
-// are checked later by checkNextSong() or at playback.
-void loadThemeContents(CachedTheme& theme, const String& themePath) {
+// A theme's playable-candidate file names in catalog order: WAVs only, sorted,
+// and without names too long for a BLE scan page or setSong command. Boot and
+// every later listing apply the same rules, so positions match the catalog.
+std::vector<String> listSongFiles(const CachedTheme& theme, bool report,
+                                  unsigned& removed, size_t& entryCount) {
+    std::vector<String> names;
+    const std::vector<DirEntry> entries = listDirectory(pathForThemeId(theme.id), removed);
+    entryCount = entries.size();
+    for (const DirEntry& entry : entries) {
+        if (!entry.isDir && !isIgnoredFilesystemEntry(entry.name) && isWavName(entry.name)) {
+            names.push_back(entry.name);
+        }
+    }
+    sortNames(names);
+    dropOversizedSongs(theme, names, report);
+    return names;
+}
+
+// Fresh error text for an unplayable song; the catalog keeps only the flag.
+String songErrorText(const CachedTheme& theme, const String& file) {
+    File entry = SD.open((pathForThemeId(theme.id) + "/" + file).c_str());
+    if (!entry) return "Cannot open file";
+    const WavInfo info = inspectWav(entry);
+    entry.close();
+    return info.supported ? String() : info.error;
+}
+
+// List one theme directory: read its metadata and record a state per WAV.
+// Headers are checked later by checkNextSong() or at playback.
+void loadThemeContents(CachedTheme& theme) {
     const uint32_t themeStartUs = micros();
     uint32_t stepUs = micros();
-    JsonDocument meta = readThemeMetadata(themePath);
+    JsonDocument meta = readThemeMetadata(pathForThemeId(theme.id));
     const uint32_t metaMs = elapsedMs(stepUs);
     const char* displayName = meta["name"] | "";
     theme.name = (displayName && displayName[0] != '\0')
@@ -461,22 +491,19 @@ void loadThemeContents(CachedTheme& theme, const String& themePath) {
 
     stepUs = micros();
     unsigned removed = 0;
-    const std::vector<DirEntry> entries = listDirectory(themePath, removed);
+    size_t entryCount = 0;
+    const std::vector<String> names = listSongFiles(theme, true, removed, entryCount);
     const uint32_t listMs = elapsedMs(stepUs);
-    for (const DirEntry& entry : entries) {
-        if (entry.isDir || isIgnoredFilesystemEntry(entry.name) || !isWavName(entry.name)) {
-            continue;
-        }
+    theme.songs.reserve(names.size());  // exact size: no growth slack
+    for (const String& name : names) {
         CachedSong song;
-        song.file = entry.name;
         song.supported = true;  // until its header is checked
-        song.disabled = isSongDisabled(meta, entry.name);
-        theme.songs.push_back(std::move(song));
+        song.disabled = isSongDisabled(meta, name);
+        theme.songs.push_back(song);
     }
-    sortSongsByName(theme.songs);
     Serial.printf("[Catalog] Scan %s: entries=%u wav=%u removed=%u metadata=%lums list=%lums "
                   "total=%lums\n",
-                  theme.id.c_str(), unsigned(entries.size()), unsigned(theme.songs.size()), removed,
+                  theme.id.c_str(), unsigned(entryCount), unsigned(theme.songs.size()), removed,
                   static_cast<unsigned long>(metaMs), static_cast<unsigned long>(listMs),
                   static_cast<unsigned long>(elapsedMs(themeStartUs)));
 }
@@ -492,17 +519,55 @@ uint32_t g_checkStartMs = 0;
 unsigned g_checkUnplayable = 0;
 bool g_checkSummaryLogged = false;
 
-CachedSong* findSongByPath(const String& path) {
-    for (CachedTheme& theme : g_themes) {
-        const String base = pathForThemeId(theme.id) + "/";
+// songPath() remembers its last answer, so the header check that follows
+// opening that song does not list the folder a second time.
+String g_resolvedPath;
+size_t g_resolvedTheme = 0;
+int g_resolvedIndex = -1;
+
+// Find the catalog entry for a full path; false if it is not a catalog song.
+bool locateSong(const String& path, size_t& themeIndex, int& songIndex) {
+    if (g_resolvedIndex >= 0 && path == g_resolvedPath && g_resolvedTheme < g_themes.size()) {
+        themeIndex = g_resolvedTheme;
+        songIndex = g_resolvedIndex;
+        return true;
+    }
+    for (size_t t = 0; t < g_themes.size(); ++t) {
+        const String base = pathForThemeId(g_themes[t].id) + "/";
         if (!path.startsWith(base)) continue;
+        std::vector<String> names;
+        if (!songNames(g_themes[t], names)) return false;
         const String file = path.substring(base.length());
-        for (CachedSong& song : theme.songs) {
-            if (song.file == file) return &song;
+        for (size_t i = 0; i < names.size(); ++i) {
+            if (names[i] == file) {
+                themeIndex = t;
+                songIndex = int(i);
+                return true;
+            }
         }
     }
-    return nullptr;
+    return false;
 }
+
+// Apply one header check; true when the song is newly found unplayable.
+bool applyWavCheck(CachedSong& song, const String& path, const WavInfo& info) {
+    const bool wasPlayable = song.supported;
+    song.checked = true;
+    song.sizeBytes = info.sizeBytes;
+    song.durationMs = info.supported ? info.durationMs : 0;
+    song.supported = info.supported;
+    if (!wasPlayable || info.supported) return false;
+    Serial.printf("[Catalog] Cannot play %s: %s\n", path.c_str(), info.error.c_str());
+    if (g_unplayableCount++ == 0) {
+        g_firstUnplayable = utf8Prefix(baseNameOf(path), 60) + " (" + info.error + ")";
+    }
+    return true;
+}
+
+// Background checking walks one theme at a time and keeps only that theme's names.
+size_t g_checkTheme = 0;
+std::vector<String> g_checkNames;
+bool g_checkNamesLoaded = false;
 
 CachedTheme* mutableFindTheme(const String& themeId) {
     for (CachedTheme& t : g_themes) {
@@ -539,7 +604,7 @@ void buildCatalog() {
         theme.id = entry.name;
         theme.special = false;
         theme.disabledByUser = nameInJsonArray(config["disabledThemes"], entry.name);
-        loadThemeContents(theme, String(SONGS_ROOT) + "/" + entry.name);
+        loadThemeContents(theme);
         g_themes.push_back(std::move(theme));
     }
 
@@ -559,7 +624,7 @@ void buildCatalog() {
     animals.id = ANIMALS_THEME_ID;
     animals.special = true;
     animals.disabledByUser = false;
-    loadThemeContents(animals, String(ANIMALS_PATH));
+    loadThemeContents(animals);
     g_themes.push_back(std::move(animals));
 
     validateCatalog();
@@ -577,42 +642,66 @@ void buildCatalog() {
 }
 
 bool recordWavCheck(const String& path, const WavInfo& info) {
-    CachedSong* song = findSongByPath(path);
-    if (song == nullptr) return false;
-    const bool wasPlayable = song->supported;
-    song->checked = true;
-    song->sizeBytes = info.sizeBytes;
-    song->durationMs = info.supported ? info.durationMs : 0;
-    song->supported = info.supported;
-    song->error = info.supported ? String() : info.error;
-    if (!wasPlayable || info.supported) return false;
-    Serial.printf("[Catalog] Cannot play %s: %s\n", path.c_str(), song->error.c_str());
-    if (g_unplayableCount++ == 0) {
-        g_firstUnplayable = utf8Prefix(song->file, 60) + " (" + song->error + ")";
+    size_t themeIndex = 0;
+    int songIndex = -1;
+    if (!locateSong(path, themeIndex, songIndex)) return false;
+    return applyWavCheck(g_themes[themeIndex].songs[songIndex], path, info);
+}
+
+bool songNames(const CachedTheme& theme, std::vector<String>& names) {
+    unsigned removed = 0;
+    size_t entryCount = 0;
+    names = listSongFiles(theme, false, removed, entryCount);
+    if (names.size() == theme.songs.size()) return true;
+    Serial.printf("[Catalog] %s changed since boot (%u files, %u expected); restart to rescan\n",
+                  theme.id.c_str(), unsigned(names.size()), unsigned(theme.songs.size()));
+    names.clear();
+    return false;
+}
+
+String songPath(const String& themeId, int index) {
+    for (size_t t = 0; t < g_themes.size(); ++t) {
+        if (g_themes[t].id != themeId) continue;
+        std::vector<String> names;
+        if (index < 0 || !songNames(g_themes[t], names) || size_t(index) >= names.size()) return "";
+        g_resolvedPath = pathForThemeId(themeId) + "/" + names[index];
+        g_resolvedTheme = t;
+        g_resolvedIndex = index;
+        return g_resolvedPath;
     }
-    return true;
+    return "";
 }
 
 bool checkNextSong() {
-    for (CachedTheme& theme : g_themes) {
-        for (CachedSong& song : theme.songs) {
-            if (song.checked) continue;
-            if (g_checkedCount == 0) g_checkStartMs = millis();
-            const uint32_t startUs = micros();
-            const String path = pathForThemeId(theme.id) + "/" + song.file;
-            WavInfo info;
-            File file = SD.open(path.c_str());
-            if (file) {
-                info = inspectWav(file);
-                file.close();
-            } else {
-                info.error = "Cannot open file";
-            }
-            if (recordWavCheck(path, info)) g_checkUnplayable++;
-            g_checkBusyUs += micros() - startUs;
-            g_checkedCount++;
-            return true;
+    while (g_checkTheme < g_themes.size()) {
+        CachedTheme& theme = g_themes[g_checkTheme];
+        size_t next = 0;
+        while (next < theme.songs.size() && theme.songs[next].checked) ++next;
+        if (next < theme.songs.size() && !g_checkNamesLoaded) {
+            g_checkNamesLoaded = songNames(theme, g_checkNames);
+            if (!g_checkNamesLoaded) next = theme.songs.size();  // folder changed: skip it
         }
+        if (next >= theme.songs.size()) {
+            std::vector<String>().swap(g_checkNames);  // release the names now
+            g_checkNamesLoaded = false;
+            ++g_checkTheme;
+            continue;
+        }
+        if (g_checkedCount == 0) g_checkStartMs = millis();
+        const uint32_t startUs = micros();
+        const String path = pathForThemeId(theme.id) + "/" + g_checkNames[next];
+        WavInfo info;
+        File file = SD.open(path.c_str());
+        if (file) {
+            info = inspectWav(file);
+            file.close();
+        } else {
+            info.error = "Cannot open file";
+        }
+        if (applyWavCheck(theme.songs[next], path, info)) g_checkUnplayable++;
+        g_checkBusyUs += micros() - startUs;
+        g_checkedCount++;
+        return true;
     }
     if (g_checkedCount > 0 && !g_checkSummaryLogged) {
         g_checkSummaryLogged = true;
@@ -718,6 +807,13 @@ String scanSizeError(uint32_t requestId) {
     return json;
 }
 
+String scanChangedError(uint32_t requestId) {
+    String json = "{\"id\":";
+    json += requestId;
+    json += ",\"ok\":false,\"error\":\"Songs on the SD card changed. Restart the toy.\"}";
+    return json;
+}
+
 String buildThemesPageJson(uint32_t requestId, int cursor, int maxBytes) {
     if (cursor < 0) cursor = 0;
     if (maxBytes <= 0 || maxBytes > int(BLE_CONFIG_MAX_BYTES)) maxBytes = BLE_CONFIG_MAX_BYTES;
@@ -740,6 +836,8 @@ String buildSongsPageJson(uint32_t requestId, const String& themeId,
     if (maxBytes <= 0 || maxBytes > int(BLE_CONFIG_MAX_BYTES)) maxBytes = BLE_CONFIG_MAX_BYTES;
     const CachedTheme* theme = findTheme(themeId);
     if (!theme) return scanSizeError(requestId);
+    std::vector<String> names;
+    if (!songNames(*theme, names)) return scanChangedError(requestId);
     const int count = static_cast<int>(theme->songs.size());
     String json = songPageHeader(requestId, cursor, scanThemeStats(themeId, false));
     int next = cursor;
@@ -749,9 +847,9 @@ String buildSongsPageJson(uint32_t requestId, const String& themeId,
         wav.supported = song.supported;
         wav.sizeBytes = song.sizeBytes;
         wav.durationMs = song.durationMs;
-        wav.error = song.error;
+        if (!song.supported) wav.error = songErrorText(*theme, names[next]);
         String candidate = json;
-        appendSongRow(candidate, song.file, wav, !song.disabled);
+        appendSongRow(candidate, names[next], wav, !song.disabled);
         if (candidate.length() + scanPageTail(next + 1, next + 1 < count).length() > size_t(maxBytes)) break;
         json = candidate;
     }
@@ -782,23 +880,20 @@ bool themeEntryFits(const CachedTheme& theme) {
     appendThemeRow(json, worstCaseStats(theme));
     json += scanPageTail(2147483647, false);
     // Leave space for at least the shortest usable song entry in this theme.
-    CachedSong shortest;
-    shortest.file = "a.wav";
-    shortest.supported = true;
-    return json.length() <= BLE_CONFIG_MAX_BYTES && songEntryFits(theme, shortest);
+    return json.length() <= BLE_CONFIG_MAX_BYTES && songEntryFits(theme, "a.wav");
 }
 
-bool songEntryFits(const CachedTheme& theme, const CachedSong& song) {
+bool songEntryFits(const CachedTheme& theme, const String& file, const String& error) {
     String json = songPageHeader(UINT32_MAX, 2147483647, worstCaseStats(theme));
     WavInfo wav;
-    wav.supported = song.supported;
+    wav.supported = error.isEmpty();
     wav.sizeBytes = wav.durationMs = UINT32_MAX;
-    wav.error = song.error;
-    appendSongRow(json, song.file, wav, false);
+    wav.error = error;
+    appendSongRow(json, file, wav, false);
     json += scanPageTail(2147483647, false);
     // The same filename must also fit a setSong command, including escaping.
     String command = "{\"id\":4294967295,\"op\":\"setSong\",\"theme\":\"" +
-        jsonEscape(theme.id) + "\",\"file\":\"" + jsonEscape(song.file) + "\",\"enabled\":false}";
+        jsonEscape(theme.id) + "\",\"file\":\"" + jsonEscape(file) + "\",\"enabled\":false}";
     return json.length() <= BLE_CONFIG_MAX_BYTES && command.length() <= BLE_CONFIG_COMMAND_MAX_BYTES;
 }
 
@@ -820,6 +915,20 @@ void recordOversizedEntry(const String& kind, const String& name) {
     }
 }
 
+void dropOversizedSongs(const CachedTheme& theme, std::vector<String>& names, bool report) {
+    // A theme too long for even the shortest song row is dropped and reported
+    // as a theme by validateCatalog(); do not report its songs first.
+    report = report && songEntryFits(theme, "a.wav");
+    for (auto name = names.begin(); name != names.end();) {
+        if (songEntryFits(theme, *name)) {
+            ++name;
+            continue;
+        }
+        if (report) recordOversizedEntry("song", theme.id + "/" + *name);
+        name = names.erase(name);
+    }
+}
+
 void validateCatalog() {
     for (auto theme = g_themes.begin(); theme != g_themes.end();) {
         if (!themeEntryFits(*theme) && !theme->credit.isEmpty()) {
@@ -833,15 +942,7 @@ void validateCatalog() {
             theme = g_themes.erase(theme);
             continue;
         }
-        for (auto song = theme->songs.begin(); song != theme->songs.end();) {
-            if (!songEntryFits(*theme, *song)) {
-                recordOversizedEntry("song", theme->id + "/" + song->file);
-                song = theme->songs.erase(song);
-            } else {
-                ++song;
-            }
-        }
-        ++theme;
+        ++theme;  // oversized songs never enter the catalog (dropOversizedSongs)
     }
 }
 
@@ -949,10 +1050,12 @@ bool setSongDisabled(const String& themeId, const String& fileName, bool disable
     setListMember(doc, "disabledSongs", fileName, disabled, CONFIG_MAX_DISABLED_SONGS);
     bool ok = writeJsonFile(path, doc);
     if (ok) {
-        if (CachedTheme* t = mutableFindTheme(themeId)) {
-            for (CachedSong& s : t->songs) {
-                if (s.file == fileName) {
-                    s.disabled = disabled;
+        CachedTheme* t = mutableFindTheme(themeId);
+        std::vector<String> names;
+        if (t && songNames(*t, names)) {
+            for (size_t i = 0; i < names.size(); ++i) {
+                if (names[i] == fileName) {
+                    t->songs[i].disabled = disabled;
                     break;
                 }
             }

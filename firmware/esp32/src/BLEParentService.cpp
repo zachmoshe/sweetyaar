@@ -1,5 +1,14 @@
 #include "BLEParentService.h"
 #include "BluetoothAccess.h"
+#include <esp_heap_caps.h>
+#include <new>
+#include <Preferences.h>
+
+// Exported by the prebuilt Bluedroid but absent from the 4.4 public headers.
+// AUTO mode only tells clients that are connected while services are added,
+// and its persistence call-out is a stub, so bonded clients never hear of a
+// changed table. MANUAL mode enables esp_ble_gatts_send_service_change_indication.
+extern "C" uint8_t BTA_GATTS_SetServiceChangeMode(uint8_t mode);
 
 namespace {
 esp_gatt_if_t configGattsIf = ESP_GATT_IF_NONE;
@@ -37,6 +46,9 @@ bool BLEParentService::begin(const String& deviceName, uint16_t localMtu) {
             return false;
         }
     }
+    if (BTA_GATTS_SetServiceChangeMode(1) != 0) {
+        Serial.println("[BLE] Service Changed mode unavailable; cached GATT tables may go stale");
+    }
     _instance = this;
     // Filter before Arduino's handlers: its custom hooks run AFTER values and
     // CCCDs have already been changed, which is too late for access control.
@@ -47,8 +59,23 @@ bool BLEParentService::begin(const String& deviceName, uint16_t localMtu) {
     });
     esp_ble_gatts_register_callback([](esp_gatts_cb_event_t event, esp_gatt_if_t interface,
                                        esp_ble_gatts_cb_param_t* param) {
-        if (_instance->filterGatt(event, interface, param))
+        if (!_instance->filterGatt(event, interface, param)) return;
+        // Arduino copies a value into a std::string to answer a read. If that
+        // copy cannot be allocated, fail the request instead of aborting.
+        try {
             _instance->_originalGatt(event, interface, param);
+        } catch (const std::bad_alloc&) {
+            Serial.printf("[BLE] Out of memory in GATT event %d (free=%u largest=%u)\n", int(event),
+                unsigned(heap_caps_get_free_size(MALLOC_CAP_8BIT)),
+                unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)));
+            if (event == ESP_GATTS_READ_EVT && param->read.need_rsp)
+                esp_ble_gatts_send_response(interface, param->read.conn_id, param->read.trans_id,
+                    ESP_GATT_NO_RESOURCES, nullptr);
+            // Arduino stores a written value before it acknowledges the write.
+            if (event == ESP_GATTS_WRITE_EVT && param->write.need_rsp && !param->write.is_prep)
+                esp_ble_gatts_send_response(interface, param->write.conn_id, param->write.trans_id,
+                    ESP_GATT_NO_RESOURCES, nullptr);
+        }
     });
     // Arduino BLE exposes no small-payload notify overload. Capture this
     // server's interface so invalidations fit even the minimum ATT MTU (23).
@@ -201,6 +228,7 @@ bool BLEParentService::begin(const String& deviceName, uint16_t localMtu) {
     uint8_t access = static_cast<uint8_t>(AccessState::Authenticating);
     _accessChar->setValue(&access, 1);
     svc->start();
+    computeGattLayout(svc);
 
     BLEAdvertising* adv = BLEDevice::getAdvertising();
     adv->addServiceUUID(BLE_SERVICE_UUID);
@@ -235,26 +263,68 @@ void BLEParentService::updateQuietSeconds(uint16_t seconds) {
 
 void BLEParentService::updateTheme(const String& theme) {
     if (!_themeChar) return;
-    _themeChar->setValue(theme.c_str());
-    notifyOwner(_themeChar);
+    if (storeValue(_themeChar, theme)) notifyOwner(_themeChar);
 }
 
 void BLEParentService::updateStatus(const String& status) {
     if (!_statusChar) return;
-    _statusChar->setValue(status.c_str());
-    notifyOwner(_statusChar);
+    if (storeValue(_statusChar, status)) notifyOwner(_statusChar);
 }
 
 void BLEParentService::updateThemes(const String& themesJson) {
     if (!_themesChar) return;
-    _themesChar->setValue(themesJson.c_str());
+    storeValue(_themesChar, themesJson);
 }
 
 void BLEParentService::updateConfigResponse(const String& responseJson) {
-    if (_configResponseChar) {
-        _configResponseChar->setValue(responseJson.c_str());
-        notifyChanged(_configResponseChar);
+    if (!_configResponseChar) return;
+    if (!storeValue(_configResponseChar, responseJson.c_str(), responseJson.length())) {
+        // A short error still answers the app's request instead of a timeout.
+        // Built on the stack: the heap is what just ran out.
+        char fallback[96];
+        const int length = snprintf(fallback, sizeof(fallback),
+            "{\"id\":%lu,\"ok\":false,\"error\":\"The toy is low on memory. Try again.\"}",
+            static_cast<unsigned long>(responseRequestId(responseJson)));
+        // It is small, so only its own copy and the client's read must fit.
+        if (!storeValue(_configResponseChar, fallback, size_t(length), BLE_ERROR_REPLY_HEAP_RESERVE)) return;
     }
+    notifyChanged(_configResponseChar);
+}
+
+uint32_t BLEParentService::responseRequestId(const String& responseJson) {
+    // Every reply starts with {"id":<number>; the app ignores replies without it.
+    static const char prefix[] = "{\"id\":";
+    if (strncmp(responseJson.c_str(), prefix, sizeof(prefix) - 1) != 0) return 0;
+    return strtoul(responseJson.c_str() + sizeof(prefix) - 1, nullptr, 10);
+}
+
+bool BLEParentService::storeValue(BLECharacteristic* characteristic, const String& value) {
+    return storeValue(characteristic, value.c_str(), value.length());
+}
+
+bool BLEParentService::storeValue(BLECharacteristic* characteristic, const char* data, size_t length,
+                                  size_t reserve) {
+    // Arduino BLE copies each value into a std::string; a failed copy throws
+    // std::bad_alloc, which used to abort the firmware. Refuse an update the
+    // heap cannot hold with room to spare for Bluedroid. The catch is only a
+    // backstop: with no emergency pool, throwing itself needs heap.
+    const size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+    if (largest < length + reserve) {
+        logValueRefused(length, largest);
+        return false;
+    }
+    try {
+        characteristic->setValue(reinterpret_cast<uint8_t*>(const_cast<char*>(data)), length);
+        return true;
+    } catch (const std::bad_alloc&) {
+        logValueRefused(length, heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+        return false;
+    }
+}
+
+void BLEParentService::logValueRefused(size_t length, size_t largest) {
+    Serial.printf("[BLE] Low memory: value not updated (len=%u free=%u largest=%u)\n",
+        unsigned(length), unsigned(heap_caps_get_free_size(MALLOC_CAP_8BIT)), unsigned(largest));
 }
 
 void BLEParentService::notifyChanged(BLECharacteristic* characteristic) {
@@ -268,9 +338,10 @@ void BLEParentService::updateConfigAttribute(size_t index, const String& value) 
         return;
     }
     auto* characteristic = _configAttributes[index];
-    if (characteristic->getValue() == value.c_str()) return;
-    characteristic->setValue(value.c_str());
-    notifyChanged(characteristic);
+    // Compare in place: getValue() would allocate a copy of up to 512 bytes.
+    if (characteristic->getLength() == value.length() &&
+        memcmp(characteristic->getData(), value.c_str(), value.length()) == 0) return;
+    if (storeValue(characteristic, value)) notifyChanged(characteristic);
 }
 
 void BLEParentService::updateBatteryState(uint8_t state) {
@@ -282,8 +353,7 @@ void BLEParentService::updateBatteryState(uint8_t state) {
 
 void BLEParentService::updateNotice(const String& noticeJson) {
     if (!_noticeChar) return;
-    _noticeChar->setValue(noticeJson.c_str());
-    notifyOwner(_noticeChar);
+    if (storeValue(_noticeChar, noticeJson)) notifyOwner(_noticeChar);
 }
 
 void BLEParentService::updateChargerStatus(const ChargerStatus::Snapshot& snapshot) {
@@ -299,7 +369,7 @@ void BLEParentService::updateChargerStatus(const ChargerStatus::Snapshot& snapsh
 }
 
 void BLEParentService::updateFirmwareInfo(const String& json) {
-    if (_firmwareChar) _firmwareChar->setValue(json.c_str());
+    if (_firmwareChar) storeValue(_firmwareChar, json);
 }
 
 void BLEParentService::updateOtaStatus(const uint8_t* status, size_t length) {
@@ -678,6 +748,7 @@ void BLEParentService::handleGap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_pa
                 retired->noticeSent = retired->noticeConfirmed = false;
             }
             p->authenticated = true;
+            p->layoutCheck = true;
             if (newest) {
                 clearPending();
                 _ownerId = p->id;
@@ -685,8 +756,10 @@ void BLEParentService::handleGap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_pa
         }
         owner = _ownerId;
         portEXIT_CRITICAL(&_mux);
-        Serial.printf("[BLE] t=%lu CONTROL authenticated_conn=%u owner=%u previous=%u\n",
-            static_cast<unsigned long>(millis()), snapshot.id, owner, previousOwner);
+        Serial.printf("[BLE] t=%lu CONTROL authenticated_conn=%u owner=%u previous=%u free=%u largest=%u\n",
+            static_cast<unsigned long>(millis()), snapshot.id, owner, previousOwner,
+            unsigned(heap_caps_get_free_size(MALLOC_CAP_8BIT)),
+            unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)));
         return;
     }
     _originalGap(event, param);
@@ -705,6 +778,11 @@ int BLEParentService::characteristicIndex(uint16_t handle, bool descriptor) {
 bool BLEParentService::filterGatt(esp_gatts_cb_event_t event, esp_gatt_if_t interface,
                                  esp_ble_gatts_cb_param_t* param) {
     if (event == ESP_GATTS_MTU_EVT && _ota) _ota->mtuChanged(param->mtu.mtu);
+    if (event == ESP_GATTS_SEND_SERVICE_CHANGE_EVT) {
+        _layoutStatus = param->service_change.status;
+        _layoutResult = true;
+        return false;
+    }
     if (event == ESP_GATTS_CONF_EVT && _noticeChar && param->conf.handle == _noticeChar->getHandle()) {
         portENTER_CRITICAL(&_mux);
         if (auto* p = peer(param->conf.conn_id)) p->noticeConfirmed = param->conf.status == ESP_GATT_OK;
@@ -899,8 +977,84 @@ void BLEParentService::pollAdvertising(bool canNotify) {
             }
         }
     }
+    pollServiceChanged();
     if (_restartAdvPending) {
         _restartAdvPending = false;
         BLEDevice::startAdvertising();
     }
+}
+
+void BLEParentService::computeGattLayout(BLEService* service) {
+    GattLayoutHash layout;
+    layout.add(service->getHandle());
+    for (size_t i = 0; i <= SECURED_CHAR_COUNT; ++i) {
+        BLECharacteristic* characteristic = i < SECURED_CHAR_COUNT ? _securedChars[i] : _accessChar;
+        if (!characteristic) continue;
+        layout.add(characteristic->getUUID().toString().c_str());
+        layout.add(characteristic->getHandle());
+        auto* cccd = characteristic->getDescriptorByUUID("2902");
+        layout.add(static_cast<uint16_t>(cccd ? cccd->getHandle() : 0));
+        // Arduino hides properties; access mirrors them for every attribute.
+        layout.add(static_cast<uint16_t>(i < SECURED_CHAR_COUNT && writableIndex(int(i))));
+    }
+    _gattLayout = layout.value;
+    Serial.printf("[BLE] GATT layout=%08lX\n", static_cast<unsigned long>(_gattLayout));
+}
+
+void BLEParentService::pollServiceChanged() {
+    const uint32_t now = millis();
+    if (_layoutPending && _layoutResult) {
+        _layoutResult = false;
+        _layoutPending = false;
+        const bool sent = _layoutStatus == ESP_GATT_OK;
+        // Record only a delivered indication; a failed one retries next connection.
+        Preferences prefs;
+        char key[13];
+        gattLayoutKey(_layoutIdentity, key);
+        const bool saved = sent && prefs.begin(GATT_LAYOUT_NAMESPACE, false) &&
+            prefs.putULong(key, _gattLayout) == sizeof(uint32_t);
+        Serial.printf("[BLE] t=%lu SERVICE_CHANGED conn=%u status=0x%02X recorded=%d\n",
+            static_cast<unsigned long>(now), _layoutConnection, unsigned(_layoutStatus), saved);
+        _layoutConnection = NO_CONNECTION;
+    } else if (_layoutPending && now - _layoutSentAt >= 5000) {
+        Serial.printf("[BLE] t=%lu SERVICE_CHANGED conn=%u status=timeout\n",
+            static_cast<unsigned long>(now), _layoutConnection);
+        _layoutPending = false;
+        _layoutConnection = NO_CONNECTION;
+    }
+    if (_layoutPending || configGattsIf == ESP_GATT_IF_NONE) return;
+    Peer snapshot;
+    bool found = false;
+    portENTER_CRITICAL(&_mux);
+    for (auto& p : _peers) {
+        if (p.id == NO_CONNECTION || !p.layoutCheck) continue;
+        p.layoutCheck = false;
+        if (!p.authenticated || p.reject || p.retiring) continue;
+        snapshot = p;
+        found = true;
+        break;
+    }
+    portEXIT_CRITICAL(&_mux);
+    if (!found) return;
+    static const uint8_t none[6] = {};
+    const uint8_t* identity = memcmp(snapshot.identity, none, 6) ? snapshot.identity : snapshot.address;
+    char key[13];
+    gattLayoutKey(identity, key);
+    Preferences prefs;
+    // Read-write: a read-only open of a namespace not yet created logs an error.
+    const bool open = prefs.begin(GATT_LAYOUT_NAMESPACE, false);
+    const bool hasRecord = open && prefs.isKey(key);
+    const uint32_t recorded = hasRecord ? prefs.getULong(key, 0) : 0;
+    prefs.end();
+    if (!gattServiceChangedNeeded(hasRecord, recorded, _gattLayout, snapshot.newKeys)) return;
+    const esp_err_t result = esp_ble_gatts_send_service_change_indication(configGattsIf, snapshot.address);
+    Serial.printf("[BLE] t=%lu SERVICE_CHANGED_REQUEST conn=%u recorded=%08lX layout=%08lX new_keys=%d result=0x%X\n",
+        static_cast<unsigned long>(now), snapshot.id, static_cast<unsigned long>(recorded),
+        static_cast<unsigned long>(_gattLayout), snapshot.newKeys, unsigned(result));
+    if (result != ESP_OK) return;
+    _layoutPending = true;
+    _layoutResult = false;
+    _layoutSentAt = now;
+    _layoutConnection = snapshot.id;
+    memcpy(_layoutIdentity, identity, 6);
 }

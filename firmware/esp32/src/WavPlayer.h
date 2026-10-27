@@ -71,7 +71,7 @@ public:
     // Update volume (0.0–1.0) on the shared VolumeStream
     void setVolume(float v) { _output.setVolume(v); }
 
-    // List playable song themes from the in-RAM catalog; fills sorted id/name arrays
+    // List playable song themes from the RAM catalog; fills sorted id/name arrays
     static int listThemes(String* outIds, String* outNames, int maxThemes);
 
     // Build the BLE theme-list JSON value, capped to a complete-entry byte limit
@@ -92,13 +92,16 @@ private:
     bool _idle       = true;
     bool _animalMode = false;
 
-    // Song list built on startSong()
-    String _songFiles[MAX_SONGS];
+    // Song list built on startSong(): catalog positions, not path strings;
+    // ContentCatalog::songPath() reads the name from the card when it opens.
+    String _songTheme;
+    int    _songIndex[MAX_SONGS];
     int    _songOrder[MAX_SONGS];  // permuted or identity
     int    _songCount  = 0;
     int    _songCursor = 0;        // index into _songOrder
+    int    _currentSong = -1;      // catalog position of the open song
 
-    String _animalFiles[MAX_ANIMALS];
+    int    _animalIndex[MAX_ANIMALS];
     int    _animalOrder[MAX_ANIMALS];
     int    _animalCount  = 0;
     int    _animalCursor = 0;     // index into _animalOrder

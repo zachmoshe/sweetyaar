@@ -169,6 +169,7 @@ String bedtimeCurrentTimeString();
 uint16_t parseBedtimeTimeString(const char* value, uint16_t fallback);
 void markActivity(const char* reason);
 void markBleActivity(const char* reason);
+void logHeap(const char* where);
 void pollBleConnectionState();
 uint32_t currentSleepTimeoutMs();
 uint32_t readSleepSeconds(JsonObjectConst sleep, const char* key, uint32_t fallbackMs);
@@ -325,11 +326,12 @@ void setup() {
         if (!parentConfig.load()) {
             reportSystemError();
         }
-        // Single SD pass: read the whole content catalog into RAM. Every later
-        // theme/song lookup (playback, BLE theme list, settings scans) is served
-        // from memory; the card is re-read only on reboot.
+        // List the content once into a compact RAM catalog (summaries and song
+        // states, no names); song names are read from the card when needed.
+        logHeap("before catalog");
         ContentCatalog::buildCatalog();
         refreshThemeList();
+        logHeap("after catalog");
     }
     activeTheme = parentConfig.defaultTheme();
     applyActiveThemeFallback();
@@ -377,6 +379,7 @@ void setup() {
     // parent service it could never be updated again, so roll back instead.
     OtaUpdate::confirmRunningImage(bleReady);
 
+    logHeap("ready");
     Serial.println("[Boot] Ready.");
     finishSystemSoundStartup();
 }
@@ -729,7 +732,19 @@ void pollBleConnectionState() {
         lastBleConnected = connected;
         markBleActivity(connected ? "BLE connected" : "BLE disconnected");
         if (connected) publishConfigAttributes(); // Fresh clock sample on reconnect.
+        logHeap(connected ? "BLE controller connected" : "BLE controller disconnected");
     }
+}
+
+// ---------------------------------------------------------------------------
+// logHeap()
+// ---------------------------------------------------------------------------
+// Milestone heap report; never call it per packet or per loop during audio.
+void logHeap(const char* where) {
+    Serial.printf("[Heap] %s free=%u largest=%u min=%u\n", where,
+                  unsigned(heap_caps_get_free_size(MALLOC_CAP_8BIT)),
+                  unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)),
+                  unsigned(heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)));
 }
 
 // ---------------------------------------------------------------------------
@@ -1477,6 +1492,7 @@ void handleBleConfigCommands() {
     String commandJson;
     if (bleService.pollConfigCommand(commandJson)) {
         markBleActivity("BLE config command");
+        logHeap("config command");
         handleBleConfigCommand(commandJson);
     }
 }

@@ -8,6 +8,7 @@
 #include <freertos/portmacro.h>
 #include "Config.h"
 #include "ChargerStatus.h"
+#include "GattLayout.h"
 
 // ---------------------------------------------------------------------------
 // BLEParentService — GATT server for parent controls
@@ -136,6 +137,11 @@ private:
     uint8_t _lastChargerValue[ChargerStatus::ENCODED_SIZE] = {};
     bool _hasChargerValue = false;
     BLECharacteristic* _configAttributes[BLE_CONFIG_ATTRIBUTE_COUNT] = {};
+    bool storeValue(BLECharacteristic* characteristic, const String& value);
+    bool storeValue(BLECharacteristic* characteristic, const char* data, size_t length,
+                    size_t reserve = BLE_VALUE_HEAP_RESERVE);
+    static void logValueRefused(size_t length, size_t largest);
+    static uint32_t responseRequestId(const String& responseJson);
     void notifyChanged(BLECharacteristic* characteristic);
     void notifyOwner(BLECharacteristic* characteristic, bool invalidation = false);
     void handleGap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t* param);
@@ -171,8 +177,19 @@ private:
         bool noticeSent = false;
         bool noticeConfirmed = false;
         bool disconnectRequested = false;
+        bool layoutCheck = false; // compare its cached GATT layout from loop()
     };
     Peer _peers[3];
+    // Service Changed for a bonded client whose cached table is outdated.
+    uint32_t _gattLayout = 0;
+    bool _layoutPending = false;
+    uint32_t _layoutSentAt = 0;
+    uint16_t _layoutConnection = NO_CONNECTION;
+    uint8_t _layoutIdentity[6] = {};
+    volatile bool _layoutResult = false;
+    volatile esp_gatt_status_t _layoutStatus = ESP_GATT_OK;
+    void computeGattLayout(BLEService* service);
+    void pollServiceChanged();
     // GAP security can finish before Arduino delivers GATTS CONNECT (macOS
     // bonded reconnects do this). Keep only outcome metadata, never key bytes.
     struct EarlySecurity {

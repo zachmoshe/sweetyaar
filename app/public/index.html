@@ -1540,6 +1540,16 @@
       opacity: 0.6;
     }
 
+    /* Locked while the toy is a Bluetooth speaker: visible at a glance on a
+       phone, where there is no hover. */
+    .ground-tab.locked .ground-toy {
+      filter: grayscale(1);
+    }
+
+    .ground-tab.locked .ground-label {
+      color: #6b6b6b;
+    }
+
     .ground-toy {
       display: block;
       width: 58px;
@@ -4728,7 +4738,7 @@
       // Already scanned this session — render from cache instantly. The SD
       // content can't change without a restart, and our own edits are tracked
       // locally, so there's nothing to re-read.
-      if (!state.settings.sessionScanned) {
+      if (!state.settings.sessionScanned && !isBtConnected()) {
         loadSettingsData();
       }
     }
@@ -5159,8 +5169,10 @@
     function render() {
       const updating = updateViewVisible();
       const opening = !state.connected && !updating;
-      const settings = state.connected && state.view === "settings";
-      const streaming = state.connected && state.view === "remote" && isBtConnected();
+      // Classic audio leaves too little toy memory for settings scans, so the
+      // Settings tab shows the same speaker screen as Remote until it ends.
+      const settings = state.connected && state.view === "settings" && !isBtConnected();
+      const streaming = state.connected && ["remote", "settings"].includes(state.view) && isBtConnected();
       const ready = state.connected && state.view === "remote" && !isBtConnected();
       const disabled = controlsDisabled();
 
@@ -5504,6 +5516,10 @@
         state.message = "";
         render();
         if (!state.remoteInitializing) refreshDeviceClock();
+        // Settings opened during streaming were not scanned; load them now.
+        if (state.view === "settings" && !state.settings.sessionScanned && !settingsBusy()) {
+          loadSettingsData();
+        }
         return;
       }
       render();
@@ -5694,6 +5710,16 @@
         render();
       } catch (error) {
         if (state.server !== server) return;
+        if (shouldRediscover(error, state.device)) {
+          state.remoteInitializing = false;
+          try {
+            await openRemote(server, state.device);
+            return;
+          } catch (retryError) {
+            if (state.server !== server) return;
+            error = retryError;
+          }
+        }
         disconnectWithReason(describeConnectionError(error));
       }
     }
@@ -6380,6 +6406,9 @@
         button.classList.toggle("active", active);
         button.setAttribute("aria-current", active ? "page" : "false");
         button.disabled = busy && !active;
+        const locked = view !== "charger" && isBtConnected();
+        button.classList.toggle("locked", locked);
+        button.setAttribute("aria-disabled", locked ? "true" : "false");
       }
       const attention = dollNeedsAttention();
       els.tabDollDot.hidden = !attention;
@@ -6616,39 +6645,12 @@
         device.addEventListener("gattserverdisconnected", onDisconnected);
 
         const server = await device.gatt.connect();
-        let service;
         try {
-          service = await server.getPrimaryService(UUIDS.service);
+          await openRemote(server, device);
         } catch (error) {
-          if (!device.gatt.connected || (error?.name !== "NotFoundError" &&
-              !/No Services matching UUID/i.test(error?.message || ""))) throw error;
-          try {
-            const services = await server.getPrimaryServices();
-            console.warn("[SweetYaar BLE] Service not found; available:", services.map((service) => service.uuid));
-          } catch (listError) {
-            console.warn("[SweetYaar BLE] Could not list primary services", listError);
-            throw listError;
-          }
-          if (!device.gatt.connected) throw error;
-          const wrapped = new Error("Please upgrade device firmware.");
-          wrapped.userMessage = "Please upgrade device firmware.";
-          wrapped.technicalMessage =
-            `Missing BLE service ${UUIDS.service}. The browser may be seeing old firmware or stale GATT cache. ${error.message || ""}`;
-          throw wrapped;
+          if (!shouldRediscover(error, device)) throw error;
+          await openRemote(server, device);
         }
-
-        state.server = server;
-        await checkConnectionAccess(service, device);
-        state.chars = {};
-        await discoverFirmwareCharacteristics(service);
-        const info = await readFirmwareInfo();
-        if (state.device !== device || state.disconnectReason) return;
-        if (info.mode === "update") {
-          await resumeAfterReloadInUpdateMode(server, service, device);
-          return;
-        }
-        state.view = "remote";
-        await completeNormalConnection(server, service, device);
       } catch (error) {
         disconnectWithReason(state.disconnectReason || describeConnectionError(error));
       } finally {
@@ -6669,6 +6671,63 @@
       state.busy = false;
       beginRemoteInitialization(server, service);
       void loadRelease();
+    }
+
+    // Everything after the link is up: access check, firmware info, controls.
+    async function openRemote(server, device) {
+      let service;
+      try {
+        service = await server.getPrimaryService(UUIDS.service);
+      } catch (error) {
+        if (!device.gatt.connected || (error?.name !== "NotFoundError" &&
+            !/No Services matching UUID/i.test(error?.message || ""))) throw error;
+        try {
+          const services = await server.getPrimaryServices();
+          console.warn("[SweetYaar BLE] Service not found; available:", services.map((service) => service.uuid));
+        } catch (listError) {
+          console.warn("[SweetYaar BLE] Could not list primary services", listError);
+          throw listError;
+        }
+        if (!device.gatt.connected) throw error;
+        const wrapped = new Error("Please upgrade device firmware.");
+        wrapped.userMessage = "Please upgrade device firmware.";
+        wrapped.technicalMessage =
+          `Missing BLE service ${UUIDS.service}. The browser may be seeing old firmware or stale GATT cache. ${error.message || ""}`;
+        throw wrapped;
+      }
+
+      state.server = server;
+      await checkConnectionAccess(service, device);
+      state.chars = {};
+      await discoverFirmwareCharacteristics(service);
+      const info = await readFirmwareInfo();
+      if (state.device !== device || state.disconnectReason) return;
+      if (info.mode === "update") {
+        await resumeAfterReloadInUpdateMode(server, service, device);
+        return;
+      }
+      state.view = "remote";
+      await completeNormalConnection(server, service, device);
+    }
+
+    // The toy sends Service Changed once after its GATT table changed (see
+    // "GATT table changes and Service Changed" in docs/engineering/firmware.md).
+    // Chrome then drops every object of the old table. A call already in flight
+    // fails as NotSupportedError ("unknown reason"); later calls fail as
+    // InvalidStateError ("no longer exists"). Set the connection up again on
+    // the same link, once per connection.
+    let tableRediscoveredFor = null;
+    function gattTableChanged(error) {
+      const message = error?.message || "";
+      return (error?.name === "InvalidStateError" && /no longer exists/i.test(message)) ||
+        (error?.name === "NotSupportedError" && /unknown reason/i.test(message));
+    }
+    function shouldRediscover(error, device) {
+      if (!gattTableChanged(error)) return false;
+      if (!device?.gatt?.connected || state.device !== device || tableRediscoveredFor === device) return false;
+      tableRediscoveredFor = device;
+      console.warn("[SweetYaar BLE] The toy's Bluetooth table changed; discovering it again", error);
+      return true;
     }
 
     function disconnectWithReason(message) {

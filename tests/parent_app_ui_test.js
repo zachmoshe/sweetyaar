@@ -1908,6 +1908,69 @@ const tests = [
     await waitUntil(() => !state.remoteInitializing, "remote initialization");
     assert.strictEqual(state.connected, true);
   `],
+  ["a Service Changed during the access check rediscovers instead of failing", String.raw`
+    const ble = makeBleHarness({ accessState: 2 });
+    const originalRead = ble.chars.access.readValue.bind(ble.chars.access);
+    let stale = 1;
+    ble.chars.access.readValue = async () => {
+      if (stale-- > 0) {
+        const error = new Error("GATT Service no longer exists.");
+        error.name = "InvalidStateError";
+        throw error;
+      }
+      return originalRead();
+    };
+    await connect();
+    await waitUntil(() => !state.remoteInitializing, "remote initialization");
+    assert.strictEqual(state.connected, true);
+    assert.strictEqual(state.disconnectReason, "");
+    assert.strictEqual(ble.device.gatt.connected, true);
+  `],
+  ["a Service Changed while controls load rediscovers instead of failing", String.raw`
+    const ble = makeBleHarness({ accessState: 2 });
+    const originalRead = ble.chars.volume.readValue.bind(ble.chars.volume);
+    let stale = 1;
+    ble.chars.volume.readValue = async () => {
+      if (stale-- > 0) {
+        const error = new Error("GATT Service no longer exists.");
+        error.name = "InvalidStateError";
+        throw error;
+      }
+      return originalRead();
+    };
+    await connect();
+    await waitUntil(() => state.connected && !state.remoteInitializing && stale < 0, "rediscovered controls");
+    assert.strictEqual(state.disconnectReason, "");
+    assert.strictEqual(ble.device.gatt.connected, true);
+  `],
+  ["a read in flight when Service Changed arrives also rediscovers", String.raw`
+    const ble = makeBleHarness({ accessState: 2 });
+    const originalRead = ble.chars.access.readValue.bind(ble.chars.access);
+    let stale = 1;
+    ble.chars.access.readValue = async () => {
+      if (stale-- > 0) {
+        const error = new Error("GATT operation failed for unknown reason.");
+        error.name = "NotSupportedError";
+        throw error;
+      }
+      return originalRead();
+    };
+    await connect();
+    await waitUntil(() => !state.remoteInitializing, "remote initialization");
+    assert.strictEqual(state.connected, true);
+    assert.strictEqual(ble.device.gatt.connected, true);
+  `],
+  ["a second Service Changed on one connection still disconnects", String.raw`
+    const ble = makeBleHarness({ accessState: 2 });
+    ble.chars.access.readValue = async () => {
+      const error = new Error("GATT Service no longer exists.");
+      error.name = "InvalidStateError";
+      throw error;
+    };
+    await connect();
+    assert.strictEqual(state.connected, false);
+    assert.strictEqual(ble.device.gatt.connected, false);
+  `],
   ["failed authentication is not reported as missing firmware", String.raw`
     await connectWithFakeBle({ accessState: 3 });
     assert.strictEqual(state.connected, false);
@@ -2007,6 +2070,32 @@ const tests = [
     assert.strictEqual(els.themeCurrent.textContent, "Nature");
     assertJsonEqual(payloadsWithoutIds(ble.writes.config).map((payload) => payload.op), ["syncTime", "syncTime"]);
     assert.deepStrictEqual(ble.notifications, ["status", "notice", "configResponse", ...CONFIG_ATTRIBUTES, "volume", "killswitch", "theme", "battery", "charger"]);
+  `],
+  ["BT streaming locks Settings like Remote and scans nothing until it ends", String.raw`
+    const ble = await connectWithFakeBle({ status: "BT connected" });
+    await els.tabSettings.click();
+    assert.strictEqual(state.view, "settings");
+    assertVisible(els.streamingView, [els.openingView, els.readyView, els.settingsView]);
+    const scans = () => payloadsWithoutIds(ble.writes.config).filter((p) => p.op === "scanThemes" || p.op === "scanSongs");
+    assert.strictEqual(scans().length, 0);
+    ble.chars.status.emit("Idle");
+    await waitUntil(() => scans().length > 0, "settings scan after streaming ends");
+    await waitUntil(() => !state.settings.loading, "settings load");
+    assertVisible(els.settingsView, [els.openingView, els.readyView, els.streamingView]);
+  `],
+  ["BT streaming that starts in Settings hides it; Doll stays available", String.raw`
+    const ble = await connectWithFakeBle();
+    await els.tabSettings.click();
+    await waitUntil(() => !state.settings.loading, "settings load");
+    assertVisible(els.settingsView, [els.openingView, els.readyView, els.streamingView]);
+    ble.chars.status.emit("BT connected");
+    assertVisible(els.streamingView, [els.openingView, els.readyView, els.settingsView]);
+    assert(els.tabRemote.classList.contains("locked") && els.tabSettings.classList.contains("locked"));
+    assert(!els.tabDoll.classList.contains("locked"));
+    await els.tabDoll.click();
+    assertVisible(els.chargerView, [els.readyView, els.settingsView, els.streamingView, els.openingView]);
+    ble.chars.status.emit("Idle");
+    assert(!els.tabRemote.classList.contains("locked") && !els.tabSettings.classList.contains("locked"));
   `],
   ["remote playback buttons write command values", String.raw`
     const ble = await connectWithFakeBle();
