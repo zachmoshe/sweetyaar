@@ -227,6 +227,10 @@ def test_parent_app_service_worker_precache_contract(repo_root) -> None:
     assert "self.clients.claim()" in sw_source
     assert "function networkFirst" in sw_source
     assert "function staleWhileRevalidate" in sw_source
+    shell_match = re.search(r"function isAppShellPath\(url\) \{(?P<body>.*?)\n\}", sw_source, re.DOTALL)
+    assert shell_match, "sw.js must define isAppShellPath"
+    for suffix in ('"/index.html"', '".css"', '".webmanifest"'):
+        assert suffix in shell_match.group("body"), f"{suffix} must be network-first"
     assert "request.method === \"GET\"" in sw_source
 
 

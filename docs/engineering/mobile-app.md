@@ -358,10 +358,12 @@ the remote on the home screen or application launcher. Installation is
 optional: the same remote works in a normal browser tab.
 
 After one successful online load, the service worker keeps the application
-shell, manifest, icons, and listed UI images in a local cache. Navigation uses
-a network-first strategy, falling back to the cached app when the network is
-unavailable. Static precached assets are shown immediately from cache and
-refreshed in the background. The BLE connection itself is local and does not
+shell, manifest, icons, and listed UI images in a local cache. The page,
+`tokens.css` and the web manifest use a network-first strategy, falling back to
+the cached copies when the network is unavailable, so a launch never mixes new
+HTML with an old stylesheet. Precached images are shown immediately from cache
+and refreshed in the background; give a changed image a new file name if it
+must appear on the first launch after a deploy. The BLE connection itself is local and does not
 need Internet access. Firmware files are not precached: the manifest is always
 fetched from the network first, and an image (whose name includes its version)
 is cached when first downloaded, so an interrupted update can resume offline.

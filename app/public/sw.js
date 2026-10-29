@@ -1,7 +1,7 @@
 "use strict";
 
 const CACHE_PREFIX = "sweetyaar-parent";
-const CACHE_VERSION = "sweetyaar-parent-v60";
+const CACHE_VERSION = "sweetyaar-parent-v61";
 
 const PRECACHE_URLS = [
   "./",
@@ -72,8 +72,11 @@ function isNavigationRequest(request) {
   return request.mode === "navigate";
 }
 
+// The page, its stylesheet and the web manifest must match each other, so they
+// come from the network when it is reachable. Images stay cache-first.
 function isAppShellPath(url) {
-  return url.pathname.endsWith("/") || url.pathname.endsWith("/index.html");
+  return url.pathname.endsWith("/") || url.pathname.endsWith("/index.html") ||
+    url.pathname.endsWith(".css") || url.pathname.endsWith(".webmanifest");
 }
 
 function isPrecachedPath(url) {
