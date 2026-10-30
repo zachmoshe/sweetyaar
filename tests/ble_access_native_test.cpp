@@ -11,6 +11,7 @@
 #include "ChargerStatus.h"
 #include "GattLayout.h"
 #include "recording_serial.h"
+#include "DevLog.h"
 
 using String = std::string;
 using esp_err_t = int;

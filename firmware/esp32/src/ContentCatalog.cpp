@@ -3,6 +3,7 @@
 #include <esp_heap_caps.h>
 #include <unistd.h>
 #include <utility>
+#include "DevLog.h"
 
 namespace ContentCatalog {
 namespace {
@@ -395,7 +396,7 @@ void sanitizeAttribution(CachedTheme& theme) {
         if (static_cast<uint8_t>(theme.credit[i]) < 0x20 || theme.credit[i] == '\x7f') ok = false;
     }
     if (!ok) {
-        Serial.printf("[Catalog] Ignoring attribution for theme %s: must be one line of at most %u bytes\n",
+        DLOG(CATALOG_ATTRIBUTION_IGNORED,
                       theme.id.c_str(), unsigned(ATTRIBUTION_MAX_BYTES));
         theme.credit = "";
     }
@@ -438,11 +439,11 @@ std::vector<DirEntry> listDirectory(const String& path, unsigned& removed) {
         if (unlink((fsPath + "/" + name).c_str()) == 0) {
             removed++;
         } else {
-            Serial.printf("[Catalog] Could not remove %s/%s\n", path.c_str(), name.c_str());
+            DLOG(CATALOG_REMOVE_FAILED, path.c_str(), name.c_str());
         }
     }
     if (removed > 0) {
-        Serial.printf("[Catalog] Removed %u macOS metadata file(s) from %s\n", removed, path.c_str());
+        DLOG(CATALOG_METADATA_REMOVED, removed, path.c_str());
     }
     return entries;
 }
@@ -557,7 +558,7 @@ bool applyWavCheck(CachedSong& song, const String& path, const WavInfo& info) {
     song.durationMs = info.supported ? info.durationMs : 0;
     song.supported = info.supported;
     if (!wasPlayable || info.supported) return false;
-    Serial.printf("[Catalog] Cannot play %s: %s\n", path.c_str(), info.error.c_str());
+    DLOG(CATALOG_CANNOT_PLAY, path.c_str(), info.error.c_str());
     if (g_unplayableCount++ == 0) {
         g_firstUnplayable = utf8Prefix(baseNameOf(path), 60) + " (" + info.error + ")";
     }
@@ -634,7 +635,7 @@ void buildCatalog() {
     for (const CachedTheme& t : g_themes) {
         totalSongs += static_cast<int>(t.songs.size());
     }
-    Serial.printf("[Catalog] Built in %lums: %u themes, %d files (free=%u largest=%u)\n",
+    DLOG_DETAIL(CATALOG_BUILT,
                   static_cast<unsigned long>(millis() - startMs),
                   static_cast<unsigned>(g_themes.size()), totalSongs,
                   heap_caps_get_free_size(MALLOC_CAP_8BIT),
@@ -653,7 +654,7 @@ bool songNames(const CachedTheme& theme, std::vector<String>& names) {
     size_t entryCount = 0;
     names = listSongFiles(theme, false, removed, entryCount);
     if (names.size() == theme.songs.size()) return true;
-    Serial.printf("[Catalog] %s changed since boot (%u files, %u expected); restart to rescan\n",
+    DLOG(CATALOG_CHANGED,
                   theme.id.c_str(), unsigned(names.size()), unsigned(theme.songs.size()));
     names.clear();
     return false;
@@ -705,7 +706,7 @@ bool checkNextSong() {
     }
     if (g_checkedCount > 0 && !g_checkSummaryLogged) {
         g_checkSummaryLogged = true;
-        Serial.printf("[Catalog] Header check: %u files, busy=%lums over %lums, %u unplayable\n",
+        DLOG(CATALOG_HEADER_CHECK,
                       g_checkedCount, static_cast<unsigned long>((g_checkBusyUs + 500U) / 1000U),
                       static_cast<unsigned long>(millis() - g_checkStartMs), g_checkUnplayable);
     }
@@ -906,9 +907,7 @@ String utf8Prefix(const String& value, size_t maxBytes) {
 
 void recordOversizedEntry(const String& kind, const String& name) {
     ++g_oversizedEntries;
-    Serial.printf("[Catalog] Ignoring oversized %s: %s (%u UTF-8 bytes, %u JSON bytes). "
-                  "Must fit a 512-byte scan response and 383-byte update command; "
-                  "theme IDs also have a 63-byte limit. Shorten the name and reboot.\n",
+    DLOG(CATALOG_OVERSIZED,
                   kind.c_str(), name.c_str(), unsigned(name.length()), unsigned(jsonEscape(name).length()));
     if (g_firstOversizedEntry.isEmpty()) {
         g_firstOversizedEntry = kind + " " + utf8Prefix(name, 36);
@@ -933,7 +932,7 @@ void validateCatalog() {
     for (auto theme = g_themes.begin(); theme != g_themes.end();) {
         if (!themeEntryFits(*theme) && !theme->credit.isEmpty()) {
             // A credit too long for the 512-byte scan page must not hide the whole theme.
-            Serial.printf("[Catalog] Dropping attribution for theme %s: entry exceeds the BLE response limit\n",
+            DLOG(CATALOG_ATTRIBUTION_DROPPED,
                           theme->id.c_str());
             theme->credit = "";
         }

@@ -43,7 +43,7 @@ def settings_runtime_exe(repo_root: pathlib.Path, tmp_path_factory) -> pathlib.P
         "effectiveVolumePct", "applyEffectiveVolume", "applyVolume",
         "bedtimeTimeString", "bedtimeOverrideName", "setBedtimeRuntimeActive",
         "buildConfigAttribute", "publishConfigAttributes", "buildConfigOkResponse",
-        "buildConfigErrorResponse",
+        "buildConfigErrorResponse", "logConfigError",
     )]
     declarations = "\n".join(function.split("{", 1)[0].strip() + ";" for function in functions)
     branch = main[main.index('    if (op == "setConfig") {'):

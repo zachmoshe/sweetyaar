@@ -18,6 +18,8 @@ design they describe.
   truth when it and the document disagree; `firmware/esp32/src/Config.h` is the
   truth for pins and timings.
 - [Mobile app](docs/engineering/mobile-app.md): parent remote, PWA, deployment.
+- [Logging and debugging](docs/logging-and-debugging.md): the flash log, its
+  event catalog (IDs are permanent; add, never renumber) and how to read it.
 - `docs/engineering/*-validation.md` are records of real-device investigations
   and may describe superseded states; each says what has since changed.
 

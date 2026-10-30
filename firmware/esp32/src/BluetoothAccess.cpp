@@ -8,6 +8,7 @@
 #include <mbedtls/aes.h>
 #include <memory>
 #include <new>
+#include "DevLog.h"
 
 BluetoothAccess bluetoothAccess;
 
@@ -42,7 +43,7 @@ bool encryptIdentityBlock(const uint8_t* key, const uint8_t* input, uint8_t* out
 void BluetoothAccess::begin() {
     Preferences prefs;
     if (!prefs.begin("sy-access", false)) {
-        Serial.println("[Access] Initialization failed: NVS unavailable; Bluetooth access disabled");
+        DLOG(ACCESS_INIT_FAILED);
         return;
     }
     _storageOk = true;
@@ -148,10 +149,10 @@ bool BluetoothAccess::poll(bool linksActive) {
     if (reset && prefs.putBool("clearPending", false) != 1) return false;
     _maintenance = Maintenance::None;
     _ready = true;
-    Serial.printf("[Access] Bonds ready classic=%d ble=%d pairing=closed\n",
+    DLOG_DETAIL(ACCESS_BONDS,
         esp_bt_gap_get_bond_device_num(), esp_ble_get_bond_device_num());
     if (reset) {
-        Serial.println("[Pairing] All bonds cleared");
+        DLOG(PAIRING_BONDS_CLEARED);
         _identityChanged = true;
     }
     return true;

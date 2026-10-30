@@ -2,6 +2,7 @@
 #include "LowLatencyA2DPSinkQueued.h"
 #include "BluetoothAccess.h"
 #include "ClassicBluetooth.h"
+#include "DevLog.h"
 
 class ApprovedA2DPSink : public LowLatencyA2DPSinkQueued {
 public:
@@ -102,8 +103,7 @@ protected:
     }
 private:
     static void logPeer(const char* event, const uint8_t* address, int code, const char* decision) {
-        Serial.printf("[BT] t=%lu %s peer=%02X:%02X:%02X:%02X:%02X:%02X code=0x%02X pairing=%s decision=%s\n",
-            static_cast<unsigned long>(millis()), event,
+        DLOG(BT_PEER, event,
             address[0], address[1], address[2], address[3], address[4], address[5], unsigned(code),
             bluetoothAccess.pairingOpen() ? "open" : "closed", decision);
     }

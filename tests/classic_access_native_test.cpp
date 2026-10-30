@@ -5,6 +5,7 @@
 #include <iostream>
 #include <set>
 #include "recording_serial.h"
+#include "DevLog.h"
 #define ESP_IDF_VERSION_VAL(a, b, c) ((a) * 10000 + (b) * 100 + (c))
 #define ESP_IDF_VERSION ESP_IDF_VERSION_VAL(4, 4, 7)
 #define CONFIG_BTDM_CTRL_BR_EDR_MAX_ACL_CONN 2

@@ -77,5 +77,6 @@ def test_classic_pairing_and_audio_admission(repo_root, tmp_path):
     (tmp_path / "classic_access_under_test.inc").write_text(header)
     exe = tmp_path / "classic_access"
     run_checked([compiler, "-std=c++17", "-Wall", "-Wextra", "-I", tmp_path,
+                 "-I", repo_root / "firmware/esp32/src",
                  repo_root / "tests/classic_access_native_test.cpp", "-o", exe])
     assert "Classic authorization tests passed" in run_checked([exe]).stdout

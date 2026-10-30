@@ -1,4 +1,5 @@
 #include "BatteryMonitor.h"
+#include "DevLog.h"
 
 namespace {
 
@@ -58,7 +59,7 @@ bool BatteryMonitor::poll(bool charging) {
                     addVoltageSample(static_cast<uint16_t>(
                         (_bootTotalMv + _validBootSamples / 2U) / _validBootSamples));
                 } else {
-                    Serial.printf("[Battery] Initial ADC invalid (%u/%u valid)\n",
+                    DLOG(BATTERY_BOOT_INVALID,
                                   _validBootSamples, BATTERY_BOOT_SAMPLE_COUNT);
                 }
             }
@@ -67,9 +68,7 @@ bool BatteryMonitor::poll(bool charging) {
         _lastSampleMs = now;
         uint16_t batteryMv = readBatteryMillivolts();
         if (batteryMv != 0) {
-            addVoltageSample(batteryMv);
-        } else {
-            Serial.println("[Battery] Ignoring invalid ADC sample");
+            addVoltageSample(batteryMv);  // an invalid sample was logged by the read
         }
     }
 
@@ -78,7 +77,7 @@ bool BatteryMonitor::poll(bool charging) {
     updateChargerState(charging);
     updatePublicState();
     if (_state != previous) {
-        Serial.printf("[Battery] State %s -> %s\n",
+        DLOG(BATTERY_STATE,
                       batteryStateName(previous), batteryStateName(_state));
         return true;
     }
@@ -88,7 +87,7 @@ bool BatteryMonitor::poll(bool charging) {
 uint16_t BatteryMonitor::readBatteryMillivolts() const {
     uint32_t adcMv = analogReadMilliVolts(PIN_BATTERY_ADC);
     if (adcMv < MIN_VALID_ADC_MV || adcMv > MAX_VALID_ADC_MV) {
-        Serial.printf("[Battery] Invalid raw ADC=%lumV (valid=%u-%umV)\n",
+        DLOG(BATTERY_ADC_INVALID,
                       static_cast<unsigned long>(adcMv),
                       MIN_VALID_ADC_MV, MAX_VALID_ADC_MV);
         return 0;

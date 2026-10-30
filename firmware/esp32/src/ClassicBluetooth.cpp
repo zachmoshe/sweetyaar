@@ -3,6 +3,7 @@
 #include <esp_gap_bt_api.h>
 #include <esp_idf_version.h>
 #include <sdkconfig.h>
+#include "DevLog.h"
 
 // Arduino bundles Bluedroid as libbt.a. Its public GAP API does not expose
 // pairability and auto-confirms Just Works before delivering an app callback.
@@ -52,7 +53,7 @@ extern "C" void __wrap_BTA_DmConfirm(uint8_t* address, uint8_t accept) {
         link->rejected = !allow;
     }
     portEXIT_CRITICAL(&mux);
-    Serial.printf("[BT] JUST_WORKS_REQUEST decision=%s pairing=%s\n",
+    DLOG(BT_JUST_WORKS,
         allow ? "allow" : "deny", bluetoothAccess.pairingOpen() ? "open" : "closed");
     __real_BTA_DmConfirm(address, allow);
 }
@@ -64,7 +65,7 @@ void ClassicBluetooth::setAccess(bool connectable) {
     // NOT be used: 4.4.7 requires a MITM-authenticated key and rejects Just Works.
     BTA_DmSetVisibility(0xff00 | (connectable && pairing ? 2 : 0),
                         0xff00 | (connection ? 1 : 0), pairing ? 1 : 0, 0);
-    Serial.printf("[BT] SCAN_MODE connectable=%d discoverable=%d pairable=%d\n",
+    DLOG(BT_SCAN_MODE,
         connection, connectable && pairing, pairing);
 }
 void ClassicBluetooth::connected(const uint8_t* address, bool success) {

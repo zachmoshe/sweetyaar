@@ -5,6 +5,7 @@
 #include <string>
 #include "StateMachine.h"
 #include "ClassicBluetooth.h"
+#include "DevLog.h"
 #include "bluetooth_reopen_constants.inc"
 
 uint32_t g_fakeMillis = 1000;

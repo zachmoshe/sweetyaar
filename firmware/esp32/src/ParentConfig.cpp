@@ -1,6 +1,7 @@
 #include "ParentConfig.h"
 #include "ContentCatalog.h"
 #include "Config.h"
+#include "DevLog.h"
 
 namespace {
 
@@ -80,7 +81,7 @@ bool ParentConfig::load() {
     if (theme && theme[0] != '\0' && ContentCatalog::validThemeId(String(theme))) {
         _defaultTheme = theme;
     } else if (theme && theme[0] != '\0') {
-        Serial.printf("[Config] Ignoring oversized defaultTheme: %s\n", theme);
+        DLOG(CONFIG_DEFAULT_THEME_OVERSIZED, theme);
     }
 
     if (doc["disabledThemes"].is<JsonArray>()) {
@@ -113,15 +114,13 @@ bool ParentConfig::load() {
         if (bedtimeTheme && bedtimeTheme[0] != '\0' && ContentCatalog::validThemeId(String(bedtimeTheme))) {
             _bedtimeTheme = bedtimeTheme;
         } else if (bedtimeTheme && bedtimeTheme[0] != '\0') {
-            Serial.printf("[Config] Ignoring oversized bedtime theme: %s\n", bedtimeTheme);
+            DLOG(CONFIG_BEDTIME_THEME_OVERSIZED, bedtimeTheme);
         }
         _bedtimeVolumeCapPct = readPercent(
             bedtime, "volumeCapPct", DEFAULT_BEDTIME_VOLUME_CAP_PCT);
     }
 
-    Serial.printf("[Config] defaultVolume=%u defaultTheme=%s disabledThemes=%d "
-                  "sleep=%d normal=%lus vibWake=%lus ble=%lus "
-                  "bedtime=%d start=%02u:%02u end=%02u:%02u theme=%s cap=%u\n",
+    DLOG_DETAIL(CONFIG_SUMMARY,
                   _defaultVolumePct, _defaultTheme.c_str(), _disabledThemeCount,
                   _sleepEnabled ? 1 : 0,
                   static_cast<unsigned long>(_sleepNormalIdleMs / 1000UL),

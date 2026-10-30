@@ -34,6 +34,7 @@
 #include "BQ25186Charger.h"
 #include "SleepEntryCheck.h"
 #include "OtaUpdate.h"
+#include "DevLog.h"
 
 // ---------------------------------------------------------------------------
 // Global objects
@@ -109,6 +110,23 @@ RTC_DATA_ATTR uint32_t rtcHeapRestartMagic = 0;
 static constexpr uint32_t RTC_HEAP_RESTART_MAGIC = 0xBEEFD00DUL;
 static constexpr uint32_t MAX_HEAP_RESTARTS = 3;
 
+// Activity counted between USAGE records in the diagnostic log.
+struct UsageCounters {
+    uint16_t songButton = 0;
+    uint16_t animalButton = 0;
+    uint16_t bothButtons = 0;
+    uint16_t songsStarted = 0;
+    uint16_t animalsStarted = 0;
+    uint16_t appControls = 0;
+    uint32_t localPlayMs = 0;
+    uint32_t btStreamMs = 0;
+};
+UsageCounters usage;
+uint32_t usageStartedMs = 0;
+uint32_t usageTickMs = 0;
+uint32_t lastTelemetryMs = 0;
+bool telemetryStarted = false;
+
 // ---------------------------------------------------------------------------
 // Forward declarations
 // ---------------------------------------------------------------------------
@@ -169,7 +187,10 @@ String bedtimeCurrentTimeString();
 uint16_t parseBedtimeTimeString(const char* value, uint16_t fallback);
 void markActivity(const char* reason);
 void markBleActivity(const char* reason);
-void logHeap(const char* where);
+void logHeap(const char* where, bool detail = false);
+void serviceDiagnostics();
+void logTelemetry();
+void logUsage();
 void restartIfBleIdentityChanged();
 void pollBleConnectionState();
 uint32_t currentSleepTimeoutMs();
@@ -189,6 +210,7 @@ String buildConfigAttribute(size_t index);
 void publishConfigAttributes();
 String buildConfigOkResponse(uint32_t requestId, const String& op);
 String buildConfigErrorResponse(uint32_t requestId, const String& message);
+String logConfigError(uint32_t requestId, const char* message);
 bool isKnownTheme(const String& theme);
 String themeDisplayName(const String& theme);
 String fileNameOf(const String& path);
@@ -205,7 +227,7 @@ static void btConnectionStateChanged(esp_a2d_connection_state_t state,
         statusLed.setSignal(StatusSignal::BluetoothPlaying, false);
         statusLed.setSignal(StatusSignal::BluetoothConnected, true);
         btConnectedAtMs = millis();
-        Serial.printf("[BT] Connected (free=%u largest=%u)\n",
+        DLOG(BT_CONNECTED,
                       ESP.getFreeHeap(), ESP.getMaxAllocHeap());
         sm.postEvent(Event::BT_CONNECTED);
     } else if (state == ESP_A2D_CONNECTION_STATE_DISCONNECTED) {
@@ -213,7 +235,7 @@ static void btConnectionStateChanged(esp_a2d_connection_state_t state,
         btAudioActive = false;
         statusLed.setSignal(StatusSignal::BluetoothPlaying, false);
         statusLed.setSignal(StatusSignal::BluetoothConnected, false);
-        Serial.println("[BT] Disconnected");
+        DLOG(BT_DISCONNECTED);
         sm.postEvent(Event::BT_DISCONNECTED);
     }
 }
@@ -232,7 +254,7 @@ static const char* btAudioStateName(esp_a2d_audio_state_t state) {
 }
 
 static void btAudioStateChanged(esp_a2d_audio_state_t state, void*) {
-    Serial.printf("[BT] Audio state: %s\n", btAudioStateName(state));
+    DLOG(BT_AUDIO_STATE, btAudioStateName(state));
     if (state == ESP_A2D_AUDIO_STATE_STARTED) {
         if (!btAudioActive) {
             markActivity("BT audio started");
@@ -252,7 +274,7 @@ static void btAudioStateChanged(esp_a2d_audio_state_t state, void*) {
 }
 
 static void btSampleRateChanged(uint16_t rate) {
-    Serial.printf("[BT] A2DP sample rate: %u Hz\n", rate);
+    DLOG(BT_SAMPLE_RATE, rate);
 }
 
 // ---------------------------------------------------------------------------
@@ -271,6 +293,8 @@ void setup() {
     setAmpMuted(true);
 
     Serial.println("\n=== SweetYaar Boot ===");
+    // First, so the boot record precedes everything this boot logs.
+    devlog::begin();
     Serial.printf("[Audio] GPIO%d mute is active-%s\n",
                   PIN_AMP_MUTE,
                   AMP_MUTE_ACTIVE_HIGH
@@ -290,10 +314,10 @@ void setup() {
     bluetoothAccess.begin();
     currentDeviceName = nvs.getBtName();
     if (currentDeviceName.length() > 32 || ContentCatalog::jsonEscape(currentDeviceName).length() > 64) {
-        Serial.printf("[Config] Ignoring oversized device name: %s\n", currentDeviceName.c_str());
+        DLOG(DEVICE_NAME_OVERSIZED, currentDeviceName.c_str());
         currentDeviceName = DEFAULT_BT_NAME;
     }
-    Serial.printf("[Device] btName=%s\n", currentDeviceName.c_str());
+    DLOG_DETAIL(DEVICE_NAME, currentDeviceName.c_str());
     Serial.printf("[Firmware] version=%s board=%s\n", FIRMWARE_VERSION, FIRMWARE_BOARD_ID);
 
     if (OtaUpdate::consumeUpdateModeRequest()) {
@@ -321,7 +345,7 @@ void setup() {
     // SD card + WAV player
     sdReady = wavPlayer.begin();
     if (!sdReady) {
-        Serial.println("[WARN] SD init failed; WAV playback unavailable");
+        DLOG(SD_INIT_FAILED);
         reportSystemError();
     } else {
         if (!parentConfig.load()) {
@@ -329,10 +353,10 @@ void setup() {
         }
         // List the content once into a compact RAM catalog (summaries and song
         // states, no names); song names are read from the card when needed.
-        logHeap("before catalog");
+        logHeap("before catalog", true);
         ContentCatalog::buildCatalog();
         refreshThemeList();
-        logHeap("after catalog");
+        logHeap("after catalog", true);
     }
     activeTheme = parentConfig.defaultTheme();
     applyActiveThemeFallback();
@@ -381,8 +405,8 @@ void setup() {
     // parent service it could never be updated again, so roll back instead.
     OtaUpdate::confirmRunningImage(bleReady);
 
-    logHeap("ready");
-    Serial.println("[Boot] Ready.");
+    logHeap("ready", true);
+    DLOG(BOOT_READY, static_cast<unsigned long>(millis()));
     finishSystemSoundStartup();
 }
 
@@ -391,7 +415,7 @@ void setup() {
 // No audio, SD or Classic Bluetooth, which leaves the heap for decompression.
 // ---------------------------------------------------------------------------
 void setupUpdateMode() {
-    Serial.println("[OTA] Update mode");
+    DLOG(OTA_UPDATE_MODE);
     statusLed.setSignal(StatusSignal::Updating, true);
     if (HAS_BQ25186 && !charger.begin(readLocalLogTime)) {
         reportSystemError();
@@ -399,7 +423,7 @@ void setupUpdateMode() {
     batteryMonitor.begin(HAS_BQ25186 && charger.charging());
     if (!OtaUpdate::startBleOnlyController() ||
         !bleService.begin(currentDeviceName, BLE_UPDATE_MODE_MTU)) {
-        Serial.println("[OTA] Bluetooth failed in update mode; restarting normal firmware");
+        DLOG(OTA_UPDATE_MODE_FAILED);
         Serial.flush();
         esp_restart();
     }
@@ -409,7 +433,7 @@ void setupUpdateMode() {
     statusLed.setSignal(StatusSignal::Initializing, false);
     statusLed.service(millis());
     setupLoopTaskWatchdog();
-    Serial.printf("[OTA] Ready for an image (free=%u largest=%u)\n",
+    DLOG(OTA_READY,
                   heap_caps_get_free_size(MALLOC_CAP_8BIT),
                   heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 }
@@ -425,6 +449,7 @@ void loopUpdateMode() {
     bleService.pollAdvertising(true);
     OtaUpdate::poll(millis());
     statusLed.service(millis());
+    devlog::service(true);
     delay(5);
 }
 
@@ -461,9 +486,11 @@ void loop() {
     } else {
         if (buttons.wasBothPressed()) {
             markActivity("both buttons");
+            ++usage.bothButtons;
             sm.postEvent(Event::BOTH_BUTTONS_PRESS);
         } else if (buttons.wasBtn1Pressed()) {
             markActivity("button 1");
+            ++usage.songButton;
             if (cur == State::PLAYING_SONG) {
                 playNextSong();  // advance track; stay in PLAYING_SONG
                 publishBleValues();
@@ -472,6 +499,7 @@ void loop() {
             }
         } else if (buttons.wasBtn2Pressed()) {
             markActivity("button 2");
+            ++usage.animalButton;
             if (cur == State::PLAYING_ANIMAL) {
                 playNextAnimal();  // advance animal; stay in PLAYING_ANIMAL
                 publishBleValues();
@@ -506,6 +534,11 @@ void loop() {
             bleService.updateChargerStatus(HAS_BQ25186 ? charger.snapshot() : ChargerStatus::Snapshot{});
         }
     }
+
+    // Erase the next log sector only while nothing plays; a finished track
+    // is checked here, before the next looped track starts below.
+    devlog::service(wavPlayer.isIdle() && !systemAudio.active() && !btAudioActive);
+    serviceDiagnostics();
 
     // 4. WAV player: signal SM when a track ends. Looping deliberately uses
     //    the same next-song path as another song-button press, preserving the
@@ -580,7 +613,7 @@ void setupLoopTaskWatchdog() {
     enableLoopWDT();
     esp_err_t status = esp_task_wdt_status(nullptr);
     if (status != ESP_OK) {
-        Serial.printf("[Watchdog] CPU1 loop task registration failed: %d\n",
+        DLOG(WATCHDOG_FAILED,
                       static_cast<int>(status));
         reportSystemError();
         return;
@@ -600,7 +633,7 @@ void setupWakeState() {
     rtc_gpio_deinit(static_cast<gpio_num_t>(PIN_VIB_WAKE));
     pinMode(PIN_VIB_WAKE, INPUT);
 
-    Serial.printf("[Sleep] Wake cause=%d vibration=%d\n",
+    DLOG_DETAIL(SLEEP_WAKE,
                   static_cast<int>(cause), wokeFromVibration ? 1 : 0);
     setupBedtimeClock(cause);
 }
@@ -626,7 +659,7 @@ void playSystemSound(SystemSound sound) {
     if (systemAudio.play(sound, systemSoundAsset(sound), effectiveVolumePct())) {
         setAmpMuted(false);
         markActivity("system sound");
-        Serial.printf("[Sound] Playing %s\n", systemSoundName(sound));
+        DLOG(SOUND, systemSoundName(sound));
     }
 }
 
@@ -696,7 +729,7 @@ void pollBatteryState() {
 void serviceSystemSound() {
     const auto result = systemAudio.service();
     if (result == SystemSoundOutput::Result::Failed) {
-        Serial.println("[Sound] Audio output failed");
+        DLOG(SOUND_FAILED);
         statusLed.setSignal(StatusSignal::Error, true);
     }
     if (result == SystemSoundOutput::Result::Finished || result == SystemSoundOutput::Result::Failed) {
@@ -749,7 +782,7 @@ void pollBleConnectionState() {
 // Bluetooth keeps its public address.
 void restartIfBleIdentityChanged() {
     if (!bluetoothAccess.takeIdentityChange()) return;
-    Serial.println("[BLE] New BLE address after bond reset; restarting");
+    DLOG(BLE_IDENTITY_RESTART);
     Serial.flush();
     delay(200);
     esp_restart();
@@ -759,11 +792,65 @@ void restartIfBleIdentityChanged() {
 // logHeap()
 // ---------------------------------------------------------------------------
 // Milestone heap report; never call it per packet or per loop during audio.
-void logHeap(const char* where) {
-    Serial.printf("[Heap] %s free=%u largest=%u min=%u\n", where,
-                  unsigned(heap_caps_get_free_size(MALLOC_CAP_8BIT)),
-                  unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)),
-                  unsigned(heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)));
+// Boot milestones are detail records (see DLOG_DETAIL).
+void logHeap(const char* where, bool detail) {
+    const unsigned free = unsigned(heap_caps_get_free_size(MALLOC_CAP_8BIT));
+    const unsigned largest = unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+    const unsigned minimum = unsigned(heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT));
+    if (detail) {
+        DLOG_DETAIL(HEAP, where, free, largest, minimum);
+    } else {
+        DLOG(HEAP, where, free, largest, minimum);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Diagnostic log telemetry (docs/logging-and-debugging.md)
+// ---------------------------------------------------------------------------
+void serviceDiagnostics() {
+    const uint32_t now = millis();
+    const uint32_t elapsed = now - usageTickMs;
+    usageTickMs = now;
+    if (!wavPlayer.isIdle()) usage.localPlayMs += elapsed;
+    if (btAudioActive) usage.btStreamMs += elapsed;
+    if (telemetryStarted ? now - lastTelemetryMs >= TELEMETRY_INTERVAL_MS
+                         : now >= FIRST_TELEMETRY_MS) {
+        logTelemetry();
+    }
+    if (now - usageStartedMs >= USAGE_INTERVAL_MS) logUsage();
+}
+
+void logTelemetry() {
+    telemetryStarted = true;
+    lastTelemetryMs = millis();
+    const ChargerStatus::Snapshot chargerState =
+        HAS_BQ25186 ? charger.snapshot() : ChargerStatus::Snapshot{};
+    const unsigned activity =
+        (!wavPlayer.isIdle() ? 0x01U : 0U) |
+        (btLinkConnected ? 0x02U : 0U) |
+        (btAudioActive ? 0x04U : 0U) |
+        (ENABLE_BLE_PARENT_SERVICE && bleService.isConnected() ? 0x08U : 0U) |
+        (sm.currentState() == State::KILLSWITCH ? 0x10U : 0U) |
+        (bedtimeRuntimeActive() ? 0x20U : 0U) |
+        (bluetoothAccess.pairingOpen() ? 0x40U : 0U) |
+        (sdReady ? 0x80U : 0U);
+    DLOG(TELEMETRY, unsigned(batteryMonitor.millivolts()), unsigned(batteryMonitor.encodedState()),
+         static_cast<unsigned>(chargerState.state), unsigned(chargerState.conditions), activity,
+         unsigned(currentEffectiveVolumePct),
+         unsigned(heap_caps_get_free_size(MALLOC_CAP_8BIT)),
+         unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)),
+         unsigned(heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)));
+}
+
+void logUsage() {
+    const uint32_t now = millis();
+    DLOG(USAGE, static_cast<unsigned long>((now - usageStartedMs) / 1000UL),
+         unsigned(usage.songButton), unsigned(usage.animalButton), unsigned(usage.bothButtons),
+         unsigned(usage.songsStarted), unsigned(usage.animalsStarted),
+         static_cast<unsigned long>(usage.localPlayMs / 1000UL),
+         static_cast<unsigned long>(usage.btStreamMs / 1000UL), unsigned(usage.appControls));
+    usage = UsageCounters();
+    usageStartedMs = now;
 }
 
 // ---------------------------------------------------------------------------
@@ -777,11 +864,11 @@ void setupBedtimeClock(esp_sleep_wakeup_cause_t wakeCause) {
         rtcBedtimeClockMagic == RTC_BEDTIME_CLOCK_MAGIC;
     if (bedtimeClockReliable) {
         bedtimeTzOffsetMin = rtcBedtimeTzOffsetMin;
-        Serial.printf("[Bedtime] Clock retained from deep sleep (tzOffsetMin=%d)\n",
+        DLOG(CLOCK_RETAINED,
                       bedtimeTzOffsetMin);
     } else {
         bedtimeTzOffsetMin = 0;
-        Serial.println("[Bedtime] Clock unknown until parent app syncs local time");
+        DLOG_DETAIL(CLOCK_UNKNOWN);
     }
 }
 
@@ -799,7 +886,7 @@ void syncBedtimeClock(time_t epochSec, int16_t tzOffsetMin) {
     rtcBedtimeClockMagic = RTC_BEDTIME_CLOCK_MAGIC;
     rtcBedtimeTzOffsetMin = tzOffsetMin;
 
-    Serial.printf("[Bedtime] Time synced epoch=%ld tzOffsetMin=%d\n",
+    DLOG(TIME_SYNC,
                   static_cast<long>(epochSec), tzOffsetMin);
     pollBedtimeMode();
 }
@@ -889,7 +976,7 @@ void setBedtimeRuntimeActive(bool active, const char* reason) {
     if (!parentConfig.bedtimeEnabled()) {
         bedtimeOverride = BedtimeMode::Override::None;
         bedtimeOverrideUntilUtc = 0;
-        Serial.printf("[Bedtime] Ignoring runtime %s; mode disabled in settings (%s)\n",
+        DLOG(BEDTIME_IGNORED_DISABLED,
                       active ? "enable" : "disable", reason);
         pollBedtimeMode();
         return;
@@ -897,7 +984,7 @@ void setBedtimeRuntimeActive(bool active, const char* reason) {
     if (!bedtimeTimeKnown()) {
         bedtimeOverride = BedtimeMode::Override::None;
         bedtimeOverrideUntilUtc = 0;
-        Serial.printf("[Bedtime] Ignoring runtime %s; local time unknown (%s)\n",
+        DLOG(BEDTIME_IGNORED_NO_TIME,
                       active ? "enable" : "disable", reason);
         pollBedtimeMode();
         return;
@@ -912,7 +999,7 @@ void setBedtimeRuntimeActive(bool active, const char* reason) {
                              : BedtimeMode::Override::ForceOff;
     bedtimeOverrideUntilUtc = time(nullptr) + static_cast<time_t>(secondsUntilBoundary);
 
-    Serial.printf("[Bedtime] Runtime override=%s until %s (%s)\n",
+    DLOG(BEDTIME_OVERRIDE,
                   BedtimeMode::overrideName(bedtimeOverride),
                   bedtimeTimeString(targetMinute).c_str(),
                   reason);
@@ -928,7 +1015,7 @@ void clearExpiredBedtimeOverride() {
     }
     if (!parentConfig.bedtimeEnabled() || !bedtimeTimeKnown() ||
         time(nullptr) >= bedtimeOverrideUntilUtc) {
-        Serial.printf("[Bedtime] Clearing runtime override=%s\n",
+        DLOG(BEDTIME_OVERRIDE_CLEARED,
                       BedtimeMode::overrideName(bedtimeOverride));
         bedtimeOverride = BedtimeMode::Override::None;
         bedtimeOverrideUntilUtc = 0;
@@ -956,11 +1043,11 @@ void pollBedtimeMode() {
 
     lastBedtimeActive = active;
     if (!active && !bedtimeThemeOverride.isEmpty()) {
-        Serial.printf("[Bedtime] Clearing theme override \"%s\"\n",
+        DLOG(BEDTIME_THEME_CLEARED,
                       bedtimeThemeOverride.c_str());
         bedtimeThemeOverride = "";
     }
-    Serial.printf("[Bedtime] Runtime %s (auto=%d override=%s timeKnown=%d)\n",
+    DLOG(BEDTIME_STATE,
                   active ? "active" : "inactive",
                   bedtimeAutomaticActive() ? 1 : 0,
                   BedtimeMode::overrideName(bedtimeOverride),
@@ -994,7 +1081,7 @@ String bedtimeEffectiveSongTheme() {
     }
 
     if (lastInvalidBedtimeThemeLog != theme) {
-        Serial.printf("[Bedtime] Theme \"%s\" is unavailable; using normal theme \"%s\" (volume cap still applies)\n",
+        DLOG(BEDTIME_THEME_UNAVAILABLE,
                       theme.c_str(), activeTheme.c_str());
         lastInvalidBedtimeThemeLog = theme;
     }
@@ -1160,7 +1247,7 @@ void enterIdleDeepSleep() {
     if (wakeCheck != SleepEntryCheck::Result::Quiet) {
         // Use the full normal idle interval, even after a vibration-only wake.
         markActivity("vibration prevented sleep");
-        Serial.println("[Sleep] Postponed: wake input was HIGH during the 500ms check");
+        DLOG(SLEEP_POSTPONED);
         if (wakeCheck == SleepEntryCheck::Result::PossiblyDisconnected) {
             sendNotice("warn", "The movement sensor may be stuck or disconnected. "
                        "Sleep was postponed; battery life may be shorter.");
@@ -1173,11 +1260,14 @@ void enterIdleDeepSleep() {
             reportSystemError();
         }
         lastActivityMs = millis();
-        Serial.println("[Sleep] Aborted: charger could not be prepared safely");
+        DLOG(SLEEP_ABORTED);
         return;
     }
 
-    Serial.printf("[Sleep] Entering deep sleep after %lus idle (wake GPIO%d HIGH)\n",
+    logTelemetry();
+    logUsage();
+    devlog::flushRepeats();
+    DLOG(SLEEP_ENTER,
                   static_cast<unsigned long>((millis() - lastActivityMs) / 1000UL),
                   PIN_VIB_WAKE);
 
@@ -1228,7 +1318,7 @@ void setupI2S() {
 void printBluetoothAddress(const char* label) {
     const uint8_t* addr = esp_bt_dev_get_address();
     if (addr == nullptr) {
-        Serial.printf("[BT] %s address unavailable\n", label);
+        DLOG(BT_ADDRESS_UNAVAILABLE, label);
         return;
     }
 
@@ -1287,7 +1377,7 @@ void setupBT(const String& deviceName) {
     sink->set_auto_reconnect(false, 0);
     sink->reserveAudioTask();
     btSink = sink;
-    Serial.printf("[BT] A2DP sink started as \"%s\"\n", deviceName.c_str());
+    DLOG_DETAIL(BT_SINK_STARTED, deviceName.c_str());
 }
 
 // ---------------------------------------------------------------------------
@@ -1301,7 +1391,7 @@ void scheduleBluetoothReopen(const char* reason) {
     btSink->set_connectable(false);
     btReopenPending = true;
     btReopenAtMs = millis() + BT_REOPEN_DELAY_MS;
-    Serial.printf("[BT] Pausing new connections for %lu ms (%s, free=%u largest=%u)\n",
+    DLOG(BT_PAUSING,
                   static_cast<unsigned long>(BT_REOPEN_DELAY_MS),
                   reason,
                   heap_caps_get_free_size(MALLOC_CAP_8BIT),
@@ -1318,7 +1408,7 @@ void reopenBluetoothForPairing(const char* reason) {
 
     btSink->set_auto_reconnect(false, 0);
     btSink->refreshAccess();
-    Serial.printf("[BT] Accepting approved connections (%s, free=%u largest=%u)\n",
+    DLOG(BT_ACCEPTING,
                   reason,
                   heap_caps_get_free_size(MALLOC_CAP_8BIT),
                   heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
@@ -1331,11 +1421,11 @@ void pollBluetoothPairing() {
         bluetoothAccess.openPairing(now);
         if (btSink && !btReopenPending) btSink->refreshAccess();
         markActivity("pairing opened");
-        Serial.println("[Pairing] Open for 60 seconds (audio and BLE enroll separately)");
+        DLOG(PAIRING_OPEN);
     } else if (action == PairingPolicy::Action::Close) {
         bluetoothAccess.closePairing();
         if (btSink && !btReopenPending) btSink->refreshAccess();
-        Serial.println("[Pairing] Closed; bonded phones may reconnect");
+        DLOG(PAIRING_CLOSED);
     } else if (action == PairingPolicy::Action::Forget) {
         const bool persisted = bluetoothAccess.forgetBonds();
         if (ENABLE_BLE_PARENT_SERVICE) bleService.disconnectAll();
@@ -1343,7 +1433,11 @@ void pollBluetoothPairing() {
         statusLed.setSignal(StatusSignal::PairingReset, true);
         markActivity("Bluetooth bonds reset");
         if (!persisted) reportSystemError();
-        Serial.println(persisted ? "[Pairing] Clearing all bonds" : "[Pairing] Bond reset storage error; access disabled");
+        if (persisted) {
+            DLOG(PAIRING_CLEARING);
+        } else {
+            DLOG(PAIRING_RESET_FAILED);
+        }
     }
     const bool pairingOpen = bluetoothAccess.pairingOpen();
     if (pairingOpen && action == PairingPolicy::Action::Open) {
@@ -1379,7 +1473,7 @@ void pollBluetoothReopen() {
     const uint32_t SAFE_LARGEST_BLOCK = 5000;
     uint32_t freeNow = ESP.getFreeHeap();
     uint32_t largestNow = ESP.getMaxAllocHeap();
-    Serial.printf("[BT] Post-session heap: free=%lu largest=%lu min=%lu\n",
+    DLOG(BT_POST_SESSION_HEAP,
                   static_cast<unsigned long>(freeNow),
                   static_cast<unsigned long>(largestNow),
                   static_cast<unsigned long>(ESP.getMinFreeHeap()));
@@ -1389,11 +1483,11 @@ void pollBluetoothReopen() {
             rtcHeapRestartMagic = RTC_HEAP_RESTART_MAGIC;
         }
         rtcHeapRestartCount++;
-        Serial.printf("[BT] Heap too low after BT session; restarting (%lu/%lu)\n",
+        DLOG(BT_HEAP_RESTART,
                       static_cast<unsigned long>(rtcHeapRestartCount),
                       static_cast<unsigned long>(MAX_HEAP_RESTARTS));
         if (rtcHeapRestartCount >= MAX_HEAP_RESTARTS) {
-            Serial.println("[BT] Repeated low-heap restarts; entering deep sleep to break loop.");
+            DLOG(BT_HEAP_RESTART_LOOP);
             rtcHeapRestartCount = 0;
             rtcHeapRestartMagic = 0;
             delay(200);
@@ -1447,7 +1541,7 @@ bool handleBleControls() {
     if (bleService.pollVolumeChange(vol)) {
         writeSeen = true;
         if (btMode) {
-            Serial.println("[BLE] Ignoring volume write during BT streaming");
+            DLOG(BLE_IGNORED_VOLUME);
         } else {
             sm.postStringEvent(Event::VOLUME_CHANGED, String(vol));
             applyVolume(vol);
@@ -1458,7 +1552,7 @@ bool handleBleControls() {
     if (bleService.pollKillswitch(killOn)) {
         writeSeen = true;
         if (btMode) {
-            Serial.println("[BLE] Ignoring killswitch write during BT streaming");
+            DLOG(BLE_IGNORED_KILLSWITCH);
         } else {
             sm.postEvent(killOn ? Event::KILLSWITCH_ON : Event::KILLSWITCH_OFF);
         }
@@ -1469,15 +1563,15 @@ bool handleBleControls() {
         writeSeen = true;
         newTheme.trim();
         if (btMode) {
-            Serial.println("[BLE] Ignoring theme write during BT streaming");
+            DLOG(BLE_IGNORED_THEME);
         } else if (!isKnownTheme(newTheme)) {
-            Serial.printf("[BLE] Ignoring unknown theme: %s\n", newTheme.c_str());
+            DLOG(BLE_UNKNOWN_THEME, newTheme.c_str());
         } else {
             activeTheme = newTheme;
             if (bedtimeRuntimeActive()) {
                 bedtimeThemeOverride = newTheme;
                 lastInvalidBedtimeThemeLog = "";
-                Serial.printf("[Bedtime] Theme override \"%s\" while bedtime remains active\n",
+                DLOG(BEDTIME_THEME_OVERRIDE,
                               bedtimeThemeOverride.c_str());
             }
             sm.postStringEvent(Event::THEME_CHANGED, newTheme);
@@ -1488,7 +1582,7 @@ bool handleBleControls() {
     if (bleService.pollCommand(command)) {
         writeSeen = true;
         if (btMode || sm.currentState() == State::KILLSWITCH) {
-            Serial.printf("[BLE] Ignoring command %u while controls are disabled\n", command);
+            DLOG(BLE_IGNORED_COMMAND, command);
         } else {
             handleBleCommand(command);
         }
@@ -1496,6 +1590,7 @@ bool handleBleControls() {
 
     if (writeSeen) {
         markBleActivity("BLE control write");
+        ++usage.appControls;
     }
     return writeSeen;
 }
@@ -1511,6 +1606,7 @@ void handleBleConfigCommands() {
     String commandJson;
     if (bleService.pollConfigCommand(commandJson)) {
         markBleActivity("BLE config command");
+        ++usage.appControls;
         logHeap("config command");
         handleBleConfigCommand(commandJson);
     }
@@ -1524,12 +1620,16 @@ void handleBleConfigCommand(const String& commandJson) {
     DeserializationError err = deserializeJson(doc, commandJson);
     uint32_t requestId = doc["id"] | 0;
     if (err) {
-        bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Invalid config command JSON"));
+        bleService.updateConfigResponse(logConfigError(requestId, "Invalid config command JSON"));
         return;
     }
 
     const char* opValue = doc["op"] | "";
     String op = opValue;
+    // Catalog paging is frequent and read-only; log commands that change state.
+    if (op != "scanThemes" && op != "scanSongs") {
+        DLOG(BLE_CONFIG_COMMAND, op.c_str(), static_cast<unsigned long>(requestId));
+    }
     if (op == "scanThemes") {
         int cursor = doc["cursor"] | 0;
         bleService.updateConfigResponse(
@@ -1541,7 +1641,7 @@ void handleBleConfigCommand(const String& commandJson) {
         const char* theme = doc["theme"] | "";
         int cursor = doc["cursor"] | 0;
         if (theme == nullptr || theme[0] == '\0') {
-            bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Missing theme id"));
+            bleService.updateConfigResponse(logConfigError(requestId, "Missing theme id"));
             return;
         }
         bleService.updateConfigResponse(
@@ -1555,7 +1655,7 @@ void handleBleConfigCommand(const String& commandJson) {
         if (epochValue < 946684800L ||
             tzOffsetValue < -14 * 60 || tzOffsetValue > 14 * 60) {
             bleService.updateConfigResponse(
-                buildConfigErrorResponse(requestId, "Invalid time sync payload"));
+                logConfigError(requestId, "Invalid time sync payload"));
             return;
         }
         syncBedtimeClock(static_cast<time_t>(epochValue),
@@ -1568,7 +1668,7 @@ void handleBleConfigCommand(const String& commandJson) {
     if (op == "setBedtimeMode") {
         if (!doc["active"].is<bool>()) {
             bleService.updateConfigResponse(
-                buildConfigErrorResponse(requestId, "Missing bedtime active flag"));
+                logConfigError(requestId, "Missing bedtime active flag"));
             return;
         }
         setBedtimeRuntimeActive(doc["active"].as<bool>(), "BLE runtime toggle");
@@ -1580,7 +1680,7 @@ void handleBleConfigCommand(const String& commandJson) {
     if (op == "setConfig") {
         if (!sdReady && (!doc["defaultVolumePct"].isNull() || !doc["defaultTheme"].isNull() ||
             !doc["sleep"].isNull() || !doc["bedtime"].isNull())) {
-            bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "SD card unavailable. Settings were not saved."));
+            bleService.updateConfigResponse(logConfigError(requestId, "SD card unavailable. Settings were not saved."));
             return;
         }
         const char* deviceNameValue = doc["deviceName"] | currentDeviceName.c_str();
@@ -1588,7 +1688,7 @@ void handleBleConfigCommand(const String& commandJson) {
         nextName.trim();
         if (nextName.isEmpty()) nextName = DEFAULT_BT_NAME;
         if (nextName.length() > 32 || ContentCatalog::jsonEscape(nextName).length() > 64) {
-            bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Device name is too long (32 UTF-8 bytes maximum)."));
+            bleService.updateConfigResponse(logConfigError(requestId, "Device name is too long (32 UTF-8 bytes maximum)."));
             return;
         }
 
@@ -1651,7 +1751,7 @@ void handleBleConfigCommand(const String& commandJson) {
 
         if (!ContentCatalog::validThemeId(nextDefaultTheme) ||
             !ContentCatalog::validThemeId(nextBedtimeTheme)) {
-            bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Theme id is too long."));
+            bleService.updateConfigResponse(logConfigError(requestId, "Theme id is too long."));
             return;
         }
         // Every requested value has been copied above. Release the input JSON
@@ -1665,13 +1765,13 @@ void handleBleConfigCommand(const String& commandJson) {
                     nextBedtimeEnabled, nextBedtimeStartMinutes,
                     nextBedtimeEndMinutes, nextBedtimeTheme,
                     nextBedtimeVolumeCapPct)) {
-                bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "SD write failed"));
+                bleService.updateConfigResponse(logConfigError(requestId, "SD write failed"));
                 return;
             }
             if (!parentConfig.load()) {
                 reportSystemError();
                 publishConfigAttributes();
-                bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Could not reload saved settings."));
+                bleService.updateConfigResponse(logConfigError(requestId, "Could not reload saved settings."));
                 return;
             }
             refreshThemeList();
@@ -1704,7 +1804,7 @@ void handleBleConfigCommand(const String& commandJson) {
     if (op == "setTheme") {
         const char* themeValue = doc["theme"] | "";
         if (themeValue == nullptr || themeValue[0] == '\0') {
-            bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Missing theme id"));
+            bleService.updateConfigResponse(logConfigError(requestId, "Missing theme id"));
             return;
         }
         String theme = themeValue;
@@ -1716,13 +1816,13 @@ void handleBleConfigCommand(const String& commandJson) {
             if (!ContentCatalog::setThemeShuffle(theme, doc["shuffle"].as<bool>())) sdOk = false;
         }
         if (!sdOk) {
-            bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "SD write failed"));
+            bleService.updateConfigResponse(logConfigError(requestId, "SD write failed"));
             return;
         }
         if (!parentConfig.load()) {
             reportSystemError();
             publishConfigAttributes();
-            bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Could not reload saved settings."));
+            bleService.updateConfigResponse(logConfigError(requestId, "Could not reload saved settings."));
             return;
         }
         refreshThemeList();
@@ -1745,11 +1845,11 @@ void handleBleConfigCommand(const String& commandJson) {
         if (themeValue == nullptr || themeValue[0] == '\0' ||
             fileValue == nullptr || fileValue[0] == '\0' ||
             !doc["enabled"].is<bool>()) {
-            bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Missing song update fields"));
+            bleService.updateConfigResponse(logConfigError(requestId, "Missing song update fields"));
             return;
         }
         if (!ContentCatalog::setSongDisabled(String(themeValue), String(fileValue), !doc["enabled"].as<bool>())) {
-            bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "SD write failed"));
+            bleService.updateConfigResponse(logConfigError(requestId, "SD write failed"));
             return;
         }
         refreshThemeList();
@@ -1767,7 +1867,7 @@ void handleBleConfigCommand(const String& commandJson) {
         return;
     }
 
-    bleService.updateConfigResponse(buildConfigErrorResponse(requestId, "Unknown config command"));
+    bleService.updateConfigResponse(logConfigError(requestId, "Unknown config command"));
 }
 
 // ---------------------------------------------------------------------------
@@ -1811,7 +1911,7 @@ void handleBleCommand(uint8_t command) {
             break;
 
         default:
-            Serial.printf("[BLE] Ignoring unknown command: %u\n", command);
+            DLOG(BLE_UNKNOWN_COMMAND, command);
             break;
     }
 }
@@ -1848,7 +1948,7 @@ uint16_t quietSecondsLeft() {
 //   severity: "error" (persistent until dismissed) or "warn" (auto-dismiss)
 // ---------------------------------------------------------------------------
 void sendNotice(const String& severity, const String& message) {
-    Serial.printf("[Notice] %s: %s\n", severity.c_str(), message.c_str());
+    DLOG(NOTICE, severity.c_str(), message.c_str());
     if (severity == "error") {
         reportSystemError();
     }
@@ -1877,7 +1977,7 @@ void notifyPlaybackFailure(bool animal) {
     // warning.
     if (sdReady && !wavPlayer.sdAvailable()) {
         sdReady = false;
-        Serial.println("[WARN] SD card no longer readable at play time");
+        DLOG(SD_LOST);
     }
     if (!sdReady) {
         sendNotice("error", "SD card not found. Insert the card and restart the toy.");
@@ -1917,6 +2017,7 @@ void serviceSongChecks() {
 void playSong() {
     wavPlayer.startSong(currentPlaybackTheme);
     if (wavPlayer.isIdle()) notifyPlaybackFailure(false);
+    else ++usage.songsStarted;
 }
 
 void playNextSong() {
@@ -1931,16 +2032,19 @@ void playNextSong() {
         wavPlayer.nextSong();
     }
     if (wavPlayer.isIdle()) notifyPlaybackFailure(false);
+    else ++usage.songsStarted;
 }
 
 void playAnimal() {
     wavPlayer.startRandomAnimal();
     if (wavPlayer.isIdle()) notifyPlaybackFailure(true);
+    else ++usage.animalsStarted;
 }
 
 void playNextAnimal() {
     wavPlayer.nextAnimal();
     if (wavPlayer.isIdle()) notifyPlaybackFailure(true);
+    else ++usage.animalsStarted;
 }
 
 // ---------------------------------------------------------------------------
@@ -1990,7 +2094,7 @@ void refreshThemeList() {
     themeCount = WavPlayer::listThemes(themeIds, themeNames, BLE_MAX_THEMES);
     bleThemesJson = WavPlayer::buildThemesJson(
         themeIds, themeNames, themeCount, BLE_THEMES_MAX_BYTES);
-    Serial.printf("[Theme] %d playable theme(s), BLE payload=%u bytes\n",
+    DLOG_DETAIL(THEME_LIST,
                   themeCount, static_cast<unsigned>(bleThemesJson.length()));
     if (ENABLE_BLE_PARENT_SERVICE) {
         bleService.updateThemes(bleThemesJson);
@@ -2002,7 +2106,7 @@ void refreshThemeList() {
 // ---------------------------------------------------------------------------
 void applyActiveThemeFallback() {
     if (themeCount > 0 && !isKnownTheme(activeTheme)) {
-        Serial.printf("[Theme] Theme \"%s\" is unavailable; using \"%s\"\n",
+        DLOG(THEME_FALLBACK,
                       activeTheme.c_str(), themeIds[0].c_str());
         activeTheme = themeIds[0];
     }
@@ -2017,14 +2121,14 @@ void applyDeviceName(const String& deviceName) {
         esp_err_t err = esp_bt_gap_set_device_name(deviceName.c_str());
         if (err == ESP_OK) {
             btNameApplyPending = false;
-            Serial.printf("[BT] Classic BT name set to \"%s\"\n", deviceName.c_str());
+            DLOG(BT_NAME_SET, deviceName.c_str());
         } else {
             btNameApplyPending = true;
-            Serial.printf("[BT] Classic BT name update deferred: %d\n", err);
+            DLOG(BT_NAME_DEFERRED_ERROR, err);
         }
     } else {
         btNameApplyPending = true;
-        Serial.println("[BT] Classic BT name update deferred until audio disconnects");
+        DLOG(BT_NAME_DEFERRED);
     }
 }
 
@@ -2039,7 +2143,7 @@ void applyPendingBtNameIfPossible() {
     esp_err_t err = esp_bt_gap_set_device_name(currentDeviceName.c_str());
     if (err == ESP_OK) {
         btNameApplyPending = false;
-        Serial.printf("[BT] Classic BT name set to \"%s\"\n", currentDeviceName.c_str());
+        DLOG(BT_NAME_SET, currentDeviceName.c_str());
     }
 }
 
@@ -2135,6 +2239,12 @@ String buildConfigOkResponse(uint32_t requestId, const String& op) {
     return output;
 }
 
+// Logs a failed parent-app config command and builds its reply.
+String logConfigError(uint32_t requestId, const char* message) {
+    DLOG(BLE_CONFIG_ERROR, static_cast<unsigned long>(requestId), message);
+    return buildConfigErrorResponse(requestId, message);
+}
+
 String buildConfigErrorResponse(uint32_t requestId, const String& message) {
     String output;
     output.reserve(48 + message.length());
@@ -2205,9 +2315,9 @@ void applyEffectiveVolume(const char* reason) {
     float v = pct / 100.0f;
     volumeOut.setVolume(v);
     if (pct == currentVolumePct) {
-        Serial.printf("[Vol] %u%% (%.2f, %s)\n", pct, v, reason);
+        DLOG(VOLUME, pct, v, reason);
     } else {
-        Serial.printf("[Vol] requested=%u%% effective=%u%% bedtimeCap=%u%% (%.2f, %s)\n",
+        DLOG(VOLUME_CAPPED,
                       currentVolumePct, pct, parentConfig.bedtimeVolumeCapPct(), v, reason);
     }
 }
@@ -2268,7 +2378,7 @@ void handleStateEntry(State prev, State next) {
         case State::KILLSWITCH:
             wavPlayer.stop();
             setAmpMuted(true);
-            Serial.printf("[SM] Killswitch active for %lu ms\n", KILLSWITCH_MS);
+            DLOG(KILLSWITCH_ACTIVE, KILLSWITCH_MS);
             break;
     }
 }

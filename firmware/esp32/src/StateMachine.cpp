@@ -1,6 +1,7 @@
 #include "StateMachine.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
+#include "DevLog.h"
 
 // ---------------------------------------------------------------------------
 const char* stateToString(State s) {
@@ -110,6 +111,7 @@ uint32_t StateMachine::killswitchRemainingMs() const {
 // ---------------------------------------------------------------------------
 void StateMachine::transition(State next) {
     Serial.printf("[SM] %s → %s\n", stateToString(_state), stateToString(next));
+    DLOG_STORE(SM_TRANSITION, static_cast<unsigned>(_state), static_cast<unsigned>(next));
     _state = next;
 }
 
@@ -117,6 +119,7 @@ void StateMachine::transition(State next) {
 void StateMachine::handleEvent(const QueueItem& item) {
     Event e = item.event;
     Serial.printf("[SM] State=%s Event=%s\n", stateToString(_state), eventToString(e));
+    DLOG_STORE(SM_EVENT, static_cast<unsigned>(_state), static_cast<unsigned>(e));
 
     // --- VOLUME_CHANGED is state-independent ---
     if (e == Event::VOLUME_CHANGED) {
@@ -268,7 +271,7 @@ void StateMachine::handleEvent(const QueueItem& item) {
             switch (e) {
                 case Event::KILLSWITCH_ON:
                     _killswitchStartMs = millis();
-                    Serial.println("[SM] Killswitch timer restarted");
+                    DLOG(SM_KILLSWITCH_RESTARTED);
                     break;
                 case Event::KILLSWITCH_OFF:
                 case Event::KILLSWITCH_EXPIRED:

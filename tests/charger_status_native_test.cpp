@@ -6,6 +6,7 @@
 #include <Wire.h>
 #include "BQ25186Charger.h"
 #include "Config.h"
+#include "DevLog.h"
 
 namespace {
 

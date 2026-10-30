@@ -3,6 +3,7 @@
 #include <esp_heap_caps.h>
 #include <new>
 #include <Preferences.h>
+#include "DevLog.h"
 
 // Exported by the prebuilt Bluedroid but absent from the 4.4 public headers.
 // AUTO mode only tells clients that are connected while services are added,
@@ -39,7 +40,7 @@ bool BLEParentService::begin(const String& deviceName, uint16_t localMtu) {
     for (auto& param : security) {
         const esp_err_t result = esp_ble_gap_set_security_param(param.type, &param.value, sizeof(param.value));
         if (result != ESP_OK) {
-            Serial.printf("[BLE] Security configuration failed param=%u result=0x%X; parent service disabled\n",
+            DLOG(BLE_SECURITY_CONFIG_FAILED,
                 unsigned(param.type), unsigned(result));
             // Do not publish controls with a partially configured policy.
             // Leave the shared Bluetooth controller running for Classic audio.
@@ -47,7 +48,7 @@ bool BLEParentService::begin(const String& deviceName, uint16_t localMtu) {
         }
     }
     if (BTA_GATTS_SetServiceChangeMode(1) != 0) {
-        Serial.println("[BLE] Service Changed mode unavailable; cached GATT tables may go stale");
+        DLOG(BLE_SERVICE_CHANGED_UNAVAILABLE);
     }
     _instance = this;
     // Filter before Arduino's handlers: its custom hooks run AFTER values and
@@ -65,7 +66,7 @@ bool BLEParentService::begin(const String& deviceName, uint16_t localMtu) {
         try {
             _instance->_originalGatt(event, interface, param);
         } catch (const std::bad_alloc&) {
-            Serial.printf("[BLE] Out of memory in GATT event %d (free=%u largest=%u)\n", int(event),
+            DLOG(BLE_OUT_OF_MEMORY, int(event),
                 unsigned(heap_caps_get_free_size(MALLOC_CAP_8BIT)),
                 unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)));
             if (event == ESP_GATTS_READ_EVT && param->read.need_rsp)
@@ -87,7 +88,7 @@ bool BLEParentService::begin(const String& deviceName, uint16_t localMtu) {
     });
     esp_err_t mtuResult = BLEDevice::setMTU(localMtu);
     if (mtuResult != ESP_OK) {
-        Serial.printf("[BLE] MTU request failed: %d\n", mtuResult);
+        DLOG(BLE_MTU_FAILED, mtuResult);
     }
 
     _server = BLEDevice::createServer();
@@ -236,10 +237,10 @@ bool BLEParentService::begin(const String& deviceName, uint16_t localMtu) {
         // Must precede advertising: Bluedroid refuses a new random address
         // while advertising, and then uses it as the identity in pairing.
         adv->setDeviceAddress(address, BLE_ADDR_TYPE_RANDOM);
-        Serial.printf("[BLE] Address %02X:%02X:%02X:%02X:%02X:%02X (random static, from the last bond reset)\n",
+        DLOG_DETAIL(BLE_ADDRESS_RANDOM,
                       address[0], address[1], address[2], address[3], address[4], address[5]);
     } else {
-        Serial.println("[BLE] Address: public (no bond reset yet)");
+        DLOG_DETAIL(BLE_ADDRESS_PUBLIC);
     }
     adv->addServiceUUID(BLE_SERVICE_UUID);
     adv->setScanResponse(true);
@@ -333,7 +334,7 @@ bool BLEParentService::storeValue(BLECharacteristic* characteristic, const char*
 }
 
 void BLEParentService::logValueRefused(size_t length, size_t largest) {
-    Serial.printf("[BLE] Low memory: value not updated (len=%u free=%u largest=%u)\n",
+    DLOG(BLE_LOW_MEMORY,
         unsigned(length), unsigned(heap_caps_get_free_size(MALLOC_CAP_8BIT)), unsigned(largest));
 }
 
@@ -344,7 +345,7 @@ void BLEParentService::notifyChanged(BLECharacteristic* characteristic) {
 void BLEParentService::updateConfigAttribute(size_t index, const String& value) {
     if (index >= BLE_CONFIG_ATTRIBUTE_COUNT || !_configAttributes[index]) return;
     if (value.length() > BLE_CONFIG_MAX_BYTES) {
-        Serial.printf("[BLE] Config attribute %u exceeds 512 bytes\n", unsigned(index));
+        DLOG(BLE_CONFIG_TOO_LARGE, unsigned(index));
         return;
     }
     auto* characteristic = _configAttributes[index];
@@ -395,7 +396,7 @@ void BLEParentService::updateDeviceName(const String& deviceName) {
         BLEDevice::stopAdvertising();
         BLEDevice::startAdvertising();
     }
-    Serial.printf("[BLE] Device name set to \"%s\"\n", deviceName.c_str());
+    DLOG(BLE_NAME_SET, deviceName.c_str());
 }
 
 bool BLEParentService::pollVolumeChange(uint8_t& out) {
@@ -574,8 +575,7 @@ void BLEParentService::connected(esp_ble_gatts_cb_param_t* param) {
     }
     _restartAdvPending = true; // keep a slot available for takeover
     portEXIT_CRITICAL(&_mux);
-    Serial.printf("[BLE] t=%lu CONNECT conn=%u peer=%02X:%02X:%02X:%02X:%02X:%02X bonded=%d pairing=%s decision=%s\n",
-        static_cast<unsigned long>(millis()), connection.conn_id,
+    DLOG(BLE_CONNECT, connection.conn_id,
         connection.remote_bda[0], connection.remote_bda[1], connection.remote_bda[2],
         connection.remote_bda[3], connection.remote_bda[4], connection.remote_bda[5],
         known, bluetoothAccess.pairingOpen() ? "open" : "closed",
@@ -612,8 +612,7 @@ void BLEParentService::disconnected(uint16_t connection, uint16_t reason) {
     }
     _restartAdvPending = true;
     portEXIT_CRITICAL(&_mux);
-    Serial.printf("[BLE] t=%lu DISCONNECT conn=%u reason=0x%02X was_controller=%d\n",
-        static_cast<unsigned long>(millis()), connection, reason, wasOwner);
+    DLOG(BLE_DISCONNECT, connection, reason, wasOwner);
 }
 
 void BLEParentService::disconnectPeer(uint16_t connection) {
@@ -625,7 +624,7 @@ void BLEParentService::disconnectPeer(uint16_t connection) {
     }
     portEXIT_CRITICAL(&_mux);
     if (close) {
-        Serial.printf("[BLE] t=%lu DISCONNECT_REQUEST conn=%u\n", static_cast<unsigned long>(millis()), connection);
+        DLOG(BLE_DISCONNECT_REQUEST, connection);
         _server->disconnect(connection);
     }
 }
@@ -646,7 +645,7 @@ void BLEParentService::handleGap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_pa
         const auto status = event == ESP_GAP_BLE_ADV_START_COMPLETE_EVT
             ? param->adv_start_cmpl.status : param->adv_stop_cmpl.status;
         if (status != ESP_BT_STATUS_SUCCESS) {
-            Serial.printf("[BLE] ADVERTISING %s failed status=0x%02X\n",
+            DLOG(BLE_ADVERTISING_FAILED,
                 event == ESP_GAP_BLE_ADV_START_COMPLETE_EVT ? "start" : "stop", status);
         }
     }
@@ -671,8 +670,7 @@ void BLEParentService::handleGap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_pa
         }
         portEXIT_CRITICAL(&_mux);
         const esp_err_t result = esp_ble_gap_security_rsp(param->ble_security.ble_req.bd_addr, allow);
-        Serial.printf("[BLE] t=%lu SECURITY_REQUEST conn=%u decision=%s pairing=%s audio=%s result=0x%X\n",
-            static_cast<unsigned long>(millis()), connection, allow ? "allow" : "deny",
+        DLOG(BLE_SECURITY_REQUEST, connection, allow ? "allow" : "deny",
             bluetoothAccess.pairingOpen() ? "open" : "closed", audioBusy ? "active" : "idle",
             unsigned(result));
         return; // prevent Arduino's unconditional positive security response
@@ -711,7 +709,7 @@ void BLEParentService::handleGap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_pa
                 early->observedAt = millis();
                 portEXIT_CRITICAL(&_mux);
             }
-            if (!early) Serial.println("[BLE] Authentication result dropped: no free connection slot");
+            if (!early) DLOG(BLE_AUTH_DROPPED);
             return; // Never delete an approved bond just because CONNECT is late.
         }
         Peer snapshot;
@@ -725,8 +723,7 @@ void BLEParentService::handleGap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_pa
             : !(auth.auth_mode & ESP_LE_AUTH_BOND) ? "bonding-not-negotiated"
             : (!pairing && (snapshot.newKeys || !snapshot.known)) ? "pairing-window-closed"
             : !bluetoothAccess.bleBonded(auth.bd_addr) ? "bond-not-saved" : nullptr;
-        Serial.printf("[BLE] t=%lu AUTH conn=%u peer=%02X:%02X:%02X:%02X:%02X:%02X success=%d fail_reason=0x%02X mode=0x%02X bonded_before=%d new_keys=%d pairing=%s decision=%s\n",
-            static_cast<unsigned long>(millis()), snapshot.id,
+        DLOG(BLE_AUTH, snapshot.id,
             auth.bd_addr[0], auth.bd_addr[1], auth.bd_addr[2], auth.bd_addr[3], auth.bd_addr[4], auth.bd_addr[5],
             auth.success, auth.success ? 0 : auth.fail_reason, auth.auth_mode,
             snapshot.known, snapshot.newKeys, pairing ? "open" : "closed", denial ? denial : "accept");
@@ -766,8 +763,7 @@ void BLEParentService::handleGap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_pa
         }
         owner = _ownerId;
         portEXIT_CRITICAL(&_mux);
-        Serial.printf("[BLE] t=%lu CONTROL authenticated_conn=%u owner=%u previous=%u free=%u largest=%u\n",
-            static_cast<unsigned long>(millis()), snapshot.id, owner, previousOwner,
+        DLOG(BLE_CONTROL, snapshot.id, owner, previousOwner,
             unsigned(heap_caps_get_free_size(MALLOC_CAP_8BIT)),
             unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)));
         return;
@@ -959,8 +955,7 @@ void BLEParentService::pollAdvertising(bool canNotify) {
                 rejected = true;
             }
             portEXIT_CRITICAL(&_mux);
-            if (rejected) Serial.printf("[BLE] t=%lu AUTH_TIMEOUT conn=%u elapsed=%lu pairing=%s\n",
-                static_cast<unsigned long>(now), snapshot.id,
+            if (rejected) DLOG(BLE_AUTH_TIMEOUT, snapshot.id,
                 static_cast<unsigned long>(now - snapshot.connectedAt),
                 bluetoothAccess.pairingOpen() ? "open" : "closed");
         } else if (snapshot.retiring && canNotify) {
@@ -1008,7 +1003,7 @@ void BLEParentService::computeGattLayout(BLEService* service) {
         layout.add(static_cast<uint16_t>(i < SECURED_CHAR_COUNT && writableIndex(int(i))));
     }
     _gattLayout = layout.value;
-    Serial.printf("[BLE] GATT layout=%08lX\n", static_cast<unsigned long>(_gattLayout));
+    DLOG_DETAIL(BLE_GATT_LAYOUT, static_cast<unsigned long>(_gattLayout));
 }
 
 void BLEParentService::pollServiceChanged() {
@@ -1023,12 +1018,10 @@ void BLEParentService::pollServiceChanged() {
         gattLayoutKey(_layoutIdentity, key);
         const bool saved = sent && prefs.begin(GATT_LAYOUT_NAMESPACE, false) &&
             prefs.putULong(key, _gattLayout) == sizeof(uint32_t);
-        Serial.printf("[BLE] t=%lu SERVICE_CHANGED conn=%u status=0x%02X recorded=%d\n",
-            static_cast<unsigned long>(now), _layoutConnection, unsigned(_layoutStatus), saved);
+        DLOG(BLE_SERVICE_CHANGED, _layoutConnection, unsigned(_layoutStatus), saved);
         _layoutConnection = NO_CONNECTION;
     } else if (_layoutPending && now - _layoutSentAt >= 5000) {
-        Serial.printf("[BLE] t=%lu SERVICE_CHANGED conn=%u status=timeout\n",
-            static_cast<unsigned long>(now), _layoutConnection);
+        DLOG(BLE_SERVICE_CHANGED_TIMEOUT, _layoutConnection);
         _layoutPending = false;
         _layoutConnection = NO_CONNECTION;
     }
@@ -1058,8 +1051,7 @@ void BLEParentService::pollServiceChanged() {
     prefs.end();
     if (!gattServiceChangedNeeded(hasRecord, recorded, _gattLayout, snapshot.newKeys)) return;
     const esp_err_t result = esp_ble_gatts_send_service_change_indication(configGattsIf, snapshot.address);
-    Serial.printf("[BLE] t=%lu SERVICE_CHANGED_REQUEST conn=%u recorded=%08lX layout=%08lX new_keys=%d result=0x%X\n",
-        static_cast<unsigned long>(now), snapshot.id, static_cast<unsigned long>(recorded),
+    DLOG(BLE_SERVICE_CHANGED_REQUEST, snapshot.id, static_cast<unsigned long>(recorded),
         static_cast<unsigned long>(_gattLayout), snapshot.newKeys, unsigned(result));
     if (result != ESP_OK) return;
     _layoutPending = true;

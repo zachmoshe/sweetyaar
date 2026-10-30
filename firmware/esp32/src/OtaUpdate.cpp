@@ -10,6 +10,7 @@
 
 #include "Config.h"
 #include "OtaSession.h"
+#include "DevLog.h"
 
 // Arduino marks a pending image valid before setup() unless this returns true;
 // confirmRunningImage() decides instead, after the services have started.
@@ -155,7 +156,7 @@ public:
         else statusDirty = true;  // tell the app where to resume
     }
     void mtuChanged(uint16_t value) override {
-        Serial.printf("[OTA] ATT MTU %u\n", value);
+        DLOG(OTA_MTU, value);
         mtu = value;
         statusDirty = true;
     }
@@ -197,7 +198,7 @@ void requestFastConnection(const uint8_t* peer) {
     params.latency = 0;
     params.timeout = 400;  // 4 s
     const esp_err_t result = esp_ble_gap_update_conn_params(&params);
-    Serial.printf("[OTA] Requested 7.5-15 ms connection interval result=0x%X\n", unsigned(result));
+    DLOG(OTA_INTERVAL, unsigned(result));
 }
 
 void Transport::control(const uint8_t* data, size_t length, const uint8_t* peer) {
@@ -208,10 +209,10 @@ void Transport::control(const uint8_t* data, size_t length, const uint8_t* peer)
             if (updateModeActive) return;
             if (!updateAllowed || !updateAllowed()) {
                 session.reportError(Ota::Error::BatteryLow);
-                Serial.println("[OTA] Update mode refused: battery low");
+                DLOG(OTA_REFUSED_BATTERY);
                 return;
             }
-            Serial.println("[OTA] Restarting into update mode");
+            DLOG(OTA_RESTART_TO_UPDATE);
             session.reportError(Ota::Error::None);  // clear an earlier refusal
             restart(Restart::ToUpdateMode);
             return;
@@ -225,7 +226,7 @@ void Transport::control(const uint8_t* data, size_t length, const uint8_t* peer)
                 requestFastConnection(peer);
                 const uint32_t resumeAt = session.received();
                 const Ota::Error result = session.begin(image);
-                Serial.printf("[OTA] Begin encoding=%u encoded=%lu image=%lu resume=%lu result=%u free=%u\n",
+                DLOG(OTA_BEGIN,
                     image.encoding, static_cast<unsigned long>(image.encodedSize),
                     static_cast<unsigned long>(image.imageSize),
                     static_cast<unsigned long>(session.received() ? resumeAt : 0),
@@ -235,7 +236,7 @@ void Transport::control(const uint8_t* data, size_t length, const uint8_t* peer)
         }
         case Ota::CommandFinish: {
             const Ota::Error result = session.finish();
-            Serial.printf("[OTA] Finish result=%u state=%u\n", static_cast<unsigned>(result),
+            DLOG(OTA_FINISH, static_cast<unsigned>(result),
                 static_cast<unsigned>(session.state()));
             if (session.state() == Ota::State::Installing) restart(Restart::ToNormal);
             return;
@@ -243,7 +244,7 @@ void Transport::control(const uint8_t* data, size_t length, const uint8_t* peer)
         case Ota::CommandCancel:
             if (!updateModeActive) return;
             session.cancel();
-            Serial.println("[OTA] Cancelled; restarting normal firmware");
+            DLOG(OTA_CANCELLED);
             restart(Restart::ToNormal);
             return;
         default:
@@ -274,7 +275,7 @@ bool startBleOnlyController() {
     config.mode = ESP_BT_MODE_BLE;
     const esp_err_t init = esp_bt_controller_init(&config);
     const esp_err_t enable = init == ESP_OK ? esp_bt_controller_enable(ESP_BT_MODE_BLE) : init;
-    Serial.printf("[OTA] BLE-only controller init=0x%X enable=0x%X free=%u\n",
+    DLOG(OTA_CONTROLLER,
         static_cast<unsigned>(init), static_cast<unsigned>(enable),
         heap_caps_get_free_size(MALLOC_CAP_8BIT));
     return enable == ESP_OK;
@@ -319,7 +320,7 @@ void poll(uint32_t nowMs) {
     // Signed: the Bluetooth task can record activity after nowMs was sampled.
     if (updateModeActive && restart == Restart::None &&
         int32_t(nowMs - transport.lastActivityMs) >= int32_t(OTA_UPDATE_MODE_IDLE_MS)) {
-        Serial.println("[OTA] No update traffic for 2 minutes; restarting normal firmware");
+        DLOG(OTA_IDLE_TIMEOUT);
         transport.session.cancel();
         transport.restart(Restart::ToNormal);
     }
@@ -334,9 +335,9 @@ void confirmRunningImage(bool healthy) {
     }
     if (healthy) {
         esp_ota_mark_app_valid_cancel_rollback();
-        Serial.printf("[OTA] Firmware %s confirmed after update\n", FIRMWARE_VERSION);
+        DLOG(OTA_CONFIRMED, FIRMWARE_VERSION);
     } else {
-        Serial.println("[OTA] New firmware failed its startup check; rolling back");
+        DLOG(OTA_ROLLBACK);
         Serial.flush();
         esp_ota_mark_app_invalid_rollback_and_reboot();
     }

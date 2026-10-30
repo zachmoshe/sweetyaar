@@ -28,6 +28,8 @@ public:
 
     BatteryState state() const { return _state; }
     uint8_t encodedState() const { return static_cast<uint8_t>(_state); }
+    // Rolling mean of valid samples; 0 until the first valid sample.
+    uint16_t millivolts() const { return _hasValidVoltage ? averageMillivolts() : 0; }
 
 private:
     uint16_t readBatteryMillivolts() const;

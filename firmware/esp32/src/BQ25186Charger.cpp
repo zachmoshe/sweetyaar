@@ -4,6 +4,7 @@
 #include <driver/rtc_io.h>
 
 #include "Config.h"
+#include "DevLog.h"
 
 namespace {
 
@@ -109,7 +110,7 @@ void logEvents(uint8_t flags, const char* timestamp) {
     // it visible separately: a transient may be over before STAT is read and
     // BAT_OCP has no equivalent live bit. A persistent fault can reassert flags,
     // so another line is not necessarily another distinct physical event.
-    Serial.printf("[Charger events] time=%s%s%s%s%s\n",
+    DLOG(CHARGER_EVENTS,
                   timestamp,
                   (flags & 0x80U) ? " TS_FAULT" : "",
                   (flags & 0x04U) ? " VIN_OVP_FAULT_FLAG" : "",
@@ -151,7 +152,7 @@ bool BQ25186Charger::begin(LocalTimeReader readLocalTime) {
         failClosed("unexpected charger device ID");
         return false;
     }
-    Serial.printf("[Charger] BQ25186 detected, MASK_ID=0x%02X\n", maskAndId);
+    DLOG_DETAIL(CHARGER_DETECTED, maskAndId);
 
     if (!applyConfiguration(VALUE_IC_CTRL_AWAKE) || !readStatus()) {
         failClosed("initial configuration or status read failed");
@@ -163,7 +164,7 @@ bool BQ25186Charger::begin(LocalTimeReader readLocalTime) {
     _lastStatusMs = _lastVerifyMs;
     setChargeEnabled(_inputPresent);
     logStatusChange();
-    Serial.printf("[Charger] Configuration verified; charging %s\n",
+    DLOG_DETAIL(CHARGER_VERIFIED,
                   _inputPresent ? "enabled" : "waiting for input");
     return true;
 }
@@ -187,12 +188,12 @@ void BQ25186Charger::poll() {
         _lastVerifyMs = now;
         if (!verifyConfiguration(VALUE_IC_CTRL_AWAKE)) {
             setChargeEnabled(false);
-            Serial.println("[Charger] Configuration mismatch; attempting fail-closed recovery");
+            DLOG(CHARGER_MISMATCH);
             if (!applyConfiguration(VALUE_IC_CTRL_AWAKE)) {
                 failClosed("configuration recovery failed");
                 return;
             }
-            Serial.println("[Charger] Configuration restored and verified");
+            DLOG(CHARGER_RESTORED);
         }
     }
 
@@ -232,7 +233,7 @@ void BQ25186Charger::logStatusChange() {
     if (!_hasLoggedStatus || current != _lastLoggedStatus) {
         char timestamp[20];
         formatLogTime(timestamp);
-        Serial.printf("[Charger status] time=%s STATUS=%s\n",
+        DLOG(CHARGER_STATUS,
                       timestamp,
                       ChargerStatus::name(current));
         _hasLoggedStatus = true;
@@ -267,7 +268,7 @@ ChargerStatus::Snapshot BQ25186Charger::snapshot() const {
 
 bool BQ25186Charger::prepareForDeepSleep() {
     if (!_healthy) {
-        Serial.println("[Charger] Refusing deep sleep while charger is unhealthy");
+        DLOG(CHARGER_SLEEP_REFUSED);
         return false;
     }
 
@@ -279,7 +280,7 @@ bool BQ25186Charger::prepareForDeepSleep() {
     }
     if (_inputPresent) {
         logStatusChange();
-        Serial.println("[Charger] External input appeared; keeping system awake");
+        DLOG(CHARGER_INPUT_APPEARED);
         return false;
     }
 
@@ -291,7 +292,7 @@ bool BQ25186Charger::prepareForDeepSleep() {
 
     setChargeEnabled(false);
     logStatusChange();
-    Serial.println("[Charger] Configuration verified; charging and host watchdog disabled for deep sleep");
+    DLOG(CHARGER_SLEEP_READY);
     return true;
 }
 
@@ -301,7 +302,7 @@ bool BQ25186Charger::writeRegister(uint8_t reg, uint8_t value) {
     Wire.write(value);
     uint8_t result = Wire.endTransmission(true);
     if (result != 0) {
-        Serial.printf("[Charger] I2C write reg 0x%02X failed (%u)\n", reg, result);
+        DLOG(CHARGER_I2C_WRITE_FAILED, reg, result);
         return false;
     }
     return true;
@@ -312,13 +313,13 @@ bool BQ25186Charger::readRegister(uint8_t reg, uint8_t& value) {
     Wire.write(reg);
     uint8_t result = Wire.endTransmission(false);
     if (result != 0) {
-        Serial.printf("[Charger] I2C select reg 0x%02X failed (%u)\n", reg, result);
+        DLOG(CHARGER_I2C_SELECT_FAILED, reg, result);
         return false;
     }
 
     if (Wire.requestFrom(static_cast<int>(I2C_ADDRESS), 1, 1) != 1 ||
         Wire.available() != 1) {
-        Serial.printf("[Charger] I2C read reg 0x%02X failed\n", reg);
+        DLOG(CHARGER_I2C_READ_FAILED, reg);
         return false;
     }
     value = static_cast<uint8_t>(Wire.read());
@@ -334,7 +335,7 @@ bool BQ25186Charger::writeAndVerify(uint8_t reg, uint8_t value) {
         return false;
     }
     if (actual != value) {
-        Serial.printf("[Charger] Verify reg 0x%02X expected=0x%02X actual=0x%02X\n",
+        DLOG(CHARGER_VERIFY_FAILED,
                       reg, value, actual);
         return false;
     }
@@ -357,7 +358,7 @@ bool BQ25186Charger::verifyConfiguration(uint8_t icControl) {
             return false;
         }
         if (actual != setting.value) {
-            Serial.printf("[Charger] Config changed reg 0x%02X expected=0x%02X actual=0x%02X\n",
+            DLOG(CHARGER_CONFIG_CHANGED,
                           setting.reg, setting.value, actual);
             return false;
         }
@@ -368,7 +369,7 @@ bool BQ25186Charger::verifyConfiguration(uint8_t icControl) {
         return false;
     }
     if (actual != icControl) {
-        Serial.printf("[Charger] Config changed reg 0x%02X expected=0x%02X actual=0x%02X\n",
+        DLOG(CHARGER_CONFIG_CHANGED,
                       REG_IC_CTRL, icControl, actual);
         return false;
     }
@@ -400,8 +401,7 @@ bool BQ25186Charger::readStatus() {
 
     if (!_hasLastState || stat0Logged != lastStat0Logged || stat1 != _lastStat1 ||
         flagsLogged != lastFlagsLogged || pgLevel != _lastPgLevel) {
-        Serial.printf("[Charger registers] time=%s STAT0=0x%02X STAT1=0x%02X "
-                      "FLAG0=0x%02X PG=%s\n",
+        DLOG(CHARGER_REGISTERS,
                       timestamp, stat0, stat1, flags,
                       pgLevel == 0 ? "VALID_INPUT" : "NO_VALID_INPUT");
     }
@@ -460,6 +460,6 @@ void BQ25186Charger::failClosed(const char* reason) {
     _inputPresent = false;
     // The next successful read establishes a fresh snapshot after the gap.
     _hasLastState = false;
-    Serial.printf("[Charger] Disabled: %s\n", reason);
+    DLOG(CHARGER_DISABLED, reason);
     logStatusChange();
 }

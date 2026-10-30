@@ -196,6 +196,7 @@ constexpr int ESP_OK = 0;
 using esp_err_t = int;
 int configGattsIf = 7;
 struct { template<typename... T> void printf(T...) {} } Serial;
+#include "DevLog.h"
 struct BLE2902 { bool subscribed = true; bool getNotifications() { return subscribed; } } descriptor;
 struct BLECharacteristic {
     String value;
@@ -253,5 +254,6 @@ int main() {
 }
 ''')
     executable = tmp_path / "config_attributes"
-    run_checked([compiler, "-std=c++17", "-Wall", "-Wextra", program, "-o", executable])
+    run_checked([compiler, "-std=c++17", "-Wall", "-Wextra", "-I", repo_root / "firmware/esp32/src",
+                 program, "-o", executable])
     run_checked([executable])

@@ -6,6 +6,7 @@
 #include <map>
 #include <string>
 #include <utility>
+#include "DevLog.h"
 
 namespace ContentCatalog {
 // The catalog keeps no song names; production reads them from the SD card.

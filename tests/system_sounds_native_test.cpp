@@ -8,6 +8,7 @@
 #include <limits>
 #include <thread>
 #include <vector>
+#include "DevLog.h"
 
 using audio_tools::AudioInfo;
 class RecordingOutput : public audio_tools::AudioOutput {
@@ -52,7 +53,7 @@ struct Sink {
 } sink, *btSink = &sink;
 bool btReopenPending = false;
 struct { void disconnectAll() {} } bleService;
-struct { void println(const char*) {} } Serial;
+struct { template <typename... T> void printf(T...) {} } Serial;
 void markActivity(const char*) {}
 #include "pairing_events.inc"
 

@@ -13,6 +13,7 @@
 #include <limits>
 #include <string>
 #include <vector>
+#include "DevLog.h"
 
 using audio_tools::AudioInfo;
 using audio_tools::AudioOutput;

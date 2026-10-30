@@ -6,6 +6,7 @@
 #include <ctime>
 #include <iostream>
 #include <array>
+#include "DevLog.h"
 
 // Hardware/transport boundaries. The settings handler, configuration I/O and
 // volume/bedtime policy below come directly from the production sources.

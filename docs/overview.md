@@ -89,6 +89,9 @@ in the relevant engineering guide rather than duplicated here.
 - [Firmware](engineering/firmware.md) is the source of truth for device
   behavior, playback rules, Bluetooth behavior, content handling, sleep and
   wake behavior, firmware organization, building, flashing, and testing.
+- [Logging and Debugging](logging-and-debugging.md) is the source of truth
+  for the on-device diagnostic log: what is stored, its flash format, and how
+  it is read back.
 - [Mobile App](engineering/mobile-app.md) is the source of truth for the
   parent experience, controls and settings, Bluetooth connection flow, Bedtime
   presentation, offline operation, deployment, and app testing.

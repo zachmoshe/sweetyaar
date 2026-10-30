@@ -1186,6 +1186,7 @@ The high-level components are:
 | `firmware/esp32/src/StatusLed.*` and `StatusLedPolicy.*` | Semantic status priority, blink timing, brightness limiting, and the single addressable-LED/RMT owner. |
 | `firmware/esp32/src/OtaSession.*`       | Firmware-update protocol: offsets, resume, size and checksum checks, status encoding. No ESP32 APIs. |
 | `firmware/esp32/src/OtaUpdate.*`        | Update mode, BLE-only controller, flash/zlib/SHA-256 sink, restarts, timeout, and rollback confirmation. |
+| `firmware/esp32/src/DevLog*`            | Rolling diagnostic log on flash: `DLOG()` macros, event catalog (`DevLogEvents.h`), sector ring, boot and crash records. See [Logging and Debugging](../logging-and-debugging.md). |
 | `firmware/esp32/src/Config.h`           | Pin assignments, BLE identifiers, firmware version and board ID, and fallback values.   |
 
 
@@ -1220,8 +1221,8 @@ hardware target or firmware application.
 `board_upload.flash_size = 8MB` explicitly. The production module is
 ESP32-WROOM-32E-N8 (8 MB); the generic prototype board v1.0 uses the N16 (16 MB)
 variant and uses only the lower 8 MB. Both use the checked-in
-`firmware/esp32/partitions_8mb.csv`, an unmodified copy of Arduino-ESP32's
-`default_8MB.csv`:
+`firmware/esp32/partitions_8mb.csv`, Arduino-ESP32's `default_8MB.csv` with
+its `spiffs` partition renamed `logs` (same offset and size):
 
 | Partition | Offset | Size | Use |
 | --- | --- | --- | --- |
@@ -1229,13 +1230,15 @@ variant and uses only the lower 8 MB. Both use the checked-in
 | `otadata` | 0xE000 | 8 KB | Selects the boot app slot |
 | `app0` (`ota_0`) | 0x10000 | 3.2 MB | Firmware |
 | `app1` (`ota_1`) | 0x340000 | 3.2 MB | Second app slot; an update is written to whichever slot is not running |
-| `spiffs` | 0x670000 | 1.5 MB | Unused |
+| `logs` (`spiffs` before) | 0x670000 | 1.5 MB | Rolling diagnostic log; see [Logging and Debugging](../logging-and-debugging.md) |
 | `coredump` | 0x7F0000 | 64 KB | Crash dumps |
 
 The partition table and bootloader are written only by wired flashing; an OTA
 update replaces only the inactive app slot, never this layout. `nvs` keeps the same
 offset and size as the previous `min_spiffs.csv` layout, so moving a device to
-this table preserves its bonds and settings.
+this table preserves its bonds and settings. Toys updated only over BLE still
+have the old `spiffs` label; the log uses whichever of `logs` or `spiffs` it
+finds.
 
 Set up the checked-in development environment from the repository root:
 

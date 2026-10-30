@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include "recording_serial.h"
+#include "DevLog.h"
 uint32_t nowMs = 0;
 uint32_t millis() { return nowMs; }
 using esp_bd_addr_t = uint8_t[6];

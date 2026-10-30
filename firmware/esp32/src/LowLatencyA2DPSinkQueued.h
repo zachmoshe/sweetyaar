@@ -4,6 +4,7 @@
 #include <esp_heap_caps.h>
 
 #include "BluetoothA2DPSinkQueued.h"
+#include "DevLog.h"
 
 class LowLatencyA2DPSinkQueued : public BluetoothA2DPSinkQueued {
 public:
@@ -157,7 +158,7 @@ private:
         if (s_i2s_write_semaphore == nullptr) {
             s_i2s_write_semaphore = xSemaphoreCreateBinary();
             if (s_i2s_write_semaphore == nullptr) {
-                Serial.printf("[BT] A2DP semaphore allocation failed (free=%u largest=%u)\n",
+                DLOG(BT_SEMAPHORE_FAILED,
                               heap_caps_get_free_size(MALLOC_CAP_8BIT),
                               heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
                 return false;
@@ -194,12 +195,12 @@ private:
                 s_ringbuf_i2s = xRingbufferCreate(size, RINGBUF_TYPE_BYTEBUF);
                 if (s_ringbuf_i2s != nullptr) {
                     if (size != requestedSize) {
-                        Serial.printf("[BT] A2DP queue fell back to %dB (requested %dB, free=%u largest=%u)\n",
+                        DLOG(BT_QUEUE_FALLBACK,
                                       size, requestedSize,
                                       heap_caps_get_free_size(MALLOC_CAP_8BIT),
                                       heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
                     } else {
-                        Serial.printf("[BT] A2DP queue ready: %dB (free=%u largest=%u)\n",
+                        DLOG_DETAIL(BT_QUEUE_READY,
                                       size,
                                       heap_caps_get_free_size(MALLOC_CAP_8BIT),
                                       heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
@@ -210,7 +211,7 @@ private:
             }
 
             if (s_ringbuf_i2s == nullptr) {
-                Serial.printf("[BT] A2DP ringbuffer allocation failed (requested %dB, free=%u largest=%u)\n",
+                DLOG(BT_RINGBUFFER_FAILED,
                               requestedSize,
                               heap_caps_get_free_size(MALLOC_CAP_8BIT),
                               heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
@@ -229,7 +230,7 @@ private:
                 ccall_i2s_task_handler, "BtI2STask", i2s_stack_size, nullptr,
                 i2s_task_priority, &s_bt_i2s_task_handle, task_core);
             if (result != pdPASS) {
-                Serial.printf("[BT] A2DP I2S task allocation failed (free=%u largest=%u)\n",
+                DLOG(BT_TASK_FAILED,
                               heap_caps_get_free_size(MALLOC_CAP_8BIT),
                               heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
                 return false;

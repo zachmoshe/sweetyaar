@@ -1,6 +1,7 @@
 #include "WavPlayer.h"
 #include "ContentCatalog.h"
 #include <SPI.h>
+#include "DevLog.h"
 
 
 // ---------------------------------------------------------------------------
@@ -10,10 +11,10 @@ WavPlayer::WavPlayer(VolumeStream& output) : _output(output), _pcmOutput(output)
 bool WavPlayer::begin() {
     SPI.begin(PIN_SD_SCK, PIN_SD_MISO, PIN_SD_MOSI, PIN_SD_CS);
     if (!SD.begin(PIN_SD_CS, SPI, SD_SPI_FREQUENCY_HZ, SD_MOUNT_POINT, SD_MAX_OPEN_FILES)) {
-        Serial.println("[WavPlayer] SD init failed");
+        DLOG(WAV_SD_FAILED);
         return false;
     }
-    Serial.printf("[WavPlayer] SD OK (SPI %lu MHz)\n",
+    DLOG_DETAIL(WAV_SD_OK,
                   static_cast<unsigned long>(SD_SPI_FREQUENCY_HZ / 1000000UL));
     return true;
 }
@@ -27,7 +28,7 @@ void WavPlayer::startSong(const String& theme) {
 
     buildSongList(theme, shuffle);
     if (_songCount == 0) {
-        Serial.printf("[WavPlayer] No playable songs in theme %s\n", theme.c_str());
+        DLOG(WAV_NO_THEME_SONGS, theme.c_str());
         return;
     }
 
@@ -52,7 +53,7 @@ void WavPlayer::startRandomAnimal() {
     stop();
     buildAnimalList();
     if (_animalCount == 0) {
-        Serial.println("[WavPlayer] No animal sounds");
+        DLOG(WAV_NO_ANIMALS);
         return;
     }
     _animalMode = true;
@@ -124,13 +125,13 @@ void WavPlayer::loop() {
         const size_t count = _remainingPcmBytes < sizeof(buf) ? _remainingPcmBytes : sizeof(buf);
         const size_t n = _sdFile.read(buf, count);
         if (n != count) {
-            Serial.println("[WavPlayer] Cannot read complete PCM block");
+            DLOG(WAV_READ_FAILED);
             stop();
             return;
         }
         _remainingPcmBytes -= n;
         if (_pcmOutput.write(buf, n) != n) {
-            Serial.println("[WavPlayer] Audio output write failed");
+            DLOG(WAV_WRITE_FAILED);
             stop();
         }
     } else {
@@ -154,7 +155,7 @@ bool WavPlayer::openCurrentSong() {
         _songCursor = (_songCursor + 1) % _songCount;
     }
 
-    Serial.println("[WavPlayer] No playable song files");
+    DLOG(WAV_NO_SONG_FILES);
     _idle = true;
     return false;
 }
@@ -172,7 +173,7 @@ bool WavPlayer::openCurrentAnimal() {
         }
     }
 
-    Serial.println("[WavPlayer] No playable animal files");
+    DLOG(WAV_NO_ANIMAL_FILES);
     _idle = true;
     return false;
 }
@@ -184,7 +185,7 @@ bool WavPlayer::openFile(const String& path) {
     _sdFile = SD.open(path.c_str());
     if (!_sdFile) {
         _currentPath = "";
-        Serial.printf("[WavPlayer] Cannot open: %s\n", path.c_str());
+        DLOG(WAV_OPEN_FAILED, path.c_str());
         ContentCatalog::WavInfo missing;
         missing.error = "Cannot open file";
         ContentCatalog::recordWavCheck(path, missing);
@@ -194,21 +195,21 @@ bool WavPlayer::openFile(const String& path) {
     ContentCatalog::WavInfo wavInfo = ContentCatalog::inspectWav(_sdFile);
     ContentCatalog::recordWavCheck(path, wavInfo);
     if (wavInfo.sizeBytes < 44) {
-        Serial.printf("[WavPlayer] Skipping too-small WAV: %s (%u bytes)\n",
+        DLOG(WAV_TOO_SMALL,
                       path.c_str(), static_cast<unsigned>(_sdFile.size()));
         _sdFile.close();
         _currentPath = "";
         return false;
     }
     if (!wavInfo.valid) {
-        Serial.printf("[WavPlayer] Skipping invalid WAV: %s (%u bytes)\n",
+        DLOG(WAV_INVALID,
                       path.c_str(), static_cast<unsigned>(_sdFile.size()));
         _sdFile.close();
         _currentPath = "";
         return false;
     }
     if (!wavInfo.supported) {
-        Serial.printf("[WavPlayer] Skipping unsupported WAV: %s (format=%u rate=%lu channels=%u bits=%u)\n",
+        DLOG(WAV_UNSUPPORTED,
                       path.c_str(), wavInfo.audioFormat,
                       static_cast<unsigned long>(wavInfo.sampleRate),
                       wavInfo.channels, wavInfo.bitsPerSample);
@@ -218,7 +219,7 @@ bool WavPlayer::openFile(const String& path) {
     }
 
     if (!_sdFile.seek(wavInfo.dataOffset)) {
-        Serial.printf("[WavPlayer] Cannot seek to WAV data: %s\n", path.c_str());
+        DLOG(WAV_SEEK_FAILED, path.c_str());
         _sdFile.close();
         _currentPath = "";
         return false;
@@ -227,7 +228,7 @@ bool WavPlayer::openFile(const String& path) {
     _remainingPcmBytes = wavInfo.dataBytes;
 
     _currentPath = path;
-    Serial.printf("[WavPlayer] Playing: %s\n", path.c_str());
+    DLOG(WAV_PLAYING, path.c_str());
     return true;
 }
 
@@ -301,7 +302,7 @@ int WavPlayer::listThemes(String* outIds, String* outNames, int maxThemes) {
             continue;
         }
         if (count >= maxThemes) {
-            Serial.printf("[WavPlayer] Theme list reached firmware cap (%d); extra themes ignored\n",
+            DLOG(WAV_THEME_CAP,
                           maxThemes);
             break;
         }
@@ -334,7 +335,7 @@ String WavPlayer::buildThemesJson(const String* ids, const String* names,
 
     json += "]";
     if (truncated) {
-        Serial.printf("[WavPlayer] BLE theme list truncated to %u bytes\n",
+        DLOG(WAV_THEME_LIST_TRUNCATED,
                       static_cast<unsigned>(json.length()));
     }
     return json;
