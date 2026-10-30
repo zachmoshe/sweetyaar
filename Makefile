@@ -17,7 +17,7 @@ PYTHON ?= $(VENV_DIR)/bin/python
 PIO ?= $(VENV_DIR)/bin/pio
 UV ?= uv
 
-.PHONY: help setup app build flash monitor flash-monitor clean test test-unit test-device test-app test-firmware check-python check-pio animals create-published-firmware release-firmware ota-update reset-mac-bluetooth
+.PHONY: help setup app build flash monitor flash-monitor clean test test-unit test-device test-app test-firmware check-python check-pio animals create-published-firmware release-firmware ota-update reset-mac-bluetooth fetch-logs parse-logs
 
 help: ## Show the available project commands.
 	@printf 'SweetYaar project commands\n\n'
@@ -69,6 +69,23 @@ reset-mac-bluetooth: check-python ## Make this Mac forget nearby SweetYaar toys 
 		$$(for id in $$ids; do printf -- '--identifier %s ' "$$id"; done) \
 		$(if $(ADDRESS),--address "$(ADDRESS)",)
 
+LOG_DIR ?= $(ROOT_DIR)/devlogs
+LOG_ARGS ?=
+# make parse-logs [<file>]: the words after parse-logs are the log file, not
+# targets to build.
+ifeq (parse-logs,$(firstword $(MAKECMDGOALS)))
+LOG := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+ifneq ($(LOG),)
+.PHONY: $(LOG)
+$(eval $(LOG):;@:)
+endif
+endif
+fetch-logs: check-python ## Save the toy's flash log over the debugger (LOG_DIR=<folder>, SERIAL_PORT if several ESPs); resets the toy.
+	"$(PYTHON)" "$(ROOT_DIR)/tools/devlog.py" fetch $(if $(SERIAL_PORT),--port "$(SERIAL_PORT)",) --out "$(LOG_DIR)" $(LOG_ARGS)
+
+parse-logs: check-python ## Print a fetched log: make parse-logs [<file>] (default newest in LOG_DIR; LOG_ARGS="--boots 3 --ids --chunks").
+	"$(PYTHON)" "$(ROOT_DIR)/tools/devlog.py" parse --dir "$(LOG_DIR)" $(foreach file,$(LOG),"$(file)") $(LOG_ARGS)
+
 PROFILE ?= default
 SDCARD ?=
 OUT ?=
@@ -95,7 +112,7 @@ test-app: check-python ## Run the parent-app and PWA regression tests.
 	cd "$(ROOT_DIR)" && "$(PYTHON)" -m pytest tests/test_parent_app.py tests/test_parent_app_pwa.py
 
 test-firmware: check-python ## Run firmware configuration, native-code, and build tests.
-	cd "$(ROOT_DIR)" && "$(PYTHON)" -m pytest tests/test_firmware_config.py tests/test_battery_monitor.py tests/test_charger_status.py tests/test_ble_transport.py tests/test_bluetooth_access.py tests/test_bluetooth_reopen.py tests/test_state_machine.py tests/test_settings_runtime.py tests/test_audio_handoff.py tests/test_wav_pcm.py tests/test_wav_catalog.py tests/test_mono_assets.py tests/test_system_sounds.py tests/test_ota_update.py tests/test_devlog.py tests/test_firmware_build.py
+	cd "$(ROOT_DIR)" && "$(PYTHON)" -m pytest tests/test_firmware_config.py tests/test_battery_monitor.py tests/test_charger_status.py tests/test_ble_transport.py tests/test_bluetooth_access.py tests/test_bluetooth_reopen.py tests/test_state_machine.py tests/test_settings_runtime.py tests/test_audio_handoff.py tests/test_wav_pcm.py tests/test_wav_catalog.py tests/test_mono_assets.py tests/test_system_sounds.py tests/test_ota_update.py tests/test_devlog.py tests/test_devlog_tool.py tests/test_firmware_build.py
 
 check-python:
 	@test -x "$(PYTHON)" || { printf 'Python environment not found at %s. Run make setup first.\n' '$(PYTHON)' >&2; exit 1; }

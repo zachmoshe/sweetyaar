@@ -13,6 +13,10 @@ rows, then restarts `bluetoothd`. It needs Bluetooth permission, `sudo` and Full
 Disk Access, and asks before deleting. `--inspect` prints a read-only report
 without key material.
 
+`devlog.py` (`make fetch-logs`, `make parse-logs`) saves the toy's flash log
+over the debugger and prints it as text; see
+[Logging and Debugging](../docs/logging-and-debugging.md#reading-the-log-on-the-bench).
+
 `device_test.py` is the opt-in Mac/ESP32 Bluetooth runner. It captures real
 serial events and uses Bleak, blueutil, SwitchAudioSource and the AVAudioPlayer
 helper `device_tone.swift` for radio and audio checks. Tone output is selected

@@ -12,12 +12,12 @@ read it back:
 | Step | What | Status |
 | --- | --- | --- |
 | 1 | Rolling log, crash copy, telemetry and usage stored on flash | Implemented |
-| 2 | Bench tool: read the partition with the debugger and print decoded text | Planned |
+| 2 | Bench tool: read the partition with the debugger and print decoded text | Implemented |
 | 3 | Fetch the log over BLE (script and parent app) | Planned |
 | 4 | Upload to a database and a timeline UI | Planned |
 
-Until step 2 exists, the raw partition can be saved with the debugger (see
-[Reading the log on the bench](#reading-the-log-on-the-bench)).
+With the debugger connected, `make fetch-logs` and `make parse-logs` save and
+print the log (see [Reading the log on the bench](#reading-the-log-on-the-bench)).
 
 ## Principles
 
@@ -444,16 +444,78 @@ levelling.
 
 ## Reading the log on the bench
 
-Until the decoding tool exists, save the log and the core dump with the
-debugger. The toy resets into download mode, which shows up as one more boot
-in the log afterward.
+Connect the six-pin debugger (powered, see the programming-interface rules in
+[hardware.md](engineering/hardware.md)) and run:
 
 ```bash
-.venv/bin/python -m esptool --port <PORT> --baud 921600 read_flash 0x670000 0x190000 devlog.bin
+make fetch-logs
 ```
 
-This reads the log partition and the core dump partition right after it, in
-about 20 seconds.
+```bash
+make parse-logs
+```
+
+`tools/devlog.py` does both:
+
+- **`fetch`** connects with esptool to the first ESP it finds, as the
+  esptool command line does (`SERIAL_PORT=` picks one when several are
+  connected). It reads the partition table, then reads the
+  `logs` partition (or `spiffs` on a toy that was only updated over BLE) and
+  the `coredump` partition. It writes nothing to the toy. The toy resets into
+  download mode for the read and boots normally afterward, which shows as
+  one more boot in the log. The read runs at 230,400 baud (under 2 minutes
+  in all). A read sends the whole partition uncompressed from the toy, and
+  at 460,800, the speed `make flash` uses, the CH340C debugger drops bytes
+  ("Corrupt data"); `LOG_ARGS="--baud 115200"` is the slowest option. A
+  read that fails within 30 seconds of connecting loses bytes rather than
+  power, so fetch keeps what it has and continues one speed lower (460,800,
+  230,400, then 115,200). The file is saved as
+  `devlogs/devlog-<MAC>-<date>-<time>.bin` (ignored by Git; `LOG_DIR=`
+  changes the folder). A core dump that is still in its partition, not yet
+  copied into the log (for example during a boot loop), is saved next to it
+  as `...-coredump-partition.bin`.
+- **The toy drops out about every 40 seconds during a fetch, by design.**
+  While awake, the firmware enables the BQ25186 charger's 40-second host
+  watchdog, which power-cycles `SYS` when I2C traffic stops (see the hang
+  detectors in [firmware.md](engineering/firmware.md)). In download mode no
+  firmware runs, so nothing talks to the charger and it cuts the toy's power
+  40 seconds into the read (about 40 % of the log at 230,400 baud). Fetch
+  reads in 64 KiB pieces, prints a note when this happens, reconnects and
+  continues from the last complete piece. Each dropout adds a short boot to
+  the toy's log, because the firmware starts for about a second before the
+  reconnect resets it into download mode again.
+- **`parse`** prints a saved file: `make parse-logs devlogs/<file>.bin`, or
+  the newest in `devlogs/` when no file is given. Options go in `LOG_ARGS`:
+  `--boots N` prints only the last N boots, `--ids` prefixes each line with
+  its event name and `--chunks` prints the core dump chunk records too.
+
+The output starts with the device ID, how many sectors are in use, whether
+the ring has wrapped and any torn or unreadable records. Then each boot
+follows, one line per record:
+
+```text
+--- Boot 41 ---
+2026-10-30 07:12:03.000   +0:00:00.112  [Log] Boot 41 streak=0 reset=DEEPSLEEP(8) wake=2 fw=1.2.0 board=sweetyaar slot=app0 epoch=1793337123
+2026-10-30 07:12:03.000   +0:00:00.112  [Bedtime] Clock retained from deep sleep (tzOffsetMin=120)
+2026-10-30 07:12:05.485   +0:00:02.597  [Boot] Ready. (2485ms)
+```
+
+The first column is local time, shown only for a boot that has a time anchor
+(see [Time](#time)); a boot without one shows `-`. The second is the time since
+boot. The text is rebuilt from the format in the current
+`DevLogEvents.h`. The catalog rules keep that valid for older logs: an event
+missing from the catalog prints as `[Unknown event 0x....]` with its
+arguments, missing arguments print as `?`, and extra arguments are appended.
+A boot whose start was overwritten by the ring is labeled as such.
+
+A copied core dump prints as one line per `COREDUMP_*` record, and `parse`
+reassembles it into `<log>-boot<N>-core.bin` beside the log. Decode it with
+the `firmware.elf` of the firmware version in that boot's `BOOT` line
+(`pip install esp-coredump`):
+
+```bash
+esp-coredump --chip esp32 info_corefile --core-format raw --core <core.bin> <firmware.elf>
+```
 
 ## Real-device validation for step 1
 
