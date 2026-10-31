@@ -2689,6 +2689,39 @@ const tests = [
     assert.strictEqual(state.settings.message, message);
     assert.strictEqual(state.settings.sessionScanned, false);
   `],
+  ["an empty settings read is retried instead of reported", String.raw`
+    const ble = await connectWithFakeBle();
+    const characteristic = ble.chars.configBedtime;
+    const originalRead = characteristic.readValue.bind(characteristic);
+    let reads = 0;
+    characteristic.readValue = async () => (++reads === 1 ? textView("") : originalRead());
+    ble.config.bedtime.volumeCapPct = 12;
+    ble.publishConfigValues();
+    await waitUntil(() => state.bedtime.volumeCapPct === 12, "retried bedtime read");
+    assert.strictEqual(reads >= 2, true);
+    assert.strictEqual(state.configError, null);
+  `],
+  ["opening Settings re-reads after a failed background read", String.raw`
+    const ble = await connectWithFakeBle();
+    state.configError = new Error("Unexpected end of JSON input");
+    await els.tabSettings.click();
+    await waitForSettingsLoaded();
+    assert.strictEqual(state.configError, null);
+    assert.strictEqual(state.settings.sessionScanned, true);
+    assert(state.settings.themes.length > 0, "themes should load");
+  `],
+  ["settings cannot be saved after a failed load", String.raw`
+    const ble = await connectWithFakeBle({ configFileError: "Settings file is missing or invalid." });
+    await els.tabSettings.click();
+    await waitForSettingsLoaded();
+    assert.strictEqual(state.settings.themes.length, 0);
+    await els.settingsDeviceName.input("Edited after failure");
+    assert.strictEqual(state.settings.dirty, true);
+    assert.strictEqual(els.settingsSaveButton.disabled, true);
+    const commandsBefore = ble.writes.config.length;
+    await saveSettings();
+    assert.strictEqual(ble.writes.config.length, commandsBefore, "No setConfig may follow a failed scan");
+  `],
   ["setTheme SD write failure surfaces error to app", String.raw`
     const ble = await connectWithFakeBle();
     await els.tabSettings.click();

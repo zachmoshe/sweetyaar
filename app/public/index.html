@@ -4259,6 +4259,19 @@
       for (const name of CONFIG_ATTRIBUTES) await readConfigAttribute(name, replaceDraft);
     }
 
+    // A read just after the toy rebuilds its values (when a phone's audio
+    // session ends) has returned an empty value. Keep the previous values and
+    // read once more before reporting an error.
+    const CONFIG_READ_RETRY_MS = 500;
+    async function readConfigAttributeWithRetry(name) {
+      try {
+        await readConfigAttribute(name);
+      } catch {
+        await delay(CONFIG_READ_RETRY_MS);
+        await readConfigAttribute(name);
+      }
+    }
+
     async function subscribeToConfigAttributes() {
       for (const name of CONFIG_ATTRIBUTES) {
         const characteristic = state.chars[name];
@@ -4268,7 +4281,7 @@
           // value here so a read doesn't trigger an endless read/notify loop.
           const signal = event.target.value;
           if (signal.byteLength !== 1 || signal.getUint8(0) !== 1) return;
-          void readConfigAttribute(name).then(() => render()).catch((error) => {
+          void readConfigAttributeWithRetry(name).then(() => render()).catch((error) => {
             if (state.chars[name] !== characteristic) return;
             state.configError = error;
             state.message = "Could not refresh settings. Reconnect to the toy.";
@@ -4438,6 +4451,9 @@
       render();
 
       try {
+        // A failed background read leaves configError set until a later read
+        // succeeds; read again rather than fail on a stale error.
+        if (state.configError) await refreshConfigAttributes();
         if (state.configError) throw state.configError;
         applySavedSettingsToDraft();
         state.settings.pendingThemeChanges = {};
@@ -4540,8 +4556,14 @@
       }
     }
 
+    // A failed load leaves no themes to resolve the default and bedtime theme
+    // against; saving then would replace both with the toy's built-in default.
+    function settingsSaveBlocked() {
+      return settingsBusy() || !state.settings.dirty || !state.settings.sessionScanned;
+    }
+
     async function saveSettings() {
-      if (settingsBusy() || !state.settings.dirty) return;
+      if (settingsSaveBlocked()) return;
 
       const deviceName = `${els.settingsDeviceName.value || ""}`.trim() || "SweetYaar";
       const defaultVolumePct = clampVolume(els.settingsVolumeRange.value);
@@ -5154,7 +5176,7 @@
       els.settingsNormalIdleSec.disabled = busy || !settings.sleepEnabled;
       els.settingsWakeIdleSec.disabled = busy || !settings.sleepEnabled;
       els.settingsBleIdleSec.disabled = busy || !settings.sleepEnabled;
-      els.settingsSaveButton.disabled = busy || !settings.dirty;
+      els.settingsSaveButton.disabled = settingsSaveBlocked();
       els.settingsSaveButton.querySelector(".settings-save-label").textContent = state.busy ? "Saving..." : "Save";
       els.settingsLoadingBanner.hidden = !settings.loading;
       const note = settings.message ||

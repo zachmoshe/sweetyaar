@@ -215,7 +215,15 @@ The app manages the catalog already present on the card; it does not add,
 delete, or replace WAV files. New content must be copied to the microSD card
 directly. The firmware discovers manual card changes at its next boot. During a
 BLE session, the app scans the catalog the first time Settings opens and keeps
-that result in memory until the toy disconnects.
+that result in memory until the toy disconnects. **Save** stays disabled until
+that scan succeeds: without the theme list the app cannot resolve the default
+and bedtime themes, and a save would reset both to the firmware's built-in
+default. Reopening Settings retries the scan.
+
+A config value read just after a phone's audio session ends has come back
+empty. The app keeps the previous values and reads once more after 500 ms
+before it reports an error, and opening Settings re-reads all config values
+instead of failing on an error left by an earlier background read.
 
 The Ready-screen volume and theme are current-session controls. The settings
 screen's default volume and theme are the values restored by the firmware on a
