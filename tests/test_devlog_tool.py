@@ -51,8 +51,8 @@ def test_decoder_prints_what_the_firmware_printed(image: dict[str, pathlib.Path]
 
 def test_wrapped_ring_boots_and_wall_time(image: dict[str, pathlib.Path]) -> None:
     text, _ = decoded(image["log"])
-    assert "Device 24:0A:C4:01:02:03: 6 of 6 sectors in use" in text or "5 of 6 sectors" in text
-    assert "The ring has wrapped" in text
+    assert "Device 24:0A:C4:01:02:03: 6 sectors" in text or "Device 24:0A:C4:01:02:03: 5 sectors" in text
+    assert "were overwritten on the toy before they were fetched" in text
     assert "--- Boot 1 (its start was overwritten) ---" in text
     assert "[Log] Boot 1 " not in text
     # The time sync at +0:33:20 dates the earlier records of the same boot.

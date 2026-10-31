@@ -16,6 +16,10 @@ without key material.
 `devlog.py` (`make fetch-logs`, `make parse-logs`) saves the toy's flash log
 over the debugger and prints it as text; see
 [Logging and Debugging](../docs/logging-and-debugging.md#reading-the-log-on-the-bench).
+`devlog_ble.py` (`make fetch-logs-ble`) adds to the same file over BLE from
+this Mac, reading only the sectors not saved yet. Both keep one file per
+device, holding only the sectors with records; see
+[Fetching the log over BLE](../docs/logging-and-debugging.md#fetching-the-log-over-ble).
 `logviewer/` (`make logs-ui`) merges every fetched log per device and shows
 a timeline, telemetry charts and stats in the browser; see
 [Log viewer](../docs/logging-and-debugging.md#log-viewer).

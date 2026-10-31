@@ -270,6 +270,8 @@ static constexpr char BLE_FIRMWARE_UUID[]        = "A1B2C3D4-E5F6-7890-ABCD-EF12
 static constexpr char BLE_OTA_CONTROL_UUID[]     = "A1B2C3D4-E5F6-7890-ABCD-EF12345678A3";
 static constexpr char BLE_OTA_DATA_UUID[]        = "A1B2C3D4-E5F6-7890-ABCD-EF12345678A4";
 static constexpr char BLE_OTA_STATUS_UUID[]      = "A1B2C3D4-E5F6-7890-ABCD-EF12345678A5";
+// Log fetch in update mode (see "Fetching the log over BLE" in logging-and-debugging.md).
+static constexpr char BLE_LOG_DATA_UUID[]        = "A1B2C3D4-E5F6-7890-ABCD-EF12345678A6";
 static constexpr uint16_t BLE_LOCAL_MTU = 185;
 // Update mode runs without Classic Bluetooth, so larger packets fit its heap.
 static constexpr uint16_t BLE_UPDATE_MODE_MTU = 517;

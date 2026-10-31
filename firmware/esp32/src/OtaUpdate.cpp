@@ -11,6 +11,7 @@
 #include "Config.h"
 #include "OtaSession.h"
 #include "DevLog.h"
+#include "DevLogTransfer.h"
 
 // Arduino marks a pending image valid before setup() unless this returns true;
 // confirmRunningImage() decides instead, after the services have started.
@@ -20,6 +21,12 @@ namespace OtaUpdate {
 namespace {
 
 constexpr uint32_t UPDATE_MODE_MAGIC = 0x0DA7E5A1UL;
+constexpr uint32_t LOG_READ_MODE_MAGIC = 0x0DA7E5A2UL;
+// Log packets per loop pass, besides the controller's free buffers; the loop
+// runs about every 5 ms, faster than one 15 ms connection event.
+constexpr uint16_t LOG_PACKETS_PER_POLL = 4;
+// The largest attribute value BLE allows.
+constexpr size_t LOG_PACKET_MAX = 512;
 constexpr uint32_t STATUS_INTERVAL_MS = 150;
 constexpr uint32_t RESTART_DELAY_MS = 400;  // let the write response leave first
 constexpr uint32_t DISCONNECT_GRACE_MS = 150;  // time for the link-termination packet
@@ -146,7 +153,7 @@ private:
     uint32_t _expected = 0;
 };
 
-enum class Restart : uint8_t { None, ToUpdateMode, ToNormal };
+enum class Restart : uint8_t { None, ToUpdateMode, ToLogRead, ToNormal };
 
 class Transport : public OtaTransport {
 public:
@@ -172,8 +179,20 @@ public:
         statusDirty = true;
     }
 
+    // Called on the Bluetooth task; the loop starts the read in pollLogRead().
+    void readLog(const uint8_t* data, size_t length, const uint8_t* peer);
+    void pollLogRead();
+
     EspSink sink;
     Ota::Session session{sink};
+    devlog::TransferSender logSender{devlog::transferSource()};
+    portMUX_TYPE logMux = portMUX_INITIALIZER_UNLOCKED;
+    uint8_t logRequest[devlog::TRANSFER_REQUEST_SIZE] = {};
+    bool logRequestPending = false;
+    bool fastConnectionRequested = false;
+    uint32_t logRequests = 0;
+    uint32_t logPackets = 0;
+    uint32_t logBytes = 0;
     BLEParentService* ble = nullptr;
     bool (*updateAllowed)() = nullptr;
     volatile uint16_t mtu = 23;
@@ -187,6 +206,7 @@ public:
 
 Transport transport;
 bool updateModeActive = false;
+bool logReadOnlyActive = false;
 
 // The phone chooses the connection interval; macOS otherwise stays at 30 ms.
 // Throughput is about one 512-byte write per connection event.
@@ -205,20 +225,27 @@ void Transport::control(const uint8_t* data, size_t length, const uint8_t* peer)
     touch();
     if (length == 0 || restartKind != Restart::None) return;
     switch (data[0]) {
-        case Ota::CommandEnterUpdateMode:
+        case Ota::CommandEnterUpdateMode: {
             if (updateModeActive) return;
-            if (!updateAllowed || !updateAllowed()) {
+            // Reading the log writes nothing, so a low battery does not stop it.
+            const bool forLog = length >= 2 && data[1] == Ota::ENTER_FOR_LOG_READ;
+            if (!forLog && (!updateAllowed || !updateAllowed())) {
                 session.reportError(Ota::Error::BatteryLow);
                 DLOG(OTA_REFUSED_BATTERY);
                 return;
             }
-            DLOG(OTA_RESTART_TO_UPDATE);
+            if (forLog) DLOG(OTA_RESTART_TO_LOG_READ);
+            else DLOG(OTA_RESTART_TO_UPDATE);
             session.reportError(Ota::Error::None);  // clear an earlier refusal
-            restart(Restart::ToUpdateMode);
+            restart(forLog ? Restart::ToLogRead : Restart::ToUpdateMode);
+            return;
+        }
+        case Ota::CommandReadLog:
+            readLog(data, length, peer);
             return;
         case Ota::CommandBegin: {
             Ota::Image image;
-            if (!updateModeActive) {
+            if (!updateModeActive || logReadOnlyActive) {
                 session.reportError(Ota::Error::WrongMode);
             } else if (!Ota::parseBegin(data, length, image)) {
                 session.reportError(Ota::Error::BadRequest);
@@ -253,20 +280,75 @@ void Transport::control(const uint8_t* data, size_t length, const uint8_t* peer)
     }
 }
 
+void Transport::readLog(const uint8_t* data, size_t length, const uint8_t* peer) {
+    if (!updateModeActive) {
+        session.reportError(Ota::Error::WrongMode);
+        return;
+    }
+    if (length != devlog::TRANSFER_REQUEST_SIZE) {
+        session.reportError(Ota::Error::BadRequest);
+        return;
+    }
+    if (!fastConnectionRequested) {
+        fastConnectionRequested = true;
+        requestFastConnection(peer);
+    }
+    portENTER_CRITICAL(&logMux);
+    memcpy(logRequest, data, length);
+    logRequestPending = true;
+    portEXIT_CRITICAL(&logMux);
+}
+
+void Transport::pollLogRead() {
+    uint8_t request[devlog::TRANSFER_REQUEST_SIZE];
+    portENTER_CRITICAL(&logMux);
+    const bool pending = logRequestPending;
+    if (pending) memcpy(request, logRequest, sizeof(request));
+    logRequestPending = false;
+    portEXIT_CRITICAL(&logMux);
+    if (pending) {
+        if (logSender.request(request, sizeof(request))) ++logRequests;
+        else session.reportError(Ota::Error::BadRequest);
+    }
+    if (!logSender.active()) return;
+    // Only as many packets as the controller can take: a notification that
+    // finds no buffer is lost, and the client would have to ask again.
+    uint16_t credits = ble->logDataCredits();
+    if (credits > LOG_PACKETS_PER_POLL) credits = LOG_PACKETS_PER_POLL;
+    uint8_t packet[LOG_PACKET_MAX];  // loop task stack: normal mode keeps its RAM
+    size_t capacity = mtu > 3 ? mtu - 3 : 0;
+    if (capacity > sizeof(packet)) capacity = sizeof(packet);
+    for (uint16_t i = 0; i < credits && logSender.active(); ++i) {
+        const size_t length = logSender.next(packet, capacity);
+        if (length == 0) break;
+        // A failed send is a lost packet; the client asks for it again.
+        if (!ble->sendLogData(packet, length)) break;
+        ++logPackets;
+        logBytes += length - devlog::TRANSFER_PACKET_HEADER;
+        lastActivityMs = millis();
+    }
+}
+
 }  // namespace
 
 bool consumeUpdateModeRequest() {
-    const bool requested = rtcUpdateModeMagic == UPDATE_MODE_MAGIC &&
+    const uint32_t magic = rtcUpdateModeMagic;
+    const bool requested = (magic == UPDATE_MODE_MAGIC || magic == LOG_READ_MODE_MAGIC) &&
         esp_reset_reason() == ESP_RST_SW;
     // One request, one boot: a crash or power loss in update mode always
     // returns to normal firmware.
     rtcUpdateModeMagic = 0;
     updateModeActive = requested;
+    logReadOnlyActive = requested && magic == LOG_READ_MODE_MAGIC;
     return requested;
 }
 
 bool updateMode() {
     return updateModeActive;
+}
+
+bool logReadOnly() {
+    return logReadOnlyActive;
 }
 
 bool startBleOnlyController() {
@@ -307,9 +389,16 @@ void poll(uint32_t nowMs) {
             transport.ble->updateOtaStatus(status, sizeof(status));
         }
     }
+    if (updateModeActive) transport.pollLogRead();
     const Restart restart = transport.restartKind;
     if (restart != Restart::None && int32_t(nowMs - transport.restartAtMs) >= 0) {
-        rtcUpdateModeMagic = restart == Restart::ToUpdateMode ? UPDATE_MODE_MAGIC : 0;
+        rtcUpdateModeMagic = restart == Restart::ToUpdateMode ? UPDATE_MODE_MAGIC
+            : restart == Restart::ToLogRead ? LOG_READ_MODE_MAGIC : 0;
+        if (transport.logRequests) {
+            DLOG(OTA_LOG_SENT, static_cast<unsigned long>(transport.logBytes),
+                static_cast<unsigned long>(transport.logPackets),
+                static_cast<unsigned long>(transport.logRequests));
+        }
         // Close the link first: after a bare restart a phone only notices
         // at its supervision timeout, which was about 7 s on Android.
         transport.ble->disconnectAll();

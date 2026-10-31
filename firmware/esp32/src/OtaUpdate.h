@@ -11,7 +11,8 @@
 // survives a software restart and reboots. Update mode starts the Bluetooth
 // controller in BLE-only mode (no Classic audio, ~65 KB free heap), keeps the
 // same GATT table and bonds, receives an image into the inactive app slot and
-// restarts into it. The old firmware stays bootable until the final switch,
+// restarts into it. The same mode also streams the diagnostic log
+// (DevLogTransfer.h). The old firmware stays bootable until the final switch,
 // and the new one rolls back unless it confirms itself at startup.
 // ---------------------------------------------------------------------------
 
@@ -20,6 +21,8 @@ namespace OtaUpdate {
 // setup(): returns true once, after a restart requested by "enter update mode".
 bool consumeUpdateModeRequest();
 bool updateMode();
+// Update mode entered only to send the log: no firmware image is accepted.
+bool logReadOnly();
 
 // Update mode only, before BLEParentService::begin(): Classic memory is
 // released and the controller runs BLE-only until the next restart.

@@ -43,7 +43,12 @@ enum Command : uint8_t {
     CommandBegin = 2,
     CommandFinish = 3,
     CommandCancel = 4,
+    CommandReadLog = 5,  // update mode only; see DevLogTransfer.h
 };
+
+// Optional second byte of "enter update mode": restart only to send the log.
+// The battery is not checked then, and begin is refused in that boot.
+constexpr uint8_t ENTER_FOR_LOG_READ = 1;
 
 enum Encoding : uint8_t {
     EncodingRaw = 0,

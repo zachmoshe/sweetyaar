@@ -17,7 +17,7 @@ PYTHON ?= $(VENV_DIR)/bin/python
 PIO ?= $(VENV_DIR)/bin/pio
 UV ?= uv
 
-.PHONY: help setup app build flash monitor flash-monitor clean test test-unit test-device test-app test-firmware check-python check-pio animals create-published-firmware release-firmware ota-update reset-mac-bluetooth fetch-logs parse-logs logs-ui
+.PHONY: help setup app build flash monitor flash-monitor clean test test-unit test-device test-app test-firmware check-python check-pio animals create-published-firmware release-firmware ota-update reset-mac-bluetooth fetch-logs fetch-logs-ble parse-logs logs-ui
 
 help: ## Show the available project commands.
 	@printf 'SweetYaar project commands\n\n'
@@ -82,6 +82,9 @@ endif
 endif
 fetch-logs: check-python ## Save the toy's flash log over the debugger (LOG_DIR=<folder>, SERIAL_PORT if several ESPs); resets the toy.
 	"$(PYTHON)" "$(ROOT_DIR)/tools/devlog.py" fetch $(if $(SERIAL_PORT),--port "$(SERIAL_PORT)",) --out "$(LOG_DIR)" $(LOG_ARGS)
+
+fetch-logs-ble: check-python ## Save the toy's flash log over BLE from this Mac, reading only what changed (run in Terminal; LOG_DIR=<folder>); restarts the toy.
+	"$(PYTHON)" "$(ROOT_DIR)/tools/devlog_ble.py" --out "$(LOG_DIR)" $(LOG_ARGS)
 
 parse-logs: check-python ## Print a fetched log: make parse-logs [<file>] (default newest in LOG_DIR; LOG_ARGS="--boots 3 --ids --chunks").
 	"$(PYTHON)" "$(ROOT_DIR)/tools/devlog.py" parse --dir "$(LOG_DIR)" $(foreach file,$(LOG),"$(file)") $(LOG_ARGS)

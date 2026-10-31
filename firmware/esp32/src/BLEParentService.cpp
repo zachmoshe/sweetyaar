@@ -1,5 +1,6 @@
 #include "BLEParentService.h"
 #include "BluetoothAccess.h"
+#include <esp_gatt_common_api.h>
 #include <esp_heap_caps.h>
 #include <new>
 #include <Preferences.h>
@@ -94,7 +95,7 @@ bool BLEParentService::begin(const String& deviceName, uint16_t localMtu) {
     _server = BLEDevice::createServer();
     _server->setCallbacks(new ServerCB(this));
 
-    // Twenty-one characteristics plus descriptors need more than the Arduino
+    // Twenty-two characteristics plus descriptors need more than the Arduino
     // BLE default of 15 handles. Under-allocating here can boot fine
     // and then crash Bluedroid when a central connects.
     BLEService* svc = _server->createService(BLEUUID(BLE_SERVICE_UUID), 80);
@@ -205,12 +206,14 @@ bool BLEParentService::begin(const String& deviceName, uint16_t localMtu) {
     _otaStatusChar = svc->createCharacteristic(BLE_OTA_STATUS_UUID,
         BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
     _otaStatusChar->addDescriptor(new BLE2902());
+    _logDataChar = svc->createCharacteristic(BLE_LOG_DATA_UUID, BLECharacteristic::PROPERTY_NOTIFY);
+    _logDataChar->addDescriptor(new BLE2902());
 
     BLECharacteristic* secured[] = {_volChar, _killChar, _themeChar, _statusChar,
         _themesChar, _commandChar, _configCommandChar, _configResponseChar,
         _configAttributes[0], _configAttributes[1], _configAttributes[2],
         _configAttributes[3], _configAttributes[4], _noticeChar, _batteryChar, _chargerChar,
-        _firmwareChar, _otaControlChar, _otaDataChar, _otaStatusChar};
+        _firmwareChar, _otaControlChar, _otaDataChar, _otaStatusChar, _logDataChar};
     static_assert(sizeof(secured) / sizeof(secured[0]) == SECURED_CHAR_COUNT, "secured list");
     for (size_t i = 0; i < SECURED_CHAR_COUNT; ++i) {
         _securedChars[i] = secured[i];
@@ -388,6 +391,18 @@ void BLEParentService::updateOtaStatus(const uint8_t* status, size_t length) {
     // The whole status fits a minimum-MTU notification (20 bytes).
     _otaStatusChar->setValue(const_cast<uint8_t*>(status), length);
     notifyOwner(_otaStatusChar);
+}
+
+uint16_t BLEParentService::logDataCredits() {
+    const uint16_t owner = subscribedOwner(_logDataChar);
+    return owner == NO_CONNECTION ? 0 : esp_ble_get_cur_sendable_packets_num(owner);
+}
+
+bool BLEParentService::sendLogData(const uint8_t* packet, size_t length) {
+    const uint16_t owner = subscribedOwner(_logDataChar);
+    // Bluedroid copies the value before this returns.
+    return owner != NO_CONNECTION && esp_ble_gatts_send_indicate(configGattsIf, owner,
+        _logDataChar->getHandle(), length, const_cast<uint8_t*>(packet), false) == ESP_OK;
 }
 
 void BLEParentService::updateDeviceName(const String& deviceName) {
@@ -905,14 +920,19 @@ bool BLEParentService::filterGatt(esp_gatts_cb_event_t event, esp_gatt_if_t inte
     return true;
 }
 
-void BLEParentService::notifyOwner(BLECharacteristic* characteristic, bool invalidation) {
-    if (!characteristic || configGattsIf == ESP_GATT_IF_NONE) return;
+uint16_t BLEParentService::subscribedOwner(BLECharacteristic* characteristic) {
+    if (!characteristic || configGattsIf == ESP_GATT_IF_NONE) return NO_CONNECTION;
     const int index = characteristicIndex(characteristic->getHandle());
     uint16_t owner = NO_CONNECTION;
     portENTER_CRITICAL(&_mux);
     auto* p = peer(_ownerId);
     if (bluetoothAccess.ready() && p && !p->reject && p->authenticated && index >= 0 && (p->subscriptions & (1UL << index))) owner = p->id;
     portEXIT_CRITICAL(&_mux);
+    return owner;
+}
+
+void BLEParentService::notifyOwner(BLECharacteristic* characteristic, bool invalidation) {
+    const uint16_t owner = subscribedOwner(characteristic);
     if (owner == NO_CONNECTION) return;
     uint8_t changed = 1;
     std::string value;

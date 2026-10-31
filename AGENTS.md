@@ -42,6 +42,8 @@ explicitly says to reuse an existing branch or worktree (or to work on `main`).
   `make reset-mac-bluetooth` (make this Mac forget nearby toys, found by BLE service; sudo),
   `make fetch-logs` / `make parse-logs` (save and print the
   toy's flash log over the debugger; fetching resets the toy, writes nothing),
+  `make fetch-logs-ble` (the same log over BLE from this Mac, reading only what
+  changed; run in Terminal; restarts the toy twice),
   `make logs-ui` (browse all fetched logs: timeline, charts, stats),
   `make test-device` (approved real-device
   run; needs `DEVICE_TEST_APPROVED=1`, `PIO_ENV` and `SERIAL_PORT`).

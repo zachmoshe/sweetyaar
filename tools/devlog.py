@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import datetime as dt
+import os
 import pathlib
 import re
 import struct
@@ -329,10 +330,11 @@ def dump(log: Log, catalog: Catalog, out=sys.stdout, boots: int | None = None, c
     used = len(log.sectors)
     if used:
         write(f"Device {', '.join(device.hex(':').upper() for device in devices)}: "
-              f"{used} of {log.sector_count} sectors in use, sequence {log.sectors[0].sequence}-"
+              f"{used} sectors, sequence {log.sectors[0].sequence}-"
               f"{log.sectors[-1].sequence}, {len(log.records)} records")
         if log.sectors[0].sequence > 1:
-            write("The ring has wrapped; older history was overwritten.")
+            write(f"Sectors before sequence {log.sectors[0].sequence} were overwritten on the toy "
+                  "before they were fetched.")
     else:
         write(f"No log sectors in {log.sector_count} sectors (empty or not a SweetYaar log).")
     for problem in log.problems:
@@ -503,6 +505,147 @@ class Reader:
         return bytes(data)
 
 
+# --- Saved logs ---------------------------------------------------------------
+#
+# One file per device history: the sectors that hold records, in sequence
+# order, without the erased rest of the partition. Every fetch adds the new
+# sectors and the one still being written, and the file is renamed to the
+# time of that fetch. read_log() reads it like a partition image.
+
+def header_sequence(header: bytes) -> int | None:
+    """The sector's sequence number, or None when it holds no valid header."""
+    if (len(header) < SECTOR_HEADER_SIZE or header[:4] != b"SYLG" or crc8(header[:23]) != header[23] or
+            header[4] != FORMAT_VERSION or header[5] != SECTOR_HEADER_SIZE):
+        return None
+    return struct.unpack_from("<I", header, 8)[0]
+
+
+def sector_map(data: bytes) -> dict[int, bytes]:
+    """The sectors with a valid header, by sequence number."""
+    sectors = {}
+    for start in range(0, len(data) - SECTOR_SIZE + 1, SECTOR_SIZE):
+        sequence = header_sequence(data[start:start + SECTOR_HEADER_SIZE])
+        if sequence is not None:
+            sectors[sequence] = bytes(data[start:start + SECTOR_SIZE])
+    return sectors
+
+
+def saved_logs(directory: pathlib.Path, device: bytes) -> list[pathlib.Path]:
+    return sorted(path for path in directory.glob(f"devlog-{device.hex()}-*.bin")
+                  if not path.name.endswith(("-core.bin", "-coredump-partition.bin")))
+
+
+@dataclasses.dataclass
+class Archive:
+    """The saved file a fetch adds to: the device's file with the newest sector.
+    |known| holds the header of every sector in any of the device's files."""
+    path: pathlib.Path | None
+    sectors: dict[int, bytes]
+    known: dict[int, bytes] = dataclasses.field(default_factory=dict)
+
+    @property
+    def newest(self) -> int | None:
+        return max(self.sectors, default=None)
+
+
+def load_archive(directory: pathlib.Path, device: bytes) -> Archive:
+    best = Archive(None, {})
+    known: dict[int, bytes] = {}
+    for path in saved_logs(directory, device):
+        sectors = sector_map(path.read_bytes())
+        known.update((sequence, sector[:SECTOR_HEADER_SIZE]) for sequence, sector in sectors.items())
+        if sectors and (best.newest is None or max(sectors) > best.newest):
+            best = Archive(path, sectors)
+    best.known = known
+    return best
+
+
+def same_history(archive: Archive, headers: dict[int, bytes]) -> bool:
+    """Whether the toy's sectors (sequence -> header) continue the saved file.
+
+    An erased partition starts again at sequence 1, so a toy whose newest
+    sector is older than the file's, or whose header for a saved sequence
+    differs, holds a new history.
+    """
+    if archive.newest is None or not headers or max(headers) < archive.newest:
+        return False
+    return all(archive.sectors[sequence][:SECTOR_HEADER_SIZE] == header
+               for sequence, header in headers.items() if sequence in archive.sectors)
+
+
+def sectors_to_fetch(archive: Archive, headers: dict[int, bytes]) -> list[int]:
+    """Sequences to read: all of them for a new history; otherwise the new
+    sectors and the one that was still being written at the previous fetch."""
+    if not same_history(archive, headers):
+        return sorted(headers)
+    return sorted(sequence for sequence, header in headers.items()
+                  if archive.known.get(sequence) != header or sequence >= archive.newest)
+
+
+def used_length(sector: bytes) -> int:
+    return len(sector.rstrip(bytes([ERASED])))
+
+
+def contains(sectors: dict[int, bytes], older: dict[int, bytes]) -> bool:
+    """Whether |sectors| holds everything in |older| (a sector may have grown since)."""
+    return all(sequence in sectors and sectors[sequence][:used_length(sector)] == sector[:used_length(sector)]
+               for sequence, sector in older.items())
+
+
+def write_atomic(path: pathlib.Path, data: bytes) -> None:
+    temporary = path.with_name(path.name + ".part")
+    temporary.write_bytes(data)
+    os.replace(temporary, path)
+
+
+def save_archive(directory: pathlib.Path, device: bytes, archive: Archive, headers: dict[int, bytes],
+                 fetched: dict[int, bytes], when: dt.datetime,
+                 capacity: int) -> tuple[list[pathlib.Path], list[pathlib.Path]]:
+    """Adds the fetched sectors to the device's file; returns (written, removed).
+
+    The file is renamed to this fetch's time. A file holds at most |capacity|
+    sectors (one partition): when the toy's ring has gone around since the file
+    began, the oldest |capacity| sectors stay in the earlier file under its
+    name and the rest start a new one. A new history starts a new file and
+    keeps the old one. Afterwards every other file of this device whose
+    sectors are all in the written files is removed.
+    """
+    continues = same_history(archive, headers)
+    merged = dict(archive.sectors) if continues else {}
+    # Sectors older than this file belong to the device's earlier file.
+    first = min(archive.sectors) if continues else 0
+    merged.update((sequence, sector) for sequence, sector in fetched.items() if sequence >= first)
+    if not merged:
+        return [], []
+    ordered = [merged[sequence] for sequence in sorted(merged)]
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"devlog-{device.hex()}-{when:%Y%m%d-%H%M%S}.bin"
+    written = []
+    if continues and len(ordered) > capacity:
+        write_atomic(archive.path, b"".join(ordered[:capacity]))
+        written.append(archive.path)
+        ordered = ordered[capacity:]
+    write_atomic(path, b"".join(ordered))
+    written.append(path)
+    kept: dict[int, bytes] = {}
+    for written_path in written:
+        kept.update(sector_map(written_path.read_bytes()))
+    removed = []
+    for other in saved_logs(directory, device):
+        if other not in written and contains(kept, sector_map(other.read_bytes())):
+            other.unlink()
+            removed.append(other)
+    return written, removed
+
+
+def report_saved(written: list[pathlib.Path], removed: list[pathlib.Path]) -> None:
+    for path in written:
+        print(f"Saved {path} ({path.stat().st_size // SECTOR_SIZE} sectors)")
+    if removed:
+        print(f"Removed {len(removed)} older file(s) of this device; their sectors are in the saved file: "
+              + ", ".join(path.name for path in removed))
+
+
 def fetch(port: str | None, out_dir: pathlib.Path, baud: int) -> pathlib.Path:
     started = dt.datetime.now()
     reader = Reader(port, baud)
@@ -524,11 +667,16 @@ def fetch(port: str | None, out_dir: pathlib.Path, baud: int) -> pathlib.Path:
     finally:
         reader.close(reset=True)
 
-    out_dir.mkdir(parents=True, exist_ok=True)
-    stem = f"devlog-{mac.hex()}-{started:%Y%m%d-%H%M%S}"
-    path = out_dir / f"{stem}.bin"
-    path.write_bytes(log)
-    print(f"Saved {path} ({(dt.datetime.now() - started).total_seconds():.0f} s)")
+    sectors = sector_map(log)
+    headers = {sequence: sector[:SECTOR_HEADER_SIZE] for sequence, sector in sectors.items()}
+    written, removed = save_archive(out_dir, mac, load_archive(out_dir, mac), headers, sectors, started,
+                                    len(log) // SECTOR_SIZE)
+    print(f"Read in {(dt.datetime.now() - started).total_seconds():.0f} s")
+    report_saved(written, removed)
+    if not written:
+        raise SystemExit("The log partition holds no sectors yet; nothing saved.")
+    path = written[-1]
+    stem = path.stem
     if core and any(byte != ERASED for byte in core[:SECTOR_SIZE]):
         core_path = out_dir / f"{stem}-coredump-partition.bin"
         core_path.write_bytes(core)

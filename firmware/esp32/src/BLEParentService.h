@@ -29,6 +29,7 @@
 //   charger    (6 bytes, read/notify)        — versioned activity/conditions/events
 //   firmware   (JSON string, read)           — version, board and mode
 //   otaControl / otaData (write) and otaStatus (read/notify) — firmware updates
+//   logData    (notify)                      — log fetch packets (update mode)
 //
 // Callbacks fire in a BLE stack task; they set thread-safe flags that the
 // main loop reads via the pollXxx() methods.
@@ -80,6 +81,10 @@ public:
     void updateFirmwareInfo(const String& json);
     void updateOtaStatus(const uint8_t* status, size_t length);
     void setOtaTransport(OtaTransport* transport) { _ota = transport; }
+    // Log fetch: packets the controller can take now (0 unless the owner is
+    // subscribed to logData), and sending one packet as a notification.
+    uint16_t logDataCredits();
+    bool sendLogData(const uint8_t* packet, size_t length);
 
     // Push a one-shot notice for the app to display. |noticeJson| is the full
     // payload, e.g. {"severity":"error","message":"..."}. The app shows it on
@@ -133,6 +138,7 @@ private:
     BLECharacteristic* _otaControlChar = nullptr;
     BLECharacteristic* _otaDataChar = nullptr;
     BLECharacteristic* _otaStatusChar = nullptr;
+    BLECharacteristic* _logDataChar = nullptr;
     OtaTransport* _ota = nullptr;
     uint8_t _lastChargerValue[ChargerStatus::ENCODED_SIZE] = {};
     bool _hasChargerValue = false;
@@ -144,6 +150,8 @@ private:
     static uint32_t responseRequestId(const String& responseJson);
     void notifyChanged(BLECharacteristic* characteristic);
     void notifyOwner(BLECharacteristic* characteristic, bool invalidation = false);
+    // The approved owner's connection if it is subscribed, else NO_CONNECTION.
+    uint16_t subscribedOwner(BLECharacteristic* characteristic);
     void handleGap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t* param);
     bool filterGatt(esp_gatts_cb_event_t event, esp_gatt_if_t interface,
                     esp_ble_gatts_cb_param_t* param);
@@ -211,7 +219,7 @@ private:
     uint16_t _preparedHandle = 0;
     uint16_t _preparedLength = 0;
     uint8_t _preparedValue[512] = {};
-    static constexpr size_t SECURED_CHAR_COUNT = 20;
+    static constexpr size_t SECURED_CHAR_COUNT = 21;
     static bool writableIndex(int index);
     BLECharacteristic* _securedChars[SECURED_CHAR_COUNT] = {};
     Peer* peer(uint16_t id);

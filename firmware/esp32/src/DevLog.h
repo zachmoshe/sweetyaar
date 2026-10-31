@@ -29,6 +29,11 @@ void service(bool quiet);
 // does it by itself).
 void flushRepeats();
 
+class TransferSource;
+// The log partition and a core dump not yet copied into it, read-only, for
+// the fetch over BLE (DevLogTransfer.h).
+TransferSource& transferSource();
+
 // Storage behind the macros; DevLog.cpp installs it once the log partition is
 // open. Without it (host tests, before begin()) logging only prints.
 struct Backend {

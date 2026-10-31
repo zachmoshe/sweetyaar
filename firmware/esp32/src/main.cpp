@@ -415,7 +415,7 @@ void setup() {
 // No audio, SD or Classic Bluetooth, which leaves the heap for decompression.
 // ---------------------------------------------------------------------------
 void setupUpdateMode() {
-    DLOG(OTA_UPDATE_MODE);
+    DLOG(OTA_UPDATE_MODE, OtaUpdate::logReadOnly() ? "log read" : "firmware");
     statusLed.setSignal(StatusSignal::Updating, true);
     if (HAS_BQ25186 && !charger.begin(readLocalLogTime)) {
         reportSystemError();

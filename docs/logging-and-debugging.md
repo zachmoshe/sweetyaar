@@ -12,13 +12,15 @@ disturbing audio, Bluetooth or sleep. Later steps read it back and show it:
 | --- | --- | --- |
 | 1 | Rolling log, crash copy, telemetry and usage stored on flash | Implemented |
 | 2 | Bench tool: read the partition with the debugger and print decoded text | Implemented |
-| 3 | Fetch the log over BLE (script and parent app) | Planned |
+| 3 | Fetch the log over BLE (script and parent app) | Mac script implemented; parent app planned |
 | 4 | Log viewer: timeline, charts and stats from fetched files | First version |
 | 5 | Parents upload logs to the cloud; the viewer reads them | Planned |
 
 With the debugger connected, `make fetch-logs` and `make parse-logs` save and
-print the log (see [Reading the log on the bench](#reading-the-log-on-the-bench)),
-and `make logs-ui` shows every fetched log in a browser (see
+print the log (see [Reading the log on the bench](#reading-the-log-on-the-bench)).
+Without it, `make fetch-logs-ble` saves the same file over BLE from a paired Mac
+(see [Fetching the log over BLE](#fetching-the-log-over-ble)), and
+`make logs-ui` shows every fetched log in a browser (see
 [Log viewer](#log-viewer)).
 
 ## Principles
@@ -471,11 +473,11 @@ make parse-logs
   ("Corrupt data"); `LOG_ARGS="--baud 115200"` is the slowest option. A
   read that fails within 30 seconds of connecting loses bytes rather than
   power, so fetch keeps what it has and continues one speed lower (460,800,
-  230,400, then 115,200). The file is saved as
-  `devlogs/devlog-<MAC>-<date>-<time>.bin` (ignored by Git; `LOG_DIR=`
-  changes the folder). A core dump that is still in its partition, not yet
-  copied into the log (for example during a boot loop), is saved next to it
-  as `...-coredump-partition.bin`.
+  230,400, then 115,200). The sectors are added to the device's saved
+  file (see [Saved files](#saved-files)) in `devlogs/` (ignored by Git;
+  `LOG_DIR=` changes the folder). A core dump that is still in its
+  partition, not yet copied into the log (for example during a boot loop),
+  is saved next to it as `...-coredump-partition.bin`.
 - **The toy drops out about every 40 seconds during a fetch, by design.**
   While awake, the firmware enables the BQ25186 charger's 40-second host
   watchdog, which power-cycles `SYS` when I2C traffic stops (see the hang
@@ -491,8 +493,9 @@ make parse-logs
   `--boots N` prints only the last N boots, `--ids` prefixes each line with
   its event name and `--chunks` prints the core dump chunk records too.
 
-The output starts with the device ID, how many sectors are in use, whether
-the ring has wrapped and any torn or unreadable records. Then each boot
+The output starts with the device ID, the number of sectors and their
+sequence range, whether older sectors were overwritten on the toy before
+they were fetched, and any torn or unreadable records. Then each boot
 follows, one line per record:
 
 ```text
@@ -519,6 +522,106 @@ the `firmware.elf` of the firmware version in that boot's `BOOT` line
 esp-coredump --chip esp32 info_corefile --core-format raw --core <core.bin> <firmware.elf>
 ```
 
+## Fetching the log over BLE
+
+From a Mac that is an approved remote for the toy, in Terminal (it needs
+Bluetooth permission), with no debugger or USB:
+
+```bash
+make fetch-logs-ble
+```
+
+It adds to the same saved file as `make fetch-logs` (see
+[Saved files](#saved-files)) in `devlogs/` (`LOG_DIR=` changes the folder).
+`LOG_ARGS=--full` reads every sector the toy holds, even those already saved.
+
+**What happens on the toy.** The script connects like `make ota-update` and
+sends *enter update mode* with the log-read flag. The toy saves pending repeat
+counts, restarts into update mode (yellow blinking: no audio, no Classic
+Bluetooth, about 65 KB free heap, a 517-byte ATT MTU) and asks for a 7.5–15 ms
+connection interval at the first read. The battery is not checked, since
+nothing is written, and that boot refuses a firmware image. When the script
+is done it sends *cancel* and the toy restarts its normal firmware; if the Mac
+goes away, the 2-minute idle timeout does the same. Both restarts are software
+restarts, so they show as two boots in the log and the clock is unknown until
+an app connects again.
+
+**Only what is not saved yet.** The script reads the toy's sector headers
+first and reads only the sectors that are not in any saved file of that
+device with the same header, plus the newest saved sector, which may have
+grown since. A sector without a valid header holds no records and is not
+read. Sectors are read oldest first, so the one still being written comes
+last. If the toy holds a new history (see [Saved files](#saved-files)), every
+sector is read.
+
+After reading, the script reads the headers again and also reads any sector
+opened in the meantime (the toy keeps logging in update mode). A core dump
+still waiting in its partition (only during a boot loop) is saved next to
+the log as `...-coredump-partition.bin`; unlike the debugger's copy it holds
+the dump itself, not the whole partition.
+
+**Speed.** Each packet carries up to 507 bytes. On the bench toy (macOS)
+reads ran at about 26 KiB/s: 26 sectors took 5 s, and a whole 1.5 MiB
+partition would take about a minute. A fetch that adds three sectors took
+about 1 s, plus the two restarts (about 10 s in all).
+
+### Saved files
+
+Both fetches keep **one file per device history**,
+`devlog-<MAC>-<date>-<time>.bin`, where the time is that of the latest fetch.
+It holds only the sectors with records, in sequence order, not the erased
+rest of the partition; `make parse-logs` and the viewer read it like a
+partition image. Each fetch adds the new sectors, replaces the sector that
+was still being written, writes the file under the new time and then deletes
+every other file of that device whose sectors are all in the new one (for
+example the previous fetch, or whole-partition images saved before this
+format). A file that holds anything the new one lacks is kept.
+
+- **The toy's ring goes around.** A file holds at most one partition's worth
+  of sectors (384). When adding would go past that, the oldest 384 sectors
+  stay in the earlier file under its name, and the rest start a new file
+  that later fetches add to. Sectors the toy overwrote stay in the earlier
+  file.
+- **The partition was erased** (a full chip erase): the boot and sector
+  numbers start again, so the toy's newest sequence is older than the file's
+  or a saved sequence has a different header. That is a new history: it gets
+  a new file and the old one is kept.
+
+### Protocol
+
+The read uses the firmware-update characteristics (see "Update protocol" in
+[firmware.md](engineering/firmware.md)) plus `logData` (`…78A6`, notify).
+Little endian throughout.
+
+| Command on `otaControl` | Bytes |
+| --- | --- |
+| Enter update mode to read the log (normal mode) | `01 01` |
+| Read: region, offset (u32), length (u32) (update mode only) | `05`, then 9 bytes |
+| Cancel: restart normal firmware | `04` |
+
+| Region | Contents |
+| --- | --- |
+| 0 info (20 bytes) | Format `1`, device ID (6), sector header size, sector size (u32), log partition size (u32), core dump size (u32, 0 when none waits) |
+| 1 headers | Each sector's 24-byte header, back to back (384 × 24 bytes) |
+| 2 log | The log partition |
+| 3 core dump | A core dump not yet copied into the log |
+
+The toy answers a read with notifications on `logData`: region, offset (u32),
+then up to `min(MTU − 3, 512) − 5` bytes from that offset, in order. A range is
+clipped to the region. A read that starts at or past the region's end, or a
+flash read that fails, gets one packet with no bytes and ends the read. A new
+read replaces the one in progress, so after a lost packet (the next offset is
+not the expected one) or 2 seconds without the expected packet, the script
+asks again from the first missing byte. The toy sends only while the
+controller has free buffers for the link, at most four packets per loop pass,
+and reads each piece of the log under the log's lock, so a record being
+written is read whole or not at all. In normal mode a read is refused with
+*wrong mode* in `otaStatus`.
+
+The toy logs `OTA_RESTART_TO_LOG_READ` before the restart, `OTA_UPDATE_MODE`
+with `log read`, and `OTA_LOG_SENT` (bytes, packets, requests) before
+restarting normal firmware.
+
 ## Log viewer
 
 ```bash
@@ -534,8 +637,9 @@ external libraries).
 
 ### One history per device
 
-Every fetch is a full copy of the ring, so fetches overlap, and older fetches
-hold records that the toy has since overwritten. The viewer groups files by
+A device usually has one saved file (see [Saved files](#saved-files)); it
+may have more after its ring went around, after an erase, or when older
+files were kept, and those can overlap. The viewer groups files by
 the device ID in their sector headers and merges them into one history. A
 record is identified by its content: boot number, milliseconds since boot,
 event ID and arguments, plus a count for identical records in the same

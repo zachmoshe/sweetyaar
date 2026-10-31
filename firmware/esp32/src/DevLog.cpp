@@ -12,6 +12,7 @@
 #include "Config.h"
 #include "DevLog.h"
 #include "DevLogRing.h"
+#include "DevLogTransfer.h"
 
 namespace devlog {
 
@@ -343,5 +344,53 @@ void flushRepeats() {
     g_repeats.flush(storeRepeat);
     xSemaphoreGive(g_lock);
 }
+
+namespace {
+
+class FlashTransferSource : public TransferSource {
+public:
+    void deviceId(uint8_t out[6]) override { esp_efuse_mac_get_default(out); }
+    uint32_t logSize() override { return g_ready ? g_flash.size() : 0; }
+
+    // Under the lock, so a record being written is read whole or not at all.
+    bool readLog(uint32_t offset, void* data, size_t length) override {
+        if (!g_ready || xSemaphoreTake(g_lock, pdMS_TO_TICKS(LOCK_WAIT_MS)) != pdTRUE) return false;
+        const bool read = g_flash.read(offset, data, length);
+        xSemaphoreGive(g_lock);
+        return read;
+    }
+
+    uint32_t coreDumpSize() override {
+        size_t address = 0;
+        size_t size = 0;
+        _partition = esp_partition_find_first(
+            ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_COREDUMP, nullptr);
+        if (_partition == nullptr || esp_core_dump_image_check() != ESP_OK ||
+            esp_core_dump_image_get(&address, &size) != ESP_OK ||
+            address < _partition->address || address + size > _partition->address + _partition->size) {
+            _size = 0;
+            return 0;
+        }
+        _start = address - _partition->address;
+        _size = size;
+        return _size;
+    }
+
+    bool readCoreDump(uint32_t offset, void* data, size_t length) override {
+        return offset + length <= _size &&
+               esp_partition_read(_partition, _start + offset, data, length) == ESP_OK;
+    }
+
+private:
+    const esp_partition_t* _partition = nullptr;
+    uint32_t _start = 0;
+    uint32_t _size = 0;
+};
+
+FlashTransferSource g_transferSource;
+
+}  // namespace
+
+TransferSource& transferSource() { return g_transferSource; }
 
 }  // namespace devlog

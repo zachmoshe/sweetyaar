@@ -1031,7 +1031,9 @@ The first firmware with this updater must be installed by wired flashing.
 **Update mode.** Normal firmware accepts only *enter update mode*. It refuses
 unless the battery state is `GOOD`, `MEDIUM` or `CHARGING` (`LOW` and the
 not-yet-sampled `UNKNOWN` are refused) and otherwise sets a flag in
-`RTC_NOINIT` memory and restarts. The flag is honored only after a software
+`RTC_NOINIT` memory and restarts. Entering only to send the diagnostic log
+skips the battery check, since nothing is written, and that boot refuses an
+image (see [Fetching the log over BLE](../logging-and-debugging.md#fetching-the-log-over-ble)). The flag is honored only after a software
 restart and cleared at once, so a crash or power loss in update mode always
 boots normal firmware. Update mode:
 
@@ -1076,7 +1078,7 @@ bootloader returns to the previous firmware.
 
 ### Update protocol
 
-Four characteristics follow the access characteristic in the main service
+Five characteristics follow the access characteristic in the main service
 (UUID prefix `a1b2c3d4-e5f6-7890-abcd-ef123456`). Like the other controls, they
 require an encrypted link and the current controller; writes from anyone else
 are refused with insufficient authorization.
@@ -1087,11 +1089,14 @@ are refused with insufficient authorization.
 | `78A3` | `otaControl` | write | One command per write (below). |
 | `78A4` | `otaData` | write, write without response | Offset in the encoded stream (u32 LE), then data. |
 | `78A5` | `otaStatus` | read, notify | 18-byte status (below). |
+| `78A6` | `logData` | notify | Log fetch packets, update mode only (see [Logging and Debugging](../logging-and-debugging.md#fetching-the-log-over-ble)). |
 
-Commands: `1` enter update mode (normal mode only); `2` begin, followed by the
+Commands: `1` enter update mode (normal mode only; a second byte `1` enters
+it only to send the log); `2` begin, followed by the
 encoding (0 raw, 1 zlib), the encoded size and image size (u32 LE each) and the
 image's 32-byte SHA-256 (42 bytes in all); `3` finish (verify, install and
-restart); `4` cancel (discard and restart normal firmware). Refusals and errors
+restart); `4` cancel (discard and restart normal firmware); `5` read the log
+(update mode only, 10 bytes). Refusals and errors
 are reported in the status, not as GATT errors. Commands may arrive as long
 (prepared) writes, since begin exceeds the default MTU; data chunks must fit
 one packet.

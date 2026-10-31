@@ -127,7 +127,7 @@ struct BLEUUID {
 };
 BLEUUID BLECharacteristic::getUUID() { return BLEUUID(uuid.c_str()); }
 struct BLEService {
-    std::array<BLECharacteristic, 21> characteristics;
+    std::array<BLECharacteristic, 22> characteristics;
     size_t count = 0;
     bool started = false;
     uint16_t getHandle() { return 40; }
@@ -202,6 +202,7 @@ int esp_ble_gatts_send_indicate(int, uint16_t connection, uint16_t handle, size_
     packets.push_back({connection, handle, std::string(reinterpret_cast<char*>(data), length), indication});
     return ESP_OK;
 }
+uint16_t esp_ble_get_cur_sendable_packets_num(uint16_t) { return 10; }
 int serviceChangeMode = -1;
 extern "C" uint8_t BTA_GATTS_SetServiceChangeMode(uint8_t mode) { serviceChangeMode = mode; return 0; }
 std::vector<uint8_t> serviceChanges; // last address byte of each indication request
@@ -620,6 +621,18 @@ int main() {
     ble.updateOtaStatus(otaStatus, sizeof(otaStatus));
     assert(packets.size() == sentBefore + 1 && packets.back().handle == otaChars[3].handle);
     assert(packets.back().data.size() == 18 && !packets.back().indication);
+    // Log packets go only to the subscribed owner, as notifications.
+    BLECharacteristic logData;
+    logData.handle = 70;
+    logData.cccd.handle = 71;
+    ble._securedChars[20] = &logData;
+    ble._logDataChar = &logData;
+    const uint8_t logPacket[5 + 300] = {2};
+    assert(ble.logDataCredits() == 0 && !ble.sendLogData(logPacket, sizeof(logPacket)));
+    ble.peer(1)->subscriptions |= 1UL << 20;
+    assert(ble.logDataCredits() == 10 && ble.sendLogData(logPacket, sizeof(logPacket)));
+    assert(packets.back().handle == 70 && packets.back().connection == 1);
+    assert(packets.back().data.size() == sizeof(logPacket) && !packets.back().indication);
     // An unplayable-song warning waits for the controller's notice subscription.
     assert(!ble.noticeSubscribed());
     ble.peer(1)->subscriptions |= 1UL << 13;

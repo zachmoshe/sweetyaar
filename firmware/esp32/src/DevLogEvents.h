@@ -377,11 +377,15 @@
 #define DEVLOG_ID_OTA_ROLLBACK 0x060B
 #define DEVLOG_FMT_OTA_ROLLBACK "[OTA] New firmware failed its startup check; rolling back"
 #define DEVLOG_ID_OTA_UPDATE_MODE 0x060C
-#define DEVLOG_FMT_OTA_UPDATE_MODE "[OTA] Update mode"
+#define DEVLOG_FMT_OTA_UPDATE_MODE "[OTA] Update mode (%s)"
 #define DEVLOG_ID_OTA_UPDATE_MODE_FAILED 0x060D
 #define DEVLOG_FMT_OTA_UPDATE_MODE_FAILED "[OTA] Bluetooth failed in update mode; restarting normal firmware"
 #define DEVLOG_ID_OTA_READY 0x060E
 #define DEVLOG_FMT_OTA_READY "[OTA] Ready for an image (free=%u largest=%u)"
+#define DEVLOG_ID_OTA_RESTART_TO_LOG_READ 0x060F
+#define DEVLOG_FMT_OTA_RESTART_TO_LOG_READ "[OTA] Restarting into update mode to send the log"
+#define DEVLOG_ID_OTA_LOG_SENT 0x0610
+#define DEVLOG_FMT_OTA_LOG_SENT "[OTA] Sent %lu log bytes in %lu packets for %lu requests"
 
 // --- Repeating conditions ---------------------------------------------------
 // Conditions a periodic check or retry reports again for as long as they last.
