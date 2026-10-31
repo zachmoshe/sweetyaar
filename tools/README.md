@@ -16,6 +16,9 @@ without key material.
 `devlog.py` (`make fetch-logs`, `make parse-logs`) saves the toy's flash log
 over the debugger and prints it as text; see
 [Logging and Debugging](../docs/logging-and-debugging.md#reading-the-log-on-the-bench).
+`logviewer/` (`make logs-ui`) merges every fetched log per device and shows
+a timeline, telemetry charts and stats in the browser; see
+[Log viewer](../docs/logging-and-debugging.md#log-viewer).
 
 `device_test.py` is the opt-in Mac/ESP32 Bluetooth runner. It captures real
 serial events and uses Bleak, blueutil, SwitchAudioSource and the AVAudioPlayer

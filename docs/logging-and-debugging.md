@@ -5,19 +5,21 @@ The firmware therefore keeps its own rolling record on flash: diagnostic
 events, crash information and periodic telemetry. This document is the
 specification for that record.
 
-The work is split into steps. **Step 1 (this document's scope)** stores the
-record on the device without disturbing audio, Bluetooth or sleep. Later steps
-read it back:
+The work is split into steps. Step 1 stores the record on the device without
+disturbing audio, Bluetooth or sleep. Later steps read it back and show it:
 
 | Step | What | Status |
 | --- | --- | --- |
 | 1 | Rolling log, crash copy, telemetry and usage stored on flash | Implemented |
 | 2 | Bench tool: read the partition with the debugger and print decoded text | Implemented |
 | 3 | Fetch the log over BLE (script and parent app) | Planned |
-| 4 | Upload to a database and a timeline UI | Planned |
+| 4 | Log viewer: timeline, charts and stats from fetched files | First version |
+| 5 | Parents upload logs to the cloud; the viewer reads them | Planned |
 
 With the debugger connected, `make fetch-logs` and `make parse-logs` save and
-print the log (see [Reading the log on the bench](#reading-the-log-on-the-bench)).
+print the log (see [Reading the log on the bench](#reading-the-log-on-the-bench)),
+and `make logs-ui` shows every fetched log in a browser (see
+[Log viewer](#log-viewer)).
 
 ## Principles
 
@@ -516,6 +518,111 @@ the `firmware.elf` of the firmware version in that boot's `BOOT` line
 ```bash
 esp-coredump --chip esp32 info_corefile --core-format raw --core <core.bin> <firmware.elf>
 ```
+
+## Log viewer
+
+```bash
+make logs-ui
+```
+
+opens a local viewer at `http://localhost:8010/` (`LOGS_PORT=` changes the
+port) for every fetched file in `devlogs/` (`LOG_DIR=` changes the folder).
+Files are read again when they change, so a new fetch shows up on Reload. The
+viewer is `tools/logviewer/`: `history.py` merges the files, `server.py`
+serves JSON and the page, and `static/` holds the page (no build step, no
+external libraries).
+
+### One history per device
+
+Every fetch is a full copy of the ring, so fetches overlap, and older fetches
+hold records that the toy has since overwritten. The viewer groups files by
+the device ID in their sector headers and merges them into one history. A
+record is identified by its content: boot number, milliseconds since boot,
+event ID and arguments, plus a count for identical records in the same
+millisecond. The boot number is stored in the log, so it survives power loss,
+resets and flashing; it restarts only if the partition is erased, which would
+mix two histories (not handled yet).
+
+### Timeline
+
+The time axis has two modes:
+
+- **Real time** places each boot at its local wall time (see [Time](#time)).
+  A boot without a clock is placed one minute after the previous boot (or
+  before the next) and drawn faded, and the time axis is striped from it to
+  the next dated boot, since its times there are a guess. Deep sleep
+  between two boots is a dotted line. When no boot has a clock, the whole
+  axis is estimated.
+- **Awake time** puts boots back to back and hides sleep and off time; this
+  is usually the easier view for a bench toy.
+
+From top to bottom (sections alternate background, charts have a legend and
+their scale in the left margin):
+
+| Lane | Shows |
+| --- | --- |
+| Boots | One bar per boot: green cold boot, blue deep-sleep wake, red abnormal reset. A ✖ at the end of a boot means the next boot reported a panic, watchdog or brownout. |
+| Firmware | One band per firmware version, from each boot's `BOOT` record. A dashed line across every lane marks a version change, so behavior before and after an update can be compared; hovering shows the version's boots and abnormal resets per awake hour. |
+| Playing | Song, animal, Bluetooth audio and Quiet time, from `SM_TRANSITION` |
+| App session, Phone (A2DP) | BLE connections (`BLE_CONNECT` to `BLE_DISCONNECT`) and Classic connections |
+| Events by area | A mark per record, by ID range: grey info, amber warning, red error (a word heuristic on the text). A repeating condition also gets a bar from its stored record to its last counted repeat, in the stored record's area and color. |
+| Battery | `TELEMETRY` battery voltage (mV); the background is shaded green between two samples whose charger state was charging |
+| Volume | `TELEMETRY` effective volume, 0–100 % |
+| Heap | `TELEMETRY` free heap now (blue), the largest free block (yellow; a large allocation such as a Bluetooth buffer fails when no single block is big enough, even with enough total free memory) and the lowest free heap since boot (grey, dashed). The low-water mark includes the temporary allocations of `setup()`, so it is already below the first sample's free heap. |
+
+Scroll to zoom, drag to pan, shift-drag to zoom to a range and double-click
+to fit. Hovering shows details; clicking jumps the log list to that moment,
+and clicking a ✖ zooms to the last minutes before the crash. The log list
+below shows the records in view, filtered by area, level and text.
+
+Records that store codes or bit fields get short badges under the line that
+translate them: `TELEMETRY` battery and charger states, charger conditions
+and activity bits; `CHARGER_REGISTERS` STAT0, STAT1 and FLAG0 of the BQ25186;
+the reset reason, wake cause and abnormal-reset streak of `BOOT` and
+`SLEEP_WAKE` ("cold start", "woken by movement", "woken by charger"; a cold
+start also covers the EN pin that the debugger, flashing and fetching pulse); BLE
+disconnect reasons and pairing results; crash exception causes; lost
+record counts; and the repeat count of a `REPEATED` record, which is shown in
+the area and level of the line it repeats. Badges are amber for warnings and red for faults, and the text
+filter matches them too. The tables are in `tools/logviewer/decoders.py` and
+mirror the firmware; when a bit's meaning changes in firmware, update them
+in the same change.
+
+The summary cards include battery drain: the voltage drop per hour between
+two 5-minute `TELEMETRY` samples of one boot while not charging, counted as
+playing when at least 80 % of that interval was playback or Bluetooth audio
+and as idle when at most 20 % was. It is a rough number until the battery
+readings are calibrated, and drain across deep sleep is not counted yet.
+
+Playback and Bluetooth hours and the song and animal counts come from the
+playback records themselves (`SM_TRANSITION` and `WAV_PLAYING`), not from
+`USAGE`: a boot that ends without deep sleep (power cut, flashing, a fetch or
+a restart) never stores its last `USAGE` record.
+
+**All devices** lists every device in the folder with naive totals (boots,
+abnormal resets, awake, playback and Bluetooth hours, drain, errors, and the
+firmware versions its log covers, oldest to newest, since updates change it
+over time). Clicking a row opens that device.
+
+To try the viewer without a toy, generate demo fetches (two overlapping
+fetches with an app session, songs, Bluetooth audio, a crash and charging):
+
+```bash
+.venv/bin/python tests/devlog_fixture.py /tmp/devlog-demo
+```
+
+```bash
+make logs-ui LOG_DIR=/tmp/devlog-demo
+```
+
+### Cloud (step 5)
+
+The parent app will upload the raw log file with a small metadata record
+(device, upload time, firmware and app versions). The viewer stays the same:
+`history.Library` reads snapshots from a folder today, and a cloud source
+will provide the same snapshots from the upload store. Hosting the viewer
+for anyone but the developer needs access control, since uploads describe a
+child's use of the toy.
 
 ## Real-device validation for step 1
 

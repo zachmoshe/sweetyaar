@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SweetYaar Logs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+  <h1>SweetYaar logs</h1>
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="timeline" aria-selected="true">Timeline</button>
+    <button role="tab" data-tab="stats" aria-selected="false">All devices</button>
+  </nav>
+  <label class="field">Device
+    <select id="device"></select>
+  </label>
+  <div class="segmented" id="mode" title="Real time shows sleep and off time; awake time puts boots back to back">
+    <button data-mode="real" aria-pressed="true">Real time</button>
+    <button data-mode="awake" aria-pressed="false">Awake time</button>
+  </div>
+  <button id="fit" title="Show everything (double-click the timeline)">Fit</button>
+  <button id="reload" title="Re-read the log folder">Reload</button>
+  <span id="source" class="muted"></span>
+</header>
+
+<main>
+  <section id="timeline-view">
+    <div id="cards" class="cards"></div>
+    <div id="notice" class="notice" hidden></div>
+    <div class="timeline-wrap">
+      <canvas id="timeline" aria-label="Timeline"></canvas>
+      <div id="tooltip" class="tooltip" hidden></div>
+    </div>
+    <p class="hint muted">Scroll to zoom, drag to pan, shift-drag to zoom to a range, double-click to fit. Click anything to jump to its log lines.</p>
+    <div class="log-tools">
+      <div id="areas" class="chips"></div>
+      <label class="field">Level
+        <select id="level">
+          <option value="info">All</option>
+          <option value="warn">Warnings and errors</option>
+          <option value="error">Errors</option>
+        </select>
+      </label>
+      <input id="search" type="search" placeholder="Filter text (e.g. BLE, Crash, conn=1)">
+      <span id="count" class="muted"></span>
+    </div>
+    <div id="log" class="log" tabindex="0"><div id="log-spacer"></div></div>
+    <details class="sources">
+      <summary>Sources</summary>
+      <div id="snapshots"></div>
+    </details>
+  </section>
+
+  <section id="stats-view" hidden>
+    <p class="muted">Naive totals across every device in the folder. Battery drain only counts 5-minute telemetry pairs that are clearly playing (≥ 80 %) or idle (≤ 20 %) and not charging.</p>
+    <div id="totals" class="cards"></div>
+    <div class="table-wrap"><table id="stats-table"></table></div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
