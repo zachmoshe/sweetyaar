@@ -1,9 +1,11 @@
 """Firmware-update protocol and release tooling, without a radio or a toy."""
 
+import gzip
 import hashlib
 import importlib.util
 import json
 import os
+import pathlib
 import re
 import shutil
 import sys
@@ -172,3 +174,44 @@ def test_prepare_release_interactive_run(repo_root, tmp_path):
     assert 'FIRMWARE_VERSION[] = "1.1.0"' in config.read_text()
     notes = json.loads((repo / "firmware/release-notes.json").read_text())
     assert notes == {"1.1.0": "Bedtime songs fade out gently.", "1.0.0": "First release."}
+
+
+def test_release_archives_the_matching_elf_once(repo_root, tmp_path):
+    import subprocess
+    tool = load_release_tool(repo_root)
+    elf = b"\x7fELF" + bytes(range(256)) * 10
+    image = bytearray(fake_image("1.2.0", "sweetyaar"))
+    image[tool.APP_ELF_SHA256] = hashlib.sha256(elf).digest()
+    image = bytes(image)
+    stored = {}
+
+    def fake(*args):
+        if args[:3] == ("storage", "objects", "describe"):
+            if args[3] in stored:
+                return subprocess.CompletedProcess(args, 0, stored[args[3]] + "\n", "")
+            return subprocess.CompletedProcess(args, 1, "", f"ERROR: {args[3]} not found: 404.")
+        assert args[:2] == ("storage", "cp") and "--no-clobber" in args
+        metadata = dict(item.split("=", 1) for item in args[-1].removeprefix("--custom-metadata=").split(","))
+        assert metadata["version"] == "1.2.0" and metadata["commit"] == "abc"
+        assert metadata["image-sha256"] == hashlib.sha256(image).hexdigest()
+        assert gzip.decompress(pathlib.Path(args[2]).read_bytes()) == elf
+        stored[args[3]] = metadata["elf-sha256"]
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    target = "gs://sweetyaar-firmware-elfs/sweetyaar/1.2.0/firmware.elf.gz"
+    assert tool.archive_elf("sweetyaar", "1.2.0", image, elf, "abc", fake) == f"Archived firmware.elf as {target}"
+    assert stored == {target: hashlib.sha256(elf).hexdigest()}
+    # The same build again (a corrected release note) changes nothing.
+    assert "already holds this build" in tool.archive_elf("sweetyaar", "1.2.0", image, elf, "abc", fake)
+    # Another build of the same version is refused, and so is an ELF of another build.
+    other = elf + b"x"
+    rebuilt = bytearray(image)
+    rebuilt[tool.APP_ELF_SHA256] = hashlib.sha256(other).digest()
+    with pytest.raises(tool.ReleaseError, match="another build"):
+        tool.archive_elf("sweetyaar", "1.2.0", bytes(rebuilt), other, "abc", fake)
+    with pytest.raises(tool.ReleaseError, match="not the ELF"):
+        tool.archive_elf("sweetyaar", "1.2.0", image, other, "abc", fake)
+    # An unreachable bucket stops the release.
+    denied = lambda *args: subprocess.CompletedProcess(args, 1, "", "ERROR: permission denied")
+    with pytest.raises(tool.ReleaseError, match="Could not check"):
+        tool.archive_elf("sweetyaar", "1.3.0", image, elf, "abc", denied)

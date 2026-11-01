@@ -14,7 +14,7 @@ disturbing audio, Bluetooth or sleep. Later steps read it back and show it:
 | 2 | Bench tool: read the partition with the debugger and print decoded text | Implemented |
 | 3 | Fetch the log over BLE (script and parent app) | Implemented |
 | 4 | Log viewer: timeline, charts and stats from fetched files | First version |
-| 5 | Parents upload logs to the cloud; the viewer reads them | Uploads implemented; viewer planned |
+| 5 | Parents upload logs to the cloud; the viewer reads them | Implemented |
 
 With the debugger connected, `make fetch-logs` and `make parse-logs` save and
 print the log (see [Reading the log on the bench](#reading-the-log-on-the-bench)).
@@ -22,7 +22,7 @@ Without it, `make fetch-logs-ble` saves the same file over BLE from a paired Mac
 (see [Fetching the log over BLE](#fetching-the-log-over-ble)). Parents send
 the log from the parent app to the logs API in Google Cloud (see
 [Sending logs to the cloud](#sending-logs-to-the-cloud)), and `make logs-ui`
-shows every fetched log in a browser (see
+shows every fetched or uploaded log in a browser (see
 [Log viewer](#log-viewer)).
 
 ## Principles
@@ -236,9 +236,10 @@ partition, as before. At the next boot the firmware:
 4. Erases the first sector of the `coredump` partition so the same dump is not
    copied twice. The next crash rewrites the whole dump as usual.
 
-The bench tool reassembles the chunks into an ELF core file for
-`espcoredump.py`, which also needs the matching `firmware.elf`; keep the ELF of
-every released or field-flashed build.
+The bench tool and the log viewer reassemble the chunks into the core dump
+for `esp-coredump`, which also needs the exact `firmware.elf` of the build
+that crashed. Releases archive theirs (see "Publishing a release" in
+firmware.md); keep the ELF of any other build you flash onto a toy.
 
 During a boot loop (below) only the `CRASH` summary is stored, and the dump
 stays in its partition until a boot is stable, which then copies the latest
@@ -750,8 +751,12 @@ Project `sweetyaar`, billing linked, under no organization:
   tier. Rules deny all client access; the index exemption turns off indexing
   of `chunks.data`.
 - Service accounts: `logs-api` (Cloud Datastore User; the function runs as
-  it) and `logs-viewer` (Cloud Datastore Viewer). The developer has Service
+  it) and `logs-viewer` (Cloud Datastore Viewer, and Storage Object Viewer
+  on the `sweetyaar-firmware-elfs` bucket only). The developer has Service
   Account Token Creator on `logs-viewer` only.
+- Bucket `sweetyaar-firmware-elfs`: `us-east1` (in the Cloud Storage free
+  tier), Standard, uniform access, public access prevented, 7-day soft
+  delete, no lifecycle rules. It holds each release's `firmware.elf`.
 - Function `logs-api`: HTTP, Python 3.12, 256 MiB, 30 s timeout, at most 2
   instances, public (the API checks every upload). Its image repository
   `gcf-artifacts` keeps the two newest images.
@@ -811,10 +816,37 @@ their scale in the left margin):
 | Volume | `TELEMETRY` effective volume, 0–100 % |
 | Heap | `TELEMETRY` free heap now (blue), the largest free block (yellow; a large allocation such as a Bluetooth buffer fails when no single block is big enough, even with enough total free memory) and the lowest free heap since boot (grey, dashed). The low-water mark includes the temporary allocations of `setup()`, so it is already below the first sample's free heap. |
 
+A device opens on its last 48 hours, with the log list at its latest line.
 Scroll to zoom, drag to pan, shift-drag to zoom to a range and double-click
-to fit. Hovering shows details; clicking jumps the log list to that moment,
-and clicking a ✖ zooms to the last minutes before the crash. The log list
-below shows the records in view, filtered by area, level and text.
+to fit (or **Fit**) to show everything. Hovering shows details; clicking jumps the log list to that moment,
+and clicking a ✖ zooms to the last minutes before the crash. A dashed line
+follows the pointer, with its time in the axis lane (`≈` where the clock was
+not set). The log list below shows the records in view, filtered by area,
+level and text.
+
+**Core dumps.** The log list leaves out a copied core dump's chunk records;
+its "Core dump copied" line (or the line that starts the copy, when the end
+was overwritten) shows the firmware that crashed and the size.
+**Download .bin** saves the reassembled dump. **Decode** runs `esp-coredump`
+(a dev dependency) with GDB from the PlatformIO toolchain and shows the
+crashed task, registers, backtrace with file and line, and every task's
+stack, opened under that line (**Hide** closes it). It needs the ELF of the firmware that crashed: the viewer downloads a
+release's ELF from `gs://sweetyaar-firmware-elfs` as `logs-viewer` and caches
+it in `~/.cache/sweetyaar/elfs/sweetyaar/<version>/firmware.elf`. For a
+bench build, give it its own version string and copy its `firmware.elf`
+there by hand. The dump carries the crashed build's ELF hash, and
+`esp-coredump` refuses a different ELF of the same version with
+`coredump SHA256(...) != app SHA256(...)` instead of decoding it wrongly.
+The code is `tools/logviewer/coredump.py`.
+
+**Notes** are your own comments on the timeline ("speaker disconnected
+here", "bad USB cable"): ⌘-click (Ctrl-click) adds one at a moment, ⌘-drag
+over a range. They show in the Notes lane above the time axis, cut to fit,
+with the full text on hover; clicking one edits or deletes it. They never
+come from the toy: `tools/logviewer/notes.py` keeps them in
+`annotations.json` in the log folder (`devlogs/`, not in Git), per device,
+for both sources. Each end is stored as the toy's boot number and uptime, so a
+note stays put in awake time and when later fetches move estimated times.
 
 Records that store codes or bit fields get short badges under the line that
 translate them: `TELEMETRY` battery and charger states, charger conditions
@@ -840,10 +872,29 @@ playback records themselves (`SM_TRANSITION` and `WAV_PLAYING`), not from
 `USAGE`: a boot that ends without deep sleep (power cut, flashing, a fetch or
 a restart) never stores its last `USAGE` record.
 
-**All devices** lists every device in the folder with naive totals (boots,
+The **Log folder** and **Cloud uploads** buttons each open a table of every
+device in that source, also from a device's timeline. Each row shows the
+sequence number of the newest sector held (the toy's log position), boots,
 abnormal resets, awake, playback and Bluetooth hours, drain, errors, and the
-firmware versions its log covers, oldest to newest, since updates change it
-over time). Clicking a row opens that device.
+firmware versions its log covers, oldest to newest. A ⚠ before the name marks
+an abnormal reset in the last 48 hours. A panic loses the clock; such a boot
+counts when the position it is drawn at, right after the last dated boot
+before it, is within 48 hours (its real time is no earlier). Clicking a row opens that device's
+timeline.
+
+Above the table, fleet analytics (`tools/logviewer/fleet.py`; exact numbers
+on hover):
+
+| Panel | What it shows |
+|---|---|
+| Devices uploading | Unique devices that uploaded today, in 7 and in 30 days, and a 30-day chart of devices per day. For the folder, fetch days. Cloud documents from before `upload_days` existed count only their first and last upload day. |
+| Current firmware | A pie of the devices' newest version. |
+| Firmware adoption | Each day's devices, 100 % stacked by the version they ran (a device counts from its first dated boot). |
+| Abnormal resets per 100 awake hours | Per version, the newest five. A reset counts against the version of the boot it ended. |
+| Lowest free heap, 5th percentile | Per version, the newest five: each boot's lowest free heap, then the 5th percentile over the boots. |
+| Battery drain | One dot per device for playing and for idle drain. |
+
+Boots without a known clock are left out of everything dated.
 
 To try the viewer without a toy, generate demo fetches (two overlapping
 fetches with an app session, songs, Bluetooth audio, a crash and charging):
@@ -856,14 +907,25 @@ fetches with an app session, songs, Bluetooth audio, a crash and charging):
 make logs-ui LOG_DIR=/tmp/devlog-demo
 ```
 
-### Cloud (step 5)
+### Cloud uploads
 
-The parent app will upload the raw log file with a small metadata record
-(device, upload time, firmware and app versions). The viewer stays the same:
-`history.Library` reads snapshots from a folder today, and a cloud source
-will provide the same snapshots from the upload store. Hosting the viewer
-for anyone but the developer needs access control, since uploads describe a
-child's use of the toy.
+*Source* in the header switches between the log folder and the uploads in
+Firestore (see [Sending logs to the cloud](#sending-logs-to-the-cloud)).
+Each history of a toy is one snapshot, its chunks joined. The list of toys is
+read at most every 30 seconds, or on Reload; a toy's chunks only after it
+uploaded again. The viewer reads as the read-only `logs-viewer` service
+account, with short-lived tokens from `gcloud auth print-access-token
+--impersonate-service-account=logs-viewer@sweetyaar.iam.gserviceaccount.com`.
+That uses the gcloud CLI's login (an account with Service Account Token
+Creator on `logs-viewer`) whatever configuration is active, and changes no
+gcloud setting or application-default credentials.
+
+### Missing sectors
+
+Where sectors are missing between those a history holds (the toy overwrote
+them before they were fetched or uploaded), the timeline shows a
+`MISSING_SECTORS` warning, "Missing N sectors here", at the first record
+after the gap. A later fetch that holds them removes it.
 
 ## Real-device validation for step 1
 

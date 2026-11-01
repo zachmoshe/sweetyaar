@@ -36,6 +36,7 @@ def test_overlapping_fetches_merge_without_duplicates(library: history.Library) 
     assert device["summary"]["name"] == "Renamed Yaar"  # the newest name record wins
     assert device["summary"]["firmware"] == ["1.1.0", "1.2.0"]  # updated over BLE after boot 2
     assert device["summary"]["installs"] == 1
+    assert device["summary"]["lastSector"] == max(device["snapshots"][-1]["sequence"])
     assert [boot["firmware"] for boot in device["boots"]] == ["1.1.0", "1.1.0", "1.2.0", "1.2.0", "1.2.0"]
 
 
@@ -120,7 +121,7 @@ def test_http_api(library: history.Library) -> None:
         detail = json.load(urllib.request.urlopen(base + "/api/device?id=" + DEVICE))
         assert detail["records"][0][4] == "BOOT"
         stats = json.load(urllib.request.urlopen(base + "/api/stats"))
-        assert stats["totals"]["boots"] == 6
+        assert len(stats["devices"]) == 2 and sum(stats["firmware"].values()) <= 2
         page = urllib.request.urlopen(base + "/").read().decode()
         assert "<title>SweetYaar Logs</title>" in page
         with pytest.raises(urllib.error.HTTPError):
@@ -175,3 +176,250 @@ def test_badge_decoders_match_the_catalog() -> None:
     for name, (needed, _) in decoders.DECODERS.items():
         assert name in names, name
         assert len(history.devlog.SPEC.findall(names[name])) >= needed, name
+
+
+def drop_sector(image: bytes, sequence: int) -> bytes:
+    """The image without the sector holding |sequence| (as if it was overwritten first)."""
+    data = bytearray(image)
+    for start in range(0, len(data), devlog_fixture.devlog.SECTOR_SIZE):
+        if devlog_fixture.devlog.header_sequence(data[start:start + 24]) == sequence:
+            data[start:start + devlog_fixture.devlog.SECTOR_SIZE] = b"\xff" * devlog_fixture.devlog.SECTOR_SIZE
+    return bytes(data)
+
+
+def demo_image() -> bytes:
+    return devlog_fixture.image(devlog_fixture.demo_story().entries, devlog_fixture.DEMO_DEVICE, 384)
+
+
+def test_missing_sectors_are_marked_where_the_log_resumes(tmp_path: pathlib.Path) -> None:
+    story = devlog_fixture.Story()
+    story.start("power-on", 1, 0)
+    for ms in range(2000, 2000 + 1500 * 100, 100):
+        story.add("HEAP", "loop", 60000, 40000, 30000, at=ms)
+    image = devlog_fixture.image(story.entries, devlog_fixture.DEMO_DEVICE, 384)
+    sequences = sorted(devlog_fixture.devlog.sector_map(image))
+    assert len(sequences) >= 3
+    (tmp_path / f"devlog-{devlog_fixture.DEMO_DEVICE.hex()}-20261104-120000.bin").write_bytes(
+        drop_sector(image, sequences[1]))
+    records = history.Library(tmp_path).device(DEVICE)["records"]
+    markers = [index for index, record in enumerate(records) if record[4] == "MISSING_SECTORS"]
+    assert len(markers) == 1
+    assert "Missing 1 sector here" in records[markers[0]][7] and records[markers[0]][6] == "warn"
+    # It sits right before the first record of the sector after the gap.
+    assert records[markers[0] + 1][:4] == records[markers[0]][:4]
+    # A later fetch that holds the sector closes the gap.
+    (tmp_path / f"devlog-{devlog_fixture.DEMO_DEVICE.hex()}-20261105-120000.bin").write_bytes(image)
+    records = history.Library(tmp_path).device(DEVICE)["records"]
+    assert not any(record[4] == "MISSING_SECTORS" for record in records)
+
+
+class FakeDoc:
+    def __init__(self, doc_id: str, data: dict):
+        self.id, self._data = doc_id, data
+
+    def get(self, field: str):
+        return self._data[field]
+
+    def to_dict(self) -> dict:
+        return dict(self._data)
+
+
+class FakeCollection:
+    def __init__(self, docs: dict, children: dict | None = None):
+        self.docs, self.children = docs, children or {}
+        self.streams = 0
+
+    def stream(self):
+        self.streams += 1
+        return [FakeDoc(doc_id, data) for doc_id, data in self.docs.items()]
+
+    def document(self, doc_id: str):
+        return self.children[doc_id]
+
+
+class FakeDocument:
+    def __init__(self, chunks: FakeCollection):
+        self._chunks = chunks
+
+    def collection(self, name: str) -> FakeCollection:
+        assert name == "chunks"
+        return self._chunks
+
+
+class FakeFirestore:
+    def __init__(self, devices: FakeCollection):
+        self.devices = devices
+
+    def collection(self, name: str) -> FakeCollection:
+        assert name == "devices"
+        return self.devices
+
+
+def test_cloud_source_reads_chunks_as_one_history() -> None:
+    import datetime as dt
+    image = demo_image()
+    sectors = devlog_fixture.devlog.sector_map(image)
+    ordered = b"".join(sectors[sequence] for sequence in sorted(sectors))
+    when = dt.datetime(2026, 11, 1, 12, tzinfo=dt.timezone.utc)
+    half = (len(sectors) // 2) * devlog_fixture.devlog.SECTOR_SIZE
+    chunks = FakeCollection({"001-0001": {"data": ordered[half:], "updated": when},
+                             "001-0000": {"data": ordered[:half], "updated": when}})
+    device_id = devlog_fixture.DEMO_DEVICE.hex()
+    devices = FakeCollection({device_id: {"last_upload": when, "history": 1}},
+                             {device_id: FakeDocument(chunks)})
+    source = history.CloudSource("test")
+    source._client = FakeFirestore(devices)
+    library = history.Library(source)
+    cloud = library.device(DEVICE)
+    assert cloud["snapshots"][0]["file"] == f"cloud {device_id} history 1"
+    assert len(cloud["records"]) == len(devlog_fixture.demo_story().entries)
+    # Listed at most every LIST_INTERVAL_S unless forced; chunks only re-read after an upload.
+    library.devices()
+    assert devices.streams == 1 and chunks.streams == 1
+    library.refresh(force=True)
+    assert devices.streams == 2 and chunks.streams == 1
+
+
+def test_http_api_picks_the_source(library: history.Library, tmp_path: pathlib.Path) -> None:
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    cloud = history.Library(empty)
+    httpd = server.http.server.ThreadingHTTPServer(("127.0.0.1", 0), server.handler_for(library, lambda: cloud))
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{httpd.server_address[1]}"
+    try:
+        assert len(json.load(urllib.request.urlopen(base + "/api/devices?source=folder"))["devices"]) == 2
+        assert json.load(urllib.request.urlopen(base + "/api/devices?source=cloud&reload=1"))["devices"] == []
+    finally:
+        httpd.shutdown()
+
+
+def test_fleet_analytics() -> None:
+    import datetime as dt
+    import fleet
+    day = 86400.0
+    today = dt.date(2026, 11, 2)
+    now = dt.datetime(2026, 11, 2, 12, tzinfo=dt.timezone.utc).timestamp()
+
+    def boot(number, firmware, start, hours=1.0, abnormal=False):
+        return {"boot": number, "firmware": firmware, "realStart": start, "timeKnown": True,
+                "duration": hours * 3600, "abnormal": abnormal}
+
+    def device(name, boots, telemetry=()):
+        return {"summary": {"device": name}, "boots": boots, "relativeTime": False,
+                "telemetry": [{"boot": b, "minFree": v} for b, v in telemetry]}
+
+    old, new = now - 10 * day, now - 3 * day
+    devices = [
+        # Updated to 1.2.0 eight days ago; the reset reported by boot 3 happened on 1.2.0.
+        device("A", [boot(1, "1.1.0", old, 10), boot(2, "1.2.0", now - 8 * day, 5),
+                     boot(3, None, now - 3600, abnormal=True)], [(1, 9000), (1, 8000), (2, 12000), (3, 11000)]),
+        device("B", [boot(1, "1.1.0", new, 2, abnormal=True)], [(1, 7000)]),
+    ]
+    stats = fleet.analytics(devices, {"A": ["2026-11-02", "2026-10-20"], "B": ["2026-10-31"]}, today, now)
+    assert stats["uploads"]["windows"] == {"1": 1, "7": 2, "30": 2}
+    assert stats["uploads"]["devices"][-1] == 1 and stats["uploads"]["devices"][-3] == 1
+    assert stats["crashRate"] == [
+        {"version": "1.1.0", "awakeHours": 12.0, "abnormal": 1, "per100h": 8.33},
+        {"version": "1.2.0", "awakeHours": 6.0, "abnormal": 1, "per100h": 16.67}]
+    assert stats["memory"] == [{"version": "1.1.0", "boots": 2, "p5": 7000},
+                               {"version": "1.2.0", "boots": 2, "p5": 11000}]
+    assert stats["recentAbnormal"] == ["A"]  # B's reset was three days ago
+    # Panics lose the clock: C's undated reset follows a dated boot, so its
+    # placement is a lower bound; D's precedes every dated boot.
+    undated = [device("C", [boot(1, "1.1.0", now - 7200), {**boot(2, "1.1.0", now - 3000, abnormal=True), "timeKnown": False}]),
+               device("D", [{**boot(1, "1.1.0", now - 7200, abnormal=True), "timeKnown": False}, boot(2, "1.1.0", now - 3600)])]
+    assert fleet.analytics(undated, {}, today, now)["recentAbnormal"] == ["C"]
+    adoption = stats["adoption"]
+    assert adoption["versions"] == ["1.1.0", "1.2.0"]
+    assert adoption["counts"][-12] == [0, 0] and adoption["counts"][-11] == [1, 0]  # A from its first boot
+    assert adoption["counts"][-1] == [1, 1]  # A on 1.2.0, B on 1.1.0
+
+
+def test_notes_are_kept_per_device(library: history.Library, tmp_path: pathlib.Path) -> None:
+    import notes
+    store = notes.Notes(tmp_path / "logs")
+    httpd = server.http.server.ThreadingHTTPServer(("127.0.0.1", 0), server.handler_for(library, None, store))
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{httpd.server_address[1]}/api/notes?device={DEVICE}"
+
+    def put(body) -> tuple[int, object]:
+        request = urllib.request.Request(base, data=json.dumps(body).encode(), method="PUT",
+                                         headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(request) as response:
+                return response.status, json.load(response)
+        except urllib.error.HTTPError as error:
+            return error.code, json.load(error)
+
+    try:
+        assert json.load(urllib.request.urlopen(base)) == []
+        # A range drawn right to left is stored left to right.
+        status, saved = put([{"id": "a", "text": "speaker off", "start": {"boot": 3, "ms": 9000},
+                              "end": {"boot": 2, "ms": 100}},
+                             {"id": "b", "text": "bad cable", "start": {"boot": 4, "ms": 0}, "end": None}])
+        assert status == 200
+        assert saved[0]["start"] == {"boot": 2, "ms": 100} and saved[0]["end"] == {"boot": 3, "ms": 9000}
+        assert json.load(urllib.request.urlopen(base)) == saved
+        assert notes.Notes(tmp_path / "logs").get("other") == []
+        assert put([{"id": "c", "text": " ", "start": {"boot": 1, "ms": 0}}])[0] == 400
+        assert put([{"id": "c", "text": "x", "start": {"boot": "1", "ms": 0}}])[0] == 400
+        assert json.load(urllib.request.urlopen(base)) == saved  # nothing changed
+        assert put([]) == (200, [])
+        assert json.loads((tmp_path / "logs" / notes.FILE).read_text()) == {}
+    finally:
+        httpd.shutdown()
+
+
+def test_core_dumps_are_reassembled_served_and_decoded(library: history.Library, tmp_path: pathlib.Path) -> None:
+    import gzip
+    import io
+    import subprocess
+    import coredump
+    expected = bytes(i % 251 for i in range(600))
+    device = library.device(DEVICE)
+    [core] = device["coreDumps"]
+    crashed = next(boot for boot in device["boots"] if boot["boot"] == core["boot"] - 1)
+    assert core["size"] == 600 and core["complete"] and core["firmware"] == crashed["firmware"]
+    assert library.core(DEVICE, core["boot"]) == (expected, core["firmware"])
+    assert library.core(DEVICE, 99) is None
+
+    downloads, runs = [], []
+
+    def fetch(request, timeout):
+        downloads.append(request.full_url)
+        assert request.headers["Authorization"] == "Bearer token"
+        if "9.9.9" in request.full_url:
+            raise urllib.error.HTTPError(request.full_url, 404, "not found", {}, None)
+        return io.BytesIO(gzip.compress(b"\x7fELF fake"))
+
+    def run(command, **kwargs):
+        runs.append(command)
+        assert pathlib.Path(command[-1]).read_bytes() == b"\x7fELF fake"
+        assert pathlib.Path(command[command.index("--core") + 1]).read_bytes() == expected
+        return subprocess.CompletedProcess(command, 0, "#0  0x400d2a10 in loop () at src/main.cpp:1\n", "")
+
+    decoder = coredump.Decoder(lambda: "token", cache=tmp_path / "elfs", fetch=fetch, run=run)
+    httpd = server.http.server.ThreadingHTTPServer(("127.0.0.1", 0), server.handler_for(library, None, None, decoder))
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{httpd.server_address[1]}"
+    query = f"?id={DEVICE}&boot={core['boot']}"
+    try:
+        assert urllib.request.urlopen(base + "/api/core" + query).read() == expected
+        decoded = json.load(urllib.request.urlopen(base + "/api/core/decode" + query))
+        assert decoded["text"].startswith("#0  0x400d2a10 in loop ()")
+        json.load(urllib.request.urlopen(base + "/api/core/decode" + query))
+        assert len(downloads) == 1 and len(runs) == 1  # the ELF is cached, and so is the report
+        assert (tmp_path / "elfs/sweetyaar" / core["firmware"] / "firmware.elf").read_bytes() == b"\x7fELF fake"
+        with pytest.raises(urllib.error.HTTPError) as missing:
+            urllib.request.urlopen(base + f"/api/core?id={DEVICE}&boot=99")
+        assert missing.value.code == 404
+    finally:
+        httpd.shutdown()
+    with pytest.raises(coredump.DecodeError, match="No ELF of 9.9.9"):
+        decoder.decode(expected, "9.9.9")
+    with pytest.raises(coredump.DecodeError, match="does not say which firmware"):
+        decoder.decode(expected, None)

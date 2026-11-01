@@ -20,9 +20,12 @@ over the debugger and prints it as text; see
 this Mac, reading only the sectors not saved yet. Both keep one file per
 device, holding only the sectors with records; see
 [Fetching the log over BLE](../docs/logging-and-debugging.md#fetching-the-log-over-ble).
-`logviewer/` (`make logs-ui`) merges every fetched log per device and shows
-a timeline, telemetry charts and stats in the browser; see
-[Log viewer](../docs/logging-and-debugging.md#log-viewer).
+`logviewer/` (`make logs-ui`) merges every fetched log per device, or every
+upload in the cloud, and shows a timeline, telemetry charts and stats in the
+browser; see [Log viewer](../docs/logging-and-debugging.md#log-viewer).
+The logs API the parent app uploads to is in `cloud/logs_api/`
+(`make deploy-logs-api`); see
+[Sending logs to the cloud](../docs/logging-and-debugging.md#sending-logs-to-the-cloud).
 
 `device_test.py` is the opt-in Mac/ESP32 Bluetooth runner. It captures real
 serial events and uses Bleak, blueutil, SwitchAudioSource and the AVAudioPlayer

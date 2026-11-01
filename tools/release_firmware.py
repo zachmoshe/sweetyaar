@@ -4,7 +4,9 @@ Publish firmware images for the parent app's update flow.
 
 Reads FIRMWARE_VERSION from firmware/esp32/src/Config.h and the release note for
 that version from firmware/release-notes.json, compresses the production board's
-built image and writes app/public/firmware/manifest.json. The generic prototype
+built image and writes app/public/firmware/manifest.json. Before that it
+archives the build's firmware.elf in the firmware-elfs bucket, since a core
+dump from the field can only be decoded with the exact ELF that crashed. The generic prototype
 is not published; update it from a Mac with tools/ota_update.py. Deploying the app then
 offers the update to toys running an older version.
 
@@ -18,12 +20,14 @@ Usage (after a hardware-validated build):
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 import zlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -38,6 +42,8 @@ ALL_BOARDS = ("sweetyaar", "sweetyaar-generic")
 APP_SLOT_BYTES = 0x330000  # partitions_8mb.csv app0/app1
 NOTE_MAX_CHARS = 160
 ZLIB_WINDOW_BITS = 15  # the device inflates with a 32 KB dictionary
+ELF_BUCKET = "gs://sweetyaar-firmware-elfs"  # project sweetyaar; never overwritten
+APP_ELF_SHA256 = slice(0xB0, 0xD0)  # esp_app_desc_t.app_elf_sha256 in the image
 
 
 class ReleaseError(Exception):
@@ -82,6 +88,55 @@ def check_image(board: str, image: bytes, version: str) -> None:
     if f"{board}\0".encode() not in image or any(
             f"{other}\0".encode() in image for other in ALL_BOARDS if other != board):
         raise ReleaseError(f"{board}: image was built for another board")
+
+
+def elf_sha256(image: bytes, elf: bytes) -> str:
+    """The ELF's SHA-256, checked against the one the build wrote into the image."""
+    digest = hashlib.sha256(elf).hexdigest()
+    if image[APP_ELF_SHA256].hex() != digest:
+        raise ReleaseError("firmware.elf is not the ELF of this firmware.bin; rebuild")
+    return digest
+
+
+def elf_object(board: str, version: str) -> str:
+    return f"{ELF_BUCKET}/{board}/{version}/firmware.elf.gz"
+
+
+def gcloud(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["gcloud", *args], capture_output=True, text=True)
+
+
+def archive_elf(board: str, version: str, image: bytes, elf: bytes, commit: str, run=gcloud) -> str:
+    """Uploads the ELF unless this exact build is already archived; returns what happened.
+
+    An archived ELF of another build of the same version is never replaced:
+    toys may run that build, and their crashes need its ELF.
+    """
+    digest = elf_sha256(image, elf)
+    target = elf_object(board, version)
+    existing = run("storage", "objects", "describe", target, "--format=value(custom_fields.elf-sha256)")
+    if existing.returncode == 0:
+        if existing.stdout.strip() == digest:
+            return f"{target} already holds this build"
+        raise ReleaseError(f"{target} holds another build of {version}; publish a new version instead")
+    if "not found" not in (existing.stderr or "").lower() and "404" not in (existing.stderr or ""):
+        raise ReleaseError(f"Could not check {target}: {existing.stderr.strip()}")
+    with tempfile.TemporaryDirectory() as folder:
+        packed = pathlib.Path(folder) / "firmware.elf.gz"
+        packed.write_bytes(gzip.compress(elf, 9, mtime=0))
+        metadata = (f"version={version},board={board},commit={commit},"
+                    f"image-sha256={hashlib.sha256(image).hexdigest()},elf-sha256={digest}")
+        uploaded = run("storage", "cp", str(packed), target, "--no-clobber",
+                       "--content-type=application/gzip", f"--custom-metadata={metadata}")
+    if uploaded.returncode:
+        raise ReleaseError(f"Could not upload {target}: {uploaded.stderr.strip()}")
+    return f"Archived firmware.elf as {target}"
+
+
+def git_commit() -> str:
+    result = subprocess.run(["git", "-C", str(ROOT), "describe", "--always", "--dirty", "--abbrev=40"],
+                            capture_output=True, text=True)
+    return result.stdout.strip() or "unknown"
 
 
 def bump_cache_version(sw_text: str) -> str:
@@ -132,6 +187,10 @@ def main() -> int:
             for board in boards:
                 subprocess.run([str(pio), "run", "-d", str(FIRMWARE_DIR), "-e", board], check=True)
         images = {board: (FIRMWARE_DIR / ".pio/build" / board / "firmware.bin").read_bytes() for board in boards}
+        for board, image in images.items():
+            check_image(board, image, version)
+            elf = (FIRMWARE_DIR / ".pio/build" / board / "firmware.elf").read_bytes()
+            print(archive_elf(board, version, image, elf, git_commit()))
         manifest = build_release(images, version, note, OUT_DIR)
         SERVICE_WORKER.write_text(bump_cache_version(SERVICE_WORKER.read_text()))
     except (ReleaseError, FileNotFoundError, subprocess.CalledProcessError) as error:

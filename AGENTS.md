@@ -140,7 +140,9 @@ explicitly says to reuse an existing branch or worktree (or to work on `main`).
   never publishes firmware. Every release needs a short release note in
   `firmware/release-notes.json`, shown to parents as-is. Ask the user for that
   text or for approval of a draft; never generate it from commit messages or
-  diffs. `make release-firmware` refuses to run without it.
+  diffs. `make release-firmware` refuses to run without it. It also archives
+  the build's `firmware.elf` in `gs://sweetyaar-firmware-elfs` (needs a gcloud
+  login), so field core dumps can be decoded; an archived ELF is never replaced.
 - The GATT table must stay identical in normal and update mode, and the
   version check plus update commands must keep working for every older
   release, or a newer app could not update an older toy.

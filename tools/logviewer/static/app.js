@@ -18,18 +18,31 @@ const $ = (id) => document.getElementById(id);
 const state = {
   devices: [], data: null, mode: "real", view: null, cursor: null, hover: null,
   areas: new Set(Object.keys(AREA_LABELS)), level: "info", search: "", filtered: [],
-  selectedRecord: null, tab: "timeline",
+  selectedRecord: null, tab: "stats", notes: [], source: recall("source") === "cloud" ? "cloud" : "folder",
+  cores: new Map(),  // boot -> {text, bad, open, scroll}: decoded core dumps of the device shown
 };
 
 function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 function store(key, value) { try { localStorage.setItem("sylog." + key, value); } catch (e) { /* private mode */ } }
 function recall(key) { try { return localStorage.getItem("sylog." + key); } catch (e) { return null; } }
 
-async function getJson(url) {
-  const response = await fetch(url, { cache: "no-store" });
-  const body = await response.json();
-  if (!response.ok) throw new Error(body.error || response.statusText);
-  return body;
+// Every API call names the source: the log folder or the cloud uploads. A
+// modal covers the page while any call is in flight.
+let busyCalls = 0;
+async function getJson(url, extra = "", busyText = "") {
+  const separator = url.includes("?") ? "&" : "?";
+  $("busy-text").textContent = busyText || `Reading ${state.source === "cloud" ? "the cloud uploads" : "the log folder"}…`;
+  busyCalls += 1;
+  $("busy").hidden = false;
+  try {
+    const response = await fetch(`${url}${separator}source=${state.source}${extra}`, { cache: "no-store" });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || response.statusText);
+    return body;
+  } finally {
+    busyCalls -= 1;
+    $("busy").hidden = busyCalls === 0;
+  }
 }
 
 // --- Coordinates ------------------------------------------------------------
@@ -48,6 +61,13 @@ function fullRange() {
   const x1 = Math.max(...boots.map(bootX1));
   const pad = Math.max(5, (x1 - x0) * 0.01);
   return [x0 - pad, x1 + pad];
+}
+
+// A device opens on its last 48 hours (of the current axis); Fit shows all.
+const OPEN_SPAN_S = 48 * 3600;
+function latestRange() {
+  const [a, b] = fullRange();
+  return [Math.max(a, b - OPEN_SPAN_S), b];
 }
 
 function plotWidth(canvas) { return Math.max(1, canvas.clientWidth - GUTTER - 12); }
@@ -81,44 +101,71 @@ function recordTime(record) {
 
 // --- Loading ----------------------------------------------------------------
 
-async function loadDevices() {
-  const body = await getJson("/api/devices");
+// Devices are picked in the All devices table; the timeline shows the one
+// picked last, if the source still has it.
+async function loadDevices(reload = false) {
+  const body = await getJson("/api/devices", reload ? "&reload=1" : "");
   state.devices = body.devices;
   $("source").textContent = `${body.directory}`;
-  const select = $("device");
-  select.innerHTML = "";
-  for (const device of state.devices) {
-    const option = document.createElement("option");
-    option.value = device.device;
-    option.textContent = `${device.name || "(unnamed)"} · ${device.device} · ${device.boots} boots · ` +
-                         `fetched ${device.lastFetched.replace("T", " ")}`;
-    select.appendChild(option);
-  }
-  const wanted = new URLSearchParams(location.hash.slice(1)).get("device") || recall("device");
-  if (state.devices.some((d) => d.device === wanted)) select.value = wanted;
-  if (!state.devices.length) {
-    showNotice(`No fetched logs in ${body.directory}. Run make fetch-logs, then Reload.`);
-    return;
-  }
-  await loadDevice(select.value);
+  const current = state.data && state.devices.some((d) => d.device === state.data.device) ? state.data.device : null;
+  if (!current) clearDevice();
+  if (state.tab === "stats") return renderStats();
+  if (current) return loadDevice(current);
+  showNotice(noDeviceText());
+}
+
+function noDeviceText() {
+  if (state.devices.length) return "Pick a device in the table.";
+  return state.source === "cloud" ? "No toy has uploaded logs yet."
+    : "No fetched logs in the log folder. Run make fetch-logs, then Reload.";
+}
+
+function clearDevice() {
+  state.data = null;
+  state.notes = [];
+  $("note-editor").hidden = true;
+  $("cards").innerHTML = "";
+  $("snapshots").innerHTML = "";
+  state.cores = new Map();
+  $("device-label").textContent = "";
+  state.filtered = logRows = [];
+  for (const row of $("log").querySelectorAll(".row")) row.remove();
+  $("log-spacer").style.height = "0px";
+  $("count").textContent = "";
+  history.replaceState(null, "", location.pathname);
+  draw();
 }
 
 async function loadDevice(id) {
   const data = await getJson(`/api/device?id=${encodeURIComponent(id)}`);
+  data.device = id;
+  await loadNotes(id);
+  const listed = state.devices.find((d) => d.device === id);
+  $("device-label").textContent = listed ? `${listed.name || "(unnamed)"} · ${id}` : id;
   data.bootIndex = new Map(data.boots.map((boot) => [boot.boot, boot]));
   data.charts = buildCharts(data);
   state.data = data;
   state.selectedRecord = null;
   state.cursor = null;
-  store("device", id);
   history.replaceState(null, "", `#device=${encodeURIComponent(id)}`);
-  state.view = fullRange();
+  state.view = latestRange();
   renderCards();
   renderSnapshots();
+  state.cores = new Map();
   showNotice(data.relativeTime
     ? "No boot in this history has a clock (the parent app never synced it), so real time is estimated: boots are placed one minute apart." : "");
   applyFilters();
   draw();
+  state.logToEnd = true;
+  scrollLogToEnd();
+}
+
+// The log of a newly opened device starts at its latest line, once visible.
+function scrollLogToEnd() {
+  if (!state.logToEnd || $("timeline-view").hidden) return;
+  state.logToEnd = false;
+  $("log").scrollTop = $("log").scrollHeight;
+  paintLog();
 }
 
 function showNotice(text) { $("notice").hidden = !text; $("notice").textContent = text; }
@@ -146,6 +193,54 @@ function renderCards() {
     card("Firmware history", s.firmware.join(" → ") || "—",
          s.installs ? `${s.installs} installation${s.installs === 1 ? "" : "s"}` : ""),
   ].join("");
+}
+
+// Core dumps the toy copied into its log after a crash. Their chunk records
+// are left out of the log list; the "Core dump copied" line (or the start
+// line, when the end was overwritten) carries Download and Decode, and the
+// decoded report opens under it.
+const CORE_TEXT_HEIGHT = 380;
+
+function coreOf(record) {
+  const name = record[R.name];
+  if (name !== "COREDUMP_END" && name !== "COREDUMP_BEGIN") return null;
+  const core = (state.data.coreDumps || []).find((item) => item.boot === record[R.boot]);
+  if (!core) return null;
+  const ended = state.data.records.some((other) => other[R.boot] === core.boot && other[R.name] === "COREDUMP_END");
+  return (name === "COREDUMP_END") === ended ? core : null;
+}
+
+function coreActions(core) {
+  const line = document.createElement("div");
+  line.className = "core-actions";
+  if (!core.complete) {
+    line.innerHTML = `<span class="badge bad">incomplete: part of it was overwritten</span>`;
+    return line;
+  }
+  const shown = state.cores.get(core.boot);
+  const link = `/api/core?id=${encodeURIComponent(state.data.device)}&boot=${core.boot}&source=${state.source}`;
+  line.innerHTML = `<button data-decode="${core.boot}">${shown && shown.open ? "Hide" : "Decode"}</button>` +
+    `<a href="${link}" download>Download .bin</a>` +
+    `<span class="muted">firmware ${escapeHtml(core.firmware || "unknown")} · ${(core.size / 1024).toFixed(1)} KB</span>`;
+  return line;
+}
+
+async function decodeCore(boot) {
+  const shown = state.cores.get(boot);
+  if (shown) {
+    shown.open = !shown.open;
+  } else {
+    try {
+      const body = await getJson(`/api/core/decode?id=${encodeURIComponent(state.data.device)}&boot=${boot}`, "",
+                                 "Decoding the core dump (the first time downloads its firmware's ELF)…");
+      state.cores.set(boot, { text: body.text, bad: false, open: true, scroll: 0 });
+    } catch (error) {
+      state.cores.set(boot, { text: error.message, bad: true, open: true, scroll: 0 });
+    }
+  }
+  const top = $("log").scrollTop;
+  renderLog();
+  $("log").scrollTop = top;
 }
 
 function renderSnapshots() {
@@ -179,6 +274,7 @@ function lanes() {
   const areaRows = Object.keys(AREA_LABELS).map((area) => ({ id: "area:" + area, label: AREA_LABELS[area], h: 13,
                                                               area, section: "events" }));
   return [
+    { id: "notes", label: "Notes", h: 22, section: "axis" },
     { id: "axis", label: "", h: 26, section: "axis" },
     { id: "boots", label: "Boots", h: 28, section: "boots" },
     { id: "firmware", label: "Firmware", h: 18, section: "boots" },
@@ -241,8 +337,9 @@ function draw() {
     });
   }
   ctx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
-  drawUnknownTime(ctx, placed[0], right);
-  drawAxis(ctx, placed[0], height, right);
+  const axis = placed.find((l) => l.id === "axis");
+  drawUnknownTime(ctx, axis, right);
+  drawAxis(ctx, axis, height, right);
   ctx.save();
   ctx.beginPath();
   ctx.rect(GUTTER, 0, right - GUTTER, height);
@@ -263,12 +360,166 @@ function draw() {
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(px + 0.5, 0); ctx.lineTo(px + 0.5, height); ctx.stroke();
   }
-  if (drag && drag.select) {
+  if (drag && (drag.select || drag.note)) {
     ctx.fillStyle = css("--select");
     ctx.fillRect(Math.min(drag.startPx, drag.lastPx), 0, Math.abs(drag.lastPx - drag.startPx), height);
   }
   ctx.restore();
   drawScaleLabels(ctx);
+  drawNotes(ctx, placed.find((l) => l.id === "notes"), axis, height, right);
+  drawHover(ctx, axis, height, right);
+}
+
+// A faint line under the pointer, with its time in the axis lane.
+function drawHover(ctx, axis, height, right) {
+  if (state.hover === null || drag) return;
+  const px = Math.round(toPx(state.hover)) + 0.5;
+  if (px < GUTTER || px > right) return;
+  ctx.save();
+  ctx.strokeStyle = css("--muted");
+  ctx.globalAlpha = 0.7;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, height); ctx.stroke();
+  ctx.restore();
+  const text = hoverTime(state.hover);
+  const width = ctx.measureText(text).width + 10;
+  const left = px + 4 + width > right ? px - 4 - width : px + 4;
+  ctx.fillStyle = css("--text");
+  ctx.fillRect(left, axis.y + 4, width, axis.h - 8);
+  ctx.fillStyle = css("--bg");
+  ctx.fillText(text, left + 5, axis.y + axis.h / 2);
+}
+
+// --- Notes ------------------------------------------------------------------
+// The developer's own comments on a moment or a range (tools/logviewer/notes.py).
+// Their ends are {boot, ms}, so they follow the boot on either axis.
+
+function noteX(end) {
+  const boot = bootOf(end.boot);
+  if (!boot) return null;
+  const x = bootX0(boot) + (end.ms - boot.startMs) / 1000;
+  return state.mode === "awake" ? Math.min(Math.max(x, bootX0(boot)), bootX1(boot)) : x;
+}
+
+// The boot that started nearest at or before |x| (the earliest one before them
+// all). Boots are in number order, which estimated times need not follow.
+function noteEnd(x) {
+  const boots = state.data.boots;
+  let boot = boots.reduce((a, b) => bootX0(b) < bootX0(a) ? b : a);
+  for (const candidate of boots) if (bootX0(candidate) <= x && bootX0(candidate) > bootX0(boot)) boot = candidate;
+  if (state.mode === "awake") x = Math.min(x, bootX1(boot));
+  return { boot: boot.boot, ms: Math.round(boot.startMs + (x - bootX0(boot)) * 1000) };
+}
+
+function noteTime(end) {
+  const boot = bootOf(end.boot);
+  if (!boot) return `B${end.boot} ${uptimeText(end.ms)}`;
+  return wallKnown(boot) ? wallText(boot.realStart + (end.ms - boot.startMs) / 1000, false)
+                         : `B${end.boot} ${uptimeText(end.ms)}`;
+}
+
+function noteSpan(note) {
+  return note.end ? `${noteTime(note.start)} → ${noteTime(note.end)}` : noteTime(note.start);
+}
+
+function fitText(ctx, text, width) {
+  text = text.replace(/\s+/g, " ").trim();
+  if (width < 12) return "";
+  if (ctx.measureText(text).width <= width) return text;
+  let lo = 0, hi = text.length;
+  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (ctx.measureText(text.slice(0, mid) + "…").width <= width) lo = mid; else hi = mid - 1; }
+  return lo ? text.slice(0, lo) + "…" : "";
+}
+
+// Where each note was drawn, for hovering and clicking.
+let noteBoxes = [];
+function drawNotes(ctx, lane, axis, height, right) {
+  noteBoxes = [];
+  const placed = state.notes.map((note) => ({ note, x0: noteX(note.start), x1: note.end ? noteX(note.end) : null }))
+    .filter((p) => p.x0 !== null).sort((a, b) => a.x0 - b.x0);
+  const accent = css("--note");
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(GUTTER, 0, right - GUTTER, height);
+  ctx.clip();
+  placed.forEach((p, i) => {
+    const px0 = toPx(p.x0), px1 = p.x1 === null ? px0 : Math.max(px0 + 2, toPx(p.x1));
+    const next = placed[i + 1] ? toPx(placed[i + 1].x0) : right;
+    if (px1 < GUTTER - 200 || px0 > right) return;
+    const top = lane.y + 3, h = lane.h - 6;
+    // A faint band or line through every lane below.
+    ctx.globalAlpha = 0.08;
+    ctx.fillStyle = accent;
+    if (p.x1 !== null) ctx.fillRect(px0, axis.y, px1 - px0, height - axis.y);
+    ctx.globalAlpha = 0.5;
+    if (p.x1 === null) ctx.fillRect(Math.round(px0), axis.y, 1, height - axis.y);
+    let textLeft;
+    if (p.x1 !== null) {
+      ctx.globalAlpha = 0.3;
+      ctx.fillRect(px0, top, px1 - px0, h);
+      ctx.globalAlpha = 1;
+      ctx.fillRect(px0, top, 2, h);
+      ctx.fillRect(px1 - 2, top, 2, h);
+      textLeft = px0 + 5;
+    } else {
+      ctx.globalAlpha = 1;
+      ctx.beginPath();  // a flag: pole and pennant
+      ctx.fillRect(Math.round(px0), top, 1.5, h);
+      ctx.moveTo(px0 + 1.5, top); ctx.lineTo(px0 + 8, top + 3.5); ctx.lineTo(px0 + 1.5, top + 7); ctx.fill();
+      textLeft = px0 + 10;
+    }
+    const room = Math.max(px1 - 4, next - 6) - textLeft;
+    const text = fitText(ctx, p.note.text, room);
+    ctx.fillStyle = css("--text");
+    ctx.fillText(text, textLeft, lane.y + lane.h / 2);
+    noteBoxes.push({ note: p.note, px0: px0 - 3, px1: Math.max(px1, textLeft + ctx.measureText(text).width) + 3 });
+  });
+  ctx.restore();
+}
+
+async function loadNotes(device) {
+  state.notes = await getJson(`/api/notes?device=${encodeURIComponent(device)}`);
+}
+
+async function saveNotes(notes) {
+  const device = state.data.device;
+  const response = await fetch(`/api/notes?device=${encodeURIComponent(device)}`, {
+    method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(notes) });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error || response.statusText);
+  if (state.data && state.data.device === device) { state.notes = body; draw(); }
+}
+
+// The editor opens at the pointer, for a new note ({start, end}) or an existing one.
+function editNote(note, clientX, clientY) {
+  const editor = $("note-editor");
+  $("note-when").textContent = noteSpan(note);
+  $("note-text").value = note.text || "";
+  $("note-delete").hidden = !note.id;
+  editor.hidden = false;
+  editor.style.left = `${Math.max(8, Math.min(clientX, window.innerWidth - editor.offsetWidth - 8))}px`;
+  editor.style.top = `${Math.max(8, Math.min(clientY + 12, window.innerHeight - editor.offsetHeight - 8))}px`;
+  $("note-text").focus();
+  const close = () => { editor.hidden = true; editor.onsubmit = null; $("note-delete").onclick = null; };
+  const others = state.notes.filter((n) => n.id !== note.id);
+  editor.onsubmit = (e) => {
+    e.preventDefault();
+    const text = $("note-text").value.trim();
+    if (!text) return;
+    const id = note.id || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    close();
+    saveNotes([...others, { ...note, id, text }]).catch(showError);
+  };
+  $("note-delete").onclick = () => { close(); saveNotes(others).catch(showError); };
+  $("note-cancel").onclick = close;
+}
+
+function hoverTime(x) {
+  if (state.mode === "awake") return `awake ${durationLabel(x, 1)}`;
+  if (state.data.relativeTime) return `≈ ${durationLabel(x - (state.data.boots[0]?.realStart || 0), 1)}`;
+  const text = wallText(x, false);
+  // Inside a boot whose clock was never set, the time is a guess.
+  return unknownTimeSpans().some(([x0, x1]) => x >= x0 && x <= x1) ? `≈ ${text}` : text;
 }
 
 function drawSections(ctx, placed, width) {
@@ -346,7 +597,7 @@ function drawAxis(ctx, lane, height, right) {
   for (let t = Math.ceil((a - origin) / step) * step + origin; t <= b; t += step) {
     const px = Math.round(toPx(t)) + 0.5;
     if (px < GUTTER || px > right) continue;
-    ctx.beginPath(); ctx.moveTo(px, lane.h); ctx.lineTo(px, height); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(px, lane.y + lane.h); ctx.lineTo(px, height); ctx.stroke();
     let label;
     if (relative) {
       label = durationLabel(t - origin, step);
@@ -354,9 +605,9 @@ function drawAxis(ctx, lane, height, right) {
       const full = wallText(t, false);
       label = step >= 86400 ? full.slice(5, 10) : step >= 3600 ? full.slice(5, 16) : full.slice(11, step < 60 ? 19 : 16);
     }
-    ctx.fillText(label, px + 3, lane.h / 2);
+    ctx.fillText(label, px + 3, lane.y + lane.h / 2);
   }
-  ctx.fillText(state.mode === "awake" ? "awake time" : relative ? "estimated" : "local time", 8, lane.h / 2);
+  ctx.fillText(state.mode === "awake" ? "awake time" : relative ? "estimated" : "local time", 8, lane.y + lane.h / 2);
 }
 
 function durationLabel(seconds, step) {
@@ -612,6 +863,10 @@ function hitTest(px, py) {
   const x = toX(px);
   const slack = (toX(px + 6) - toX(px));
   const data = state.data;
+  if (lane.id === "notes") {
+    const box = noteBoxes.find((b) => px >= b.px0 && px <= b.px1);
+    return box ? { kind: "note", note: box.note } : null;
+  }
   if (lane.id === "axis") {
     const span = unknownTimeSpans().find(([x0, x1]) => x >= x0 && x <= x1);
     return span ? { kind: "unknownTime", span } : null;
@@ -656,6 +911,7 @@ function hitTest(px, py) {
 
 function describeHit(hit) {
   const data = state.data;
+  if (hit.kind === "note") return `${noteSpan(hit.note)}\n${hit.note.text}\nclick to edit`;
   if (hit.kind === "unknownTime") {
     return "Time unknown: clock not set.\nBoots placed 60 s apart; axis times are a guess.";
   }
@@ -673,6 +929,7 @@ function describeHit(hit) {
       if (hit.kind === "crash") lines.push("click: show the lines before it");
     }
     if (b.crash) lines.push(`crash record: task ${b.crash.task}, cause ${b.crash.cause}`);
+    if ((data.coreDumps || []).some((core) => core.boot === b.boot)) lines.push("core dump stored: Decode it from its line in the log");
     return lines.join("\n");
   }
   if (hit.kind === "firmware") {
@@ -709,6 +966,7 @@ function describeHit(hit) {
 
 function hitX(hit) {
   if (hit.kind === "boot") return bootX0(hit.boot);
+  if (hit.kind === "note") return noteX(hit.note.start);
   if (hit.kind === "unknownTime") return hit.span[0];
   if (hit.kind === "firmware") return bootX0(hit.run.boots[0]);
   if (hit.kind === "crash") return bootX1(hit.boot);
@@ -734,7 +992,7 @@ function applyFilters() {
   if (!state.data) return;
   const minimum = LEVEL_RANK[state.level];
   const needle = state.search.toLowerCase();
-  state.filtered = state.data.records.filter((record) =>
+  state.filtered = state.data.records.filter((record) => record[R.name] !== "COREDUMP_CHUNK" &&
     state.areas.has(record[R.area]) && LEVEL_RANK[record[R.level]] >= minimum &&
     (!needle || record[R.text].toLowerCase().includes(needle) || record[R.name].toLowerCase().includes(needle) ||
      (record[R.badges] || []).some(([text]) => text.toLowerCase().includes(needle))));
@@ -750,7 +1008,12 @@ function visibleRecords() {
 // holds each row's offset for the virtual scrolling.
 let logRows = [];
 let logTops = new Float64Array(1);
-const rowHeight = (record) => (record[R.badges] && record[R.badges].length ? 2 : 1) * ROW_HEIGHT;
+function rowHeight(record) {
+  let height = (record[R.badges] && record[R.badges].length ? 2 : 1) * ROW_HEIGHT;
+  const core = coreOf(record);
+  if (core) height += ROW_HEIGHT + 6 + (state.cores.get(core.boot)?.open ? CORE_TEXT_HEIGHT + 6 : 0);
+  return height;
+}
 
 function renderLog() {
   logRows = visibleRecords();
@@ -797,6 +1060,20 @@ function paintLog() {
       }
       row.appendChild(line);
     }
+    const core = coreOf(record);
+    if (core) {
+      row.appendChild(coreActions(core));
+      const shown = state.cores.get(core.boot);
+      if (shown && shown.open) {
+        const text = document.createElement("pre");
+        text.className = "core-text" + (shown.bad ? " bad" : "");
+        text.style.height = `${CORE_TEXT_HEIGHT}px`;
+        text.textContent = shown.text;
+        text.addEventListener("scroll", () => { shown.scroll = text.scrollTop; });
+        row.appendChild(text);
+        requestAnimationFrame(() => { text.scrollTop = shown.scroll; });
+      }
+    }
     row.title = record[R.name];
     fragment.appendChild(row);
   }
@@ -818,40 +1095,203 @@ function selectNearest(x, exact) {
 
 async function renderStats() {
   const stats = await getJson("/api/stats");
-  const t = stats.totals;
+  const fleet = stats.fleet;
+  const versions = [...new Set([...Object.keys(stats.firmware), ...fleet.adoption.versions,
+                                ...fleet.crashRate.map((r) => r.version), ...fleet.memory.map((r) => r.version)])]
+    .sort(compareVersions);
+  const palette = ["--fw0", "--fw1", "--fw2", "--fw3", "--song", "--animal", "--stream", "--kill"].map(css);
+  const colorOf = (version) => palette[versions.indexOf(version) % palette.length];
+  const panel = (label, body, title = "") =>
+    `<div class="card"${title ? ` title="${escapeHtml(title)}"` : ""}><div class="label">${label}</div>${body}</div>`;
+  const w = fleet.uploads.windows;
   $("totals").innerHTML = [
-    card("Devices", stats.devices.length),
-    card("Boots", t.boots || 0, `${t.abnormalResets || 0} abnormal`, (t.abnormalResets || 0) > 0),
-    card("Awake", `${(t.awakeHours || 0).toFixed(1)} h`),
-    card("Local playback", `${(t.localHours || 0).toFixed(1)} h`, `${t.songsStarted || 0} songs, ${t.animalsStarted || 0} animals`),
-    card("Bluetooth audio", `${(t.btHours || 0).toFixed(1)} h`),
-    card("Devices per current firmware", Object.entries(stats.firmware).map(([v, n]) => `${v}: ${n}`)
-      .join(", ") || "—"),
+    `<div class="card count"><div class="label">Devices</div><div class="value">${stats.devices.length}</div></div>`,
+    panel(state.source === "cloud" ? "Devices uploading" : "Devices fetched",
+          `<div class="windows"><b>${w["1"]}</b> today · <b>${w["7"]}</b> in 7 days · <b>${w["30"]}</b> in 30 days</div>` +
+          uploadChart(fleet.uploads)),
+    panel("Current firmware", firmwarePie(stats.firmware, colorOf)),
+    panel("Firmware adoption", adoptionChart(fleet.adoption, colorOf),
+          "Share of devices on each version, by day (a device counts from its first dated boot)"),
+    panel("Abnormal resets per 100 awake hours", barRows(fleet.crashRate.map((r) => ({
+      label: r.version, value: r.per100h ?? 0, text: r.per100h === null ? "—" : `${r.per100h}`, color: colorOf(r.version),
+      title: `${r.version}: ${r.abnormal} abnormal reset${r.abnormal === 1 ? "" : "s"} in ${r.awakeHours} awake hours`,
+    })))),
+    panel("Lowest free heap, 5th percentile", barRows(fleet.memory.map((r) => ({
+      label: r.version, value: r.p5, text: `${(r.p5 / 1000).toFixed(1)} KB`, color: colorOf(r.version),
+      title: `${r.version}: 5 % of ${r.boots} boots dropped to ${r.p5} bytes free or less`,
+    })), 25000)),
+    panel("Battery drain, mV/h", drainChart(stats.devices),
+          "Each dot is a device: voltage drop per hour while playing and while idle (not charging)"),
   ].join("");
+  const recent = new Set(fleet.recentAbnormal);
   const drain = (d) => d.mvPerHour === null ? "—" : `${d.mvPerHour}`;
-  const head = ["Name", "Device", "Fetches", "Last fetch", "Boots", "Abnormal", "Awake h", "Local h", "BT h", "Songs",
+  const head = ["Name", "Device", "Fetches", "Last fetch", "Last sector", "Boots", "Abnormal", "Awake h", "Local h", "BT h", "Songs",
                 "Drain playing mV/h", "Drain idle mV/h", "Errors", "Firmware history (old → new)"];
-  const rows = stats.devices.map((d) => `<tr data-device="${d.device}"><td>${escapeHtml(d.name || "—")}</td>` +
-    `<td>${d.device}</td><td>${d.snapshots}</td>` +
-    `<td>${d.lastFetched.replace("T", " ")}</td><td>${d.boots}</td><td>${d.abnormalResets}</td><td>${d.awakeHours}</td>` +
+  const rows = stats.devices.map((d) => `<tr data-device="${d.device}"><td>` +
+    (recent.has(d.device) ? `<span class="alert" title="Abnormal reset in the last 48 hours">⚠</span> ` : "") +
+    `${escapeHtml(d.name || "—")}</td><td>${d.device}</td><td>${d.snapshots}</td>` +
+    `<td>${d.lastFetched.replace("T", " ")}</td><td>${d.lastSector ?? "—"}</td><td>${d.boots}</td><td>${d.abnormalResets}</td><td>${d.awakeHours}</td>` +
     `<td>${d.localHours}</td><td>${d.btHours}</td><td>${d.songsStarted}</td><td>${drain(d.drain.playing)}</td>` +
     `<td>${drain(d.drain.idle)}</td><td>${d.errors}</td><td>${d.firmware.join(" → ")}</td></tr>`).join("");
   $("stats-table").innerHTML = `<thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody>`;
+}
+
+function compareVersions(a, b) { return a.localeCompare(b, undefined, { numeric: true }); }
+function plural(n, word) { return `${n} ${word}${n === 1 ? "" : "s"}`; }
+
+// Devices per firmware version, most common first; the three largest slices
+// are labelled, and every count is in the hover text.
+function firmwarePie(counts, colorOf) {
+  const slices = Object.entries(counts).sort((a, b) => b[1] - a[1] || compareVersions(b[0], a[0]));
+  const total = slices.reduce((sum, [, n]) => sum + n, 0);
+  if (!total) return `<div class="value">—</div>`;
+  const hover = (version, n) => `${escapeHtml(version)}: ${plural(n, "device")} (${Math.round(n / total * 100)} %)`;
+  const point = (a, r) => [20 + r * Math.cos(a), 20 + r * Math.sin(a)];
+  const xy = (a, r) => point(a, r).map((v) => v.toFixed(2)).join(" ");
+  let angle = -Math.PI / 2;
+  const paths = [], labels = [];
+  slices.forEach(([version, n], i) => {
+    const color = colorOf(version);
+    const a0 = angle, a1 = angle + n / total * 2 * Math.PI;
+    angle = a1;
+    paths.push(n === total
+      ? `<circle cx="20" cy="20" r="18" fill="${color}"><title>${hover(version, n)}</title></circle>`
+      : `<path d="M20 20 L${xy(a0, 18)} A18 18 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${xy(a1, 18)} Z" fill="${color}">` +
+        `<title>${hover(version, n)}</title></path>`);
+    if (i < 3) {
+      const mid = n === total ? -Math.PI / 4 : (a0 + a1) / 2;
+      const [x, y] = point(mid, 21);
+      const anchor = Math.cos(mid) >= 0 ? "start" : "end";
+      labels.push(`<text x="${x.toFixed(1)}" y="${(y + 2.5).toFixed(1)}" text-anchor="${anchor}" font-size="7" ` +
+                  `fill="${css("--text")}">${escapeHtml(version)}</text>`);
+    }
+  });
+  const legend = slices.map(([version, n]) =>
+    `<li title="${hover(version, n)}"><i style="background:${colorOf(version)}"></i>${escapeHtml(version)}</li>`);
+  return `<div class="pie"><svg viewBox="-22 -2 84 44" width="126" height="66">${paths.join("")}${labels.join("")}</svg>` +
+         `<ul>${legend.join("")}</ul></div>`;
+}
+
+// Small charts share one frame: a plot with y labels on the left, faint
+// dashed gridlines, and the first and last day below.
+const CHART_W = 230, PLOT_L = 24, PLOT_T = 4, PLOT_H = 48;
+const PLOT_W = CHART_W - PLOT_L - 4;
+const fade = () => `stroke="${css("--muted")}" stroke-opacity="0.45" stroke-dasharray="2 2" stroke-width="0.6"`;
+const small = (x, y, text, anchor = "end") =>
+  `<text x="${x}" y="${y}" text-anchor="${anchor}" font-size="8" fill="${css("--muted")}">${text}</text>`;
+
+// |gridOnTop| keeps the gridlines visible over filled columns.
+function frame(ticks, days, body, gridOnTop = false) {
+  const grid = ticks.map(([share, text]) => {
+    const y = (PLOT_T + PLOT_H * (1 - share)).toFixed(1);
+    return `<line x1="${PLOT_L}" x2="${PLOT_L + PLOT_W}" y1="${y}" y2="${y}" ${fade()}/>` + small(PLOT_L - 3, Number(y) + 3, text);
+  });
+  const bottom = PLOT_T + PLOT_H + 10;
+  const layers = gridOnTop ? body + grid.join("") : grid.join("") + body;
+  return `<svg class="mini" viewBox="0 0 ${CHART_W} ${bottom + 1}">${layers}` +
+         small(PLOT_L, bottom, days[0].slice(5), "start") + small(PLOT_L + PLOT_W, bottom, "today") + `</svg>`;
+}
+
+// Whole-number ticks: 0, half and the top.
+function countTicks(max) {
+  const step = Math.max(1, Math.ceil(max / 2));
+  return { top: step * 2, ticks: [[0, "0"], [0.5, `${step}`], [1, `${step * 2}`]] };
+}
+
+function uploadChart(uploads) {
+  const { top, ticks } = countTicks(Math.max(...uploads.devices));
+  const step = PLOT_W / uploads.days.length;
+  const bars = uploads.devices.map((n, i) => {
+    const x = PLOT_L + i * step;
+    const h = n / top * PLOT_H;
+    return (n ? `<rect x="${(x + 0.5).toFixed(1)}" y="${(PLOT_T + PLOT_H - h).toFixed(1)}" width="${(step - 1).toFixed(1)}" ` +
+                `height="${h.toFixed(1)}" fill="${css("--accent")}"/>` : "") +
+           `<rect x="${x.toFixed(1)}" y="${PLOT_T}" width="${step.toFixed(1)}" height="${PLOT_H}" fill="transparent">` +
+           `<title>${uploads.days[i]}: ${plural(n, "device")}</title></rect>`;
+  });
+  return frame(ticks, uploads.days, bars.join(""));
+}
+
+// 100 % stacked columns: each day's devices split by the version they ran.
+function adoptionChart(adoption, colorOf) {
+  if (!adoption.versions.length) return `<div class="value">—</div>`;
+  const step = PLOT_W / adoption.days.length;
+  const columns = adoption.counts.map((counts, i) => {
+    const total = counts.reduce((a, b) => a + b, 0);
+    if (!total) return "";
+    let y = PLOT_T + PLOT_H;
+    const parts = counts.map((n, v) => {
+      if (!n) return "";
+      const h = n / total * PLOT_H;
+      y -= h;
+      return `<rect x="${(PLOT_L + i * step).toFixed(1)}" y="${y.toFixed(1)}" width="${(step + 0.3).toFixed(1)}" ` +
+             `height="${h.toFixed(1)}" fill="${colorOf(adoption.versions[v])}"/>`;
+    });
+    const text = adoption.versions.map((version, v) => counts[v] ? `${version}: ${counts[v]}` : "").filter(Boolean).join(", ");
+    return `<g><title>${adoption.days[i]}: ${escapeHtml(text)}</title>${parts.join("")}</g>`;
+  });
+  return frame([[0, "0"], [0.5, "50%"], [1, "100%"]], adoption.days, columns.join(""), true);
+}
+
+// One row per version: label, bar, value; |max| fixes the scale.
+function barRows(rows, max = null) {
+  if (!rows.length) return `<div class="value">—</div>`;
+  const top = max ?? Math.max(...rows.map((r) => r.value), 1e-9);
+  return `<div class="bars">${rows.map((r) =>
+    `<div class="bar-row" title="${escapeHtml(r.title)}"><span>${escapeHtml(r.label)}</span>` +
+    `<span class="track"><i style="width:${Math.min(100, r.value / top * 100).toFixed(1)}%;background:${r.color}"></i></span>` +
+    `<span class="num">${r.text}</span></div>`).join("")}</div>`;
+}
+
+// Two rows of dots, one dot per device with its figure above it, on an axis
+// with faint dashed gridlines.
+function drainChart(devices) {
+  const rows = [["playing", "Playing"], ["idle", "Idle"]];
+  const values = devices.flatMap((d) => rows.map(([key]) => d.drain[key].mvPerHour)).filter((v) => v !== null);
+  if (!values.length) return `<div class="value">—</div>`;
+  const unit = [5, 10, 20, 25, 50, 100, 200, 500].find((u) => Math.max(...values) / u <= 4) || 1000;
+  const max = Math.max(unit, Math.ceil(Math.max(...values) / unit) * unit);
+  const left = 40, width = CHART_W - left - 10, bottom = 66;
+  const x = (v) => (left + v / max * width).toFixed(1);
+  const grid = [];
+  for (let v = 0; v <= max; v += unit) {
+    grid.push(`<line x1="${x(v)}" x2="${x(v)}" y1="4" y2="${bottom - 10}" ${fade()}/>` + small(x(v), bottom, v, "middle"));
+  }
+  const dots = rows.map(([key, label], row) => {
+    const y = 22 + row * 24;
+    const marks = devices.filter((d) => d.drain[key].mvPerHour !== null).map((d) => {
+      const value = d.drain[key].mvPerHour;
+      return `<circle cx="${x(value)}" cy="${y}" r="3.5" fill="${css(key === "playing" ? "--song" : "--accent")}" ` +
+             `fill-opacity="0.75"><title>${escapeHtml(d.name || d.device)}: ${value} mV/h ${label.toLowerCase()} ` +
+             `(${d.drain[key].hours} h measured)</title></circle>` + small(x(value), y - 6, Math.round(value), "middle");
+    });
+    return small(0, y + 3, label, "start") + marks.join("");
+  });
+  return `<svg class="mini" viewBox="0 0 ${CHART_W} ${bottom + 1}">${grid.join("")}${dots.join("")}</svg>`;
 }
 
 function escapeHtml(text) {
   return text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
 
-function showTab(tab) {
+// |load| false only switches the view (the caller reads the data).
+function showTab(tab, load = true) {
   state.tab = tab;
-  for (const button of document.querySelectorAll("[data-tab]")) button.setAttribute("aria-selected", button.dataset.tab === tab);
   $("timeline-view").hidden = tab !== "timeline";
   $("stats-view").hidden = tab !== "stats";
-  if (tab === "stats") renderStats().catch(showError); else draw();
+  document.querySelector(".timeline-only").hidden = tab !== "timeline";
+  if (tab === "stats") return load ? renderStats().catch(showError) : Promise.resolve();
+  if (!state.data) showNotice(noDeviceText());
+  draw();
+  scrollLogToEnd();
+  return Promise.resolve();
 }
 
-function showError(error) { showNotice(`Error: ${error.message}`); console.error(error); }
+function showError(error) {
+  showNotice(`Error: ${error.message}`);
+  if (state.tab === "stats") $("totals").innerHTML = `<p class="bad">Error: ${escapeHtml(error.message)}</p>`;
+  console.error(error);
+}
 
 // --- Events -----------------------------------------------------------------
 
@@ -880,6 +1320,9 @@ function setup() {
   });
   $("log").addEventListener("scroll", paintLog);
   $("log").addEventListener("click", (e) => {
+    const decode = e.target.closest("[data-decode]");
+    if (decode) { decodeCore(Number(decode.dataset.decode)); return; }
+    if (e.target.closest(".core-text, .core-actions a")) return;
     const row = e.target.closest(".row");
     if (!row) return;
     state.selectedRecord = logRows[Number(row.dataset.index)];
@@ -887,19 +1330,38 @@ function setup() {
     paintLog();
     draw();
   });
-  $("device").addEventListener("change", (e) => loadDevice(e.target.value).catch(showError));
   $("stats-table").addEventListener("click", (e) => {
     const row = e.target.closest("tr[data-device]");
     if (!row) return;
-    $("device").value = row.dataset.device;
     loadDevice(row.dataset.device).then(() => showTab("timeline")).catch(showError);
   });
   for (const button of document.querySelectorAll("[data-mode]")) {
     button.addEventListener("click", () => setMode(button.dataset.mode));
   }
-  for (const button of document.querySelectorAll("[data-tab]")) button.addEventListener("click", () => showTab(button.dataset.tab));
   $("fit").addEventListener("click", () => { if (state.data) { state.view = fullRange(); renderLog(); draw(); } });
-  $("reload").addEventListener("click", () => loadDevices().then(() => state.tab === "stats" && renderStats()).catch(showError));
+  $("reload").addEventListener("click", () => loadDevices(true).catch(showError));
+  $("note-text").addEventListener("keydown", (e) => {
+    if (e.key === "Escape") $("note-cancel").click();
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) $("note-editor").requestSubmit();
+  });
+  showSource();
+  for (const button of document.querySelectorAll("[data-source]")) {
+    button.addEventListener("click", () => {
+      // The source already shown: back to its table.
+      if (state.source === button.dataset.source) { showTab("stats"); return; }
+      state.source = button.dataset.source;
+      store("source", state.source);
+      showSource();
+      // Nothing of the other source stays on screen while this one loads (the
+      // cloud takes a few seconds); then All devices shows what it holds.
+      state.devices = [];
+      clearDevice();
+      for (const id of ["stats-table", "totals", "source"]) $(id).innerHTML = "";
+      showNotice("");
+      showTab("stats", false);
+      loadDevices().catch(showError);
+    });
+  }
 
   canvas.addEventListener("wheel", (e) => {
     if (!state.data) return;
@@ -916,10 +1378,11 @@ function setup() {
   canvas.addEventListener("pointerdown", (e) => {
     if (!state.data) return;
     const rect = canvas.getBoundingClientRect();
+    const note = e.metaKey || e.ctrlKey;
     drag = { startPx: e.clientX - rect.left, lastPx: e.clientX - rect.left, view: state.view.slice(),
-             select: e.shiftKey, moved: false, py: e.clientY - rect.top };
+             select: e.shiftKey && !note, note, moved: false, py: e.clientY - rect.top };
     canvas.setPointerCapture(e.pointerId);
-    canvas.classList.toggle("dragging", !e.shiftKey);
+    canvas.classList.toggle("dragging", !e.shiftKey && !note);
   });
   canvas.addEventListener("pointermove", (e) => {
     const rect = canvas.getBoundingClientRect();
@@ -927,24 +1390,41 @@ function setup() {
     if (drag) {
       drag.lastPx = px;
       if (Math.abs(px - drag.startPx) > 3) drag.moved = true;
-      if (!drag.select && drag.moved) {
+      if (!drag.select && !drag.note && drag.moved) {
         const [a, b] = drag.view;
         const shift = (px - drag.startPx) / plotWidth(canvas) * (b - a);
         state.view = [a - shift, b - shift];
       }
       hideTooltip();
-      scheduleRedraw(!drag.select);
+      scheduleRedraw(!drag.select && !drag.note);
       return;
     }
     const hit = hitTest(px, py);
     hit ? showTooltip(describeHit(hit), px, py) : hideTooltip();
     canvas.style.cursor = hit ? "pointer" : "";
+    if (state.data) {
+      state.hover = px >= GUTTER ? toX(px) : null;
+      scheduleRedraw(false);
+    }
   });
   canvas.addEventListener("pointerup", (e) => {
     if (!drag) return;
     const finished = drag;
     drag = null;
     canvas.classList.remove("dragging");
+    if (finished.note) {
+      const a = Math.max(GUTTER, Math.min(finished.startPx, finished.lastPx));
+      const b = Math.max(GUTTER, Math.max(finished.startPx, finished.lastPx));
+      draw();
+      editNote({ start: noteEnd(toX(a)), end: finished.moved ? noteEnd(toX(b)) : null, text: "" }, e.clientX, e.clientY);
+      return;
+    }
+    const clicked = !finished.moved && hitTest(finished.startPx, finished.py);
+    if (clicked && clicked.kind === "note") {
+      draw();
+      editNote(clicked.note, e.clientX, e.clientY);
+      return;
+    }
     if (finished.select && finished.moved) {
       const x0 = toX(Math.min(finished.startPx, finished.lastPx)), x1 = toX(Math.max(finished.startPx, finished.lastPx));
       if (x1 - x0 > 0.5) state.view = [x0, x1];
@@ -959,12 +1439,21 @@ function setup() {
       renderLog();
     }
   });
-  canvas.addEventListener("pointerleave", hideTooltip);
+  canvas.addEventListener("pointerleave", () => {
+    hideTooltip();
+    if (state.hover !== null) { state.hover = null; scheduleRedraw(false); }
+  });
   canvas.addEventListener("dblclick", () => { if (state.data) { state.view = fullRange(); renderLog(); draw(); } });
   window.addEventListener("resize", () => draw());
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => draw());
   const savedMode = recall("mode");
   if (savedMode === "awake") setMode("awake", false);
+}
+
+function showSource() {
+  for (const button of document.querySelectorAll("[data-source]")) {
+    button.setAttribute("aria-pressed", button.dataset.source === state.source);
+  }
 }
 
 function setMode(mode, redraw = true) {
@@ -1014,4 +1503,9 @@ function showTooltip(text, px, py) {
 function hideTooltip() { $("tooltip").hidden = true; }
 
 setup();
-loadDevices().catch(showError);
+// A link to a device (#device=...) opens its timeline; otherwise All devices.
+const linked = new URLSearchParams(location.hash.slice(1)).get("device");
+showTab(linked ? "timeline" : "stats", false);
+loadDevices()
+  .then(() => linked && state.devices.some((d) => d.device === linked) && loadDevice(linked))
+  .catch(showError);

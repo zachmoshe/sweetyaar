@@ -1,6 +1,8 @@
 """Merge fetched log snapshots into one history per device, for the viewer.
 
-Every fetch is a full copy of the ring, so snapshots overlap. A record is
+Snapshots come from a source: the devlog files in a folder (FolderSource), or
+the uploads the parent app sent to the logs API (CloudSource, Firestore).
+Snapshots of one device can overlap. A record is
 identified by its content: boot number, milliseconds since boot, event ID and
 arguments (plus an occurrence count for identical records in the same
 millisecond). The boot number lives in the log itself, so it survives power
@@ -14,8 +16,10 @@ import dataclasses
 import datetime as dt
 import pathlib
 import re
+import subprocess
 import sys
 import threading
+import time
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -23,6 +27,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import devlog  # noqa: E402
 
 import decoders  # noqa: E402
+import fleet  # noqa: E402
 
 AREAS = ["log", "main", "ble", "classic", "power", "playback", "ota"]
 AREA_BY_HIGH_BYTE = dict(enumerate(AREAS))
@@ -48,11 +53,12 @@ class Item:
     args: list
     truncated: bool
     order: tuple
+    sequence: int = 0  # of the sector that holds it
 
 
 @dataclasses.dataclass
 class Snapshot:
-    path: pathlib.Path
+    name: str  # the file, or the cloud history
     device: str
     fetched: str
     records: int
@@ -62,21 +68,26 @@ class Snapshot:
 
 
 def read_snapshot(path: pathlib.Path, catalog: devlog.Catalog) -> tuple[Snapshot, list[Item]]:
-    log = devlog.read_log(path.read_bytes(), catalog)
-    devices = collections.Counter(sector.device.hex(":").upper() for sector in log.sectors)
-    device = devices.most_common(1)[0][0] if devices else "unknown"
     match = FILE_TIME.search(path.name)
     fetched = (dt.datetime.strptime(match.group(2), "%Y%m%d-%H%M%S") if match
                else dt.datetime.fromtimestamp(path.stat().st_mtime)).isoformat(timespec="seconds")
+    return read_snapshot_data(path.name, path.read_bytes(), fetched, catalog)
+
+
+def read_snapshot_data(name: str, data: bytes, fetched: str,
+                       catalog: devlog.Catalog) -> tuple[Snapshot, list[Item]]:
+    log = devlog.read_log(data, catalog)
+    devices = collections.Counter(sector.device.hex(":").upper() for sector in log.sectors)
+    device = devices.most_common(1)[0][0] if devices else "unknown"
     seen: collections.Counter = collections.Counter()
     items = []
     for position, record in enumerate(log.records):
         key = (record.boot, record.ms, record.event_id, repr(record.args))
         seen[key] += 1
         items.append(Item(record.boot, record.ms, record.event_id, record.args, record.truncated,
-                          (record.boot, record.ms, position, seen[key])))
+                          (record.boot, record.ms, position, seen[key]), record.sector.sequence))
     sequence = (log.sectors[0].sequence, log.sectors[-1].sequence) if log.sectors else None
-    return Snapshot(path, device, fetched, len(items), len(log.sectors), sequence, log.problems), items
+    return Snapshot(name, device, fetched, len(items), len(log.sectors), sequence, log.problems), items
 
 
 def merge(item_lists: list[list[Item]]) -> list[Item]:
@@ -102,40 +113,138 @@ def epoch(value: dt.datetime) -> float:
     return value.replace(tzinfo=dt.timezone.utc).timestamp()
 
 
-class Library:
-    """All snapshots in a folder, re-read when files change."""
+class FolderSource:
+    """The devlog files in a folder; a file is read again when it changes."""
 
-    def __init__(self, directory: str | pathlib.Path, events: str | pathlib.Path = devlog.EVENTS_HEADER):
+    def __init__(self, directory: str | pathlib.Path):
         self.directory = pathlib.Path(directory)
+        self.label = str(self.directory)
+
+    def listing(self, force: bool = False) -> dict:
+        paths = sorted(path for path in self.directory.glob("devlog-*.bin")
+                       if not path.name.endswith(("-core.bin", "-coredump-partition.bin")))
+        return {path: (path.stat().st_mtime, path.stat().st_size) for path in paths}
+
+    def read(self, path: pathlib.Path, catalog: devlog.Catalog) -> list:
+        return [read_snapshot(path, catalog)]
+
+    def upload_days(self, devices: list[dict]) -> dict[str, list[str]]:
+        """The days each device was fetched, local time."""
+        return {data["summary"]["device"]: sorted({snap["fetched"][:10] for snap in data["snapshots"]})
+                for data in devices}
+
+
+class CloudSource:
+    """What the parent app uploaded to the logs API: Firestore, read-only.
+
+    Reads as the logs-viewer service account, with tokens from the gcloud
+    CLI's login; application-default credentials are not used (see "Sending
+    logs to the cloud" in docs/logging-and-debugging.md). A toy's chunks are read
+    again only when its last upload changed; the list of toys at most every
+    LIST_INTERVAL_S seconds unless Reload asks.
+    """
+
+    LIST_INTERVAL_S = 30
+    TOKEN_LIFETIME = dt.timedelta(minutes=50)  # gcloud's tokens last an hour
+
+    def __init__(self, project: str):
+        self.project = project
+        self.viewer = f"logs-viewer@{project}.iam.gserviceaccount.com"
+        self.label = f"Cloud: Firestore in {project}"
+        self._client = None
+        self._listing: dict = {}
+        self._days: dict[str, list[str]] = {}
+        self._listed_at = float("-inf")
+
+    def token(self, request=None, scopes=None) -> tuple[str, dt.datetime]:
+        """A logs-viewer access token and its expiry (naive UTC), from gcloud."""
+        result = subprocess.run(["gcloud", "auth", "print-access-token",
+                                 f"--impersonate-service-account={self.viewer}"],
+                                capture_output=True, text=True, timeout=60)
+        lines = result.stdout.split()
+        if result.returncode or not lines:
+            reason = (result.stderr.strip().splitlines() or ["no output"])[-1]
+            raise RuntimeError(f"gcloud could not get a {self.viewer} token: {reason}")
+        return lines[-1], dt.datetime.now(dt.timezone.utc).replace(tzinfo=None) + self.TOKEN_LIFETIME
+
+    def client(self):
+        if self._client is None:
+            # Only the cloud source needs these.
+            from google.cloud import firestore
+            from google.oauth2 import credentials
+            self._client = firestore.Client(project=self.project, credentials=credentials.Credentials(
+                token=None, refresh_handler=self.token))
+        return self._client
+
+    def listing(self, force: bool = False) -> dict:
+        if force or time.monotonic() - self._listed_at >= self.LIST_INTERVAL_S:
+            docs = [doc.to_dict() | {"id": doc.id} for doc in self.client().collection("devices").stream()]
+            self._listing = {doc["id"]: (str(doc.get("last_upload")), doc.get("history")) for doc in docs}
+            # UTC days. Documents from before the API recorded them have only
+            # their first and last upload.
+            self._days = {doc["id"]: doc.get("upload_days") or sorted(
+                {when.date().isoformat() for when in (doc.get("first_upload"), doc.get("last_upload")) if when})
+                for doc in docs}
+            self._listed_at = time.monotonic()
+        return self._listing
+
+    def upload_days(self, devices: list[dict]) -> dict[str, list[str]]:
+        """The days each toy uploaded (UTC), by the viewer's device ID."""
+        return {":".join(device[i:i + 2] for i in range(0, 12, 2)).upper(): days
+                for device, days in self._days.items()}
+
+    def read(self, device: str, catalog: devlog.Catalog) -> list:
+        """One snapshot per history: its chunks joined are a devlog file."""
+        histories: dict[str, list] = collections.defaultdict(list)
+        chunks = self.client().collection("devices").document(device).collection("chunks").stream()
+        for chunk in sorted(chunks, key=lambda chunk: chunk.id):
+            histories[chunk.id.split("-")[0]].append(chunk.to_dict())
+        snapshots = []
+        for number, parts in sorted(histories.items()):
+            updated = max(part["updated"] for part in parts)
+            fetched = updated.astimezone().replace(tzinfo=None).isoformat(timespec="seconds")
+            data = b"".join(part["data"] for part in parts)
+            snapshots.append(read_snapshot_data(f"cloud {device} history {int(number)}", data, fetched, catalog))
+        return snapshots
+
+
+class Library:
+    """All snapshots of a source, merged per device and re-read when they change."""
+
+    def __init__(self, source: str | pathlib.Path | FolderSource | CloudSource,
+                 events: str | pathlib.Path = devlog.EVENTS_HEADER):
+        self.source = source if isinstance(source, (FolderSource, CloudSource)) else FolderSource(source)
+        self.directory = self.source.label
         self.events = pathlib.Path(events)
-        self._cache: dict[pathlib.Path, tuple[tuple, Snapshot, list[Item]]] = {}
+        self._cache: dict = {}
         self._devices: dict[str, dict] = {}
+        self._cores: dict[str, dict[int, bytes]] = {}
         self._signature: tuple = ()
         self._lock = threading.Lock()
 
-    def refresh(self) -> None:
+    def refresh(self, force: bool = False) -> None:
         with self._lock:
-            self._refresh()
+            self._refresh(force)
 
-    def _refresh(self) -> None:
+    def _refresh(self, force: bool) -> None:
         catalog = devlog.load_catalog(self.events)
-        paths = sorted(path for path in self.directory.glob("devlog-*.bin")
-                       if not path.name.endswith(("-core.bin", "-coredump-partition.bin")))
-        signature = tuple((path, path.stat().st_mtime, path.stat().st_size) for path in paths)
+        listing = self.source.listing(force)
+        signature = tuple(sorted(listing.items(), key=lambda item: str(item[0])))
         signature += ((self.events, self.events.stat().st_mtime, 0),)
         if signature == self._signature:
             return
         self._signature = signature
         loaded = {}
-        for path in paths:
-            stamp = (path.stat().st_mtime, path.stat().st_size)
-            cached = self._cache.get(path)
-            loaded[path] = cached if cached and cached[0] == stamp else (stamp, *read_snapshot(path, catalog))
+        for key, stamp in listing.items():
+            cached = self._cache.get(key)
+            loaded[key] = cached if cached and cached[0] == stamp else (stamp, self.source.read(key, catalog))
         self._cache = loaded
         by_device: dict[str, list] = collections.defaultdict(list)
-        for _, snapshot, items in loaded.values():
-            by_device[snapshot.device].append((snapshot, items))
+        for _, snapshots in loaded.values():
+            for snapshot, items in snapshots:
+                by_device[snapshot.device].append((snapshot, items))
         self._devices = {device: build_device(device, entries, catalog) for device, entries in by_device.items()}
+        self._cores = {device: data.pop("coreData") for device, data in self._devices.items()}
 
     def devices(self) -> list[dict]:
         self.refresh()
@@ -147,15 +256,22 @@ class Library:
         self.refresh()
         return self._devices.get(device_id)
 
+    def core(self, device_id: str, boot: int) -> tuple[bytes, str | None] | None:
+        """A complete core dump copied at |boot| and the firmware that crashed."""
+        self.refresh()
+        data = self._cores.get(device_id, {}).get(boot)
+        if data is None:
+            return None
+        info = next(core for core in self._devices[device_id]["coreDumps"] if core["boot"] == boot)
+        return data, info["firmware"]
+
     def stats(self) -> dict:
         devices = self.devices()
-        totals = collections.Counter()
-        for summary in devices:
-            for key in ("boots", "abnormalResets", "crashes", "awakeHours", "localHours", "btHours",
-                        "songsStarted", "animalsStarted", "records"):
-                totals[key] += summary[key]
         firmware = collections.Counter(summary["firmware"][-1] for summary in devices if summary["firmware"])
-        return {"devices": devices, "totals": dict(totals), "firmware": dict(firmware),
+        datas = [self._devices[summary["device"]] for summary in devices]
+        now = dt.datetime.now()
+        fleet_stats = fleet.analytics(datas, self.source.upload_days(datas), now.date(), epoch(now))
+        return {"devices": devices, "firmware": dict(firmware), "fleet": fleet_stats,
                 "directory": str(self.directory)}
 
 
@@ -235,15 +351,26 @@ def build_device(device: str, entries: list, catalog: devlog.Catalog) -> dict:
         if boot["abnormal"] and index > 0:
             boots[order[index - 1]]["crashedInto"] = number
 
+    # Sectors missing between those kept (overwritten on the toy before they
+    # were fetched or uploaded): a marker where the log resumes.
+    kept = sorted({item.sequence for item in items})
+    missing_before = {after: after - before - 1 for before, after in zip(kept, kept[1:]) if after - before > 1}
+
     records, telemetry, usage, intervals, repeats = [], [], [], [], []
     stored: dict[tuple, list] = {}  # (boot, event ID, ms) -> record, for REPEATED
     open_state: dict[int, tuple] = {}
     open_ble: dict[tuple, tuple] = {}
     open_bt: dict[int, tuple] = {}
-    for index, item in enumerate(items):
+    for item in items:
         name = catalog.name(item.event_id)
         text = devlog.record_text(item, catalog)
         real, awake_x = x(item.boot, item.ms)
+        missing = missing_before.pop(item.sequence, 0)
+        if missing:
+            records.append([real, awake_x, item.boot, item.ms, "MISSING_SECTORS", "log", "warn",
+                            f"[Log] Missing {missing} sector{'s' if missing > 1 else ''} here; "
+                            "the log before this point is not continuous", []])
+        index = len(records)
         area = AREA_BY_HIGH_BYTE.get(item.event_id >> 8, "log")
         badges = decoders.badges(name, item.args)
         level = level_of(name, text, badges)
@@ -293,10 +420,35 @@ def build_device(device: str, entries: list, catalog: devlog.Catalog) -> dict:
                and interval["kind"] in ("playing_song", "playing_animal", "bt_streaming")]
     drain = battery_drain(telemetry, playing)
     summary = summarize(device, entries, boots, order, items, playing, drain, records, catalog)
+    cores = core_dumps(items, catalog)
+    versions = dict(zip(order, fleet.boot_versions([boots[number] for number in order])))
+    previous = dict(zip(order[1:], order))
     return {"summary": summary, "relativeTime": relative,
+            # The dump is copied at the boot after the crash: the firmware that
+            # crashed is the one the boot before ran.
+            "coreDumps": [{"boot": boot, "size": core["size"], "complete": core["received"] == core["size"],
+                           "firmware": versions.get(previous.get(boot, boot))}
+                          for boot, core in cores.items()],
+            "coreData": {boot: bytes(core["data"]) for boot, core in cores.items()
+                         if core["received"] == core["size"]},
             "boots": [boots[number] for number in order], "records": records, "telemetry": telemetry,
             "usage": usage, "intervals": intervals, "repeats": repeats, "areas": AREAS,
             "snapshots": [snapshot_json(snapshot) for snapshot, _ in entries]}
+
+
+def core_dumps(items: list, catalog) -> dict[int, dict]:
+    """The core dumps copied into the log (COREDUMP_BEGIN, _CHUNK, _END), by boot."""
+    cores: dict[int, dict] = {}
+    for item in items:
+        name = catalog.name(item.event_id)
+        if name == "COREDUMP_BEGIN" and item.args:
+            cores[item.boot] = {"size": item.args[0], "data": bytearray(item.args[0]), "received": 0}
+        elif name == "COREDUMP_CHUNK" and item.boot in cores and len(item.args) >= 2:
+            core, (offset, chunk) = cores[item.boot], item.args[:2]
+            if isinstance(chunk, bytes) and offset + len(chunk) <= core["size"]:
+                core["data"][offset:offset + len(chunk)] = chunk
+                core["received"] += len(chunk)
+    return cores
 
 
 def close(intervals: list, interval: tuple | None, real: float, awake: float) -> None:
@@ -347,8 +499,8 @@ def summarize(device: str, entries: list, boots: dict, order: list, items: list,
     installs = sum(1 for previous, current in zip(builds, builds[1:]) if previous != current)
     known = [boots[number]["realStart"] for number in order if boots[number]["timeKnown"]]
     # Stored at cold boots (DEVICE_NAME) and when renamed; the newest wins.
-    name = next((item.args[0] for record, item in zip(reversed(records), reversed(items))
-                 if record[4] in NAME_EVENTS and item.args), None)
+    name = next((item.args[0] for item in reversed(items)
+                 if catalog.name(item.event_id) in NAME_EVENTS and item.args), None)
     # From the playback records themselves, not USAGE: USAGE is stored hourly
     # and at deep sleep, so a boot that ends otherwise (power cut, flashing, a
     # fetch, a restart) loses its counters.
@@ -361,6 +513,7 @@ def summarize(device: str, entries: list, boots: dict, order: list, items: list,
         "name": name,
         "snapshots": len(entries),
         "lastFetched": entries[-1][0].fetched,
+        "lastSector": max((item.sequence for item in items), default=None),  # the newest sector's sequence
         "boots": len(order),
         "firstBoot": order[0] if order else None,
         "lastBoot": order[-1] if order else None,
@@ -383,5 +536,5 @@ def summarize(device: str, entries: list, boots: dict, order: list, items: list,
 
 
 def snapshot_json(snapshot: Snapshot) -> dict:
-    return {"file": snapshot.path.name, "fetched": snapshot.fetched, "records": snapshot.records,
+    return {"file": snapshot.name, "fetched": snapshot.fetched, "records": snapshot.records,
             "sectors": snapshot.sectors, "sequence": snapshot.sequence, "problems": snapshot.problems}

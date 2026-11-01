@@ -1138,13 +1138,25 @@ when `app/public/firmware/manifest.json` names a newer version, and only
    version and note.
 3. Run `make release-firmware`. It builds the production board, checks that the
    image carries the new version and its own board ID (not the generic
-   board's), fits the app slot and round-trips through compression, writes
+   board's), fits the app slot and round-trips through compression, archives
+   the build's `firmware.elf` (below), writes
    `app/public/firmware/sweetyaar-<version>.bin.z` plus `manifest.json`,
    removes the superseded image and increments `CACHE_VERSION` in
    `app/public/sw.js`.
 4. Commit `app/public` and push to `main`. The Pages deployment offers the
    update to parents on their next connection. To correct a published note,
    edit it in `release-notes.json` and repeat steps 3–4.
+
+A core dump from the field can only be decoded with the exact ELF of the
+build that crashed, so step 3 uploads it, gzipped, to
+`gs://sweetyaar-firmware-elfs/<board>/<version>/firmware.elf.gz` (project
+`sweetyaar`, with your gcloud login) before it writes anything. It first
+checks that the ELF's SHA-256 is the one the build wrote into the image
+(`esp_app_desc_t.app_elf_sha256`). Metadata records the version, board,
+commit and both hashes. An archived ELF is never replaced: running step 3
+again for the same build changes nothing, and a different build of an
+archived version stops the release (publish a new version instead). The ELF
+of 1.1.0 was recovered from the original build, matched by those hashes.
 
 The app's `MIN_FIRMWARE_VERSION` is the oldest firmware it can control. Raise it
 only when the app drops support for older firmware; toys below it show

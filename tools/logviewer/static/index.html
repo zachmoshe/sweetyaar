@@ -9,31 +9,34 @@
 <body>
 <header class="bar">
   <h1>SweetYaar logs</h1>
-  <nav class="tabs" role="tablist">
-    <button role="tab" data-tab="timeline" aria-selected="true">Timeline</button>
-    <button role="tab" data-tab="stats" aria-selected="false">All devices</button>
-  </nav>
-  <label class="field">Device
-    <select id="device"></select>
-  </label>
-  <div class="segmented" id="mode" title="Real time shows sleep and off time; awake time puts boots back to back">
-    <button data-mode="real" aria-pressed="true">Real time</button>
-    <button data-mode="awake" aria-pressed="false">Awake time</button>
+  <div class="segmented" id="source-pick" title="All devices in the fetched logs on this Mac or in the toys' uploads">
+    <button data-source="folder" aria-pressed="true">Log folder</button>
+    <button data-source="cloud" aria-pressed="false">Cloud uploads</button>
   </div>
-  <button id="fit" title="Show everything (double-click the timeline)">Fit</button>
-  <button id="reload" title="Re-read the log folder">Reload</button>
+  <span class="timeline-only" hidden>
+    <span id="device-label" class="device-label"></span>
+    <span class="segmented" id="mode" title="Real time shows sleep and off time; awake time puts boots back to back">
+      <button data-mode="real" aria-pressed="true">Real time</button>
+      <button data-mode="awake" aria-pressed="false">Awake time</button>
+    </span>
+    <button id="fit" title="Show everything (double-click the timeline)">Fit</button>
+  </span>
+  <button id="reload" class="icon-button" title="Read the log folder or the cloud again">
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M12.6 1.6v3.2H9.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Reload
+  </button>
   <span id="source" class="muted"></span>
 </header>
 
 <main>
-  <section id="timeline-view">
+  <section id="timeline-view" hidden>
     <div id="cards" class="cards"></div>
     <div id="notice" class="notice" hidden></div>
     <div class="timeline-wrap">
       <canvas id="timeline" aria-label="Timeline"></canvas>
       <div id="tooltip" class="tooltip" hidden></div>
     </div>
-    <p class="hint muted">Scroll to zoom, drag to pan, shift-drag to zoom to a range, double-click to fit. Click anything to jump to its log lines.</p>
+    <p class="hint muted">Scroll to zoom, drag to pan, shift-drag to zoom to a range, double-click to fit. Click anything to jump to its log lines. ⌘-click or ⌘-drag to add a note; click a note to edit it.</p>
     <div class="log-tools">
       <div id="areas" class="chips"></div>
       <label class="field">Level
@@ -53,12 +56,24 @@
     </details>
   </section>
 
-  <section id="stats-view" hidden>
-    <p class="muted">Naive totals across every device in the folder. Battery drain only counts 5-minute telemetry pairs that are clearly playing (≥ 80 %) or idle (≤ 20 %) and not charging.</p>
-    <div id="totals" class="cards"></div>
+  <section id="stats-view">
+    <div id="totals" class="cards fleet"></div>
     <div class="table-wrap"><table id="stats-table"></table></div>
   </section>
 </main>
+<form id="note-editor" class="note-editor" hidden>
+  <div id="note-when" class="muted"></div>
+  <textarea id="note-text" rows="3" maxlength="2000" placeholder="What happened here (e.g. speaker disconnected)"></textarea>
+  <div class="note-buttons">
+    <button type="button" id="note-delete" class="danger">Delete</button>
+    <span></span>
+    <button type="button" id="note-cancel">Cancel</button>
+    <button type="submit" class="primary">Save</button>
+  </div>
+</form>
+<div id="busy" class="busy" hidden role="status" aria-live="polite">
+  <div class="busy-box"><div class="spinner"></div><span id="busy-text">Loading…</span></div>
+</div>
 <script src="app.js"></script>
 </body>
 </html>
