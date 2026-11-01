@@ -41,6 +41,32 @@ void NVSConfig::setBtName(const String& name) {
     writeDeviceConfigJson(json);
 }
 
+NVSConfig::LogSharing NVSConfig::getLogSharing() const {
+    LogSharing sharing;
+    String json = readDeviceConfigJson();
+    JsonDocument doc;
+    if (!json.isEmpty() && !deserializeJson(doc, json)) {
+        sharing.enabled = doc["logShare"] | false;
+        sharing.from = doc["logShareFrom"] | 0UL;
+    }
+    return sharing;
+}
+
+void NVSConfig::setLogSharing(const LogSharing& sharing) {
+    String existingJson = readDeviceConfigJson();
+    JsonDocument doc;
+    if (!existingJson.isEmpty()) {
+        deserializeJson(doc, existingJson);
+    }
+    doc["schemaVersion"] = 1;
+    doc["logShare"] = sharing.enabled;
+    doc["logShareFrom"] = sharing.from;
+
+    String json;
+    serializeJson(doc, json);
+    writeDeviceConfigJson(json);
+}
+
 String NVSConfig::readDeviceConfigJson() const {
     _prefs.begin(NVS_NAMESPACE, true);
     // getString() logs an error for a missing key; it exists only after a rename.

@@ -1,6 +1,6 @@
 #pragma once
 
-// Reading the log over BLE, in update mode. The client asks for a byte range
+// Reading the log over BLE. The client asks for a byte range
 // of one region and the toy streams it as notifications, each starting with
 // the region and offset, so a lost packet is asked for again. Platform
 // independent so host tests can run it against a fake source; DevLog.cpp
@@ -24,6 +24,10 @@ constexpr uint8_t REGION_COUNT = 4;
 constexpr size_t TRANSFER_REQUEST_SIZE = 10;
 // Packet: region, offset (u32), then the bytes at that offset.
 constexpr size_t TRANSFER_PACKET_HEADER = 5;
+// Packet region of a read stopped because the toy is busy (normal mode:
+// playing, or a Classic Bluetooth link); the offset is the next byte it
+// would have sent.
+constexpr uint8_t TRANSFER_BUSY = 0xFE;
 // Info: format, device ID (6), sector header size, sector size (u32),
 // log size (u32), core dump size (u32).
 constexpr uint8_t TRANSFER_INFO_FORMAT = 1;
@@ -54,6 +58,10 @@ public:
     // 0 when nothing is left to send. A request at or past the region's end,
     // or a failed flash read, gets one header-only packet and ends the read.
     size_t next(uint8_t* packet, size_t capacity);
+    // Ends the read and fills the busy packet (TRANSFER_PACKET_HEADER bytes).
+    size_t busy(uint8_t* packet);
+    // Ends the read without a packet (the client went away).
+    void cancel() { _active = false; }
 
 private:
     bool read(uint32_t offset, uint8_t* data, size_t length);

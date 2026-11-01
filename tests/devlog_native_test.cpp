@@ -375,8 +375,18 @@ void testRepeatFilter() {
 
 }  // namespace
 
+void testSharingStart() {
+    assert(sharingStart(0, 1) == 0);
+    assert(sharingStart(40, 56) == 40);
+    assert(sharingStart(56, 56) == 56);
+    // The log started over below the stored opt-in point.
+    assert(sharingStart(57, 56) == 0);
+    assert(sharingStart(300, 1) == 0);
+}
+
 int main() {
     testPackerEncoding();
+    testSharingStart();
     testFreshPartitionAndResume();
     testWrapKeepsNewestRecords();
     testEraseOnlyWhenAllowed();

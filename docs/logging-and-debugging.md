@@ -596,7 +596,7 @@ Little endian throughout.
 | Command on `otaControl` | Bytes |
 | --- | --- |
 | Enter update mode to read the log (normal mode) | `01 01` |
-| Read: region, offset (u32), length (u32) (update mode only) | `05`, then 9 bytes |
+| Read: region, offset (u32), length (u32) | `05`, then 9 bytes |
 | Cancel: restart normal firmware | `04` |
 
 | Region | Contents |
@@ -615,12 +615,18 @@ not the expected one) or 2 seconds without the expected packet, the script
 asks again from the first missing byte. The toy sends only while the
 controller has free buffers for the link, at most four packets per loop pass,
 and reads each piece of the log under the log's lock, so a record being
-written is read whole or not at all. In normal mode a read is refused with
-*wrong mode* in `otaStatus`.
+written is read whole or not at all.
+
+The same read works in normal mode, for the parent app: there it keeps the
+phone's connection interval and runs only while the toy is idle. Otherwise
+the toy ends the read with one **busy packet**, region `FE` and the offset of
+the next byte it would have sent, and logs `OTA_LOG_BUSY` when that stopped a
+read in progress.
 
 The toy logs `OTA_RESTART_TO_LOG_READ` before the restart, `OTA_UPDATE_MODE`
 with `log read`, and `OTA_LOG_SENT` (bytes, packets, requests) before
-restarting normal firmware.
+restarting normal firmware. In normal mode `OTA_LOG_SENT` follows 10 seconds
+without a read request.
 
 ## Log viewer
 

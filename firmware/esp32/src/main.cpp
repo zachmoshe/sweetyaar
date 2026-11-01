@@ -134,6 +134,7 @@ void setupWakeState();
 void setupUpdateMode();
 void loopUpdateMode();
 bool batteryAllowsUpdate();
+bool logReadAllowed();
 void setupLoopTaskWatchdog();
 void setupPeripheralPower();
 void setAmpMuted(bool muted);
@@ -318,6 +319,15 @@ void setup() {
         currentDeviceName = DEFAULT_BT_NAME;
     }
     DLOG_DETAIL(DEVICE_NAME, currentDeviceName.c_str());
+    NVSConfig::LogSharing logSharing = nvs.getLogSharing();
+    devlog::Position logPosition{};
+    if (logSharing.enabled && devlog::position(logPosition) &&
+        devlog::sharingStart(logSharing.from, logPosition.sequence) != logSharing.from) {
+        logSharing.from = 0;
+        nvs.setLogSharing(logSharing);
+        DLOG(LOG_SHARING, "on (log restarted)", 0UL);
+    }
+    OtaUpdate::setLogSharing(logSharing.enabled, logSharing.from);
     Serial.printf("[Firmware] version=%s board=%s\n", FIRMWARE_VERSION, FIRMWARE_BOARD_ID);
 
     if (OtaUpdate::consumeUpdateModeRequest()) {
@@ -381,7 +391,7 @@ void setup() {
     if (ENABLE_BLE_PARENT_SERVICE) {
         bleReady = bleService.begin(currentDeviceName);
         if (!bleReady) reportSystemError();
-        OtaUpdate::attach(bleService, false, batteryAllowsUpdate);
+        OtaUpdate::attach(bleService, false, batteryAllowsUpdate, logReadAllowed);
         bleService.updateThemes(bleThemesJson);
         publishBleValues();
         pollBedtimeMode();
@@ -427,7 +437,7 @@ void setupUpdateMode() {
         Serial.flush();
         esp_restart();
     }
-    OtaUpdate::attach(bleService, true, nullptr);
+    OtaUpdate::attach(bleService, true, nullptr, nullptr);
     bleService.updateStatus("Updating");
     bleService.updateBatteryState(batteryMonitor.encodedState());
     statusLed.setSignal(StatusSignal::Initializing, false);
@@ -451,6 +461,13 @@ void loopUpdateMode() {
     statusLed.service(millis());
     devlog::service(true);
     delay(5);
+}
+
+// The log goes to the app only while nothing plays and no Classic source is
+// connected: Classic audio and BLE notifications share the controller's memory.
+bool logReadAllowed() {
+    return wavPlayer.isIdle() && !systemAudio.active() && !btLinkConnected &&
+           !ClassicBluetooth::hasLinks();
 }
 
 // An update draws only a few mAh, but must not start on a nearly empty cell.
@@ -1171,6 +1188,7 @@ bool stateAllowsIdleSleep(State state) {
 // ---------------------------------------------------------------------------
 bool canEnterIdleSleep() {
     if (systemAudio.active()) return false;
+    if (OtaUpdate::logReadActive()) return false;  // postpones, not activity
     if (pairingPolicy.open() || buttons.isBothHeld()) return false;
     if (!parentConfig.sleepEnabled()) {
         return false;
@@ -1646,6 +1664,31 @@ void handleBleConfigCommand(const String& commandJson) {
         }
         bleService.updateConfigResponse(
             ContentCatalog::buildSongsPageJson(requestId, String(theme), cursor, BLE_CONFIG_MAX_BYTES));
+        return;
+    }
+
+    if (op == "setLogSharing") {
+        if (!doc["enabled"].is<bool>()) {
+            bleService.updateConfigResponse(logConfigError(requestId, "Missing log sharing flag"));
+            return;
+        }
+        NVSConfig::LogSharing sharing = nvs.getLogSharing();
+        const bool enable = doc["enabled"].as<bool>();
+        const bool history = doc["history"] | false;
+        if (!enable) {
+            sharing = NVSConfig::LogSharing{};
+        } else if (history) {
+            sharing.from = 0;  // everything still on the toy
+        } else if (!sharing.enabled) {
+            // From the sector being written: it goes up once it is full.
+            devlog::Position position{};
+            sharing.from = devlog::position(position) ? position.sequence : 0;
+        }
+        sharing.enabled = enable;
+        nvs.setLogSharing(sharing);
+        OtaUpdate::setLogSharing(sharing.enabled, sharing.from);
+        DLOG(LOG_SHARING, sharing.enabled ? "on" : "off", static_cast<unsigned long>(sharing.from));
+        bleService.updateConfigResponse(buildConfigOkResponse(requestId, op));
         return;
     }
 

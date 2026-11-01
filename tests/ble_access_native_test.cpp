@@ -628,9 +628,9 @@ int main() {
     ble._securedChars[20] = &logData;
     ble._logDataChar = &logData;
     const uint8_t logPacket[5 + 300] = {2};
-    assert(ble.logDataCredits() == 0 && !ble.sendLogData(logPacket, sizeof(logPacket)));
+    assert(ble.logDataCredits() == 0 && !ble.logDataSubscribed() && !ble.sendLogData(logPacket, sizeof(logPacket)));
     ble.peer(1)->subscriptions |= 1UL << 20;
-    assert(ble.logDataCredits() == 10 && ble.sendLogData(logPacket, sizeof(logPacket)));
+    assert(ble.logDataCredits() == 10 && ble.logDataSubscribed() && ble.sendLogData(logPacket, sizeof(logPacket)));
     assert(packets.back().handle == 70 && packets.back().connection == 1);
     assert(packets.back().data.size() == sizeof(logPacket) && !packets.back().indication);
     // An unplayable-song warning waits for the controller's notice subscription.

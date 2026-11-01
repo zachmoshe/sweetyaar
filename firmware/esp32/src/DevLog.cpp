@@ -338,6 +338,14 @@ void service(bool quiet) {
     xSemaphoreGive(g_lock);
 }
 
+bool position(Position& out) {
+    if (!g_ready || xSemaphoreTake(g_lock, pdMS_TO_TICKS(LOCK_WAIT_MS)) != pdTRUE) return false;
+    const bool open = g_ring.hasCurrent();
+    out = {g_ring.currentSequence(), g_ring.currentSector(), g_ring.sectorCount()};
+    xSemaphoreGive(g_lock);
+    return open;
+}
+
 void flushRepeats() {
     if (!g_ready || !g_repeats.pending()) return;
     if (xSemaphoreTake(g_lock, pdMS_TO_TICKS(LOCK_WAIT_MS)) != pdTRUE) return;

@@ -77,13 +77,14 @@ public:
     void updateBatteryState(uint8_t state);
     void updateChargerStatus(const ChargerStatus::Snapshot& snapshot);
     void updateDeviceName(const String& deviceName);
-    // Read-only firmware description; it does not change while running.
+    // Read-only firmware description: version, mode and the log position.
     void updateFirmwareInfo(const String& json);
     void updateOtaStatus(const uint8_t* status, size_t length);
     void setOtaTransport(OtaTransport* transport) { _ota = transport; }
     // Log fetch: packets the controller can take now (0 unless the owner is
     // subscribed to logData), and sending one packet as a notification.
     uint16_t logDataCredits();
+    bool logDataSubscribed();
     bool sendLogData(const uint8_t* packet, size_t length);
 
     // Push a one-shot notice for the app to display. |noticeJson| is the full

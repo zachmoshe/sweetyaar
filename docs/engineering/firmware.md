@@ -1022,7 +1022,10 @@ that led to this design are in [OTA validation](ota-validation.md).
 **Versions.** `FIRMWARE_VERSION` in `Config.h` (`major.minor.patch`) and
 `FIRMWARE_BOARD_ID` (the PlatformIO environment, set by `SWEETYAAR_BOARD_ID` in
 `platformio.ini`) are published in the read-only `firmware` characteristic as
-`{"version":"1.0.0","board":"sweetyaar","mode":"normal"}`. Only the production
+`{"version":"1.0.0","board":"sweetyaar","mode":"normal","log":{…}}`; the `log`
+object (the log's position and the parents' sharing choice) is described in
+[Sending logs to the cloud](../logging-and-debugging.md#sending-logs-to-the-cloud).
+Only the production
 board is published to the app; the app offers no update to the generic
 prototype, which is updated from a Mac with `make ota-update
 PIO_ENV=sweetyaar-generic` (same protocol, any local build, no version check).
@@ -1085,18 +1088,18 @@ are refused with insufficient authorization.
 
 | UUID suffix | Name | Access | Content |
 | --- | --- | --- | --- |
-| `78A2` | `firmware` | read | JSON version, board and mode. |
+| `78A2` | `firmware` | read | JSON version, board, mode and log position. |
 | `78A3` | `otaControl` | write | One command per write (below). |
 | `78A4` | `otaData` | write, write without response | Offset in the encoded stream (u32 LE), then data. |
 | `78A5` | `otaStatus` | read, notify | 18-byte status (below). |
-| `78A6` | `logData` | notify | Log fetch packets, update mode only (see [Logging and Debugging](../logging-and-debugging.md#fetching-the-log-over-ble)). |
+| `78A6` | `logData` | notify | Log read packets (see [Logging and Debugging](../logging-and-debugging.md#protocol)). |
 
 Commands: `1` enter update mode (normal mode only; a second byte `1` enters
 it only to send the log); `2` begin, followed by the
 encoding (0 raw, 1 zlib), the encoded size and image size (u32 LE each) and the
 image's 32-byte SHA-256 (42 bytes in all); `3` finish (verify, install and
 restart); `4` cancel (discard and restart normal firmware); `5` read the log
-(update mode only, 10 bytes). Refusals and errors
+(10 bytes; in normal mode only while the toy is idle, else a busy packet). Refusals and errors
 are reported in the status, not as GATT errors. Commands may arrive as long
 (prepared) writes, since begin exceeds the default MTU; data chunks must fit
 one packet.

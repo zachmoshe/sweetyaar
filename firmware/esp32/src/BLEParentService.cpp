@@ -398,6 +398,10 @@ uint16_t BLEParentService::logDataCredits() {
     return owner == NO_CONNECTION ? 0 : esp_ble_get_cur_sendable_packets_num(owner);
 }
 
+bool BLEParentService::logDataSubscribed() {
+    return subscribedOwner(_logDataChar) != NO_CONNECTION;
+}
+
 bool BLEParentService::sendLogData(const uint8_t* packet, size_t length) {
     const uint16_t owner = subscribedOwner(_logDataChar);
     // Bluedroid copies the value before this returns.

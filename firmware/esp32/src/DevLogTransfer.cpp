@@ -52,6 +52,13 @@ size_t TransferSender::next(uint8_t* packet, size_t capacity) {
     return TRANSFER_PACKET_HEADER + length;
 }
 
+size_t TransferSender::busy(uint8_t* packet) {
+    packet[0] = TRANSFER_BUSY;
+    writeU32(packet + 1, _offset);
+    _active = false;
+    return TRANSFER_PACKET_HEADER;
+}
+
 bool TransferSender::read(uint32_t offset, uint8_t* data, size_t length) {
     switch (_region) {
         case Region::Info: {

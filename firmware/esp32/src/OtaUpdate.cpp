@@ -30,6 +30,12 @@ constexpr size_t LOG_PACKET_MAX = 512;
 constexpr uint32_t STATUS_INTERVAL_MS = 150;
 constexpr uint32_t RESTART_DELAY_MS = 400;  // let the write response leave first
 constexpr uint32_t DISCONNECT_GRACE_MS = 150;  // time for the link-termination packet
+// Normal mode: one OTA_LOG_SENT record once the app stops asking for this long.
+constexpr uint32_t LOG_SUMMARY_AFTER_MS = 10000;
+// A read counts as in progress (postponing sleep) at most this long after
+// the client's last request.
+constexpr uint32_t LOG_READ_ACTIVE_MS = 10000;
+constexpr uint32_t INFO_CHECK_INTERVAL_MS = 1000;
 
 RTC_NOINIT_ATTR uint32_t rtcUpdateModeMagic;
 
@@ -181,7 +187,8 @@ public:
 
     // Called on the Bluetooth task; the loop starts the read in pollLogRead().
     void readLog(const uint8_t* data, size_t length, const uint8_t* peer);
-    void pollLogRead();
+    void pollLogRead(uint32_t nowMs);
+    void publishInfo(uint32_t nowMs, bool force);
 
     EspSink sink;
     Ota::Session session{sink};
@@ -193,8 +200,15 @@ public:
     uint32_t logRequests = 0;
     uint32_t logPackets = 0;
     uint32_t logBytes = 0;
+    volatile uint32_t lastLogRequestMs = 0;
     BLEParentService* ble = nullptr;
     bool (*updateAllowed)() = nullptr;
+    bool (*logReadAllowed)() = nullptr;
+    bool shareEnabled = false;
+    uint32_t shareFrom = 0;
+    bool infoPublished = false;
+    uint32_t infoSequence = 0;
+    uint32_t infoCheckedMs = 0;
     volatile uint16_t mtu = 23;
     volatile bool statusDirty = true;
     volatile uint32_t lastActivityMs = 0;
@@ -281,15 +295,14 @@ void Transport::control(const uint8_t* data, size_t length, const uint8_t* peer)
 }
 
 void Transport::readLog(const uint8_t* data, size_t length, const uint8_t* peer) {
-    if (!updateModeActive) {
-        session.reportError(Ota::Error::WrongMode);
-        return;
-    }
     if (length != devlog::TRANSFER_REQUEST_SIZE) {
         session.reportError(Ota::Error::BadRequest);
         return;
     }
-    if (!fastConnectionRequested) {
+    lastLogRequestMs = millis();
+    // Normal mode keeps the phone's interval: a fast one would compete with
+    // Classic audio once a phone connects.
+    if (updateModeActive && !fastConnectionRequested) {
         fastConnectionRequested = true;
         requestFastConnection(peer);
     }
@@ -299,23 +312,42 @@ void Transport::readLog(const uint8_t* data, size_t length, const uint8_t* peer)
     portEXIT_CRITICAL(&logMux);
 }
 
-void Transport::pollLogRead() {
+void Transport::pollLogRead(uint32_t nowMs) {
     uint8_t request[devlog::TRANSFER_REQUEST_SIZE];
     portENTER_CRITICAL(&logMux);
     const bool pending = logRequestPending;
     if (pending) memcpy(request, logRequest, sizeof(request));
     logRequestPending = false;
     portEXIT_CRITICAL(&logMux);
+    const bool wasActive = logSender.active();
     if (pending) {
         if (logSender.request(request, sizeof(request))) ++logRequests;
         else session.reportError(Ota::Error::BadRequest);
     }
+    if (!updateModeActive && logRequests && !logSender.active() &&
+        int32_t(nowMs - lastLogRequestMs) >= int32_t(LOG_SUMMARY_AFTER_MS)) {
+        DLOG(OTA_LOG_SENT, static_cast<unsigned long>(logBytes),
+            static_cast<unsigned long>(logPackets), static_cast<unsigned long>(logRequests));
+        logRequests = logPackets = logBytes = 0;
+    }
     if (!logSender.active()) return;
+    if (!ble->logDataSubscribed()) {
+        logSender.cancel();  // the app went away mid-read
+        return;
+    }
+    uint8_t packet[LOG_PACKET_MAX];  // loop task stack: normal mode keeps its RAM
+    if (!updateModeActive && logReadAllowed && !logReadAllowed()) {
+        // Playing or a Classic link: stop, and tell the app to try later.
+        const size_t length = logSender.busy(packet);
+        if (wasActive) DLOG(OTA_LOG_BUSY, static_cast<unsigned long>(packet[1] |
+            (packet[2] << 8) | (packet[3] << 16) | (uint32_t(packet[4]) << 24)));
+        ble->sendLogData(packet, length);  // if lost, the app's next request gets one
+        return;
+    }
     // Only as many packets as the controller can take: a notification that
     // finds no buffer is lost, and the client would have to ask again.
     uint16_t credits = ble->logDataCredits();
     if (credits > LOG_PACKETS_PER_POLL) credits = LOG_PACKETS_PER_POLL;
-    uint8_t packet[LOG_PACKET_MAX];  // loop task stack: normal mode keeps its RAM
     size_t capacity = mtu > 3 ? mtu - 3 : 0;
     if (capacity > sizeof(packet)) capacity = sizeof(packet);
     for (uint16_t i = 0; i < credits && logSender.active(); ++i) {
@@ -327,6 +359,32 @@ void Transport::pollLogRead() {
         logBytes += length - devlog::TRANSFER_PACKET_HEADER;
         lastActivityMs = millis();
     }
+}
+
+// The firmware info value: version, mode and, for the app's log sharing, the
+// sector being written and the parents' sharing choice. Republished when a
+// new sector opens.
+void Transport::publishInfo(uint32_t nowMs, bool force) {
+    if (!force && nowMs - infoCheckedMs < INFO_CHECK_INTERVAL_MS) return;
+    infoCheckedMs = nowMs;
+    devlog::Position position{};
+    const bool open = devlog::position(position);
+    if (!force && infoPublished && (!open || position.sequence == infoSequence)) return;
+    String info = String("{\"version\":\"") + FIRMWARE_VERSION + "\",\"board\":\"" +
+        FIRMWARE_BOARD_ID + "\",\"mode\":\"" + (updateModeActive ? "update" : "normal") + "\"";
+    if (open) {
+        uint8_t mac[6];
+        esp_efuse_mac_get_default(mac);  // the log's device ID
+        char id[13];
+        snprintf(id, sizeof(id), "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        info += String(",\"log\":{\"id\":\"") + id + "\",\"seq\":" + position.sequence + ",\"sector\":" + position.sector +
+            ",\"sectors\":" + position.sectors + ",\"share\":" + (shareEnabled ? "true" : "false") +
+            ",\"from\":" + shareFrom + "}";
+        infoSequence = position.sequence;
+    }
+    info += "}";
+    ble->updateFirmwareInfo(info);
+    infoPublished = true;
 }
 
 }  // namespace
@@ -363,21 +421,33 @@ bool startBleOnlyController() {
     return enable == ESP_OK;
 }
 
-void attach(BLEParentService& ble, bool updateModeRunning, bool (*updateAllowed)()) {
+void attach(BLEParentService& ble, bool updateModeRunning, bool (*updateAllowed)(),
+            bool (*logReadAllowed)()) {
     transport.ble = &ble;
     transport.updateAllowed = updateAllowed;
+    transport.logReadAllowed = logReadAllowed;
     transport.lastActivityMs = millis();
     if (updateModeRunning) transport.session.enterUpdateMode();
-    String info = String("{\"version\":\"") + FIRMWARE_VERSION + "\",\"board\":\"" +
-        FIRMWARE_BOARD_ID + "\",\"mode\":\"" + (updateModeRunning ? "update" : "normal") + "\"}";
-    ble.updateFirmwareInfo(info);
+    transport.publishInfo(millis(), true);
     ble.setOtaTransport(&transport);
     transport.statusDirty = true;
     poll(millis());
 }
 
+void setLogSharing(bool enabled, uint32_t from) {
+    transport.shareEnabled = enabled;
+    transport.shareFrom = from;
+    if (transport.ble) transport.publishInfo(millis(), true);
+}
+
+bool logReadActive() {
+    return (transport.logSender.active() || transport.logRequestPending) &&
+           int32_t(millis() - transport.lastLogRequestMs) < int32_t(LOG_READ_ACTIVE_MS);
+}
+
 void poll(uint32_t nowMs) {
     if (!transport.ble) return;
+    transport.publishInfo(nowMs, false);
     if (transport.statusDirty && (nowMs - transport.lastStatusMs >= STATUS_INTERVAL_MS ||
                                   transport.session.state() != Ota::State::Receiving)) {
         transport.statusDirty = false;
@@ -389,7 +459,7 @@ void poll(uint32_t nowMs) {
             transport.ble->updateOtaStatus(status, sizeof(status));
         }
     }
-    if (updateModeActive) transport.pollLogRead();
+    transport.pollLogRead(nowMs);
     const Restart restart = transport.restartKind;
     if (restart != Restart::None && int32_t(nowMs - transport.restartAtMs) >= 0) {
         rtcUpdateModeMagic = restart == Restart::ToUpdateMode ? UPDATE_MODE_MAGIC

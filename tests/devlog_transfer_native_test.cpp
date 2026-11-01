@@ -177,6 +177,21 @@ void testRequestsReplaceAndReject() {
     assert(sender.next(buffer, TRANSFER_PACKET_HEADER) == 0 && sender.active());
 }
 
+void testBusyEndsTheRead() {
+    FakeSource source(8, 0);
+    TransferSender sender(source);
+    uint8_t buffer[512];
+    auto bytes = request(Region::Log, SECTOR_SIZE, SECTOR_SIZE);
+    assert(sender.request(bytes.data(), bytes.size()));
+    assert(sender.next(buffer, 100) == 100);
+    assert(sender.busy(buffer) == TRANSFER_PACKET_HEADER);
+    assert(buffer[0] == TRANSFER_BUSY);
+    assert(u32(buffer + 1) == SECTOR_SIZE + 100 - TRANSFER_PACKET_HEADER);  // the next byte
+    assert(!sender.active() && sender.next(buffer, sizeof(buffer)) == 0);
+    // A request after it starts a new read.
+    assert(sender.request(bytes.data(), bytes.size()) && sender.active());
+}
+
 }  // namespace
 
 int main() {
@@ -186,6 +201,7 @@ int main() {
     testCoreDump();
     testEndAndFailureAreHeaderOnly();
     testRequestsReplaceAndReject();
+    testBusyEndsTheRead();
     std::cout << "devlog transfer tests passed\n";
     return 0;
 }

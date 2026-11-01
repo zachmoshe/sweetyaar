@@ -29,6 +29,22 @@ void service(bool quiet);
 // does it by itself).
 void flushRepeats();
 
+// The sector being written: its sequence and index in the ring. False until
+// the log is open.
+struct Position {
+    uint32_t sequence;
+    uint32_t sector;
+    uint32_t sectors;
+};
+bool position(Position& out);
+
+// Sequences only grow within one log, so a sharing start past the sector
+// being written belongs to a log that is gone (erased or new partition):
+// share the new log from its start.
+inline uint32_t sharingStart(uint32_t from, uint32_t sequence) {
+    return from > sequence ? 0 : from;
+}
+
 class TransferSource;
 // The log partition and a core dump not yet copied into it, read-only, for
 // the fetch over BLE (DevLogTransfer.h).

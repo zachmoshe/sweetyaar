@@ -11,9 +11,13 @@
 // survives a software restart and reboots. Update mode starts the Bluetooth
 // controller in BLE-only mode (no Classic audio, ~65 KB free heap), keeps the
 // same GATT table and bonds, receives an image into the inactive app slot and
-// restarts into it. The same mode also streams the diagnostic log
-// (DevLogTransfer.h). The old firmware stays bootable until the final switch,
+// restarts into it. The old firmware stays bootable until the final switch,
 // and the new one rolls back unless it confirms itself at startup.
+//
+// The diagnostic log (DevLogTransfer.h) streams in both modes: in update mode
+// entered for it (fast, used by the Mac), and in normal mode while the toy is
+// idle (used by the parent app). The firmware info value tells the app where
+// the log stands and whether parents share it automatically.
 // ---------------------------------------------------------------------------
 
 namespace OtaUpdate {
@@ -28,9 +32,18 @@ bool logReadOnly();
 // released and the controller runs BLE-only until the next restart.
 bool startBleOnlyController();
 
-// Call after BLEParentService::begin(). |updateAllowed| decides whether the
-// battery permits entering update mode (normal mode only).
-void attach(BLEParentService& ble, bool updateModeActive, bool (*updateAllowed)());
+// Call after BLEParentService::begin(). Normal mode only: |updateAllowed|
+// decides whether the battery permits entering update mode, and
+// |logReadAllowed| whether the toy is idle enough to send its log.
+void attach(BLEParentService& ble, bool updateModeActive, bool (*updateAllowed)(),
+            bool (*logReadAllowed)());
+
+// Published in the firmware info value for the app.
+void setLogSharing(bool enabled, uint32_t from);
+
+// A log read is in progress: it postpones sleep but is not activity, so an
+// app that reads the log now and then does not keep the toy awake.
+bool logReadActive();
 
 // Loop: publishes status, performs requested restarts and the idle timeout.
 void poll(uint32_t nowMs);

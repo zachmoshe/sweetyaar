@@ -32,6 +32,8 @@
 #define DEVLOG_FMT_COREDUMP_END "[Crash] Core dump copied: %lu bytes in %u records"
 #define DEVLOG_ID_COREDUMP_SKIPPED 0x000A
 #define DEVLOG_FMT_COREDUMP_SKIPPED "[Crash] Core dump not copied: %s"
+#define DEVLOG_ID_LOG_SHARING 0x000C
+#define DEVLOG_FMT_LOG_SHARING "[Log] Automatic sharing %s from sequence %lu"
 // Store-only: the stored {EVENT} record at that time repeated identically.
 #define DEVLOG_ID_REPEATED 0x000B
 #define DEVLOG_FMT_REPEATED "[Log] {EVENT} from %lums repeated %lu more times, last at %lums"
@@ -386,6 +388,8 @@
 #define DEVLOG_FMT_OTA_RESTART_TO_LOG_READ "[OTA] Restarting into update mode to send the log"
 #define DEVLOG_ID_OTA_LOG_SENT 0x0610
 #define DEVLOG_FMT_OTA_LOG_SENT "[OTA] Sent %lu log bytes in %lu packets for %lu requests"
+#define DEVLOG_ID_OTA_LOG_BUSY 0x0611
+#define DEVLOG_FMT_OTA_LOG_BUSY "[OTA] Log read stopped at offset %lu: the toy is busy"
 
 // --- Repeating conditions ---------------------------------------------------
 // Conditions a periodic check or retry reports again for as long as they last.
