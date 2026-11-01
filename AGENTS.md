@@ -44,7 +44,8 @@ explicitly says to reuse an existing branch or worktree (or to work on `main`).
   toy's flash log over the debugger; fetching resets the toy, writes nothing),
   `make fetch-logs-ble` (the same log over BLE from this Mac, reading only what
   changed; run in Terminal; restarts the toy twice),
-  `make logs-ui` (browse all fetched logs: timeline, charts, stats),
+  `make logs-ui` (browse all fetched logs or the cloud uploads: timeline, charts, stats),
+  `make deploy-logs-api` (deploy the logs API to GCP project `sweetyaar`),
   `make test-device` (approved real-device
   run; needs `DEVICE_TEST_APPROVED=1`, `PIO_ENV` and `SERIAL_PORT`).
 - PlatformIO environments (in `firmware/esp32/platformio.ini`):

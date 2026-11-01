@@ -12,15 +12,17 @@ disturbing audio, Bluetooth or sleep. Later steps read it back and show it:
 | --- | --- | --- |
 | 1 | Rolling log, crash copy, telemetry and usage stored on flash | Implemented |
 | 2 | Bench tool: read the partition with the debugger and print decoded text | Implemented |
-| 3 | Fetch the log over BLE (script and parent app) | Mac script implemented; parent app planned |
+| 3 | Fetch the log over BLE (script and parent app) | Implemented |
 | 4 | Log viewer: timeline, charts and stats from fetched files | First version |
-| 5 | Parents upload logs to the cloud; the viewer reads them | Planned |
+| 5 | Parents upload logs to the cloud; the viewer reads them | Uploads implemented; viewer planned |
 
 With the debugger connected, `make fetch-logs` and `make parse-logs` save and
 print the log (see [Reading the log on the bench](#reading-the-log-on-the-bench)).
 Without it, `make fetch-logs-ble` saves the same file over BLE from a paired Mac
-(see [Fetching the log over BLE](#fetching-the-log-over-ble)), and
-`make logs-ui` shows every fetched log in a browser (see
+(see [Fetching the log over BLE](#fetching-the-log-over-ble)). Parents send
+the log from the parent app to the logs API in Google Cloud (see
+[Sending logs to the cloud](#sending-logs-to-the-cloud)), and `make logs-ui`
+shows every fetched log in a browser (see
 [Log viewer](#log-viewer)).
 
 ## Principles
@@ -617,7 +619,8 @@ controller has free buffers for the link, at most four packets per loop pass,
 and reads each piece of the log under the log's lock, so a record being
 written is read whole or not at all.
 
-The same read works in normal mode, for the parent app: there it keeps the
+The same read works in normal mode, for the parent app (see
+[Sending logs to the cloud](#sending-logs-to-the-cloud)): there it keeps the
 phone's connection interval and runs only while the toy is idle. Otherwise
 the toy ends the read with one **busy packet**, region `FE` and the offset of
 the next byte it would have sent, and logs `OTA_LOG_BUSY` when that stopped a
@@ -627,6 +630,134 @@ The toy logs `OTA_RESTART_TO_LOG_READ` before the restart, `OTA_UPDATE_MODE`
 with `log read`, and `OTA_LOG_SENT` (bytes, packets, requests) before
 restarting normal firmware. In normal mode `OTA_LOG_SENT` follows 10 seconds
 without a read request.
+
+## Sending logs to the cloud
+
+Parents send the toy's log from the parent app; the toy has no internet, so
+the phone carries it. Everything goes to the **logs API**, a Cloud Run
+function in the GCP project `sweetyaar` (`me-west1`), which validates and
+stores it in Firestore. The app never reads Firestore, and the developer
+reads it only through the log viewer.
+
+```
+toy ──BLE, only while idle──▶ phone (queue) ──HTTPS, when online──▶ logs API ──▶ Firestore
+                                                                                    ▲
+                                    log viewer (cloud source, read-only) ───────────┘
+```
+
+What is sent is the log sectors themselves, the same bytes as on the toy. The
+usage and telemetry records are in them, so there is no separate statistics
+channel and one level of sharing: all or nothing.
+
+### What is sent, and when
+
+On the Doll tab, under *About this doll*, the app shows when logs were last
+sent (from the logs API, so it is the same on every phone), a **Send logs**
+button and the **Share logs automatically** switch. The switch is stored on
+the toy, not the phone.
+
+| | Never sent logs | Sent logs before |
+| --- | --- | --- |
+| **Sharing off** | Nothing is sent by itself. *Send logs* sends every sector on the toy, including the one being written. | Nothing is sent by itself. *Send logs* sends the sectors after the last one the API stored, and the one being written (which replaces its earlier copy). |
+| **Sharing on** | While the app is connected and the toy has been idle for 5 seconds, the app sends the full sectors from the opt-in point on (all of them if the parent ticked *Also send earlier logs*), then checks again every minute (reading only the firmware info, and the log only when a sector filled). *Send logs* as on the left. | The same, from the last sector the API stored: usually only the sectors that filled since. *Send logs* also sends the one being written. |
+
+- **Idle** means nothing plays and no Classic Bluetooth source is connected;
+  the toy checks it on every packet. A sector read that the toy stops (busy)
+  is thrown away and read again next time; only whole sectors are kept.
+- **Turning sharing on** stores the sequence of the sector being written as
+  the opt-in point (`from`), so that sector goes up once it is full; *Also
+  send earlier logs* stores `0`. **Turning it off** stores `0` and deletes
+  the automatic sectors still waiting on the phone. Data already uploaded
+  stays.
+- **A log that starts over** (erased chip, new log partition) begins again at
+  sequence 1, below a stored `from`. At boot the toy then stores `0` (logging
+  "Automatic sharing on (log restarted) from sequence 0"), so the new log is
+  shared from its start; otherwise sharing would wait until the new log
+  passed the old point, and the app would keep reading headers every minute.
+- **Offline.** Sectors wait on the phone until it is online: the app uploads
+  when it opens, connects or comes back online, and on Android Chrome the
+  service worker also uploads with Background Sync after the app was closed.
+
+Consent text next to the switch (approved): "Sends the toy's activity log to
+help us fix problems: buttons pressed, songs and sounds played, battery,
+Bluetooth connections and errors. It includes the toy's name and the
+addresses of devices that connect to it. No recordings. You can turn this
+off any time."
+
+### Toy
+
+- The firmware info value (`…78A2`) carries a `log` object: `id` (the
+  device ID, the factory MAC in eFuse), `seq` and `sector` (the sector being
+  written), `sectors` (the ring size), `share` and `from`. It is republished
+  when a new sector opens; the app reads it again before each read.
+- Config command `{"op":"setLogSharing","enabled":true,"history":false}`
+  changes sharing (stored in NVS with the BT name, so it survives SD card
+  changes) and logs `LOG_SHARING`.
+- Reads in normal mode use the protocol above. On the bench toy (macOS, ATT
+  MTU 185) they ran at about 9 KiB/s: the header region in 1 s and 31
+  sectors in 14 s. A read in progress postpones sleep but is not activity:
+  the sleep timeouts still run from the last button press, playback or app
+  command, and a read stops counting 10 s after the app's last request or as
+  soon as the app is no longer subscribed.
+
+### App
+
+`app/public/logs-queue.js` holds the queue and the upload; the page and the
+service worker both load it. Each sector is kept in Cache Storage
+(`sweetyaar-logs`) until the API confirms it.
+
+Before reading, the app reads the header region, asks the API where the
+toy's uploads stand (`GET …/latest`; offline it uses the last answer) and
+picks the sectors: after the stored one (or that one again if it was still
+being written), full sectors only for automatic sharing, none before `from`.
+If the toy's newest sector is older than the stored one, or the stored
+sequence has another header on the toy, the toy's log started again: every
+sector is read and the upload names the history it replaces.
+
+### Logs API
+
+| Request | Answer |
+| --- | --- |
+| `GET /v1/devices/{id}/latest` | `{history, seq, open, header, last_upload}`, or 404 when the toy never uploaded |
+| `POST /v1/devices/{id}/sectors?open=<seq>&replaces=<history>&app=<version>` | The same, plus `accepted`. Body: whole 4096-byte sectors, `application/octet-stream`, at most 64 |
+
+`{id}` is the device ID in 12 lowercase hex digits. Every sector must have a
+valid header of that device, in rising sequence order. Sectors older than
+the newest stored one are skipped (a retry, or another phone), the newest one
+is replaced when it grew, and a different header at the newest stored
+sequence, or `replaces` naming the current history, starts a new history. A
+toy may upload 800 sectors per UTC day (429 after that). CORS allows
+`https://sweetyaar.zachmoshe.com` and `http://localhost:8000`. The code is
+`cloud/logs_api/` (`uploads.py` holds the rules and is host-tested); deploy
+with `make deploy-logs-api`.
+
+**Firestore.** One document per toy, `devices/{id}`, holds where its uploads
+stand (`history`, `seq`, `header`, `open`, `chunk`, upload times, the daily
+count, and `upload_days`: the UTC days it uploaded on, the last 400, for the
+viewer's fleet charts). Its sectors are in `devices/{id}/chunks/{history:03}-{n:04}`: `data`
+(bytes, not indexed) is at most 192 whole sectors in sequence order, so a
+chunk is exactly a devlog file, plus `first_seq`, `last_seq`, `sectors` and
+`updated`. Uploads add to the last chunk and start a new one when it is full
+(Firestore documents are limited to 1 MiB). Uploads are kept forever.
+
+### GCP project
+
+Project `sweetyaar`, billing linked, under no organization:
+
+- APIs: Cloud Functions, Cloud Run Admin, Cloud Build, Artifact Registry,
+  Cloud Firestore, IAM Service Account Credentials.
+- Firestore `(default)`, Native mode, Standard edition, `me-west1`, free
+  tier. Rules deny all client access; the index exemption turns off indexing
+  of `chunks.data`.
+- Service accounts: `logs-api` (Cloud Datastore User; the function runs as
+  it) and `logs-viewer` (Cloud Datastore Viewer). The developer has Service
+  Account Token Creator on `logs-viewer` only.
+- Function `logs-api`: HTTP, Python 3.12, 256 MiB, 30 s timeout, at most 2
+  instances, public (the API checks every upload). Its image repository
+  `gcf-artifacts` keeps the two newest images.
+
+For 10 toys the expected use is well inside the free tier: a few hundred
+requests and Firestore writes a day and well under 1 GiB a year.
 
 ## Log viewer
 

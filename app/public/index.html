@@ -1690,6 +1690,27 @@
       color: #b23a5c;
     }
 
+    .logs-section {
+      display: grid;
+      gap: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #f1ebe3;
+    }
+
+    .logs-consent {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 12px;
+      background: #f6fbfa;
+    }
+
+    .logs-consent-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
     .update-button:disabled {
       cursor: default;
       border-color: transparent;
@@ -2739,6 +2760,27 @@
             </div>
             <button class="update-button primary" id="settingsUpdateButton" type="button" hidden>Update</button>
             <p class="settings-note" id="settingsUpdateNote" hidden></p>
+            <div class="logs-section" id="logsSection" hidden>
+              <div class="settings-about-row"><span>Logs last sent</span><span id="logsLastSent">—</span></div>
+              <button class="update-button" id="logsSendButton" type="button">Send logs</button>
+              <p class="settings-note" id="logsSendNote">Uploads the toy's current log now.</p>
+              <label class="settings-toggle-row" for="logsShareToggle">
+                <span>Share logs automatically</span>
+                <input id="logsShareToggle" type="checkbox">
+              </label>
+              <p class="settings-note">Sends the toy's activity log to help us fix problems: buttons pressed, songs and sounds played, battery, Bluetooth connections and errors. It includes the toy's name and the addresses of devices that connect to it. No recordings. You can turn this off any time.</p>
+              <div class="logs-consent" id="logsConsent" hidden>
+                <label class="settings-toggle-row" for="logsShareHistory">
+                  <span>Also send earlier logs</span>
+                  <input id="logsShareHistory" type="checkbox">
+                </label>
+                <div class="logs-consent-actions">
+                  <button class="update-button primary" id="logsConsentConfirm" type="button">Turn on</button>
+                  <button class="update-button" id="logsConsentCancel" type="button">Cancel</button>
+                </div>
+              </div>
+              <p class="settings-note" id="logsStatus" role="status" hidden></p>
+            </div>
           </div>
         </section>
       </div>
@@ -2998,6 +3040,7 @@
     </aside>
   </main>
 
+  <script src="logs-queue.js"></script>
   <script>
     "use strict";
 
@@ -3195,6 +3238,7 @@
       otaControl: "a1b2c3d4-e5f6-7890-abcd-ef12345678a3",
       otaData: "a1b2c3d4-e5f6-7890-abcd-ef12345678a4",
       otaStatus: "a1b2c3d4-e5f6-7890-abcd-ef12345678a5",
+      logData: "a1b2c3d4-e5f6-7890-abcd-ef12345678a6",
       configGeneral: "a1b2c3d4-e5f6-7890-abcd-ef123456789b",
       configSleep: "a1b2c3d4-e5f6-7890-abcd-ef123456789c",
       configBedtime: "a1b2c3d4-e5f6-7890-abcd-ef123456789d",
@@ -3307,6 +3351,16 @@
       settingsSongErrors: document.querySelector("#settingsSongErrors"),
       settingsSongList: document.querySelector("#settingsSongList"),
       settingsFirmwareVersion: document.querySelector("#settingsFirmwareVersion"),
+      logsSection: document.querySelector("#logsSection"),
+      logsLastSent: document.querySelector("#logsLastSent"),
+      logsSendButton: document.querySelector("#logsSendButton"),
+      logsSendNote: document.querySelector("#logsSendNote"),
+      logsShareToggle: document.querySelector("#logsShareToggle"),
+      logsConsent: document.querySelector("#logsConsent"),
+      logsShareHistory: document.querySelector("#logsShareHistory"),
+      logsConsentConfirm: document.querySelector("#logsConsentConfirm"),
+      logsConsentCancel: document.querySelector("#logsConsentCancel"),
+      logsStatus: document.querySelector("#logsStatus"),
       settingsLatestVersion: document.querySelector("#settingsLatestVersion"),
       settingsUpdateButton: document.querySelector("#settingsUpdateButton"),
       settingsUpdateNote: document.querySelector("#settingsUpdateNote"),
@@ -5304,6 +5358,7 @@
       renderChargerStatus();
       renderUpdateCard();
       renderSettingsAbout();
+      renderLogs();
       renderTabs();
       if (updating) renderUpdateView();
 
@@ -5528,6 +5583,7 @@
       const wasBtConnected = isBtConnected();
       const previousStatus = state.status;
       state.status = status || "Idle";
+      scheduleAutoLogSync();
       if (state.status.startsWith("Playing animal") ||
           state.status === "Quiet time" ||
           isBtConnected() ||
@@ -5730,6 +5786,7 @@
         state.remoteInitializing = false;
         state.message = "";
         render();
+        void startLogs();
       } catch (error) {
         if (state.server !== server) return;
         if (shouldRediscover(error, state.device)) {
@@ -6410,6 +6467,372 @@
       els.settingsUpdateNote.textContent = note;
     }
 
+    // ---------------------------------------------------------------------
+    // Diagnostic logs. While the toy is idle it sends log sectors over BLE
+    // (command 5 on otaControl, packets on logData); logs-queue.js keeps them
+    // on the phone until they reach the logs API. Only whole sectors are kept:
+    // a read the toy stops ("busy") is read again next time. See "Sending logs
+    // to the cloud" in docs/logging-and-debugging.md.
+    const logsQueue = globalThis.SweetYaarLogs || null;
+    const LOG_READ_COMMAND = 5;
+    const LOG_REGION = { headers: 1, log: 2 };
+    const LOG_BUSY = 0xfe;
+    const LOG_PACKET_HEADER = 5;
+    const LOG_SECTOR_SIZE = 4096;
+    const LOG_HEADER_SIZE = 24;
+    const LOG_STALL_MS = 2000;
+    const LOG_ATTEMPTS = 8;
+    const LOG_AUTO_IDLE_MS = 5000;    // idle this long before an automatic read
+    const LOG_AUTO_AGAIN_MS = 60000;  // then check for a newly filled sector
+
+    function newLogsState() {
+      return { device: "", server: undefined, queued: 0, running: "", done: 0, total: 0,
+        message: "", consent: false, timer: null, lastAutoAt: 0, packets: [], waiter: null };
+    }
+    state.logs = newLogsState();
+    let logsUploading = false;
+
+    function logsAvailable() {
+      return !!(logsQueue && state.connected && state.firmware?.mode === "normal" &&
+        state.firmware?.log && state.chars.logData && state.logs.device);
+    }
+
+    // The toy refuses reads while it plays or a Classic source is connected.
+    function toyIdleForLogs() {
+      return !isBtConnected() && !state.status.startsWith("Playing");
+    }
+
+    function logCrc8(bytes) {
+      let crc = 0;
+      for (const byte of bytes) {
+        crc ^= byte;
+        for (let bit = 0; bit < 8; bit += 1) crc = crc & 0x80 ? ((crc << 1) ^ 0x07) & 0xff : (crc << 1) & 0xff;
+      }
+      return crc;
+    }
+
+    // The sector's sequence number, or null without a valid header of |device|.
+    function logHeaderSequence(header, device) {
+      if (header.length < LOG_HEADER_SIZE || String.fromCharCode(...header.subarray(0, 4)) !== "SYLG" ||
+          header[4] !== 1 || header[5] !== LOG_HEADER_SIZE || logCrc8(header.subarray(0, 23)) !== header[23] ||
+          bytesHex(header.subarray(16, 22)) !== device) {
+        return null;
+      }
+      return new DataView(header.buffer, header.byteOffset, LOG_HEADER_SIZE).getUint32(8, true);
+    }
+
+    function pushLogPacket(value) {
+      state.logs.packets.push(new Uint8Array(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength)));
+      const waiter = state.logs.waiter;
+      state.logs.waiter = null;
+      if (waiter) waiter();
+    }
+
+    function nextLogPacket(timeoutMs) {
+      const logs = state.logs;
+      if (logs.packets.length) return Promise.resolve(logs.packets.shift());
+      return new Promise((resolve) => {
+        const timer = setTimeout(() => {
+          logs.waiter = null;
+          resolve(null);
+        }, timeoutMs);
+        logs.waiter = () => {
+          clearTimeout(timer);
+          resolve(logs.packets.shift() ?? null);
+        };
+      });
+    }
+
+    // Reads a byte range, asking again from the first missing byte after a
+    // lost packet (as tools/devlog_ble.py does).
+    async function readLogRange(region, offset, length) {
+      const data = new Uint8Array(length);
+      let have = 0;
+      let failures = 0;
+      while (have < length) {
+        if (!state.connected) throw new Error("GATT Server is disconnected");
+        const request = new Uint8Array(10);
+        const view = new DataView(request.buffer);
+        request[0] = LOG_READ_COMMAND;
+        request[1] = region;
+        view.setUint32(2, offset + have, true);
+        view.setUint32(6, length - have, true);
+        await writeCharacteristic(state.chars.otaControl, request);
+        let progressed = false;
+        while (have < length) {
+          const packet = await nextLogPacket(LOG_STALL_MS);
+          if (!packet) break;
+          if (packet.length < LOG_PACKET_HEADER) continue;
+          if (packet[0] === LOG_BUSY) {
+            const error = new Error("The toy is busy");
+            error.logBusy = true;
+            throw error;
+          }
+          const packetOffset = new DataView(packet.buffer).getUint32(1, true);
+          const expected = offset + have;
+          if (packet[0] !== region || packetOffset !== expected) {
+            // Before the first expected packet these are left over from an
+            // earlier request; after it, one was lost.
+            if (progressed && packet[0] === region && packetOffset > expected) break;
+            continue;
+          }
+          const body = packet.subarray(LOG_PACKET_HEADER);
+          if (!body.length) throw new Error(`The toy could not read log region ${region} at ${packetOffset}`);
+          const take = Math.min(body.length, length - have);
+          data.set(body.subarray(0, take), have);
+          have += take;
+          progressed = true;
+        }
+        failures = progressed ? 0 : failures + 1;
+        if (failures > LOG_ATTEMPTS) throw new Error(`No log data for region ${region} at ${offset + have}`);
+      }
+      return data;
+    }
+
+    async function refreshLogServer() {
+      try {
+        state.logs.server = await logsQueue.latest(state.logs.device);
+      } catch (error) {
+        console.warn("[SweetYaar logs] Logs API unreachable", error);
+        const cached = await logsQueue.cachedState(state.logs.device);
+        if (cached !== undefined) state.logs.server = cached;
+      }
+    }
+
+    async function countQueuedLogs() {
+      if (!logsQueue || !state.logs.device) return;
+      state.logs.queued = (await logsQueue.queued(state.logs.device)).length;
+    }
+
+    function applyLogStates(states) {
+      if (states && state.logs.device && states[state.logs.device]) {
+        state.logs.server = states[state.logs.device];
+      }
+    }
+
+    function requestLogBackgroundSync() {
+      if (!("serviceWorker" in navigator) || !logsQueue) return;
+      navigator.serviceWorker.ready
+        .then((registration) => registration.sync?.register(logsQueue.SYNC_TAG))
+        .catch(() => {});
+    }
+
+    // Uploads every queued sector; returns whether the phone reached the API.
+    async function uploadQueuedLogs() {
+      if (!logsQueue || logsUploading) return false;
+      logsUploading = true;
+      try {
+        applyLogStates((await logsQueue.uploadAll()).states);
+        return true;
+      } catch (error) {
+        console.warn("[SweetYaar logs] Upload postponed", error);
+        requestLogBackgroundSync();
+        return false;
+      } finally {
+        logsUploading = false;
+        await countQueuedLogs();
+        render();
+      }
+    }
+
+    // Which sectors to read: those after the last one the API stored (or all,
+    // when the toy's log started again), full ones only unless the parent
+    // asked, and for automatic sharing none before the opt-in point.
+    async function planLogRead(log, manual) {
+      const device = state.logs.device;
+      const raw = await readLogRange(LOG_REGION.headers, 0, log.sectors * LOG_HEADER_SIZE);
+      const located = new Map();
+      for (let index = 0; index < log.sectors; index += 1) {
+        const header = raw.subarray(index * LOG_HEADER_SIZE, (index + 1) * LOG_HEADER_SIZE);
+        const seq = logHeaderSequence(header, device);
+        if (seq !== null) located.set(seq, { index, header: bytesHex(header) });
+      }
+      const server = state.logs.server;
+      let lower = 0;
+      let replaces = null;
+      if (server && server.seq !== null) {
+        const stored = located.get(server.seq);
+        if (log.seq < server.seq || (stored && stored.header !== server.header)) {
+          replaces = server.history;
+        } else {
+          lower = server.open ? server.seq : server.seq + 1;
+        }
+      }
+      if (!manual) lower = Math.max(lower, log.from);
+      const upper = manual ? log.seq : log.seq - 1;
+      const queued = new Map((await logsQueue.queued(device)).map((entry) => [entry.seq, entry]));
+      const sequences = [...located.keys()]
+        .filter((seq) => seq >= lower && seq <= upper && !(queued.has(seq) && !queued.get(seq).open))
+        .sort((a, b) => a - b);
+      return { located, sequences, replaces };
+    }
+
+    // Automatic sharing: whether a sector filled since the last upload (or the
+    // toy's log started again). Only the firmware info is read for it; each
+    // log read postpones the toy's sleep, so the log is read only then.
+    async function fullSectorWaiting(log) {
+      const server = state.logs.server;
+      if (server && server.seq !== null && log.seq < server.seq) return true;
+      let lower = log.from;
+      if (server && server.seq !== null) lower = Math.max(lower, server.open ? server.seq : server.seq + 1);
+      for (const entry of await logsQueue.queued(state.logs.device)) {
+        if (!entry.open) lower = Math.max(lower, entry.seq + 1);
+      }
+      return log.seq - 1 >= lower;
+    }
+
+    async function syncLogs(manual) {
+      if (!logsAvailable() || state.logs.running) return;
+      const logs = state.logs;
+      const server = state.server;
+      logs.running = manual ? "manual" : "auto";
+      logs.message = "";
+      logs.done = 0;
+      logs.total = 0;
+      if (!manual) logs.lastAutoAt = Date.now();
+      logs.packets = [];
+      render();
+      try {
+        const log = (await readFirmwareInfo()).log;  // the sector being written now
+        if (!log || (!manual && !await fullSectorWaiting(log))) return;
+        await refreshLogServer();
+        const plan = await planLogRead(log, manual);
+        logs.total = plan.sequences.length;
+        render();
+        for (const seq of plan.sequences) {
+          const sector = await readLogRange(LOG_REGION.log, plan.located.get(seq).index * LOG_SECTOR_SIZE,
+            LOG_SECTOR_SIZE);
+          if (state.server !== server) return;
+          // A sector overwritten meanwhile holds another sequence: skip it.
+          if (logHeaderSequence(sector.subarray(0, LOG_HEADER_SIZE), logs.device) === seq) {
+            await logsQueue.put(logs.device, seq, sector,
+              { open: seq === log.seq, auto: !manual, replaces: plan.replaces });
+          }
+          logs.done += 1;
+          render();
+        }
+        await countQueuedLogs();
+        const online = await uploadQueuedLogs();
+        if (manual) {
+          logs.message = !online ? "Saved on this phone. They will be sent when you're online."
+            : logs.queued ? "Some logs are waiting to upload. They will be sent later."
+            : "Logs sent.";
+        }
+      } catch (error) {
+        if (state.server !== server) return;
+        if (error.logBusy) {
+          if (manual) logs.message = "The doll is busy. Try again when nothing is playing.";
+        } else {
+          console.warn("[SweetYaar logs] Reading the log failed", error);
+          if (manual) logs.message = "Couldn't read the doll's log. Try again.";
+        }
+      } finally {
+        if (state.logs === logs) {
+          logs.running = "";
+          render();
+          scheduleAutoLogSync();
+        }
+      }
+    }
+
+    // Automatic sharing: read after the toy has been idle a few seconds, then
+    // look again every minute for a sector that filled meanwhile.
+    function scheduleAutoLogSync() {
+      const logs = state.logs;
+      clearTimeout(logs.timer);
+      logs.timer = null;
+      if (!logsAvailable() || !state.firmware.log.share || logs.running || !toyIdleForLogs()) return;
+      const wait = Math.max(LOG_AUTO_IDLE_MS, logs.lastAutoAt + LOG_AUTO_AGAIN_MS - Date.now());
+      logs.timer = setTimeout(() => {
+        logs.timer = null;
+        if (state.logs === logs && toyIdleForLogs()) void syncLogs(false);
+      }, wait);
+    }
+
+    async function startLogs() {
+      const server = state.server;
+      const log = state.firmware?.log;
+      if (!logsQueue || !server || state.firmware?.mode !== "normal" || !log) return;
+      try {
+        const service = await server.getPrimaryService(UUIDS.service);
+        state.chars.logData = await service.getCharacteristic(UUIDS.logData);
+        await subscribe("logData", (event) => pushLogPacket(event.target.value));
+      } catch (error) {
+        if (state.server !== server) return;
+        console.warn("[SweetYaar logs] Log channel unavailable", error);
+        state.chars.logData = null;
+        return;
+      }
+      if (state.server !== server) return;
+      state.logs.device = log.id;
+      await refreshLogServer();
+      await countQueuedLogs();
+      render();
+      void uploadQueuedLogs();
+      scheduleAutoLogSync();
+    }
+
+    async function setLogSharing(enabled, history) {
+      const logs = state.logs;
+      logs.consent = false;
+      logs.running = "settings";
+      logs.message = "";
+      render();
+      try {
+        await configRequest({ op: "setLogSharing", enabled, history });
+        await readFirmwareInfo();
+        if (!enabled) {
+          await logsQueue.discardAuto(logs.device);
+          await countQueuedLogs();
+        }
+      } catch (error) {
+        console.warn("[SweetYaar logs] Changing log sharing failed", error);
+        logs.message = error.userMessage || "Couldn't change log sharing. Try again.";
+      } finally {
+        if (state.logs === logs) {
+          logs.running = "";
+          render();
+          scheduleAutoLogSync();
+        }
+      }
+    }
+
+    function logsLastSentText() {
+      const server = state.logs.server;
+      if (server === undefined) return "Unknown";
+      if (server === null || !server.last_upload) return "Never";
+      const when = new Date(server.last_upload);
+      const time = when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      return when.toDateString() === new Date().toDateString()
+        ? `Today ${time}`
+        : `${when.toLocaleDateString([], { day: "numeric", month: "short" })} ${time}`;
+    }
+
+    function renderLogs() {
+      const log = state.firmware?.log;
+      const visible = !!(logsQueue && state.connected && state.firmware?.mode === "normal" && log &&
+        state.chars.logData);
+      els.logsSection.hidden = !visible;
+      if (!visible) return;
+      const logs = state.logs;
+      const idle = toyIdleForLogs();
+      els.logsLastSent.textContent = logsLastSentText();
+      els.logsSendButton.disabled = !!logs.running || !idle || state.busy;
+      els.logsSendButton.textContent = logs.running === "manual"
+        ? (logs.total ? `Reading ${logs.done} of ${logs.total}…` : "Reading…")
+        : "Send logs";
+      els.logsSendNote.textContent = idle
+        ? "Uploads the toy's current log now."
+        : "Available when the doll isn't playing.";
+      els.logsShareToggle.checked = logs.consent || !!log.share;
+      els.logsShareToggle.disabled = !!logs.running || logs.consent || state.busy;
+      els.logsConsent.hidden = !logs.consent;
+      const status = logs.message || (logs.queued === 1 ? "1 part of the log is waiting to upload."
+        : logs.queued ? `${logs.queued} parts of the log are waiting to upload.` : "");
+      els.logsStatus.hidden = status === "";
+      els.logsStatus.textContent = status;
+    }
+
     function dollNeedsAttention() {
       const unseenUpdate = updateAvailable() && state.updateSeen !== state.release.version;
       const charger = chargerPresentation();
@@ -6773,6 +7196,8 @@
       state.configValues = {};
       state.server = null;
       state.chars = {};
+      clearTimeout(state.logs.timer);
+      state.logs = newLogsState();
       const updateDevice = state.update.device;
       const keepUpdateView = state.update.active || (state.view === "update" && updateResultPhase());
       state.view = keepUpdateView ? "update" : "remote";
@@ -7085,8 +7510,34 @@
       state.message = "Open this page over HTTPS or localhost to use Web Bluetooth.";
     }
 
+    els.logsSendButton.addEventListener("click", () => void syncLogs(true));
+    els.logsShareToggle.addEventListener("change", () => {
+      if (els.logsShareToggle.checked) {
+        state.logs.consent = true;
+        state.logs.message = "";
+        els.logsShareHistory.checked = false;
+        render();
+      } else {
+        void setLogSharing(false, false);
+      }
+    });
+    els.logsConsentConfirm.addEventListener("click", () => void setLogSharing(true, els.logsShareHistory.checked));
+    els.logsConsentCancel.addEventListener("click", () => {
+      state.logs.consent = false;
+      render();
+    });
+    window.addEventListener("online", () => void uploadQueuedLogs());
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener?.("message", (event) => {
+        if (event.data?.type !== "sweetyaar-logs-uploaded") return;
+        applyLogStates(event.data.outcome?.states);
+        void countQueuedLogs().then(render);
+      });
+    }
+
     render();
     registerServiceWorker();
+    void uploadQueuedLogs();
   </script>
 </body>
 </html>

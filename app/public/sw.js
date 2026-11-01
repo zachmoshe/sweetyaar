@@ -1,12 +1,13 @@
 "use strict";
 
 const CACHE_PREFIX = "sweetyaar-parent";
-const CACHE_VERSION = "sweetyaar-parent-v61";
+const CACHE_VERSION = "sweetyaar-parent-v62";
 
 const PRECACHE_URLS = [
   "./",
   "./favicon.ico",
   "./index.html",
+  "./logs-queue.js",
   "./manifest.webmanifest",
   "./tokens.css",
   "./assets/apple-touch-icon.png",
@@ -40,6 +41,9 @@ const PRECACHE_URLS = [
   "./assets/tab-settings.png"
 ];
 
+// The diagnostic log queue (logs-queue.js) is shared with the page.
+importScripts("logs-queue.js");
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_VERSION)
@@ -72,11 +76,13 @@ function isNavigationRequest(request) {
   return request.mode === "navigate";
 }
 
-// The page, its stylesheet and the web manifest must match each other, so they
-// come from the network when it is reachable. Images stay cache-first.
+// The page, its stylesheet, scripts and the web manifest must match each
+// other, so they come from the network when it is reachable. Images stay
+// cache-first.
 function isAppShellPath(url) {
   return url.pathname.endsWith("/") || url.pathname.endsWith("/index.html") ||
-    url.pathname.endsWith(".css") || url.pathname.endsWith(".webmanifest");
+    url.pathname.endsWith(".css") || url.pathname.endsWith(".js") ||
+    url.pathname.endsWith(".webmanifest");
 }
 
 function isPrecachedPath(url) {
@@ -176,4 +182,15 @@ self.addEventListener("fetch", (event) => {
   } else if (isPrecachedPath(url)) {
     event.respondWith(staleWhileRevalidate(event));
   }
+});
+
+// Log sectors queued while the phone was offline go up once it is online
+// again, even after the app was closed (Background Sync, Chrome on Android).
+self.addEventListener("sync", (event) => {
+  if (event.tag !== self.SweetYaarLogs.SYNC_TAG) return;
+  event.waitUntil(self.SweetYaarLogs.uploadAll(CACHE_VERSION).then(async (outcome) => {
+    for (const client of await self.clients.matchAll()) {
+      client.postMessage({ type: "sweetyaar-logs-uploaded", outcome });
+    }
+  }));
 });

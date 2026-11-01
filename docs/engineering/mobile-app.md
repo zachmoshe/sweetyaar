@@ -315,7 +315,9 @@ firmware version and the latest published version, with **Update to …** and
 the release note when newer, or **Reinstall …** when the same (to repair a
 toy). Without a published release it shows *None published*; when the manifest
 could not be fetched, it says so. Leaving the update screen returns to the tab
-it was opened from.
+it was opened from. Below the versions are **Logs last sent**, **Send logs**
+and **Share logs automatically** (see
+[Sending logs to the cloud](../logging-and-debugging.md#sending-logs-to-the-cloud)).
 
 **Updating.** The confirm screen lists what to expect, each with its own icon:
 keep the screen open, keep the doll nearby, no songs for about a minute, and the
@@ -397,7 +399,8 @@ or build step. Its production files are:
 | `app/public/index.html` | The complete screen markup, component styles, application state, Web Bluetooth client, and UI behavior. This is the single source file for the app itself. |
 | `app/public/tokens.css` | Shared colors, typography, radii, shadows, and responsive spacing used by `index.html`. |
 | `app/public/manifest.webmanifest` | Installed-app name, scope, portrait presentation, colors, and icon declarations. |
-| `app/public/sw.js` | Offline cache contents, update version, and request strategies. |
+| `app/public/sw.js` | Offline cache contents, update version, request strategies, and Background Sync of queued log sectors. |
+| `app/public/logs-queue.js` | Diagnostic log sectors waiting on the phone and their upload to the logs API; loaded by the page and by `sw.js`. |
 | `app/public/assets/` | Browser-ready artwork, control icons, favicons, and install icons. |
 | `app/public/firmware/` | Published firmware: `manifest.json` and the compressed production image, written by `make release-firmware`. Absent until the first release. |
 | `app/public/CNAME` | The custom domain published with the Pages artifact. |

@@ -17,3 +17,11 @@ def test_parent_app_save_flow(repo_root) -> None:
         repo_root / "tests" / "parent_app_ui_test.js",
     ])
     assert "parent app UI tests passed" in result.stdout
+
+
+def test_logs_queue(repo_root) -> None:
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("Node.js is not installed; logs queue test skipped.")
+    result = run_checked([node, repo_root / "tests" / "logs_queue_test.js"])
+    assert "logs queue tests passed" in result.stdout

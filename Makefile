@@ -17,7 +17,7 @@ PYTHON ?= $(VENV_DIR)/bin/python
 PIO ?= $(VENV_DIR)/bin/pio
 UV ?= uv
 
-.PHONY: help setup app build flash monitor flash-monitor clean test test-unit test-device test-app test-firmware check-python check-pio animals create-published-firmware release-firmware ota-update reset-mac-bluetooth fetch-logs fetch-logs-ble parse-logs logs-ui
+.PHONY: help setup app build flash monitor flash-monitor clean test test-unit test-device test-app test-firmware check-python check-pio animals create-published-firmware release-firmware ota-update reset-mac-bluetooth fetch-logs fetch-logs-ble parse-logs logs-ui deploy-logs-api
 
 help: ## Show the available project commands.
 	@printf 'SweetYaar project commands\n\n'
@@ -93,6 +93,17 @@ LOGS_PORT ?= 8010
 logs-ui: check-python ## Browse every fetched log in LOG_DIR: timeline, charts, all devices (LOGS_PORT=8010).
 	@printf 'Log viewer at http://localhost:%s/ (Ctrl-C to stop)\n' '$(LOGS_PORT)'
 	"$(PYTHON)" "$(ROOT_DIR)/tools/logviewer/server.py" --dir "$(LOG_DIR)" --port "$(LOGS_PORT)"
+
+LOGS_PROJECT ?= sweetyaar
+LOGS_REGION ?= me-west1
+deploy-logs-api: ## Deploy the logs API that the parent app uploads logs to (gcloud signed in as the project owner).
+	@stage="$$(mktemp -d)" && \
+	cp "$(ROOT_DIR)"/cloud/logs_api/*.py "$(ROOT_DIR)/cloud/logs_api/requirements.txt" "$(ROOT_DIR)/tools/devlog.py" "$$stage"/ && \
+	gcloud functions deploy logs-api --gen2 --project="$(LOGS_PROJECT)" --region="$(LOGS_REGION)" \
+		--runtime=python312 --source="$$stage" --entry-point=logs_api --trigger-http --allow-unauthenticated \
+		--service-account="logs-api@$(LOGS_PROJECT).iam.gserviceaccount.com" \
+		--memory=256Mi --timeout=30s --max-instances=2; \
+	status=$$?; rm -rf "$$stage"; exit $$status
 
 PROFILE ?= default
 SDCARD ?=
