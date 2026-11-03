@@ -1,3 +1,4 @@
 {
+  "1.2.0": "Diagnostics update: lets you share the toy’s activity log to help us fix problems.",
   "1.1.0": "Stability update. Fixes a crash in Settings and makes reconnecting reliable after a Bluetooth reset."
 }

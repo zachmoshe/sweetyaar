@@ -1,15 +1,15 @@
 {
   "format": 1,
-  "version": "1.1.0",
-  "notes": "Stability update. Fixes a crash in Settings and makes reconnecting reliable after a Bluetooth reset.",
+  "version": "1.2.0",
+  "notes": "Diagnostics update: lets you share the toy\u2019s activity log to help us fix problems.",
   "images": {
     "sweetyaar": {
-      "file": "sweetyaar-1.1.0.bin.z",
+      "file": "sweetyaar-1.2.0.bin.z",
       "encoding": "zlib",
-      "size": 1941920,
-      "encodedSize": 1206480,
-      "sha256": "7ad344b9f2c57370631a9cfcf907dc235cfe4d1f77e880ccf2afd4cc981382a4",
-      "fileSha256": "d70854bfe75d66330e9fbc0a5bdd1c4a2816723057b0664a8fcc36428418e199"
+      "size": 1966768,
+      "encodedSize": 1223463,
+      "sha256": "81d5acc724a0af167f56972430ffb3c691cc7ba0d09c2f3246150174caacd04f",
+      "fileSha256": "c67acd9b5532e9664511f878534f4c15a9f626cfcfabb5e3b78516fcc683bce1"
     }
   }
 }
