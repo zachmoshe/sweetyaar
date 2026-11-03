@@ -1630,6 +1630,9 @@
       visibility: hidden;
     }
 
+    /* Centred between Back and its mirror: smaller, so a doll name fits. */
+    .screen.update .settings-title { font-size: clamp(17px, 4.6vw, 22px); line-height: 1.15; }
+
     .screen.update {
       margin-top: -48px;
       padding-top: 0;
@@ -2951,7 +2954,11 @@
             <span>Back</span>
           </button>
           <h1 class="settings-title" id="updateTitle" tabindex="-1">Update SweetYaar</h1>
-          <span aria-hidden="true"></span>
+          <!-- As wide as Back, so the title is centred on the screen. -->
+          <span class="settings-back placeholder" aria-hidden="true">
+            <span class="button-glyph"></span>
+            <span>Back</span>
+          </span>
         </div>
 
         <article class="card update-panel" id="updateConfirmPanel">
