@@ -339,7 +339,7 @@ def test_fleet_analytics() -> None:
 
 def test_notes_are_kept_per_device(library: history.Library, tmp_path: pathlib.Path) -> None:
     import notes
-    store = notes.Notes(tmp_path / "logs")
+    store = notes.Notes(tmp_path / "notes" / notes.FILE)
     httpd = server.http.server.ThreadingHTTPServer(("127.0.0.1", 0), server.handler_for(library, None, store))
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
@@ -363,12 +363,12 @@ def test_notes_are_kept_per_device(library: history.Library, tmp_path: pathlib.P
         assert status == 200
         assert saved[0]["start"] == {"boot": 2, "ms": 100} and saved[0]["end"] == {"boot": 3, "ms": 9000}
         assert json.load(urllib.request.urlopen(base)) == saved
-        assert notes.Notes(tmp_path / "logs").get("other") == []
+        assert notes.Notes(tmp_path / "notes" / notes.FILE).get("other") == []
         assert put([{"id": "c", "text": " ", "start": {"boot": 1, "ms": 0}}])[0] == 400
         assert put([{"id": "c", "text": "x", "start": {"boot": "1", "ms": 0}}])[0] == 400
         assert json.load(urllib.request.urlopen(base)) == saved  # nothing changed
         assert put([]) == (200, [])
-        assert json.loads((tmp_path / "logs" / notes.FILE).read_text()) == {}
+        assert json.loads((tmp_path / "notes" / notes.FILE).read_text()) == {}
     finally:
         httpd.shutdown()
 
@@ -423,3 +423,15 @@ def test_core_dumps_are_reassembled_served_and_decoded(library: history.Library,
         decoder.decode(expected, "9.9.9")
     with pytest.raises(coredump.DecodeError, match="does not say which firmware"):
         decoder.decode(expected, None)
+
+
+def test_notes_default_to_user_data(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    import importlib
+    import notes
+    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
+    assert importlib.reload(notes).DEFAULT_FILE == (pathlib.Path.home() / ".local/share/sweetyaar/logviewer"
+                                                    / "annotations.json")
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    assert importlib.reload(notes).DEFAULT_FILE == tmp_path / "sweetyaar/logviewer/annotations.json"
+    monkeypatch.delenv("XDG_DATA_HOME")
+    importlib.reload(notes)

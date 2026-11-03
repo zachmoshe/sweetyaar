@@ -843,9 +843,12 @@ The code is `tools/logviewer/coredump.py`.
 here", "bad USB cable"): ⌘-click (Ctrl-click) adds one at a moment, ⌘-drag
 over a range. They show in the Notes lane above the time axis, cut to fit,
 with the full text on hover; clicking one edits or deletes it. They never
-come from the toy: `tools/logviewer/notes.py` keeps them in
-`annotations.json` in the log folder (`devlogs/`, not in Git), per device,
-for both sources. Each end is stored as the toy's boot number and uptime, so a
+come from the toy and are yours: `tools/logviewer/notes.py` keeps them per
+device, for both sources, in
+`~/.local/share/sweetyaar/logviewer/annotations.json` (under
+`$XDG_DATA_HOME` when set; `--notes <file>` picks another). That is outside
+the repository, so removing a checkout or worktree never takes them along,
+and outside `~/.cache`, so cleaning caches doesn't either. Each end is stored as the toy's boot number and uptime, so a
 note stays put in awake time and when later fetches move estimated times.
 
 Records that store codes or bit fields get short badges under the line that

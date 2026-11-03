@@ -140,6 +140,8 @@ def main() -> int:
     parser.add_argument("--dir", type=pathlib.Path, default=history.devlog.DEFAULT_DIR)
     parser.add_argument("--port", type=int, default=8010)
     parser.add_argument("--project", default="sweetyaar", help="GCP project of the logs API")
+    parser.add_argument("--notes", type=pathlib.Path, default=notes.DEFAULT_FILE,
+                        help=f"file that keeps your timeline notes (default {notes.DEFAULT_FILE})")
     args = parser.parse_args()
     library = history.Library(args.dir.resolve())
     library.refresh()
@@ -151,9 +153,10 @@ def main() -> int:
         return cloud_library[0]
 
     server = http.server.ThreadingHTTPServer(("127.0.0.1", args.port), handler_for(
-        library, cloud, notes.Notes(args.dir.resolve()),
+        library, cloud, notes.Notes(args.notes.expanduser().resolve()),
         coredump.Decoder(lambda: history.CloudSource(args.project).token()[0])))
-    print(f"SweetYaar log viewer on http://localhost:{args.port}/ reading {library.directory} (Ctrl-C to stop)")
+    print(f"SweetYaar log viewer on http://localhost:{args.port}/ reading {library.directory}, "
+          f"notes in {args.notes} (Ctrl-C to stop)")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -1,6 +1,7 @@
 """Notes the developer writes on a device's timeline ("speaker disconnected
-here"). They never come from the toy: they are kept beside the logs, in
-annotations.json in the log folder, for the folder and the cloud alike.
+here"). They never come from the toy, and they are the developer's own: one
+file per user, outside the repository (DEFAULT_FILE), for the folder and the
+cloud logs alike.
 
 A note is {"id", "text", "start", "end"}; start and end (end is null for a
 moment) are {"boot", "ms"}: the toy's boot number and uptime, which stay
@@ -15,13 +16,16 @@ import pathlib
 import threading
 
 FILE = "annotations.json"
+# Per-user data (XDG), not a cache: cleaning caches must not delete notes.
+DEFAULT_FILE = (pathlib.Path(os.environ.get("XDG_DATA_HOME") or pathlib.Path.home() / ".local/share")
+                / "sweetyaar" / "logviewer" / FILE)
 MAX_TEXT = 2000
 MAX_NOTES = 500  # per device
 
 
 class Notes:
-    def __init__(self, directory: str | pathlib.Path):
-        self.path = pathlib.Path(directory) / FILE
+    def __init__(self, path: str | pathlib.Path = DEFAULT_FILE):
+        self.path = pathlib.Path(path)
         self._lock = threading.Lock()
 
     def _load(self) -> dict:
