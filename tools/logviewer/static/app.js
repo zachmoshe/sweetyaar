@@ -401,12 +401,19 @@ function noteX(end) {
   return state.mode === "awake" ? Math.min(Math.max(x, bootX0(boot)), bootX1(boot)) : x;
 }
 
-// The boot that started nearest at or before |x| (the earliest one before them
-// all). Boots are in number order, which estimated times need not follow.
+// The boot running at |x| (the longest, if estimated starts make them
+// overlap: a short boot can appear to start a moment inside the next one);
+// between boots, the one that started nearest before |x| (the earliest one
+// before them all). Boots are in number order, which estimated times need not
+// follow.
 function noteEnd(x) {
   const boots = state.data.boots;
-  let boot = boots.reduce((a, b) => bootX0(b) < bootX0(a) ? b : a);
-  for (const candidate of boots) if (bootX0(candidate) <= x && bootX0(candidate) > bootX0(boot)) boot = candidate;
+  const running = boots.filter((b) => bootX0(b) <= x && x <= bootX1(b));
+  let boot = running.length ? running.reduce((a, b) => b.duration > a.duration ? b : a) : null;
+  if (!boot) {
+    boot = boots.reduce((a, b) => bootX0(b) < bootX0(a) ? b : a);
+    for (const candidate of boots) if (bootX0(candidate) <= x && bootX0(candidate) > bootX0(boot)) boot = candidate;
+  }
   if (state.mode === "awake") x = Math.min(x, bootX1(boot));
   return { boot: boot.boot, ms: Math.round(boot.startMs + (x - bootX0(boot)) * 1000) };
 }
