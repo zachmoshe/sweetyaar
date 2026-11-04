@@ -1457,6 +1457,20 @@ function setup() {
   if (savedMode === "awake") setMode("awake", false);
 }
 
+// SweetYaar Admin on Cloud Run serves only the cloud uploads: its one source
+// button reads All devices and, as before, goes back to their table.
+async function applyConfig() {
+  const response = await fetch("/api/config", { cache: "no-store" });
+  if (!response.ok || !(await response.json()).cloudOnly) return;
+  state.source = "cloud";
+  document.title = "SweetYaar Admin";
+  document.querySelector(".bar h1").textContent = "SweetYaar Admin";
+  document.querySelector('[data-source="folder"]').hidden = true;
+  document.querySelector('[data-source="cloud"]').textContent = "All devices";
+  $("source-pick").title = "All devices that uploaded logs";
+  showSource();
+}
+
 function showSource() {
   for (const button of document.querySelectorAll("[data-source]")) {
     button.setAttribute("aria-pressed", button.dataset.source === state.source);
@@ -1513,6 +1527,7 @@ setup();
 // A link to a device (#device=...) opens its timeline; otherwise All devices.
 const linked = new URLSearchParams(location.hash.slice(1)).get("device");
 showTab(linked ? "timeline" : "stats", false);
-loadDevices()
+applyConfig()
+  .then(() => loadDevices())
   .then(() => linked && state.devices.some((d) => d.device === linked) && loadDevice(linked))
   .catch(showError);

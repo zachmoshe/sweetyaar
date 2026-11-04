@@ -17,7 +17,7 @@ PYTHON ?= $(VENV_DIR)/bin/python
 PIO ?= $(VENV_DIR)/bin/pio
 UV ?= uv
 
-.PHONY: help setup app build flash monitor flash-monitor clean test test-unit test-device test-app test-firmware check-python check-pio animals create-published-firmware release-firmware ota-update reset-mac-bluetooth fetch-logs fetch-logs-ble parse-logs logs-ui deploy-logs-api
+.PHONY: help setup app build flash monitor flash-monitor clean test test-unit test-device test-app test-firmware check-python check-pio animals create-published-firmware release-firmware ota-update reset-mac-bluetooth fetch-logs fetch-logs-ble parse-logs logs-ui deploy-logs-api deploy-admin admin-image
 
 help: ## Show the available project commands.
 	@printf 'SweetYaar project commands\n\n'
@@ -104,6 +104,16 @@ deploy-logs-api: ## Deploy the logs API that the parent app uploads logs to (gcl
 		--service-account="logs-api@$(LOGS_PROJECT).iam.gserviceaccount.com" \
 		--memory=256Mi --timeout=30s --max-instances=2; \
 	status=$$?; rm -rf "$$stage"; exit $$status
+
+ADMIN_USERS ?=
+# Not LOGS_REGION: me-west1 has no Cloud Run domain mappings (admin.sweetyaar.zachmoshe.com).
+ADMIN_REGION ?= europe-west1
+deploy-admin: check-python ## Deploy SweetYaar Admin (log viewer) to Cloud Run behind IAP (ADMIN_USERS=a@x,b@y; default: your gcloud account).
+	"$(PYTHON)" "$(ROOT_DIR)/tools/deploy_admin.py" --project "$(LOGS_PROJECT)" --region "$(ADMIN_REGION)" \
+		$(if $(ADMIN_USERS),--users "$(ADMIN_USERS)",)
+
+admin-image: check-python ## Build the SweetYaar Admin image locally with Docker (sweetyaar-admin:local).
+	"$(PYTHON)" "$(ROOT_DIR)/tools/deploy_admin.py" --local
 
 PROFILE ?= default
 SDCARD ?=

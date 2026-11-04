@@ -1,7 +1,8 @@
 """Notes the developer writes on a device's timeline ("speaker disconnected
-here"). They never come from the toy, and they are the developer's own: one
-file per user, outside the repository (DEFAULT_FILE), for the folder and the
-cloud logs alike.
+here"). They never come from the toy. Every viewer, local or the SweetYaar
+Admin app on Cloud Run, keeps them in one JSON object in the admin resources
+bucket (BUCKET, OBJECT), as the sweetyaar-admin service account, so there is
+one set of notes for the folder and the cloud logs alike.
 
 A note is {"id", "text", "start", "end"}; start and end (end is null for a
 moment) are {"boot", "ms"}: the toy's boot number and uptime, which stay
@@ -14,45 +15,109 @@ import json
 import os
 import pathlib
 import threading
+import urllib.error
+import urllib.parse
+import urllib.request
 
-FILE = "annotations.json"
-# Per-user data (XDG), not a cache: cleaning caches must not delete notes.
-DEFAULT_FILE = (pathlib.Path(os.environ.get("XDG_DATA_HOME") or pathlib.Path.home() / ".local/share")
-                / "sweetyaar" / "logviewer" / FILE)
+BUCKET = "sweetyaar-admin-resources"
+OBJECT = "logs-viewer/annotations.json"
 MAX_TEXT = 2000
 MAX_NOTES = 500  # per device
+SAVE_ATTEMPTS = 3
+
+
+class Conflict(Exception):
+    """The notes changed since they were read."""
+
+
+class BucketStore:
+    """The notes object, written only over the generation it was read at."""
+
+    def __init__(self, token, bucket: str = BUCKET, name: str = OBJECT, fetch=urllib.request.urlopen):
+        """|token| returns a sweetyaar-admin access token."""
+        self.token, self.bucket, self.name, self.fetch = token, bucket, name, fetch
+        self.label = f"gs://{bucket}/{name}"
+
+    def load(self) -> tuple[dict, int]:
+        """The notes and their generation (0: no object yet)."""
+        name = urllib.parse.quote(self.name, safe="")
+        try:
+            with self.fetch(self._request(f"https://storage.googleapis.com/storage/v1/b/{self.bucket}/o/{name}"
+                                          "?alt=media"), timeout=30) as response:
+                return json.loads(response.read() or b"{}"), int(response.headers["x-goog-generation"])
+        except urllib.error.HTTPError as error:
+            if error.code == 404:
+                return {}, 0
+            raise
+
+    def save(self, everything: dict, generation: int) -> None:
+        query = urllib.parse.urlencode({"uploadType": "media", "name": self.name, "ifGenerationMatch": generation})
+        body = (json.dumps(everything, indent=1, ensure_ascii=False) + "\n").encode()
+        request = self._request(f"https://storage.googleapis.com/upload/storage/v1/b/{self.bucket}/o?{query}",
+                                body, {"Content-Type": "application/json"})
+        try:
+            with self.fetch(request, timeout=30):
+                pass
+        except urllib.error.HTTPError as error:
+            if error.code == 412:
+                raise Conflict() from None
+            raise
+
+    def _request(self, url: str, data: bytes | None = None, headers: dict | None = None) -> urllib.request.Request:
+        return urllib.request.Request(url, data=data, method="POST" if data is not None else "GET",
+                                      headers={"Authorization": f"Bearer {self.token()}", **(headers or {})})
+
+
+class FileStore:
+    """A local file, for tests."""
+
+    def __init__(self, path: str | pathlib.Path):
+        self.path = pathlib.Path(path)
+        self.label = str(self.path)
+
+    def load(self) -> tuple[dict, int]:
+        try:
+            return json.loads(self.path.read_text()), int(self.path.stat().st_mtime_ns)
+        except FileNotFoundError:
+            return {}, 0
+
+    def save(self, everything: dict, generation: int) -> None:
+        if self.load()[1] != generation:
+            raise Conflict()
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = self.path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(everything, indent=1, ensure_ascii=False) + "\n")
+        os.replace(temporary, self.path)
 
 
 class Notes:
-    def __init__(self, path: str | pathlib.Path = DEFAULT_FILE):
-        self.path = pathlib.Path(path)
+    def __init__(self, store: BucketStore | FileStore):
+        self.store = store
         self._lock = threading.Lock()
 
-    def _load(self) -> dict:
-        try:
-            return json.loads(self.path.read_text())
-        except FileNotFoundError:
-            return {}
-
     def get(self, device: str) -> list[dict]:
-        with self._lock:
-            return self._load().get(device, [])
+        return self.store.load()[0].get(device, [])
 
     def put(self, device: str, notes: list) -> list[dict]:
-        """Replaces the device's notes; raises ValueError on a malformed one."""
+        """Replaces the device's notes; raises ValueError on a malformed one.
+        Another viewer's save in between is kept: the change is applied again
+        to what it wrote."""
         clean = [check(note) for note in notes]
         if len(clean) > MAX_NOTES:
             raise ValueError(f"at most {MAX_NOTES} notes per device")
         with self._lock:
-            everything = self._load()
-            if clean:
-                everything[device] = clean
-            else:
-                everything.pop(device, None)
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            temporary = self.path.with_suffix(".tmp")
-            temporary.write_text(json.dumps(everything, indent=1, ensure_ascii=False) + "\n")
-            os.replace(temporary, self.path)
+            for attempt in range(SAVE_ATTEMPTS):
+                everything, generation = self.store.load()
+                if clean:
+                    everything[device] = clean
+                else:
+                    everything.pop(device, None)
+                try:
+                    self.store.save(everything, generation)
+                    return clean
+                except Conflict:
+                    if attempt == SAVE_ATTEMPTS - 1:
+                        raise RuntimeError("the notes kept changing while saving; try again") from None
         return clean
 
 

@@ -6,6 +6,8 @@ import json
 import pathlib
 import sys
 import threading
+import urllib.error
+import urllib.parse
 import urllib.request
 
 import pytest
@@ -339,7 +341,7 @@ def test_fleet_analytics() -> None:
 
 def test_notes_are_kept_per_device(library: history.Library, tmp_path: pathlib.Path) -> None:
     import notes
-    store = notes.Notes(tmp_path / "notes" / notes.FILE)
+    store = notes.Notes(notes.FileStore(tmp_path / "notes.json"))
     httpd = server.http.server.ThreadingHTTPServer(("127.0.0.1", 0), server.handler_for(library, None, store))
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
@@ -363,12 +365,12 @@ def test_notes_are_kept_per_device(library: history.Library, tmp_path: pathlib.P
         assert status == 200
         assert saved[0]["start"] == {"boot": 2, "ms": 100} and saved[0]["end"] == {"boot": 3, "ms": 9000}
         assert json.load(urllib.request.urlopen(base)) == saved
-        assert notes.Notes(tmp_path / "notes" / notes.FILE).get("other") == []
+        assert notes.Notes(notes.FileStore(tmp_path / "notes.json")).get("other") == []
         assert put([{"id": "c", "text": " ", "start": {"boot": 1, "ms": 0}}])[0] == 400
         assert put([{"id": "c", "text": "x", "start": {"boot": "1", "ms": 0}}])[0] == 400
         assert json.load(urllib.request.urlopen(base)) == saved  # nothing changed
         assert put([]) == (200, [])
-        assert json.loads((tmp_path / "notes" / notes.FILE).read_text()) == {}
+        assert json.loads((tmp_path / "notes.json").read_text()) == {}
     finally:
         httpd.shutdown()
 
@@ -425,13 +427,93 @@ def test_core_dumps_are_reassembled_served_and_decoded(library: history.Library,
         decoder.decode(expected, None)
 
 
-def test_notes_default_to_user_data(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
-    import importlib
+class _Response:
+    def __init__(self, data: bytes, generation: int):
+        self.data, self.headers = data, {"x-goog-generation": str(generation)}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self) -> bytes:
+        return self.data
+
+
+def test_notes_bucket_saves_over_the_generation_it_read() -> None:
     import notes
-    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
-    assert importlib.reload(notes).DEFAULT_FILE == (pathlib.Path.home() / ".local/share/sweetyaar/logviewer"
-                                                    / "annotations.json")
-    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
-    assert importlib.reload(notes).DEFAULT_FILE == tmp_path / "sweetyaar/logviewer/annotations.json"
-    monkeypatch.delenv("XDG_DATA_HOME")
-    importlib.reload(notes)
+
+    class Bucket:
+        """The notes object; |sneak| is another viewer's save just before ours."""
+        def __init__(self):
+            self.data, self.generation, self.sneak = None, 0, None
+
+        def __call__(self, request, timeout):
+            assert request.headers["Authorization"] == "Bearer token"
+            if request.get_method() == "GET":
+                assert request.full_url == ("https://storage.googleapis.com/storage/v1/b/sweetyaar-admin-resources"
+                                            "/o/logs-viewer%2Fannotations.json?alt=media")
+                if self.data is None:
+                    raise urllib.error.HTTPError(request.full_url, 404, "Not Found", {}, None)
+                return _Response(self.data, self.generation)
+            query = urllib.parse.parse_qs(urllib.parse.urlparse(request.full_url).query)
+            assert query["name"] == ["logs-viewer/annotations.json"]
+            if self.sneak:
+                self.data, self.generation, self.sneak = self.sneak, self.generation + 1, None
+            if int(query["ifGenerationMatch"][0]) != self.generation:
+                raise urllib.error.HTTPError(request.full_url, 412, "Precondition Failed", {}, None)
+            self.data, self.generation = request.data, self.generation + 1
+            return _Response(b"{}", self.generation)
+
+    bucket = Bucket()
+    store = notes.Notes(notes.BucketStore(lambda: "token", fetch=bucket))
+    note = {"id": "a", "text": "first", "start": {"boot": 1, "ms": 0}}
+    assert store.get("A") == []
+    store.put("A", [note])
+    assert store.get("A")[0]["text"] == "first" and bucket.generation == 1
+    # Another viewer saved B in between: ours is applied again over it, B stays.
+    bucket.sneak = json.dumps({"A": [note], "B": [note]}).encode()
+    store.put("A", [{**note, "text": "second"}])
+    assert store.get("A")[0]["text"] == "second" and store.get("B")[0]["text"] == "first"
+    assert bucket.generation == 3
+
+
+def test_credentials_reuse_a_token_and_use_the_service_on_cloud_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    import subprocess
+    import credentials
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 0, stdout=f"token{len(calls)}\n", stderr="")
+
+    monkeypatch.delenv("K_SERVICE", raising=False)
+    access = credentials.Credentials("sweetyaar", run=run)
+    assert access.access_token() == access.access_token() == "token1"
+    assert calls == [["gcloud", "auth", "print-access-token",
+                      "--impersonate-service-account=sweetyaar-admin@sweetyaar.iam.gserviceaccount.com"]]
+    # Shortly before it expires, a new one.
+    access._token = ("old", credentials.now() + credentials.REFRESH_BEFORE / 2)
+    assert access.access_token() == "token2"
+
+    monkeypatch.setenv("K_SERVICE", "sweetyaar-admin")
+    service = credentials.Credentials("sweetyaar", run=run)
+    monkeypatch.setattr(service, "_service", lambda: ("service", credentials.now() + credentials.GCLOUD_LIFETIME))
+    assert service.access_token() == "service" and len(calls) == 2
+
+
+def test_cloud_only_serves_the_cloud_for_every_source(tmp_path: pathlib.Path) -> None:
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    cloud = history.Library(empty)
+    httpd = server.http.server.ThreadingHTTPServer(("127.0.0.1", 0), server.handler_for(None, lambda: cloud))
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{httpd.server_address[1]}"
+    try:
+        assert json.load(urllib.request.urlopen(base + "/api/config")) == {"cloudOnly": True}
+        for source in ("folder", "cloud"):
+            assert json.load(urllib.request.urlopen(base + f"/api/devices?source={source}"))["directory"] == str(empty)
+    finally:
+        httpd.shutdown()

@@ -16,7 +16,6 @@ import dataclasses
 import datetime as dt
 import pathlib
 import re
-import subprocess
 import sys
 import threading
 import time
@@ -28,6 +27,7 @@ import devlog  # noqa: E402
 
 import decoders  # noqa: E402
 import fleet  # noqa: E402
+from credentials import Credentials  # noqa: E402
 
 AREAS = ["log", "main", "ble", "classic", "power", "playback", "ota"]
 AREA_BY_HIGH_BYTE = dict(enumerate(AREAS))
@@ -137,35 +137,21 @@ class FolderSource:
 class CloudSource:
     """What the parent app uploaded to the logs API: Firestore, read-only.
 
-    Reads as the logs-viewer service account, with tokens from the gcloud
-    CLI's login; application-default credentials are not used (see "Sending
-    logs to the cloud" in docs/logging-and-debugging.md). A toy's chunks are read
-    again only when its last upload changed; the list of toys at most every
-    LIST_INTERVAL_S seconds unless Reload asks.
+    Reads as the sweetyaar-admin service account (credentials.py). A toy's
+    chunks are read again only when its last upload changed; the list of
+    toys at most every LIST_INTERVAL_S seconds unless Reload asks.
     """
 
     LIST_INTERVAL_S = 30
-    TOKEN_LIFETIME = dt.timedelta(minutes=50)  # gcloud's tokens last an hour
 
-    def __init__(self, project: str):
+    def __init__(self, project: str, credentials: Credentials | None = None):
         self.project = project
-        self.viewer = f"logs-viewer@{project}.iam.gserviceaccount.com"
+        self.credentials = credentials or Credentials(project)
         self.label = f"Cloud: Firestore in {project}"
         self._client = None
         self._listing: dict = {}
         self._days: dict[str, list[str]] = {}
         self._listed_at = float("-inf")
-
-    def token(self, request=None, scopes=None) -> tuple[str, dt.datetime]:
-        """A logs-viewer access token and its expiry (naive UTC), from gcloud."""
-        result = subprocess.run(["gcloud", "auth", "print-access-token",
-                                 f"--impersonate-service-account={self.viewer}"],
-                                capture_output=True, text=True, timeout=60)
-        lines = result.stdout.split()
-        if result.returncode or not lines:
-            reason = (result.stderr.strip().splitlines() or ["no output"])[-1]
-            raise RuntimeError(f"gcloud could not get a {self.viewer} token: {reason}")
-        return lines[-1], dt.datetime.now(dt.timezone.utc).replace(tzinfo=None) + self.TOKEN_LIFETIME
 
     def client(self):
         if self._client is None:
@@ -173,7 +159,7 @@ class CloudSource:
             from google.cloud import firestore
             from google.oauth2 import credentials
             self._client = firestore.Client(project=self.project, credentials=credentials.Credentials(
-                token=None, refresh_handler=self.token))
+                token=None, refresh_handler=self.credentials.token))
         return self._client
 
     def listing(self, force: bool = False) -> dict:

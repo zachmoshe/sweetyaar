@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Local log viewer: serves the merged history of every log in a folder, or
-of every upload the parent app sent to the cloud (picked in the page).
+"""Log viewer: serves the merged history of every log in a folder, or of
+every upload the parent app sent to the cloud (picked in the page).
 
   server.py [--dir devlogs] [--port 8010] [--project sweetyaar]
+  server.py --cloud-only    (SweetYaar Admin on Cloud Run: the cloud uploads
+                             only, on all interfaces at $PORT)
 
 Files are re-read when they change, so a new `make fetch-logs` shows up on the
-next page load. Data comes from history.Library. The cloud is read as the
-logs-viewer service account, with tokens from the gcloud CLI's login (see
-"Sending logs to the cloud" in docs/logging-and-debugging.md).
+next page load. Data comes from history.Library. The cloud, the notes and the
+archived ELFs are read as the sweetyaar-admin service account
+(credentials.py; see "SweetYaar Admin" in docs/logging-and-debugging.md).
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ from __future__ import annotations
 import argparse
 import http.server
 import json
+import os
 import pathlib
 import sys
 import urllib.parse
@@ -23,20 +26,22 @@ HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 import coredump  # noqa: E402
+import credentials  # noqa: E402
 import history  # noqa: E402
 import notes  # noqa: E402
 
 STATIC = HERE / "static"
 TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
-         ".css": "text/css; charset=utf-8"}
+         ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml"}
 
 
-def handler_for(folder: history.Library, cloud=None, annotations: notes.Notes | None = None,
+def handler_for(folder: history.Library | None, cloud=None, annotations: notes.Notes | None = None,
                 decoder: coredump.Decoder | None = None) -> type:
-    """|cloud| returns the cloud library, created on first use; |annotations|
-    holds the developer's notes (both sources); |decoder| decodes core dumps."""
+    """|folder| is None in cloud-only mode; |cloud| returns the cloud library,
+    created on first use; |annotations| holds the developer's notes (both
+    sources); |decoder| decodes core dumps."""
     def library_for(query: dict) -> history.Library:
-        if query.get("source", ["folder"])[0] != "cloud":
+        if folder is not None and query.get("source", ["folder"])[0] != "cloud":
             return folder
         if cloud is None:
             raise LookupError("No cloud source configured")
@@ -47,6 +52,9 @@ def handler_for(folder: history.Library, cloud=None, annotations: notes.Notes | 
             url = urllib.parse.urlparse(self.path)
             query = urllib.parse.parse_qs(url.query)
             try:
+                if url.path == "/api/config":
+                    self.send_json({"cloudOnly": folder is None})
+                    return
                 if url.path.startswith("/api/"):
                     library = library_for(query)
                     if query.get("reload"):
@@ -138,25 +146,30 @@ def handler_for(folder: history.Library, cloud=None, annotations: notes.Notes | 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--dir", type=pathlib.Path, default=history.devlog.DEFAULT_DIR)
-    parser.add_argument("--port", type=int, default=8010)
+    parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8010)))
     parser.add_argument("--project", default="sweetyaar", help="GCP project of the logs API")
-    parser.add_argument("--notes", type=pathlib.Path, default=notes.DEFAULT_FILE,
-                        help=f"file that keeps your timeline notes (default {notes.DEFAULT_FILE})")
+    parser.add_argument("--cloud-only", action="store_true",
+                        help="serve only the cloud uploads, on all interfaces (the SweetYaar Admin container)")
     args = parser.parse_args()
-    library = history.Library(args.dir.resolve())
-    library.refresh()
+    access = credentials.Credentials(args.project)
+    library = None
+    if not args.cloud_only:
+        library = history.Library(args.dir.resolve())
+        library.refresh()
     cloud_library = []
 
     def cloud() -> history.Library:
         if not cloud_library:
-            cloud_library.append(history.Library(history.CloudSource(args.project)))
+            cloud_library.append(history.Library(history.CloudSource(args.project, access)))
         return cloud_library[0]
 
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", args.port), handler_for(
-        library, cloud, notes.Notes(args.notes.expanduser().resolve()),
-        coredump.Decoder(lambda: history.CloudSource(args.project).token()[0])))
-    print(f"SweetYaar log viewer on http://localhost:{args.port}/ reading {library.directory}, "
-          f"notes in {args.notes} (Ctrl-C to stop)")
+    store = notes.BucketStore(access.access_token)
+    host = "0.0.0.0" if args.cloud_only else "127.0.0.1"  # noqa: S104 (Cloud Run's front end, behind IAP)
+    server = http.server.ThreadingHTTPServer((host, args.port), handler_for(
+        library, cloud, notes.Notes(store), coredump.Decoder(access.access_token)))
+    reading = "the cloud uploads" if args.cloud_only else library.directory
+    print(f"SweetYaar log viewer on http://localhost:{args.port}/ reading {reading}, notes in {store.label} "
+          "(Ctrl-C to stop)", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

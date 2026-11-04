@@ -746,17 +746,23 @@ chunk is exactly a devlog file, plus `first_seq`, `last_seq`, `sectors` and
 Project `sweetyaar`, billing linked, under no organization:
 
 - APIs: Cloud Functions, Cloud Run Admin, Cloud Build, Artifact Registry,
-  Cloud Firestore, IAM Service Account Credentials.
+  Cloud Firestore, IAM Service Account Credentials, Identity-Aware Proxy,
+  Secret Manager, Cloud Resource Manager (for IAP's allow list).
 - Firestore `(default)`, Native mode, Standard edition, `me-west1`, free
   tier. Rules deny all client access; the index exemption turns off indexing
   of `chunks.data`.
 - Service accounts: `logs-api` (Cloud Datastore User; the function runs as
-  it) and `logs-viewer` (Cloud Datastore Viewer, and Storage Object Viewer
-  on the `sweetyaar-firmware-elfs` bucket only). The developer has Service
-  Account Token Creator on `logs-viewer` only.
+  it) and `sweetyaar-admin`, the identity of every log viewer (Cloud
+  Datastore Viewer, Storage Object Viewer on `sweetyaar-firmware-elfs` and
+  Storage Object User on `sweetyaar-admin-resources`; the SweetYaar Admin
+  service runs as it). The developer has Service Account Token Creator on
+  `sweetyaar-admin` only. It replaces the read-only `logs-viewer`.
 - Bucket `sweetyaar-firmware-elfs`: `us-east1` (in the Cloud Storage free
   tier), Standard, uniform access, public access prevented, 7-day soft
   delete, no lifecycle rules. It holds each release's `firmware.elf`.
+- Bucket `sweetyaar-admin-resources`: `me-west1`, Standard, uniform access,
+  public access prevented, object versioning on. SweetYaar Admin's files,
+  one folder per feature: `logs-viewer/annotations.json` holds the notes.
 - Function `logs-api`: HTTP, Python 3.12, 256 MiB, 30 s timeout, at most 2
   instances, public (the API checks every upload). Its image repository
   `gcf-artifacts` keeps the two newest images.
@@ -828,10 +834,11 @@ level and text.
 its "Core dump copied" line (or the line that starts the copy, when the end
 was overwritten) shows the firmware that crashed and the size.
 **Download .bin** saves the reassembled dump. **Decode** runs `esp-coredump`
-(a dev dependency) with GDB from the PlatformIO toolchain and shows the
+(a dev dependency) with GDB from the PlatformIO toolchain (in SweetYaar
+Admin, Espressif's standalone Linux GDB) and shows the
 crashed task, registers, backtrace with file and line, and every task's
 stack, opened under that line (**Hide** closes it). It needs the ELF of the firmware that crashed: the viewer downloads a
-release's ELF from `gs://sweetyaar-firmware-elfs` as `logs-viewer` and caches
+release's ELF from `gs://sweetyaar-firmware-elfs` as `sweetyaar-admin` and caches
 it in `~/.cache/sweetyaar/elfs/sweetyaar/<version>/firmware.elf`. For a
 bench build, give it its own version string and copy its `firmware.elf`
 there by hand. The dump carries the crashed build's ELF hash, and
@@ -843,12 +850,13 @@ The code is `tools/logviewer/coredump.py`.
 here", "bad USB cable"): ⌘-click (Ctrl-click) adds one at a moment, ⌘-drag
 over a range. They show in the Notes lane above the time axis, cut to fit,
 with the full text on hover; clicking one edits or deletes it. They never
-come from the toy and are yours: `tools/logviewer/notes.py` keeps them per
-device, for both sources, in
-`~/.local/share/sweetyaar/logviewer/annotations.json` (under
-`$XDG_DATA_HOME` when set; `--notes <file>` picks another). That is outside
-the repository, so removing a checkout or worktree never takes them along,
-and outside `~/.cache`, so cleaning caches doesn't either. Each end is stored as the toy's boot number and uptime, so a
+come from the toy: `tools/logviewer/notes.py` keeps them per device, for
+both sources, in one object,
+`gs://sweetyaar-admin-resources/logs-viewer/annotations.json`, so the local
+viewer and SweetYaar Admin share one set of notes (saving needs the network
+and the gcloud login, as the cloud source does). A save writes only over
+the version it read; when another viewer saved in between, the change is
+applied again over that save. Object versioning keeps earlier versions. Each end is stored as the toy's boot number and uptime, so a
 note stays put in awake time and when later fetches move estimated times.
 
 Records that store codes or bit fields get short badges under the line that
@@ -916,12 +924,110 @@ make logs-ui LOG_DIR=/tmp/devlog-demo
 Firestore (see [Sending logs to the cloud](#sending-logs-to-the-cloud)).
 Each history of a toy is one snapshot, its chunks joined. The list of toys is
 read at most every 30 seconds, or on Reload; a toy's chunks only after it
-uploaded again. The viewer reads as the read-only `logs-viewer` service
-account, with short-lived tokens from `gcloud auth print-access-token
---impersonate-service-account=logs-viewer@sweetyaar.iam.gserviceaccount.com`.
-That uses the gcloud CLI's login (an account with Service Account Token
-Creator on `logs-viewer`) whatever configuration is active, and changes no
-gcloud setting or application-default credentials.
+uploaded again. The viewer reads, and saves notes, as the
+`sweetyaar-admin` service account (`tools/logviewer/credentials.py`). Locally
+its short-lived tokens come from `gcloud auth print-access-token
+--impersonate-service-account=sweetyaar-admin@sweetyaar.iam.gserviceaccount.com`,
+reused until shortly before they expire. That uses the gcloud CLI's login (an
+account with Service Account Token Creator on `sweetyaar-admin`) whatever
+configuration is active, and changes no gcloud setting or
+application-default credentials. On Cloud Run the service runs as that
+account and uses its own credentials.
+
+### SweetYaar Admin
+
+The same viewer runs on Cloud Run as **SweetYaar Admin**, for the cloud
+uploads only: `server.py --cloud-only` hides the log folder, and the header's
+one source button, **All devices**, goes back to the device table from any
+device. It is the service `sweetyaar-admin` in `europe-west1`, at
+<https://admin.sweetyaar.zachmoshe.com>. More admin features are expected to
+join it.
+
+- **Access.** Identity-Aware Proxy (IAP) sits in front of the service: it
+  sends a visitor to Google sign-in and lets through only the accounts on
+  its allow list (role IAP-secured Web App User on the service); everyone
+  else gets Google's "You don't have access" page and never reaches the
+  container. The project has no organization, so sign-in uses a custom
+  OAuth client (consent screen "SweetYaar Admin", audience External); the
+  client's JSON, as the console downloads it, is the secret
+  `sweetyaar-admin-oauth` in Secret Manager. Google shows a client secret only once: if it is lost, add a new
+  secret to the client in the console, store it in the secret, deploy, and
+  disable the old one.
+- **Region and domain.** The service runs in `europe-west1` although its
+  data stays in `me-west1`: Cloud Run maps a custom domain only in a few
+  regions, and `me-west1` is not one of them. The cost is a few tens of
+  milliseconds per Firestore or Cloud Storage call and per page request. The
+  domain is a Cloud Run domain mapping (Preview) with a Google-managed
+  certificate, which Google renews; the DNS record is a CNAME from
+  `admin.sweetyaar` to `ghs.googlehosted.com` in the `zachmoshe.com` zone. The
+  certificate comes from Let's Encrypt, which the CAA records that
+  `sweetyaar.zachmoshe.com` inherits from GitHub Pages allow. The `run.app`
+  address keeps working behind the same IAP. A new service needs a few
+  minutes before IAP admits the allow list.
+- **Deploy.** `make deploy-admin` stages the image's files
+  (`cloud/admin/Dockerfile`), builds with Cloud Build, deploys (no public
+  access, IAP on, startup CPU boost, 0 to 1 instance, 1 GiB), lets the IAP
+  service agent invoke the service, applies the OAuth client from Secret
+  Manager, and makes the allow list exactly `ADMIN_USERS` (comma-separated;
+  default the gcloud account deploying, so no address is kept in the
+  repository). `ADMIN_REGION=` changes the region. `make admin-image` builds
+  the image with local Docker only.
+- **Redeploy** after a change to `DevLogEvents.h` (the image decodes with the
+  event table it was built with) or to the viewer.
+- **Cold start.** With no instance running, the first request waits a few
+  seconds for one to start, then for every toy's chunks to be read and
+  decoded, as at a local start. IAP's sign-in comes before that and starts
+  nothing.
+- **Cost.** IAP on Cloud Run is free; the service scales to zero, and one
+  developer's use stays in the free tiers of Cloud Run, Cloud Build,
+  Firestore and Cloud Storage, apart from a few cents a month of image
+  storage.
+
+One-time setup, as the project owner (the console steps cannot be done with
+gcloud in a project without an organization):
+
+```bash
+gcloud services enable iap.googleapis.com secretmanager.googleapis.com cloudresourcemanager.googleapis.com \
+  --project=sweetyaar
+gcloud iam service-accounts create sweetyaar-admin --project=sweetyaar --display-name="SweetYaar Admin"
+gcloud projects add-iam-policy-binding sweetyaar --role=roles/datastore.viewer \
+  --member=serviceAccount:sweetyaar-admin@sweetyaar.iam.gserviceaccount.com
+gcloud storage buckets add-iam-policy-binding gs://sweetyaar-firmware-elfs --role=roles/storage.objectViewer \
+  --member=serviceAccount:sweetyaar-admin@sweetyaar.iam.gserviceaccount.com
+gcloud storage buckets create gs://sweetyaar-admin-resources --project=sweetyaar --location=me-west1 \
+  --uniform-bucket-level-access --public-access-prevention
+gcloud storage buckets update gs://sweetyaar-admin-resources --versioning
+gcloud storage buckets add-iam-policy-binding gs://sweetyaar-admin-resources --role=roles/storage.objectUser \
+  --member=serviceAccount:sweetyaar-admin@sweetyaar.iam.gserviceaccount.com
+gcloud iam service-accounts add-iam-policy-binding sweetyaar-admin@sweetyaar.iam.gserviceaccount.com \
+  --project=sweetyaar --role=roles/iam.serviceAccountTokenCreator --member=user:<your account>
+# IAP's service agent (gcloud has this only in its beta component):
+curl -X POST -H "Authorization: Bearer $(gcloud auth print-access-token)" -d '{}' \
+  https://serviceusage.googleapis.com/v1beta1/projects/sweetyaar/services/iap.googleapis.com:generateServiceIdentity
+```
+
+Then in the console: Google Auth Platform → Branding (app name "SweetYaar
+Admin", audience External, your account as support and contact address);
+APIs & Services → Credentials → Create OAuth client ID (Web application,
+"SweetYaar Admin"); after the first deploy, add the redirect URI
+`https://iap.googleapis.com/v1/oauth/clientIds/<client ID>:handleRedirect`.
+Download the client's JSON when it is created (the secret is shown only
+then), store it as the secret and delete the download:
+
+```bash
+gcloud secrets create sweetyaar-admin-oauth --project=sweetyaar --data-file=<downloaded client JSON>
+```
+
+For the domain, verify `zachmoshe.com` once for the deploying account
+(`gcloud domains verify zachmoshe.com` opens Search Console, which asks for
+a TXT record on the domain; keep the record). After the first deploy, map
+the domain in the console (Cloud Run → Domain mappings → Add mapping, service
+`sweetyaar-admin`, `admin.sweetyaar.zachmoshe.com`; gcloud has this for
+Cloud Run only in its beta component) and add the CNAME the mapping shows.
+The page shows the certificate's status; it follows within minutes to hours.
+
+The local viewer only needs the Token Creator binding; `logs-viewer` and its
+bindings can then be deleted.
 
 ### Missing sectors
 

@@ -2,8 +2,8 @@
 
 esp-coredump needs the exact firmware.elf of the build that crashed. Releases
 archive theirs in the firmware-elfs bucket (tools/release_firmware.py); the
-viewer downloads one as the read-only logs-viewer service account and keeps it
-in CACHE. To decode a crash of a bench build, put its ELF there by hand:
+viewer downloads one as the sweetyaar-admin service account and keeps it in
+CACHE. To decode a crash of a bench build, put its ELF there by hand:
 CACHE/<board>/<version>/firmware.elf.
 """
 
@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import gzip
 import hashlib
+import os
 import pathlib
 import subprocess
 import sys
@@ -23,7 +24,10 @@ import urllib.request
 BUCKET = "sweetyaar-firmware-elfs"
 BOARD = "sweetyaar"  # releases are built for the production board only
 CACHE = pathlib.Path.home() / ".cache/sweetyaar/elfs"
-GDB = pathlib.Path.home() / ".platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-gdb"
+# An Xtensa GDB: PlatformIO's toolchain one on a Mac; the SweetYaar Admin image
+# sets XTENSA_GDB to Espressif's standalone Linux release (cloud/admin/Dockerfile).
+GDB = pathlib.Path(os.environ.get("XTENSA_GDB") or
+                   pathlib.Path.home() / ".platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-gdb")
 ESP_COREDUMP = pathlib.Path(sys.executable).parent / "esp-coredump"
 
 
@@ -34,7 +38,7 @@ class DecodeError(Exception):
 class Decoder:
     def __init__(self, token, cache: pathlib.Path = CACHE, board: str = BOARD, fetch=urllib.request.urlopen,
                  run=subprocess.run):
-        """|token| returns a logs-viewer access token, asked for only on a download."""
+        """|token| returns a sweetyaar-admin access token, asked for only on a download."""
         self.token, self.cache, self.board, self.fetch, self.run = token, cache, board, fetch, run
         self._decoded: dict[str, str] = {}
         self._lock = threading.Lock()

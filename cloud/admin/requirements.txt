@@ -1,0 +1,3 @@
+esp-coredump==1.18.1
+google-auth[requests]==2.62.0
+google-cloud-firestore==2.34.1
