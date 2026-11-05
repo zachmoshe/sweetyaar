@@ -418,15 +418,30 @@ function noteEnd(x) {
   return { boot: boot.boot, ms: Math.round(boot.startMs + (x - bootX0(boot)) * 1000) };
 }
 
-function noteTime(end) {
+// The wall time of an end, or null when its boot's clock is unknown.
+function noteReal(end) {
   const boot = bootOf(end.boot);
-  if (!boot) return `B${end.boot} ${uptimeText(end.ms)}`;
-  return wallKnown(boot) ? wallText(boot.realStart + (end.ms - boot.startMs) / 1000, false)
-                         : `B${end.boot} ${uptimeText(end.ms)}`;
+  return wallKnown(boot) ? boot.realStart + (end.ms - boot.startMs) / 1000 : null;
 }
 
+function noteTime(end) {
+  const real = noteReal(end);
+  return real === null ? uptimeText(end.ms) : wallText(real, false);
+}
+
+// "B164 2026-11-05 18:02:10 → 20:45:00" and, for a range, its length
+// (h:mm) on the next line: by the wall clock, or by uptime within one boot.
 function noteSpan(note) {
-  return note.end ? `${noteTime(note.start)} → ${noteTime(note.end)}` : noteTime(note.start);
+  const start = `B${note.start.boot} ${noteTime(note.start)}`;
+  if (!note.end) return start;
+  let end = noteTime(note.end);
+  if (note.end.boot !== note.start.boot) end = `B${note.end.boot} ${end}`;
+  else if (end.slice(0, 11) === noteTime(note.start).slice(0, 11)) end = end.slice(11);  // same date
+  const a = noteReal(note.start), b = noteReal(note.end);
+  const seconds = a !== null && b !== null ? b - a
+                : note.end.boot === note.start.boot ? (note.end.ms - note.start.ms) / 1000 : null;
+  const length = seconds === null ? "" : `\n${Math.floor(Math.abs(seconds) / 3600)}:${pad(Math.floor(Math.abs(seconds) / 60) % 60)} (h:mm)`;
+  return `${start} → ${end}${length}`;
 }
 
 function fitText(ctx, text, width) {
