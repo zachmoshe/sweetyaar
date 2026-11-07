@@ -1,126 +1,115 @@
+<p align="center">
+  <img src="app/public/assets/opening-hero-art.png" alt="SweetYaar" width="360">
+</p>
+
 # SweetYaar
 
-SweetYaar is an ESP32-WROOM-32 baby toy audio controller. The current codebase
-is a PlatformIO/Arduino C++ firmware project with:
+SweetYaar is a small music box that lives inside a doll. A child presses one
+button for songs and another for animal sounds. Parents choose what it plays,
+how loud and when it winds down for the night from a remote app on their phone,
+and the same doll doubles as a Bluetooth speaker.
 
-- Bluetooth Classic A2DP speaker support.
-- BLE parent controls and settings over a single-page Web Bluetooth app.
-- SD-card WAV playback for songs and animal sounds.
-- Configurable content metadata, sleep-mode behavior, and Bedtime mode.
-- Hardware planning notes for the prototype and final PCB.
+It works entirely on its own: no account, no Wi-Fi and no cloud. Songs and
+sounds live on a microSD card, so the content can change without touching the
+software.
 
-## Repository History
+**[Parents' guide (PDF)](docs/SweetYaar_Parents_Guide.pdf)** · **[Open the parent remote](https://sweetyaar.zachmoshe.com)** · **[Real-life findings](docs/findings/README.md)**
 
-This repository has three useful history points:
+## Using SweetYaar
 
-- `main`: the current ESP32/PlatformIO firmware, Web Bluetooth parent remote,
-  SD-card content template, sleep-mode work, and hardware planning artifacts.
-- `v1.0`: the previous MicroPython-era implementation that used to be the
-  remote `main` branch.
-- `v0.0`: an older educational snapshot that used to be named `v1.0`.
+### The child's buttons
 
-To inspect the previous implementation:
+| Do this | And the doll |
+| --- | --- |
+| Press the song button | plays a song from the current theme; press again for the next one |
+| Press the animal button | plays an animal sound; press again for the next one |
+| Press both buttons | stops |
+| Hold both buttons for 3 seconds | opens Bluetooth pairing for a minute |
 
-```bash
-git fetch origin
-git switch v1.0
-```
+When nobody plays with it, the doll goes to sleep on its own. A button press
+wakes it.
 
-To inspect the older educational snapshot:
+### The parent remote
 
-```bash
-git switch v0.0
-```
+Open [sweetyaar.zachmoshe.com](https://sweetyaar.zachmoshe.com) in Chrome or
+Edge (on Android or a computer) and connect to the doll. The remote can:
 
-To return to the current codebase:
+- start, stop and skip songs, and set the volume;
+- pick the song theme and turn continuous play on;
+- pause the child's buttons for a ten-minute Quiet time;
+- run Bedtime: a gentler theme and lower volume on a schedule;
+- show the battery and charging state, and install firmware updates.
 
-```bash
-git switch main
-```
+It can be installed to the home screen and keeps working offline. The
+[Parents' guide](docs/SweetYaar_Parents_Guide.pdf) walks through all of it.
 
-## Development Setup
+### As a Bluetooth speaker
 
-Create or refresh the root development environment:
+Pair a phone or computer with the doll (hold both buttons for 3 seconds), then
+play anything to it. While a phone streams, the doll's buttons are ignored;
+disconnect it to return to the doll's own songs.
+
+### Battery
+
+A full charge lasts about **34 hours** of songs from the card, or about
+**15 hours** of Bluetooth streaming. The remote shows the battery level. See
+the [battery report](docs/findings/battery-under-stress/battery-under-stress.pdf)
+for how this was measured.
+
+## Real-life findings
+
+Reports of experiments on real devices, written for anyone who wants to know
+how the toy actually behaves: [docs/findings](docs/findings/README.md).
+
+## How it is made
+
+| Part | What it is | Read more |
+| --- | --- | --- |
+| Firmware | ESP32-WROOM-32, C++ on PlatformIO/Arduino: playback, Bluetooth, buttons, sleep | [Firmware](docs/engineering/firmware.md) |
+| Parent remote | A Web Bluetooth app, installable and offline | [Mobile app](docs/engineering/mobile-app.md) |
+| Electronics | A custom board with charger, power switching and amplifier | [Hardware](docs/engineering/hardware.md) |
+| Diagnostics | An on-device flash log, its upload and a log viewer | [Logging and debugging](docs/logging-and-debugging.md) |
+
+For the story of the project and its design principles, read the
+[project overview](docs/overview.md).
+
+---
+
+## For developers
+
+### Setup and common commands
 
 ```bash
 make setup
 ```
 
-The root `Makefile` is the common entry point for project tasks. Run `make help`
-to list every command. The most common ones are:
+`make help` lists every command. The most common ones:
 
 ```bash
 make app            # Serve the parent app at http://localhost:8000/
 make build          # Build the complete ESP32 firmware
 make flash          # Build and upload to a connected ESP32
 make monitor        # Open the serial monitor
-make flash-monitor  # Flash, then monitor
 make test           # Run the full regression suite
 make test-unit      # Host-only tests; never flashes or touches hardware
 make test-device    # Approved real-device tests (see tests/README.md)
 ```
 
-Targets are intentionally thin wrappers around the component tools and can be
-extended in `Makefile`. Variables can be overridden per invocation, for example
-`make app APP_PORT=8080` or
-`make monitor SERIAL_PORT=/dev/cu.SLAB_USBtoUART`.
+Variables can be overridden per invocation, for example `make app APP_PORT=8080`
+or `make monitor SERIAL_PORT=/dev/cu.SLAB_USBtoUART`.
 
-## Regression Tests
+### Repository layout
 
-Run the standard regression suite:
+- `firmware/esp32/`: PlatformIO project and firmware source.
+- `app/`: the Web Bluetooth parent remote and its design assets.
+- `hardware/`: KiCad projects for the mainboard and debugger, libraries, enclosure models and datasheet index.
+- `content/sd-card-template/`: the SD card's folder structure, metadata and config.
+- `tests/`: host-side pytest, native C++, app and firmware-build tests.
+- `tools/`: utilities such as the device test runner, log tools and audio converters.
+- `docs/`: the engineering guides, findings and overview.
 
-```bash
-make test
-```
+### History
 
-The `dev` dependency group is installed by default and locked in `uv.lock`. If
-the venv is activated, plain `python -m pytest` is equivalent.
-
-See [`docs/engineering/firmware.md`](docs/engineering/firmware.md) for firmware behavior, architecture,
-build instructions, and test coverage.
-
-## Project Layout
-
-- `firmware/esp32/`: PlatformIO project and production firmware source.
-- `hardware/mainboard/`: production KiCad mainboard project and manufacturing exports.
-- `hardware/debugger/`: KiCad project for the separate USB-UART debugger board.
-- `hardware/libraries/`: repository-owned KiCad symbols, footprints, and 3D models.
-- `hardware/mechanical/enclosure/`: enclosure STL models.
-- `hardware/references/`: hardware datasheet and application-note index.
-- `tests/`: host-side pytest, native C++, app, and firmware-build regression tests.
-- `app/`: the deployable Web Bluetooth parent remote and editable design assets.
-- `docs/engineering/`: firmware, app, and hardware engineering guides.
-- `docs/assets/`: shared engineering-documentation images and diagrams.
-- `content/sd-card-template/`: expected SD-card folder structure, metadata, and config.
-- `tools/`: standalone utilities, including the opt-in device test runner and the WAV mono converter.
-- [`docs/overview.md`](docs/overview.md): high-level project overview and design history.
-- [`docs/engineering/firmware.md`](docs/engineering/firmware.md): device behavior, firmware components,
-  build instructions, and regression tests.
-- [`docs/engineering/mobile-app.md`](docs/engineering/mobile-app.md): parent remote behavior, design
-  assets, Bedtime mode, offline support, deployment, and app tests.
-- [`docs/engineering/hardware.md`](docs/engineering/hardware.md): system architecture, DevKit wiring,
-  production power design, safety requirements, and bring-up checks.
-
-## Hardware Target
-
-The firmware targets the original ESP32-WROOM-32. This matters because the toy
-uses Bluetooth Classic A2DP, which is not available on ESP32-S3/C3/C6 variants.
-
-The current hardware plan uses GPIO13/`PERIPH_PWR_EN` as the shared active-HIGH
-enable for the 3.3 V peripheral load switch and the 5 V peripheral boost. The
-real app enables both branches during boot, then drives and RTC-holds GPIO13 LOW
-before deep sleep; see
-[`docs/engineering/hardware.md`](docs/engineering/hardware.md) for the AP2281-3WG-7 SD switch, 5 V amp
-boost, required common ground, and shared-enable pulldown.
-
-The production status indicator is a single **WS2812B-V6 (LCSC C52917433)**,
-a 5050 SMD addressable RGB LED on `5V_PERIPH_SW`. GPIO2 drives `DIN` directly
-through the 330 Ω `R_LED_DIN1` series resistor (LCSC C23138); the LED interface
-has no MMBT3904 stage or 5 V pull-up. The `sweetyaar` environment explicitly
-selects non-inverted RMT output (`SWEETYAAR_STATUS_LED_DATA_INVERTED=0`) and
-24-bit GRB data (`SWEETYAAR_STATUS_LED_RGBW=0`,
-`SWEETYAAR_STATUS_LED_COLOR_ORDER_GRB=1`). The `sweetyaar-generic` environment
-retains the directly wired 32-bit RGBW/SK6812-style bench LED with non-inverted
-data and GRBW channel order. GPIO16 and GPIO17 carry BQ25186 charger I2C SDA
-and SCL, respectively. A controller-wide brightness setting scales every
-available color channel and currently defaults to 50% pending enclosure testing.
+`main` is the current ESP32 firmware. Two older versions are kept as branches:
+`v1.0`, the previous MicroPython implementation, and `v0.0`, an earlier
+educational snapshot (`git switch v1.0`).

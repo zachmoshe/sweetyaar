@@ -95,6 +95,9 @@ in the relevant engineering guide rather than duplicated here.
 - [Mobile App](engineering/mobile-app.md) is the source of truth for the
   parent experience, controls and settings, Bluetooth connection flow, Bedtime
   presentation, offline operation, deployment, and app testing.
+- [Real-life findings](findings/README.md) are reports of bench experiments
+  on real devices, such as battery runtime; they are evidence for the guides,
+  not specifications.
 - [README](../README.md) covers repository history, development setup, common
   commands, and the repository layout.
 

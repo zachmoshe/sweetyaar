@@ -258,8 +258,8 @@ Target: **at most 75 µA at the battery**, with the main switch on and USB, AUX,
 and the debugger disconnected. This is a design target until the production PCB
 is measured, not a measured consumption figure.
 
-For the **3400 mAh** cell in use (the reference ARB-L18-3500 is sold as a 3500 mAh cell), continuous sleep at 75 µA gives an ideal
-`3400 mAh / 0.075 mA = 45,333 hours`, or **1,889 days / 5.17 years**.
+For the **2600 mAh** reference cell (ARB-L18-2600), continuous sleep at 75 µA gives an ideal
+`2600 mAh / 0.075 mA = 34,667 hours`, or **1,444 days / 3.96 years**.
 The electronics consume 1.8 mAh per day at that current. This is a capacity-only
 estimate, not a shelf-life guarantee: battery self-discharge, aging, temperature,
 unusable capacity below cutoff, and every wake/playback interval shorten it.
@@ -278,7 +278,7 @@ efficiency at very light load.
 | Component | Deep-sleep state | Reference current | Sleep budget |
 |---|---|---:|---:|
 | BQ25186 charger/power path | Battery-only; system asleep | 4 µA typical, 5 µA maximum at 3.6 V and 0–85°C | **4–5 µA** |
-| 18650 protection circuit | Always on | ARB-L18-3500 reference cell; verify a substitute does not exceed the reference design allocation | **1–2 µA provisional** |
+| 18650 protection circuit | Always on | ARB-L18-2600 reference cell; verify a substitute does not exceed the reference design allocation | **1–2 µA provisional** |
 | TPS63802 3.3 V buck-boost | Always on | 11 µA typical | **11–14 µA** |
 | ESP32-WROOM-32 + EXT0/EXT1 | Deep sleep | 10–15 µA | **10–15 µA** |
 | 3.3 V feedback divider | 510 kΩ from `3V3_AON` to `FB`, 91 kΩ from `FB` to GND | 3.302 V / 601 kΩ = 5.49 µA at `3V3_AON` | **5–7 µA battery-side** |
@@ -325,7 +325,7 @@ the battery section for the bypass wiring and exceptional-use policy.
 
 > [!WARNING]
 > **TBD — Close the deep-sleep design budget:** Obtain or measure the
-> ARB-L18-3500 protection circuit's maximum standby current and require any
+> ARB-L18-2600 protection circuit's maximum standby current and require any
 > substitute cell not to exceed that allocation. Select the exact
 > always-powered ceramic capacitors, charger-interface leakage, and the
 > second AP2281's maximum shutdown leakage,
@@ -554,12 +554,12 @@ be interchangeable with the battery connector.
 
 ### Battery, charging, and regulation
 
-The production reference cell is the removable, protected **Fenix
-ARB-L18-3500 18650 Li-ion battery**. The
-[ARB-L18-3500](https://www.fenixlighting.com/products/fenix-arb-l18-3500-rechargeable-18650-battery/1000)
-specifies 1 A recommended charging and is the mechanical and electrical baseline
-for the holder and power path; its published size is approximately 69 mm long by
-18.6 mm diameter. An alternative cell is acceptable only as a compatible
+The production reference cell is the removable, protected, button-top **Fenix
+ARB-L18-2600 18650 Li-ion battery** (2600 mAh, 3.6 V). The
+[ARB-L18-2600](https://www.fenixlighting.com/products/fenix-arb-l18-2600-rechargeable-18650-battery)
+is marked for 1 A charging input and is the mechanical and electrical baseline
+for the holder and power path; it is approximately 69 mm long, a standard 18650
+diameter. An alternative cell is acceptable only as a compatible
 substitute: protected button-top 18650, 1S Li-ion, approximately 3.6–3.7 V
 nominal and 4.2 V maximum, at least 1 A charging capability, and more than 2 A
 continuous discharge capability. It must fit the same holder and enclosure;
@@ -567,9 +567,9 @@ capacity may vary without changing the PCB design.
 
 | Item | Decision or requirement |
 |---|---|
-| Battery format and chemistry | Fenix ARB-L18-3500 reference cell, or an electrically and mechanically compatible protected, removable button-top 1S 18650 Li-ion substitute: approximately 3.6–3.7 V nominal and 4.2 V maximum. |
+| Battery format and chemistry | Fenix ARB-L18-2600 reference cell, or an electrically and mechanically compatible protected, removable button-top 1S 18650 Li-ion substitute: approximately 3.6–3.7 V nominal and 4.2 V maximum. |
 | Required current capability | At least 1 A charging and more than 2 A continuous discharge. These are minimum substitute-cell requirements, not open product choices. |
-| Capacity | May vary without changing the PCB, provided the substitute still meets the fixed electrical, protection, and mechanical requirements. |
+| Capacity | May vary without changing the PCB, provided the substitute still meets the fixed electrical, protection, and mechanical requirements. The 2600 mAh reference cell lasts about 34 hours of SD card playback or 15 hours of Bluetooth streaming per charge ([battery runtime finding](../findings/battery-under-stress/battery-under-stress.pdf)). |
 | Battery protection | The cell must include overcharge, over-discharge, over-current, and short-circuit protection. **Fit no additional fuse or resettable PTC in the current design.** Verify the complete holder, harness, connector, switch, and PCB under expected and fault-current conditions. |
 | Charger | [BQ25186DLHR](https://www.ti.com/product/BQ25186), I2C-controlled 1-cell Li-ion charger with power path. It was selected because firmware can set and verify the battery-temperature limits required by the cell rather than accepting the BQ25185's fixed 60°C HOT threshold. |
 | External-source mux | [TPS2121RUXR](https://www.ti.com/product/TPS2121), with USB `VBUS` on priority input `IN1`, `AUX_5V_IN` on backup input `IN2`, and `OUT` feeding BQ25186 `IN`. The circuit sets USB priority at approximately 4.24 V, input overvoltage rejection at approximately 6.04 V, and a nominal 2.25 A mux current limit. |
@@ -1086,7 +1086,7 @@ The current design relies on the mandatory protected 18650 and therefore adds
 no board-level or inline fuse/PTC. This is a fixed architecture decision, not a
 claim that the battery's marketing description alone proves product safety.
 The complete battery path must still be checked for abnormal operation, short
-circuits, temperature, and mechanical damage using the ARB-L18-3500 reference
+circuits, temperature, and mechanical damage using the ARB-L18-2600 reference
 cell or a substitute meeting the fixed requirements above.
 
 Early battery prototypes should be charged only under supervision. Review the
@@ -1325,8 +1325,8 @@ Current enclosure requirements and open mechanical work are:
   accessible externally. Do not place it at the enclosure edge; instead provide
   enough internal finger and card-travel clearance to replace the card after the
   enclosure has been opened.
-- The protected 18650 holder must fit the ARB-L18-3500 reference envelope of
-  approximately 69 mm length and 18.6 mm diameter,
+- The protected 18650 holder must fit the ARB-L18-2600 reference envelope of
+  approximately 69 mm length and standard 18650 diameter,
   prevent reverse insertion where practical, retain and electrically insulate
   the cell, and protect it from crushing, puncture, sharp edges, and tool-free
   child access. Retain the insulated 103AT-2 sensor against the cell wrapper so

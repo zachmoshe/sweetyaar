@@ -20,6 +20,9 @@ design they describe.
 - [Mobile app](docs/engineering/mobile-app.md): parent remote, PWA, deployment.
 - [Logging and debugging](docs/logging-and-debugging.md): the flash log, its
   event catalog (IDs are permanent; add, never renumber) and how to read it.
+- [Real-life findings](docs/findings/README.md): one-page reports of bench
+  experiments (setup, results, recommendations), each with its data and
+  `build_report.py`. Evidence, not specification.
 - `docs/engineering/*-validation.md` are records of real-device investigations
   and may describe superseded states; each says what has since changed.
 
@@ -127,8 +130,8 @@ explicitly says to reuse an existing branch or worktree (or to work on `main`).
 - The prototype draws about 200–250 mA at 5 V in playback; use 500 mA as a
   preliminary high bound until Bluetooth streaming with a 4 Ω speaker at full
   volume is measured, with extra transient margin for the power path. The
-  current cell is 3400 mAh; about 2000 mAh is probably enough if runtime and
-  packaging tests confirm it.
+  cell is 2600 mAh, which is enough: about 34 h of SD playback or 15 h of
+  Bluetooth streaming per charge (see docs/findings).
 - On the generic prototype board GPIO13 only drives an indicator LED, so the SD
   card and amp stay powered in sleep and its sleep current is not representative.
 
