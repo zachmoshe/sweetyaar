@@ -432,7 +432,7 @@ datasheet-recommended 1 µF input and 0.1 µF output capacitors, plus the 100 nF
 ADC-node capacitor shown above. The `-3` variant actively discharges its output
 when disabled; the series 200 kΩ lower leg holds the ADC node at GND. Firmware
 enables 2.5 dB ADC attenuation (`ADC_2_5db`) and uses calibrated millivolt readings.
-The critical battery-warning transitions (3.1–3.4 V) map to 743–815 mV through
+The critical battery-warning transitions (3.4–3.6 V) map to 815–863 mV through
 the divider. Exact accuracy at the upper end of the battery range is not
 required: the ADC provides coarse battery-state thresholds, while charging
 state is detected from the BQ25186 `STAT0.CHG_STAT` field over I2C.
@@ -880,10 +880,10 @@ rolling ten-sample window. The voltage-state hysteresis is:
 
 | Transition | Averaged `BAT` threshold |
 |---|---:|
-| `GOOD` → `MEDIUM` | ≤3.40 V |
-| `MEDIUM` → `GOOD` | ≥3.50 V |
-| `MEDIUM` → `LOW` | ≤3.10 V |
-| `LOW` → `MEDIUM` | ≥3.20 V |
+| `GOOD` → `MEDIUM` | ≤3.50 V |
+| `MEDIUM` → `GOOD` | ≥3.60 V |
+| `MEDIUM` → `LOW` | ≤3.40 V |
+| `LOW` → `MEDIUM` | ≥3.50 V |
 
 I2C `STAT0.CHG_STAT` values for constant-current or constant-voltage charging
 override the voltage state as `CHARGING`. The averaged voltage state continues updating underneath and is

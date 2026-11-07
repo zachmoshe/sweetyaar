@@ -370,8 +370,11 @@ periodic reading. One new sample is added every 30 seconds after the final
 startup reading; the window grows to ten samples, or about five minutes, and
 stays at that size. The startup mean counts once rather than five times.
 
-The state uses 100 mV hysteresis: `GOOD` falls to `MEDIUM` at 3.40 V and returns
-at 3.50 V; `MEDIUM` falls to `LOW` at 3.10 V and returns at 3.20 V. Voltage
+The state uses 100 mV hysteresis: `GOOD` falls to `MEDIUM` at 3.50 V and returns
+at 3.60 V; `MEDIUM` falls to `LOW` at 3.40 V and returns at 3.50 V. These
+thresholds follow the [battery runtime finding](../findings/battery-under-stress/battery-under-stress.pdf):
+under Bluetooth streaming, the heaviest load, they come a little over 1.5 hours and
+30 minutes before the toy runs out. Voltage
 sampling continues while charging so the most recent band is ready when charge
 status ends. Charger faults are logged, while only normal charging uses the
 `CHARGING` battery state.

@@ -198,10 +198,10 @@ static constexpr uint32_t TELEMETRY_INTERVAL_MS = 5UL * 60UL * 1000UL;
 static constexpr uint32_t USAGE_INTERVAL_MS = 60UL * 60UL * 1000UL;
 static constexpr uint8_t  BATTERY_BOOT_SAMPLE_COUNT = 5;
 static constexpr uint8_t  BATTERY_ROLLING_SAMPLE_COUNT = 10;
-static constexpr uint16_t BATTERY_GOOD_TO_MEDIUM_MV = 3400;
-static constexpr uint16_t BATTERY_MEDIUM_TO_GOOD_MV = 3500;
-static constexpr uint16_t BATTERY_MEDIUM_TO_LOW_MV = 3100;
-static constexpr uint16_t BATTERY_LOW_TO_MEDIUM_MV = 3200;
+static constexpr uint16_t BATTERY_GOOD_TO_MEDIUM_MV = 3500;
+static constexpr uint16_t BATTERY_MEDIUM_TO_GOOD_MV = 3600;
+static constexpr uint16_t BATTERY_MEDIUM_TO_LOW_MV = 3400;
+static constexpr uint16_t BATTERY_LOW_TO_MEDIUM_MV = 3500;
 
 // ---------------------------------------------------------------------------
 // Audio

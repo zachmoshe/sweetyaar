@@ -246,21 +246,21 @@ static void batterySoundEvents() {
     };
 
     boot(0); // No state change until there is a valid reading.
-    sample(790);
+    sample(830);
     assert(batteryMonitor.state() == BatteryState::Medium && requests == 1);
     boot(700, false, 1); // First LOW reading after power-on or wake warns once.
     for (unsigned i = 0; i < 100; ++i) pollBatteryState();
     assert(requests == 1);
-    boot(790, false, 1); // First MEDIUM reading also warns once.
+    boot(830, false, 1); // First MEDIUM reading also warns once.
     for (unsigned i = 0; i < 100; ++i) pollBatteryState();
     assert(requests == 1);
-    for (uint32_t adc : {700U, 790U, 900U}) {
+    for (uint32_t adc : {700U, 830U, 900U}) {
         boot(adc, true); // Charger takes precedence at every battery level.
         assert(chargerRequests == 1);
     }
     boot(900);
 
-    for (uint32_t adc : {700U, 790U}) {
+    for (uint32_t adc : {700U, 830U}) {
         // Real startup sampling runs while Ready/Error owns the speaker.
         boot(adc, false, 0, true);
         assert(batterySoundPending);
@@ -271,13 +271,13 @@ static void batterySoundEvents() {
     }
 
     boot(900);
-    sample(790, 10); // GOOD -> MEDIUM, then stable.
+    sample(830, 10); // GOOD -> MEDIUM, then stable.
     assert(batteryMonitor.state() == BatteryState::Medium && requests == 1);
     sample(700, 10); // MEDIUM -> LOW, same cue, then stable.
     assert(batteryMonitor.state() == BatteryState::Low && requests == 2);
     for (unsigned i = 0; i < 100; ++i) pollBatteryState();
     assert(requests == 2);
-    sample(790, 10); // LOW -> MEDIUM is a new warning band, so cue again.
+    sample(845, 10); // LOW -> MEDIUM is a new warning band, so cue again.
     assert(batteryMonitor.state() == BatteryState::Medium && requests == 3);
     sample(900, 10);
     assert(batteryMonitor.state() == BatteryState::Good && requests == 3);
@@ -296,7 +296,7 @@ static void batterySoundEvents() {
 
     boot(900);
     systemAudio.busy = true;
-    sample(790, 10);
+    sample(830, 10);
     assert(batterySoundPending && requests == 0);
     sample(700, 10); // Pending MEDIUM and LOW warnings coalesce into one cue.
     assert(batterySoundPending && requests == 0);
@@ -307,7 +307,7 @@ static void batterySoundEvents() {
 
     boot(900);
     systemAudio.busy = true;
-    sample(790, 10);
+    sample(830, 10);
     assert(batterySoundPending);
     sample(900, 10); // GOOD cancels a pending warning.
     systemAudio.busy = false;
@@ -316,7 +316,7 @@ static void batterySoundEvents() {
 
     boot(900);
     systemAudio.busy = true;
-    sample(790, 10);
+    sample(830, 10);
     charger.value = true;
     pollBatteryState(); // Starting charging cancels a pending warning.
     assert(!batterySoundPending && requests == 0);
@@ -404,7 +404,7 @@ static void chargerSoundEvents() {
     boot(true, false); // Cable attached, but paused/full: both cues silent.
     assert(requests == 0 && chargerRequests == 0);
     for (unsigned i = 0; i < 10; ++i) {
-        g_adcValues.push_back(790);
+        g_adcValues.push_back(845);
         g_fakeMillis += BATTERY_SAMPLE_INTERVAL_MS;
         pollBatteryState();
     }
