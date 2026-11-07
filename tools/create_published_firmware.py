@@ -3,7 +3,7 @@
 Prepare the next firmware release, interactively.
 
   1. Shows the current FIRMWARE_VERSION and proposes the next minor version.
-  2. Lists the commits since the current version was set.
+  2. Lists the commits that changed the firmware since the current version was set.
   3. Asks for the release note parents will see (written by you, one line).
   4. Writes the version to Config.h and the note to firmware/release-notes.json.
   5. Builds the production firmware and prints how to try it on your own doll.
@@ -27,6 +27,7 @@ import sys
 ROOT = pathlib.Path(os.environ.get("SWEETYAAR_ROOT", pathlib.Path(__file__).resolve().parent.parent))
 CONFIG_H = "firmware/esp32/src/Config.h"
 NOTES = "firmware/release-notes.json"
+FIRMWARE_SOURCE = "firmware/esp32"  # only commits under it change the image
 NOTE_MAX_CHARS = 160
 VERSION_RE = re.compile(r'(FIRMWARE_VERSION\[\]\s*=\s*")(\d+\.\d+\.\d+)(")')
 
@@ -80,12 +81,12 @@ def git(*args: str) -> str:
 
 
 def commits_since_version(version: str) -> tuple[str | None, list[str]]:
-    """Commits after the one that set FIRMWARE_VERSION to |version|."""
+    """Firmware commits after the one that set FIRMWARE_VERSION to |version|."""
     since = git("log", "-1", "--format=%H", f'-SFIRMWARE_VERSION[] = "{version}"', "--", CONFIG_H).strip()
     if since:
-        return since, git("log", "--no-merges", "--format=%h %s", f"{since}..HEAD").splitlines()
+        return since, git("log", "--no-merges", "--format=%h %s", f"{since}..HEAD", "--", FIRMWARE_SOURCE).splitlines()
     # The version was never committed: show recent history instead.
-    return None, git("log", "--no-merges", "--format=%h %s", "-n", "30", "HEAD").splitlines()
+    return None, git("log", "--no-merges", "--format=%h %s", "-n", "30", "HEAD", "--", FIRMWARE_SOURCE).splitlines()
 
 
 def ask(prompt: str, default: str | None = None) -> str:
@@ -147,10 +148,10 @@ def main() -> int:
         since, commits = commits_since_version(current)
         where = (f"since {since[:9]} (set version {current})" if since
                  else f"(no commit sets {current} yet; showing the last 30)")
-        print(f"\nCommits {where}:")
+        print(f"\nFirmware commits {where}:")
         for line in commits or ["  (none)"]:
             print(f"  {line}")
-        if not commits and not confirm("\nNo new commits. Prepare a release anyway?", default=False):
+        if not commits and not confirm("\nNo new firmware commits. Prepare a release anyway?", default=False):
             return 1
 
         version = choose_version(current)

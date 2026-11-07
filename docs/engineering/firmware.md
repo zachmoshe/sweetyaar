@@ -1130,7 +1130,7 @@ when `app/public/firmware/manifest.json` names a newer version, and only
 `make release-firmware` writes it.
 
 1. Run `make create-published-firmware`. It shows the current version and the
-   commits since that version was set, proposes the next minor version (any
+   commits that changed `firmware/esp32/` since that version was set, proposes the next minor version (any
    newer `major.minor.patch` may be typed instead), asks for the one-line
    release note, writes the version to `Config.h` and the note to
    `firmware/release-notes.json`, builds the production firmware, and prints

@@ -149,9 +149,12 @@ def test_prepare_release_interactive_run(repo_root, tmp_path):
     git("init", "-q")
     git("add", ".")
     git("commit", "-qm", "Initial work")
-    (repo / "a.txt").write_text("feature")
+    (repo / "firmware/esp32/src/Bedtime.cpp").write_text("feature")
     git("add", ".")
     git("commit", "-qm", "Add bedtime fade-out")
+    (repo / "README.md").write_text("docs")
+    git("add", ".")
+    git("commit", "-qm", "Rewrite the README")
     answers = "\n".join([
         "0.9.0",                            # rejected: older than current
         "",                                 # accept the proposed 1.1.0
@@ -167,6 +170,7 @@ def test_prepare_release_interactive_run(repo_root, tmp_path):
     out = result.stdout
     assert "Current firmware version: 1.0.0" in out
     assert "Add bedtime fade-out" in out and "Initial work" not in out  # only since 1.0.0
+    assert "Rewrite the README" not in out  # only commits that change the firmware
     assert "New version [1.1.0]" in out and "must be newer than 1.0.0" in out
     assert "The note is empty." in out
     assert 'Parents will see: "Version 1.1.0: Bedtime songs fade out gently."' in out
