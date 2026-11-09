@@ -1210,8 +1210,12 @@ function frame(ticks, days, body, gridOnTop = false) {
   });
   const bottom = PLOT_T + PLOT_H + 10;
   const layers = gridOnTop ? body + grid.join("") : grid.join("") + body;
+  // DD/MM under the first, middle and last day; the middle one centred on its column.
+  const ddmm = (day) => `${day.slice(8, 10)}/${day.slice(5, 7)}`;
+  const mid = Math.floor((days.length - 1) / 2), midX = (PLOT_L + (mid + 0.5) * PLOT_W / days.length).toFixed(1);
   return `<svg class="mini" viewBox="0 0 ${CHART_W} ${bottom + 1}">${layers}` +
-         small(PLOT_L, bottom, days[0].slice(5), "start") + small(PLOT_L + PLOT_W, bottom, "today") + `</svg>`;
+         small(PLOT_L, bottom, ddmm(days[0]), "start") + small(midX, bottom, ddmm(days[mid]), "middle") +
+         small(PLOT_L + PLOT_W, bottom, ddmm(days[days.length - 1])) + `</svg>`;
 }
 
 // Whole-number ticks: 0, half and the top.
