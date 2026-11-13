@@ -2979,6 +2979,50 @@ const tests = [
     assert.strictEqual(ble.requestCount, 0);
     assert.strictEqual(els.connectButton.disabled, false);
   `],
+  ["Stop abandons a connection that is being set up", String.raw`
+    AUTO_CONNECT_FIND_MS = 5000;
+    localStorage.setItem("sweetyaar-last-device-id", "fake-device");
+    let ble = makeBleHarness({ grantedDevices: (device) => [device] });
+    assert.strictEqual(els.connectStopButton.hidden, true);
+    // The automatic attempt, while it scans for a toy it does not hear.
+    let scanAborted = false;
+    ble.device.watchAdvertisements = async ({ signal }) => { signal.addEventListener("abort", () => { scanAborted = true; }); };
+    let connects = 0;
+    ble.device.gatt.connect = () => { connects += 1; return new Promise(() => {}); };
+    const attempt = autoConnect();
+    await waitUntil(() => !els.connectStopButton.hidden, "Stop shown while connecting");
+    assert.strictEqual(els.connectSplit.classList.contains("connecting"), true);
+    assert.strictEqual(els.connectButtonLabel.textContent, "Connecting...");
+    await els.connectStopButton.click();
+    await attempt;
+    assert.strictEqual(scanAborted, true);
+    assert.strictEqual(connects, 0);
+    assert.strictEqual(state.busy, false);
+    assert.strictEqual(state.connected, false);
+    assert.strictEqual(state.device, null);
+    assert.strictEqual(els.connectStopButton.hidden, true);
+    assert.strictEqual(els.connectSplit.classList.contains("connecting"), false);
+    assert.strictEqual(els.connectButton.disabled, false);
+    assert.strictEqual(els.openingMessage.textContent, "Connection stopped.");
+    // After a press, while the link never comes up.
+    ble = makeBleHarness({ grantedDevices: (device) => [device] });
+    let disconnects = 0;
+    ble.device.gatt.connect = () => new Promise(() => {});
+    ble.device.gatt.disconnect = () => { disconnects += 1; };
+    const pressed = els.connectButton.click();
+    await waitUntil(() => !els.connectStopButton.hidden, "Stop shown after a press");
+    await els.connectStopButton.click();
+    await pressed;
+    assert.strictEqual(disconnects, 1);
+    assert.strictEqual(state.busy, false);
+    assert.strictEqual(els.connectButton.disabled, false);
+    assert.strictEqual(els.connectStopButton.hidden, true);
+    // Connecting again afterwards works.
+    ble = makeBleHarness({ grantedDevices: (device) => [device] });
+    await els.connectButton.click();
+    await waitUntil(() => state.connected && !state.remoteInitializing, "connection after a stop");
+    assert.strictEqual(els.connectStopButton.hidden, true);
+  `],
 ];
 
 if (require.main === module) (async () => {

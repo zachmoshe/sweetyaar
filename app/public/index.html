@@ -464,6 +464,42 @@
       opacity: 0.75;
     }
 
+    /* While connecting the button splits: "Connecting..." | "✕ Stop". */
+    .connect-split {
+      display: flex;
+      width: fit-content;
+      max-width: 100%;
+      margin: 26px auto 0;
+      border-radius: 13px;
+      box-shadow: 0 10px 22px rgba(0, 105, 220, 0.32);
+    }
+    .connect-split .connect-button { margin: 0; box-shadow: none; }
+    .connect-split.connecting .connect-button {
+      min-width: min(calc(100% - 74px), 240px);
+      border-radius: 13px 0 0 13px;
+    }
+    .connect-split.connecting .connect-button:disabled { opacity: 1; }
+    .connect-stop {
+      flex: none;
+      display: grid;
+      place-items: center;
+      width: 74px;
+      min-height: 70px;
+      padding: 0;
+      border: 0;
+      border-left: 2px solid transparent;   /* a gap: the page shows through */
+      background-clip: padding-box;
+      border-radius: 0 13px 13px 0;
+      background-image: linear-gradient(180deg, #1686ff, #006add);   /* the Connect button's blue */
+      color: #ffffff;
+      cursor: pointer;
+      font-size: 30px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .connect-stop:hover { background-image: linear-gradient(180deg, #0878f1, #005fc4); }
+    .connect-stop[hidden] { display: none; }
+
     .opening-art,
     .stream-art {
       display: block;
@@ -2641,10 +2677,13 @@
           </div>
         </article>
 
-        <button class="connect-button" id="connectButton" type="button">
-          <img class="bt-icon" src="assets/icon-bluetooth.svg" alt="">
-          <span id="connectButtonLabel">Connect to SweetYaar</span>
-        </button>
+        <div class="connect-split" id="connectSplit">
+          <button class="connect-button" id="connectButton" type="button">
+            <img class="bt-icon" src="assets/icon-bluetooth.svg" alt="">
+            <span id="connectButtonLabel">Connect to SweetYaar</span>
+          </button>
+          <button class="connect-stop" id="connectStopButton" type="button" aria-label="Stop connecting" title="Stop connecting" hidden><span aria-hidden="true">&#10005;</span></button>
+        </div>
 
         <article class="card info-card flag-hint" id="flagHint" hidden>
           <span class="info-icon" aria-hidden="true">i</span>
@@ -3377,6 +3416,8 @@
       brandName: document.querySelector("#brandName"),
       openingMessage: document.querySelector("#openingMessage"),
       connectButton: document.querySelector("#connectButton"),
+      connectSplit: document.querySelector("#connectSplit"),
+      connectStopButton: document.querySelector("#connectStopButton"),
       connectButtonLabel: document.querySelector("#connectButtonLabel"),
       installBanner: document.querySelector("#installBanner"),
       installButton: document.querySelector("#installButton"),
@@ -3517,6 +3558,7 @@
 
     const state = {
       busy: false,
+      connectAbort: null,   // AbortController of the connection being set up (Stop aborts it)
       connected: false,
       view: "remote",
       device: null,
@@ -5381,6 +5423,9 @@
       els.connectButton.disabled = state.busy;
       els.connectButton.setAttribute("aria-busy", state.busy ? "true" : "false");
       els.connectButtonLabel.textContent = state.busy ? "Connecting..." : `Connect to ${displayDeviceName()}`;
+      const stoppable = !!state.connectAbort && !state.connected;
+      els.connectStopButton.hidden = !stoppable;
+      els.connectSplit.classList.toggle("connecting", stoppable);
       renderFlagHint();
       els.openingMessage.textContent =
         state.message || "New phone? Hold both buttons on the toy for 3 seconds, then connect.";
@@ -7277,17 +7322,26 @@
     }
 
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    // Rejects with a `stopped` error as soon as |signal| aborts (Stop pressed).
+    function orStop(promise, signal) {
+      if (!signal) return promise;
+      const stopped = new Promise((_, reject) => {
+        const fail = () => reject(Object.assign(new Error("stopped"), { stopped: true }));
+        if (signal.aborted) fail(); else signal.addEventListener("abort", fail, { once: true });
+      });
+      return Promise.race([promise, stopped]);
+    }
     function scanWindowMs() {
       return /Android/i.test(navigator.userAgent || "") ? AUTO_CONNECT_FIND_MS : AUTO_CONNECT_HEAR_MS;
     }
-    async function connectWithRetries(device) {
+    async function connectWithRetries(device, signal = null) {
       const deadline = Date.now() + AUTO_CONNECT_FIND_MS;
       let scan = null;
       try {
         let heard = false;
         while (!heard && Date.now() < deadline) {
           scan = watchToy(device);
-          heard = await withTimeout(scan.heard, Math.min(scanWindowMs(), deadline - Date.now()), false);
+          heard = await orStop(withTimeout(scan.heard, Math.min(scanWindowMs(), deadline - Date.now()), false), signal);
           if (!heard) {
             scan.stop();
             scan = null;
@@ -7300,14 +7354,15 @@
         let lastError;
         for (let attempt = 1; attempt <= AUTO_CONNECT_ATTEMPTS; attempt += 1) {
           try {
-            const server = await withTimeout(device.gatt.connect(), AUTO_CONNECT_ATTEMPT_MS, null);
+            const server = await orStop(withTimeout(device.gatt.connect(), AUTO_CONNECT_ATTEMPT_MS, null), signal);
             if (!server) throw new Error("connect timed out");
             return server;
           } catch (error) {
+            if (error?.stopped) throw error;
             lastError = error;
             // Drops a pending connect too, so the next attempt starts clean.
             if (device.gatt) device.gatt.disconnect();
-            if (attempt < AUTO_CONNECT_ATTEMPTS) await sleep(AUTO_CONNECT_RETRY_MS);
+            if (attempt < AUTO_CONNECT_ATTEMPTS) await orStop(sleep(AUTO_CONNECT_RETRY_MS), signal);
           }
         }
         lastError.quiet = true;
@@ -7345,6 +7400,8 @@
       setDeviceNameFromBluetooth(device);
       state.device = device;
       state.busy = true;
+      const abort = new AbortController();
+      state.connectAbort = abort;
       setMessage(`Connecting to ${displayDeviceName()}...`);
 
       let linked = false;
@@ -7353,9 +7410,9 @@
 
         let server;
         if (silent) {
-          server = await connectWithRetries(device);
+          server = await connectWithRetries(device, abort.signal);
         } else {
-          server = await device.gatt.connect();
+          server = await orStop(device.gatt.connect(), abort.signal);
         }
         linked = true;
         rememberDeviceId(device.id);
@@ -7366,6 +7423,7 @@
           await openRemote(server, device);
         }
       } catch (error) {
+        if (abort.signal.aborted) return;   // stopConnecting() already reset the screen
         if (error?.quiet) {
           state.disconnectReason = "";
           device.removeEventListener("gattserverdisconnected", onDisconnected);
@@ -7380,9 +7438,33 @@
           disconnectWithReason(reason || describeConnectionError(error));
         }
       } finally {
-        state.busy = false;
-        render();
+        if (state.connectAbort === abort) state.connectAbort = null;
+        if (!abort.signal.aborted) {
+          state.busy = false;
+          render();
+        }
       }
+    }
+
+    // The Stop part of the Connecting button: abandon the scan or the link
+    // being set up and show the Connect button again. Nothing retries by
+    // itself afterwards; the automatic attempt runs only at page load.
+    function stopConnecting() {
+      const abort = state.connectAbort;
+      if (!abort || state.connected) return;
+      const device = state.device;
+      abort.abort();
+      state.connectAbort = null;
+      if (device) {
+        device.removeEventListener("gattserverdisconnected", onDisconnected);
+        // Also drops a connect still pending.
+        try { device.gatt?.disconnect(); } catch { /* already gone */ }
+      }
+      state.device = null;
+      state.disconnectReason = "";
+      state.busy = false;
+      state.message = "Connection stopped.";
+      render();
     }
 
     async function connect() {
@@ -7597,6 +7679,7 @@
     }
 
     els.connectButton.addEventListener("click", connect);
+    els.connectStopButton.addEventListener("click", stopConnecting);
     els.bluetoothButton.addEventListener("click", chooseAnotherDevice);
     els.flagHintCopy.addEventListener("click", async () => {
       try {

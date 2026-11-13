@@ -49,7 +49,10 @@ drop the current one and open the remote on the new toy, which becomes the
 remembered one. A cancelled chooser or a toy that cannot be reached leaves the
 current remote as it is (the latter with a short notice). While connecting, automatically or after a
 press, the Connect button only says "Connecting..." and the opening message
-names the toy. Chrome and Edge without
+names the toy. The button then splits, with a **✕** (Stop) part on its right: it
+ends the scan or the connect in progress, drops a link that is still being set
+up, and shows the Connect button with "Connection stopped." Nothing retries by
+itself after that; the automatic attempt runs only at page load. Chrome and Edge without
 `getDevices()` (the new permissions backend flag is off) show a dismissible
 opening-screen panel with the flag address to copy, since a page cannot link to
 `chrome://` addresses.
