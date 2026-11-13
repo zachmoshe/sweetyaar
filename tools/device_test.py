@@ -47,6 +47,24 @@ def classic_reconnect_evidence(lines):
     return lines[connected]
 
 
+def audio_already_started(lines):
+    """True when the current speaker session's last reported audio state is STARTED.
+
+    A phone or Mac may start the stream as soon as the toy becomes an output, before
+    the test tone is sent; the tone then produces no new STARTED event.
+    """
+    connected = max((i for i, line in enumerate(lines) if "[BT] Connected" in line), default=None)
+    if connected is None:
+        return False
+    states = [line for line in lines[connected:] if "Audio state:" in line]
+    return bool(states) and "Audio state: STARTED" in states[-1]
+
+
+def service_changed_after(lines, start):
+    """True when the toy told the central its GATT table changed (sent after a first pairing)."""
+    return any("SERVICE_CHANGED_REQUEST" in line for line in lines[start:])
+
+
 class SerialTrace:
     def __init__(self, port, path):
         import serial
@@ -169,6 +187,21 @@ class DeviceTest:
         raise TimeoutError("BLE authentication did not finish")
 
     async def check_ble(self, expected):
+        from bleak.exc import BleakError
+        start = len(self.trace.lines)
+        try:
+            await self.check_ble_once(expected)
+        except (asyncio.TimeoutError, TimeoutError, BleakError) as error:
+            # After a first pairing the toy indicates Service Changed. macOS then discards
+            # the table it discovered, and a read in flight never completes. The pairing
+            # itself is done, so a fresh connection sees the settled state.
+            if not service_changed_after(self.trace.lines, start):
+                raise
+            log(f"RETRY after the toy's Service Changed indication ({type(error).__name__})")
+            await asyncio.sleep(3)
+            await self.check_ble_once(expected)
+
+    async def check_ble_once(self, expected):
         from bleak import BleakClient
         device = await self.find_ble()
         async with BleakClient(device, timeout=20) as client:
@@ -263,11 +296,17 @@ class DeviceTest:
                 frames.extend(struct.pack("<hh", value, value))
             wav.writeframes(frames)
         player = self.directory / "device-tone"
-        await self.command("/usr/bin/xcrun", "swiftc", str(ROOT / "tools/device_tone.swift"),
-                           "-o", str(player), timeout=60)
+        self.tone_command = (str(player), str(tone), target["uid"])
+        if not player.exists():
+            await self.command("/usr/bin/xcrun", "swiftc", str(ROOT / "tools/device_tone.swift"),
+                               "-o", str(player), timeout=60)
         start = len(self.trace.lines)
+        already = audio_already_started(self.trace.lines)
         await self.command(str(player), str(tone), target["uid"], timeout=15)
-        evidence = await self.trace.wait("Audio state: STARTED", start, timeout=5)
+        if already:
+            evidence = "[BT] Audio state: STARTED (the stream was already running before the tone)"
+        else:
+            evidence = await self.trace.wait("Audio state: STARTED", start, timeout=5)
         current = json.loads(await self.command(switch, "-c", "-f", "json"))
         if current["uid"] != original["uid"]:
             raise AssertionError("Mac default audio output changed during targeted tone playback")
@@ -315,6 +354,382 @@ class DeviceTest:
             await self.command(blueutil, "--connect", address)
             await self.trace.wait("[BT] Connected", reconnect, timeout=15)
             self.passed("Classic approved reconnect outside window", "Connected after pairing closed")
+        finally:
+            await self.command(blueutil, "--disconnect", address)
+
+    async def classic_stress(self):
+        """Repeat Classic + BLE contention from this Mac (one Bluetooth identity, so one central).
+
+        Per cycle: Classic first then the approved BLE remote with a tone playing and a BLE
+        reconnect while Classic stays up; then BLE first and Classic joining. Fails if the toy
+        reboots or a BLE link drops unexpectedly. The Mac must already be bonded over Classic and BLE; close every Chrome tab
+        that is connected to the toy first.
+        """
+        from bleak import BleakClient
+        address = self.args.classic_address
+        if not address:
+            raise ValueError("Use --classic-address from this board's boot log")
+        blueutil = shutil.which("blueutil")
+        if not blueutil:
+            raise RuntimeError("blueutil is required")
+        await self.reboot()
+        boots = [sum("[Boot] Ready." in line for line in self.trace.lines)]
+
+        def no_reboot(where):
+            if sum("[Boot] Ready." in line for line in self.trace.lines) != boots[0]:
+                raise AssertionError(f"The toy rebooted {where}")
+
+        def heap_minimum(start):
+            values = [int(m.group(1)) for line in self.trace.lines[start:]
+                      for m in [re.search(r"\[Heap\].* min=(\d+)", line)] if m]
+            return min(values) if values else None
+
+        async def remote(client):
+            if await self.access(client) != b"\x02":
+                raise AssertionError("The Mac is not the approved controller")
+            await asyncio.wait_for(client.read_gatt_char(STATUS), 10)
+
+        async def one_cycle(cycle):
+            log(f"CYCLE {cycle}/{self.args.cycles}: Classic first, then BLE")
+            start = len(self.trace.lines)
+            await self.command(blueutil, "--connect", address, timeout=30)
+            await self.trace.wait("[BT] Connected", start, timeout=15)
+            async with BleakClient(await self.find_ble(), timeout=20) as client:
+                await remote(client)
+                await self.audio(address)
+                await asyncio.sleep(2)
+                if not client.is_connected:
+                    raise AssertionError("BLE dropped while Classic audio played")
+            no_reboot("with Classic connected and BLE joining")
+            # A bonded reconnect while the Classic link is still up.
+            async with BleakClient(await self.find_ble(), timeout=20) as client:
+                await remote(client)
+                await asyncio.sleep(2)
+            no_reboot("on a BLE reconnect during the Classic link")
+            await self.command(blueutil, "--disconnect", address)
+            await self.trace.wait("[BT] Disconnected", start, timeout=15)
+            await asyncio.sleep(3)
+
+            log(f"CYCLE {cycle}/{self.args.cycles}: BLE first, then Classic")
+            mid = len(self.trace.lines)
+            async with BleakClient(await self.find_ble(), timeout=20) as client:
+                await remote(client)
+                await self.command(blueutil, "--connect", address, timeout=30)
+                await self.trace.wait("[BT] Connected", mid, timeout=15)
+                await asyncio.sleep(3)
+                await self.audio(address)
+                if not client.is_connected:
+                    raise AssertionError("BLE dropped when Classic connected")
+            no_reboot("with BLE connected and Classic joining")
+            await self.command(blueutil, "--disconnect", address)
+            await self.trace.wait("[BT] Disconnected", mid, timeout=15)
+            await asyncio.sleep(3)
+            no_reboot("after the cycle")
+            self.passed(f"Stress cycle {cycle}", f"no reboot; lowest heap seen {heap_minimum(start)} bytes")
+
+        failures = 0
+        for cycle in range(1, self.args.cycles + 1):
+            try:
+                await one_cycle(cycle)
+            except Exception as error:
+                if not self.args.keep_going:
+                    raise
+                failures += 1
+                self.results.append({"name": f"Stress cycle {cycle}", "status": "failed",
+                                     "error": f"{type(error).__name__}: {error}"})
+                log(f"FAIL cycle {cycle}: {type(error).__name__}: {error}")
+                try:
+                    # Tells a toy that stopped advertising from a host that failed to connect.
+                    count, first = await self.advertisements(6)
+                    self.results[-1]["advertising_after_failure"] = count
+                except Exception as scan_error:
+                    log(f"ADVERTISEMENTS check failed: {scan_error}")
+                try:
+                    await self.command(blueutil, "--disconnect", address, timeout=15)
+                except Exception:
+                    pass
+                await asyncio.sleep(12)  # the toy may restart itself after a low-heap session
+                boots[0] = sum("[Boot] Ready." in line for line in self.trace.lines)
+        log(f"STRESS SUMMARY: {self.args.cycles - failures} passed, {failures} failed of {self.args.cycles}")
+        if failures:
+            raise AssertionError(f"{failures} of {self.args.cycles} stress cycles failed")
+
+    def classic_tools(self):
+        address = self.args.classic_address
+        if not address:
+            raise ValueError("Use --classic-address from this board's boot log")
+        blueutil = shutil.which("blueutil")
+        if not blueutil:
+            raise RuntimeError("blueutil is required")
+        return address, blueutil
+
+    def toy_span(self, start, first, second):
+        """Seconds between two firmware lines (by arrival time), searched in order from start."""
+        a = next((i for i in range(start, len(self.trace.lines)) if first in self.trace.lines[i]), None)
+        b = None if a is None else next(
+            (i for i in range(a + 1, len(self.trace.lines)) if second in self.trace.lines[i]), None)
+        if a is None or b is None:
+            raise AssertionError(f"Missing firmware events {first!r} then {second!r}")
+        return self.trace.times[b] - self.trace.times[a], self.trace.lines[a]
+
+    async def advertisements(self, seconds, first_only=False):
+        """Listen for the toy's BLE advertisements. Returns (count, seconds to the first or None)."""
+        from bleak import BleakScanner
+        if not self.address:
+            await self.find_ble()
+        count, first, began, found = 0, None, time.monotonic(), asyncio.Event()
+
+        def heard(device, advertisement):
+            nonlocal count, first
+            if device.address != self.address:
+                return
+            count += 1
+            if first is None:
+                first = time.monotonic() - began
+                found.set()
+
+        async with BleakScanner(heard):
+            if first_only:
+                try:
+                    await asyncio.wait_for(found.wait(), seconds)
+                except asyncio.TimeoutError:
+                    pass
+            else:
+                await asyncio.sleep(seconds)
+        log(f"ADVERTISEMENTS {count} in {time.monotonic() - began:.1f}s, first after "
+            f"{'-' if first is None else f'{first:.1f}s'}")
+        return count, first
+
+    async def classic_disconnect(self, blueutil, address, start):
+        """Disconnect the Mac's speaker link; follow the toy through its own post-session restart."""
+        await self.command(blueutil, "--disconnect", address)
+        await self.trace.wait("[BT] Disconnected", start, timeout=15)
+        await asyncio.sleep(5)
+        after = self.trace.lines[start:]
+        if any("Heap too low after BT session" in line for line in after):
+            await self.trace.wait("[Access] Bonds ready", start, timeout=25)
+            await asyncio.sleep(2)
+            return True
+        return False
+
+    async def classic_unpaired_ble(self):
+        """A central with no BLE bond, beside a Classic phone: told why, dropped, speaker unharmed.
+
+        Needs this Mac bonded over Classic and NOT over BLE (run it before ble-pair).
+        """
+        from bleak import BleakClient
+        address, blueutil = self.classic_tools()
+        await self.reboot()
+        boot = list(self.trace.lines)
+        ble = next((line for line in boot if "[BLE] Address" in line), None)
+        classic = next((line for line in boot if "Classic BT address" in line), None)
+        ble_match = re.search(r"Address ((?:[0-9A-F]{2}:){5}[0-9A-F]{2})", ble or "")
+        classic_match = re.search(r"address: ((?:[0-9A-F]{2}:){5}[0-9A-F]{2})", classic or "")
+        if not ble_match or not classic_match or "random static" not in ble:
+            raise AssertionError(f"Missing boot address evidence: {ble!r} {classic!r}")
+        if ble_match.group(1) == classic_match.group(1) or not int(ble_match.group(1)[:2], 16) & 0xC0 == 0xC0:
+            raise AssertionError(f"BLE address is not a separate static random one: {ble}")
+        self.passed("Separate BLE address", f"BLE {ble_match.group(1)}, Classic {classic_match.group(1)}")
+
+        start = len(self.trace.lines)
+        await self.command(blueutil, "--connect", address, timeout=30)
+        await self.trace.wait("[BT] Connected", start, timeout=15)
+        await asyncio.sleep(3)
+        try:
+            # Reads the reason: refused as audio-busy and dropped shortly after the read.
+            mark = len(self.trace.lines)
+            dropped = asyncio.Event()
+            device = await self.find_ble()
+            async with BleakClient(device, timeout=20, disconnected_callback=lambda _: dropped.set()) as client:
+                value = bytes(await asyncio.wait_for(client.read_gatt_char(ACCESS), 10))
+                read_at = time.monotonic()
+                if value == b"\x01":
+                    raise AssertionError("The toy still holds a BLE bond for this Mac; this scenario needs none")
+                if value != b"\x05":
+                    raise AssertionError(f"Expected access=5 (audio-busy), received {value.hex()}")
+                await asyncio.wait_for(dropped.wait(), 5)
+                after_read = time.monotonic() - read_at
+            span, line = self.toy_span(mark, "decision=audio-busy", "[BLE] DISCONNECT conn=")
+            if after_read > 3:
+                raise AssertionError(f"Refused link stayed {after_read:.1f}s after the reason was read")
+            self.passed("Refused BLE link reports audio-busy",
+                        f"access=5; dropped {after_read:.1f}s after the read, {span:.1f}s after connecting; {line}")
+
+            # Never reads the reason: dropped at the limit.
+            await asyncio.sleep(2)
+            mark = len(self.trace.lines)
+            dropped = asyncio.Event()
+            client = BleakClient(await self.find_ble(), timeout=20, disconnected_callback=lambda _: dropped.set())
+            await client.connect()
+            try:
+                await asyncio.wait_for(dropped.wait(), 10)
+            finally:
+                await client.disconnect()
+            span, _ = self.toy_span(mark, "decision=audio-busy", "[BLE] DISCONNECT conn=")
+            if not 3 <= span <= 6.5:
+                raise AssertionError(f"Silent refused link was dropped after {span:.1f}s, expected about 4s")
+            self.passed("Silent refused BLE link dropped at the limit", f"{span:.1f}s after connecting")
+
+            await self.audio(address)
+            if any("[Boot] Ready." in line for line in self.trace.lines[start:]):
+                raise AssertionError("The toy rebooted while refusing BLE links beside the speaker")
+            self.passed("Speaker unharmed by refused BLE links",
+                        "tone played after two refusals; no reboot")
+            restarted = await self.classic_disconnect(blueutil, address, start)
+            again = len(self.trace.lines)
+            await self.command(blueutil, "--connect", address, timeout=30)
+            await self.trace.wait("[BT] Connected", again, timeout=15)
+            if any("[Pairing] Open" in line or "JUST_WORKS_REQUEST decision=allow" in line
+                   for line in self.trace.lines[start:]):
+                raise AssertionError("The speaker needed a fresh pairing after the refusals")
+            self.passed("Speaker reconnects with its saved pairing",
+                        "Connected again, pairing closed" + ("; the toy restarted itself after the session" if restarted else ""))
+        finally:
+            await self.command(blueutil, "--disconnect", address)
+
+    async def advertising(self):
+        """The toy advertises in every state, so a refused remote can always reach it and be told why.
+
+        Needs this Mac bonded over Classic and BLE, and no other central connected.
+        """
+        from bleak import BleakClient
+        address, blueutil = self.classic_tools()
+        await self.reboot()
+        start = len(self.trace.lines)
+
+        async def remote(client):
+            if await self.access(client) != b"\x02":
+                raise AssertionError("The Mac is not the approved controller")
+
+        count, first = await self.advertisements(6)
+        if not count:
+            raise AssertionError("The idle toy was not heard advertising")
+        self.passed("Advertising when idle", f"first heard after {first:.1f}s")
+        try:
+            async with BleakClient(await self.find_ble(), timeout=20) as client:
+                await remote(client)
+                await asyncio.sleep(2)
+                count, first = await self.advertisements(8)
+                if not count:
+                    raise AssertionError("Control failed: with one remote and no speaker the toy should "
+                                         "advertise, and this Mac heard nothing (cannot judge the next step)")
+                self.passed("Advertising with one remote and no speaker", f"first heard after {first:.1f}s")
+                mark = len(self.trace.lines)
+                await self.command(blueutil, "--connect", address, timeout=30)
+                await self.trace.wait("[BT] Connected", mark, timeout=15)
+                await asyncio.sleep(4)
+                count, first = await self.advertisements(10)
+                if not count:
+                    raise AssertionError("The toy was not heard advertising beside a speaker and a remote; "
+                                         "a second remote could not be told why it is refused")
+                if not client.is_connected:
+                    raise AssertionError("The remote dropped when the speaker connected")
+                self.passed("Still findable beside a speaker and a remote",
+                            f"first heard after {first:.1f}s; remote still connected")
+            # The remote leaves while the speaker stays: advertising must come back.
+            count, first = await self.advertisements(12, first_only=True)
+            if not count:
+                raise AssertionError("Advertising did not resume within 12s of the remote leaving")
+            self.passed("Advertising resumes when the remote leaves", f"heard after {first:.1f}s, speaker still connected")
+            async with BleakClient(await self.find_ble(), timeout=20) as client:
+                await remote(client)
+                await asyncio.sleep(2)
+                self.passed("Bonded remote reconnects beside the speaker", "access=2")
+            await asyncio.sleep(3)
+        finally:
+            restarted = await self.classic_disconnect(blueutil, address, start)
+        count, first = await self.advertisements(12, first_only=True)
+        if not count:
+            raise AssertionError("Advertising did not resume after the speaker left")
+        self.passed("Advertising after the speaker leaves",
+                    f"heard after {first:.1f}s" + ("; the toy restarted itself after the session" if restarted else ""))
+        crashes = sum("[Boot] Ready." in line for line in self.trace.lines[start:])
+        if crashes and not restarted:
+            raise AssertionError("The toy rebooted during the advertising scenario")
+
+    async def advertising_audio(self):
+        """A remote that leaves during music must be able to find the toy again.
+
+        Needs this Mac bonded over Classic and BLE. The Mac streams a tone throughout; a remote
+        connects and leaves, and the toy must then be heard advertising while the music plays.
+        """
+        from bleak import BleakClient
+        address, blueutil = self.classic_tools()
+        await self.reboot()
+        start = len(self.trace.lines)
+        await self.command(blueutil, "--connect", address, timeout=30)
+        await self.trace.wait("[BT] Connected", start, timeout=15)
+        await asyncio.sleep(4)
+        await self.audio(address)                     # builds the tone and proves the route
+        playing = True
+
+        async def music():
+            while playing:
+                await self.command(*self.tone_command, timeout=15)
+
+        task = asyncio.create_task(music())
+        try:
+            for attempt in range(1, self.args.cycles + 1):
+                count, first = await self.advertisements(15, first_only=True)
+                if not count:
+                    raise AssertionError(f"Round {attempt}: the toy was not heard advertising during music "
+                                         "with no remote connected")
+                async with BleakClient(await self.find_ble(), timeout=20) as client:
+                    if await self.access(client) != b"\x02":
+                        raise AssertionError("The Mac is not the approved controller")
+                    await asyncio.sleep(6)            # long enough for the toy to stop advertising
+                mark = len(self.trace.lines)
+                count, first = await self.advertisements(20, first_only=True)
+                # Normally empty: the toy logs advertising only when a request was not confirmed.
+                trace = [line for line in self.trace.lines[mark:] if "ADVERTISING" in line]
+                if not count:
+                    raise AssertionError(f"Round {attempt}: no advertising for 20s after the remote left "
+                                         f"during music; toy reported {trace}")
+                self.passed(f"Advertising returns during music, round {attempt}",
+                            f"heard after {first:.1f}s; toy reported {trace}")
+        finally:
+            playing = False
+            try:
+                await asyncio.wait_for(task, 20)
+            except Exception:
+                task.cancel()
+            await self.command(blueutil, "--disconnect", address)
+
+    async def external_second_remote(self):
+        """A second remote beside the Mac's speaker link and remote is refused; the Mac keeps control.
+
+        Needs this Mac bonded over Classic and BLE, plus a phone or tablet with the app.
+        """
+        from bleak import BleakClient
+        address, blueutil = self.classic_tools()
+        await self.reboot()
+        start = len(self.trace.lines)
+        await self.command(blueutil, "--connect", address, timeout=30)
+        await self.trace.wait("[BT] Connected", start, timeout=15)
+        try:
+            async with BleakClient(await self.find_ble(), timeout=20) as client:
+                if await self.access(client) != b"\x02":
+                    raise AssertionError("The Mac is not the approved controller")
+                await asyncio.sleep(3)
+                mark = len(self.trace.lines)
+                log("WAITING: open the SweetYaar app on the phone/tablet and let it try to connect.")
+                # A paired phone is refused as remote-busy, an unpaired one as audio-busy.
+                refused = None
+                deadline = time.monotonic() + 90
+                while refused is None and time.monotonic() < deadline:
+                    refused = next((line for line in self.trace.lines[mark:]
+                                    if "decision=remote-busy" in line or "decision=audio-busy" in line), None)
+                    await asyncio.sleep(0.2)
+                if refused is None:
+                    raise AssertionError("The second remote never reached the toy, so it got no reason")
+                await asyncio.sleep(6)
+                if any("CONTROL authenticated_conn=" in line for line in self.trace.lines[mark:]):
+                    raise AssertionError("A second remote took control beside the speaker")
+                if not client.is_connected or await self.access(client) != b"\x02":
+                    raise AssertionError("The Mac lost control while the second remote tried")
+                if any("[Boot] Ready." in line for line in self.trace.lines[start:]):
+                    raise AssertionError("The toy rebooted")
+                self.passed("Second remote refused with a reason beside the speaker", refused)
         finally:
             await self.command(blueutil, "--disconnect", address)
 
@@ -428,6 +843,16 @@ class DeviceTest:
                 self.passed("External Just Works bond reconnect", evidence)
             elif scenario == "classic":
                 await self.classic()
+            elif scenario == "classic-stress":
+                await self.classic_stress()
+            elif scenario == "classic-unpaired-ble":
+                await self.classic_unpaired_ble()
+            elif scenario == "advertising":
+                await self.advertising()
+            elif scenario == "advertising-audio":
+                await self.advertising_audio()
+            elif scenario == "external-second-remote":
+                await self.external_second_remote()
             elif scenario == "classic-denied":
                 if not self.args.classic_address:
                     raise ValueError("Use --classic-address from the boot log")
@@ -494,10 +919,13 @@ def main():
     parser.add_argument("--flash", action="store_true", help="build and upload before testing (preserves NVS)")
     parser.add_argument("--pio-env", required=True, choices=["sweetyaar", "sweetyaar-generic"])
     parser.add_argument("--port", required=True)
-    parser.add_argument("--scenario", choices=["boot", "ble-pair", "ble-reconnect", "external-pair", "external-classic", "external-classic-reconnect", "external-takeover", "classic", "classic-denied", "takeover", "reset"], default="boot")
+    parser.add_argument("--scenario", choices=["boot", "ble-pair", "ble-reconnect", "external-pair", "external-classic", "external-classic-reconnect", "external-takeover", "classic", "classic-stress", "classic-unpaired-ble", "advertising", "advertising-audio", "external-second-remote", "classic-denied", "takeover", "reset"], default="boot")
     parser.add_argument("--expected-access", type=int, choices=[0, 2], default=0)
     parser.add_argument("--hold-seconds", type=int, choices=range(0, 61), default=0,
                         metavar="0..60", help="keep each approved BLE check connected for LED observation")
+    parser.add_argument("--cycles", type=int, default=10, help="classic-stress: number of cycles")
+    parser.add_argument("--keep-going", action="store_true",
+                        help="classic-stress: count failed cycles and continue instead of stopping at the first")
     parser.add_argument("--ble-address")
     parser.add_argument("--classic-address")
     parser.add_argument("--already-paired", action="store_true", help="classic: test saved approval after reboot without opening pairing")

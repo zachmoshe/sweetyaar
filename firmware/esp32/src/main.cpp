@@ -35,6 +35,7 @@
 #include "SleepEntryCheck.h"
 #include "OtaUpdate.h"
 #include "DevLog.h"
+#include "MemProbe.h"
 #include <esp_bt.h>
 
 // ---------------------------------------------------------------------------
@@ -244,6 +245,7 @@ static void btConnectionStateChanged(esp_a2d_connection_state_t state,
                       heap_caps_get_free_size(MALLOC_CAP_8BIT),
                       heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
         sm.postEvent(Event::BT_CONNECTED);
+        MEMPROBE_MARK("classic-connected");
     } else if (state == ESP_A2D_CONNECTION_STATE_DISCONNECTED) {
         btLinkConnected = false;
         btAudioActive = false;
@@ -251,6 +253,7 @@ static void btConnectionStateChanged(esp_a2d_connection_state_t state,
         statusLed.setSignal(StatusSignal::BluetoothConnected, false);
         DLOG(BT_DISCONNECTED);
         sm.postEvent(Event::BT_DISCONNECTED);
+        MEMPROBE_MARK("classic-disconnected");
     }
 }
 
@@ -269,6 +272,7 @@ static const char* btAudioStateName(esp_a2d_audio_state_t state) {
 
 static void btAudioStateChanged(esp_a2d_audio_state_t state, void*) {
     DLOG(BT_AUDIO_STATE, btAudioStateName(state));
+    MEMPROBE_MARK(btAudioStateName(state));
     if (state == ESP_A2D_AUDIO_STATE_STARTED) {
         if (!btAudioActive) {
             markActivity("BT audio started");
@@ -307,8 +311,10 @@ void setup() {
     setAmpMuted(true);
 
     Serial.println("\n=== SweetYaar Boot ===");
+    MEMPROBE_BEGIN();
     // First, so the boot record precedes everything this boot logs.
     devlog::begin();
+    MEMPROBE_MARK("devlog");
     Serial.printf("[Audio] GPIO%d mute is active-%s\n",
                   PIN_AMP_MUTE,
                   AMP_MUTE_ACTIVE_HIGH
@@ -321,11 +327,13 @@ void setup() {
     setupPeripheralPower();
 
     statusLed.begin();
+    MEMPROBE_MARK("status-led");
     printStatusLedModeLegend();
 
     // Device-local NVS config
     nvs.begin();
     bluetoothAccess.begin();
+    MEMPROBE_MARK("nvs");
     currentDeviceName = nvs.getBtName();
     if (currentDeviceName.length() > 32 || ContentCatalog::jsonEscape(currentDeviceName).length() > 64) {
         DLOG(DEVICE_NAME_OVERSIZED, currentDeviceName.c_str());
@@ -351,10 +359,12 @@ void setup() {
     // Buttons
     buttons.begin();
     sm.begin();
+    MEMPROBE_MARK("buttons-statemachine");
 
     // I2S (must be set up before BT sink and WAV player)
     setupI2S();
 
+    MEMPROBE_MARK("i2s-driver-dma");
 
     // Bluetooth A2DP sink. Reserve its audio queue before SD/WAV playback has
     // a chance to fragment heap; otherwise connection-time allocation can fail.
@@ -367,7 +377,12 @@ void setup() {
     randomSeed(esp_random());
 
     // SD card + WAV player
+#if SWEETYAAR_MEMPROBE_SKIP_SD
+    sdReady = false;  // leaves room for the allocation tracker's tables
+#else
     sdReady = wavPlayer.begin();
+#endif
+    MEMPROBE_MARK("sd-mount");
     if (!sdReady) {
         DLOG(SD_INIT_FAILED);
         reportSystemError();
@@ -375,12 +390,14 @@ void setup() {
         if (!parentConfig.load()) {
             reportSystemError();
         }
+        MEMPROBE_MARK("parent-config");
         // List the content once into a compact RAM catalog (summaries and song
         // states, no names); song names are read from the card when needed.
         logHeap("before catalog", true);
         ContentCatalog::buildCatalog();
         refreshThemeList();
         logHeap("after catalog", true);
+        MEMPROBE_MARK("content-catalog");
     }
     activeTheme = parentConfig.defaultTheme();
     applyActiveThemeFallback();
@@ -395,20 +412,24 @@ void setup() {
         reportSystemError();
     }
 
+    MEMPROBE_MARK("charger");
     // Configure battery sensing after the high-current boot work. poll() takes
     // five readings at least 100 ms apart without delaying setup or the loop;
     // BLE initially reports Unknown, then publishes the completed coarse state.
     batteryMonitor.begin(HAS_BQ25186 && charger.charging());
 
+    MEMPROBE_MARK("battery-monitor");
     // BLE parent service — shares the controller already started by A2DP.
     bool bleReady = !ENABLE_BLE_PARENT_SERVICE;
     if (ENABLE_BLE_PARENT_SERVICE) {
         bleReady = bleService.begin(currentDeviceName, speakerName(currentDeviceName));
+        MEMPROBE_MARK("ble-advertising");
         if (!bleReady) reportSystemError();
         OtaUpdate::attach(bleService, false, batteryAllowsUpdate, logReadAllowed);
         bleService.updateThemes(bleThemesJson);
         publishBleValues();
         pollBedtimeMode();
+        MEMPROBE_MARK("ble-initial-values");
     } else {
         Serial.println("[BLE] Parent service disabled for A2DP audio test");
     }
@@ -430,6 +451,12 @@ void setup() {
     OtaUpdate::confirmRunningImage(bleReady);
 
     logHeap("ready", true);
+#if SWEETYAAR_MEMPROBE
+    memprobe::mark("ready");
+    memprobe::regions();
+    memprobe::tasks();
+    memprobe::sites("ready");
+#endif
     DLOG(BOOT_READY, static_cast<unsigned long>(millis()));
     finishSystemSoundStartup();
 }
@@ -500,6 +527,7 @@ void loop() {
         return;
     }
     esp_task_wdt_reset();
+    MEMPROBE_POLL();
 
     // Process asynchronous BT events before accepting local/BLE input.
     processStateMachineTransitions();
@@ -1419,7 +1447,9 @@ void setupBT(const String& deviceName) {
     // No display or keyboard: Just Works. ClassicBluetooth gates the SDK's
     // automatic confirmation before fresh keys can be negotiated.
     sink->activate_pin_code(false);
+    MEMPROBE_MARK("a2dp-sink-object");
     sink->reserveAudioQueue();
+    MEMPROBE_MARK("a2dp-ringbuffer");
     {
         // Start the controller here, with fewer connection slots than the SDK
         // default; the library then finds it running and leaves it alone.
@@ -1434,11 +1464,23 @@ void setupBT(const String& deviceName) {
                  int(initResult), int(enableResult));
         }
     }
+#if SWEETYAAR_MEMPROBE
+    // Start the layers one at a time so each can be measured; the library
+    // skips whatever is already running.
+    btStart();
+    MEMPROBE_MARK("bt-controller");
+    esp_bluedroid_init();
+    MEMPROBE_MARK("bluedroid-init");
+    esp_bluedroid_enable();
+    MEMPROBE_MARK("bluedroid-enable");
+#endif
     const String speaker = speakerName(deviceName);
     sink->start(speaker.c_str());
+    MEMPROBE_MARK("a2dp-avrcp-profiles");
     printBluetoothAddress("Classic BT");
     sink->set_auto_reconnect(false, 0);
     sink->reserveAudioTask();
+    MEMPROBE_MARK("a2dp-i2s-task");
     btSink = sink;
     DLOG_DETAIL(BT_SINK_STARTED, speaker.c_str());
 }
