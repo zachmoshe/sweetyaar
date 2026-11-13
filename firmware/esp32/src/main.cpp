@@ -153,11 +153,14 @@ void pollBatteryState();
 void setupI2S();
 void resetI2SOutput(const char* owner);
 void setupBT(const String& deviceName);
+// The speaker's name: the toy's name with BT_SPEAKER_NAME_SUFFIX.
+String speakerName(const String& deviceName);
 void printBluetoothAddress(const char* label);
 void scheduleBluetoothReopen(const char* reason);
 void reopenBluetoothForPairing(const char* reason);
 void pollBluetoothReopen();
 void pollIncompleteSpeakerLink();
+void pollRefusedSpeakerPairing();
 void pollBluetoothPairing();
 void applyVolume(uint8_t pct);
 void applyEffectiveVolume(const char* reason);
@@ -400,7 +403,7 @@ void setup() {
     // BLE parent service — shares the controller already started by A2DP.
     bool bleReady = !ENABLE_BLE_PARENT_SERVICE;
     if (ENABLE_BLE_PARENT_SERVICE) {
-        bleReady = bleService.begin(currentDeviceName);
+        bleReady = bleService.begin(currentDeviceName, speakerName(currentDeviceName));
         if (!bleReady) reportSystemError();
         OtaUpdate::attach(bleService, false, batteryAllowsUpdate, logReadAllowed);
         bleService.updateThemes(bleThemesJson);
@@ -443,7 +446,7 @@ void setupUpdateMode() {
     }
     batteryMonitor.begin(HAS_BQ25186 && charger.charging());
     if (!OtaUpdate::startBleOnlyController() ||
-        !bleService.begin(currentDeviceName, BLE_UPDATE_MODE_MTU)) {
+        !bleService.begin(currentDeviceName, speakerName(currentDeviceName), BLE_UPDATE_MODE_MTU)) {
         DLOG(OTA_UPDATE_MODE_FAILED);
         Serial.flush();
         esp_restart();
@@ -619,6 +622,7 @@ void loop() {
     // A Classic link without A2DP makes the phone show a speaker that is not one.
     ClassicBluetooth::closeIdleLinks(millis());
     pollIncompleteSpeakerLink();
+    pollRefusedSpeakerPairing();
     if (ENABLE_BLE_PARENT_SERVICE) {
         // From the ACL, before A2DP, so that new BLE links are refused at once.
         // Stopping advertising and dropping extra links wait for the Classic
@@ -819,7 +823,11 @@ void restartIfBleIdentityChanged() {
     if (!bluetoothAccess.takeIdentityChange()) return;
     DLOG(BLE_IDENTITY_RESTART);
     Serial.flush();
-    delay(200);
+    // Confirm the reset: stop whatever the indicator was blinking and hold
+    // solid red for half a second. Written directly, because the restart
+    // would otherwise come before the pattern engine showed anything.
+    statusLed.hold(LedColors::RED);
+    delay(500);
     esp_restart();
 }
 
@@ -1389,6 +1397,10 @@ void resetI2SOutput(const char* owner) {
     Serial.printf("[I2S] Reset for %s\n", owner);
 }
 
+String speakerName(const String& deviceName) {
+    return deviceName + BT_SPEAKER_NAME_SUFFIX;
+}
+
 // ---------------------------------------------------------------------------
 // setupBT()
 // ---------------------------------------------------------------------------
@@ -1422,12 +1434,13 @@ void setupBT(const String& deviceName) {
                  int(initResult), int(enableResult));
         }
     }
-    sink->start(deviceName.c_str());
+    const String speaker = speakerName(deviceName);
+    sink->start(speaker.c_str());
     printBluetoothAddress("Classic BT");
     sink->set_auto_reconnect(false, 0);
     sink->reserveAudioTask();
     btSink = sink;
-    DLOG_DETAIL(BT_SINK_STARTED, deviceName.c_str());
+    DLOG_DETAIL(BT_SINK_STARTED, speaker.c_str());
 }
 
 // ---------------------------------------------------------------------------
@@ -1498,6 +1511,23 @@ void pollBluetoothPairing() {
 
 // ---------------------------------------------------------------------------
 // pollBluetoothReopen()
+// ---------------------------------------------------------------------------
+// A phone asked to pair as a speaker while pairing mode was closed. Its own
+// screen only says that pairing failed, so the toy answers every refused
+// attempt with one red flash and the error sound (silent in Quiet time). The
+// short gap only keeps one attempt's cue from cutting off the previous one.
+void pollRefusedSpeakerPairing() {
+    static uint32_t lastMs = 0;
+    static bool signalled = false;
+    if (!ClassicBluetooth::takePairingRefused()) return;
+    const uint32_t now = millis();
+    if (signalled && now - lastMs < 1500) return;
+    signalled = true;
+    lastMs = now;
+    statusLed.setSignal(StatusSignal::PairingReset, true);  // the one-shot red flash
+    if (sm.currentState() != State::KILLSWITCH && systemSoundsReady) playSystemSound(SystemSound::Error);
+}
+
 // ---------------------------------------------------------------------------
 // A paired phone's link came and went without its audio connection, and the
 // toy did not refuse it. That happens when the connection's set-up ran out of
@@ -2221,12 +2251,13 @@ void applyActiveThemeFallback() {
 // applyDeviceName()
 // ---------------------------------------------------------------------------
 void applyDeviceName(const String& deviceName) {
-    bleService.updateDeviceName(deviceName);
+    const String speaker = speakerName(deviceName);
+    bleService.updateDeviceName(deviceName, speaker);
     if (btSink != nullptr && !btLinkConnected && sm.currentState() != State::BT_STREAMING) {
-        esp_err_t err = esp_bt_gap_set_device_name(deviceName.c_str());
+        esp_err_t err = esp_bt_gap_set_device_name(speaker.c_str());
         if (err == ESP_OK) {
             btNameApplyPending = false;
-            DLOG(BT_NAME_SET, deviceName.c_str());
+            DLOG(BT_NAME_SET, speaker.c_str());
         } else {
             btNameApplyPending = true;
             DLOG(BT_NAME_DEFERRED_ERROR, err);
@@ -2245,10 +2276,11 @@ void applyPendingBtNameIfPossible() {
         sm.currentState() == State::BT_STREAMING) {
         return;
     }
-    esp_err_t err = esp_bt_gap_set_device_name(currentDeviceName.c_str());
+    const String speaker = speakerName(currentDeviceName);
+    esp_err_t err = esp_bt_gap_set_device_name(speaker.c_str());
     if (err == ESP_OK) {
         btNameApplyPending = false;
-        DLOG(BT_NAME_SET, currentDeviceName.c_str());
+        DLOG(BT_NAME_SET, speaker.c_str());
     }
 }
 
@@ -2525,7 +2557,7 @@ void printStatusLedModeLegend() {
         const StatusLedModeDefinition definition = statusLedModeDefinition(mode);
         const StatusLedPattern& pattern = definition.pattern;
         if (mode == StatusLedMode::PairingReset) {
-            Serial.println("[LED]   Bluetooth approvals cleared: red once for 250ms, then current state");
+            Serial.println("[LED]   Bluetooth approvals cleared: red once for 500ms, then current state");
         } else if (mode == StatusLedMode::Off) {
             Serial.printf("[LED]   %s: %s\n",
                           definition.condition, definition.colorName);

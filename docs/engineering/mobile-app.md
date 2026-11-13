@@ -27,6 +27,33 @@ Bluetooth support, press **Connect to SweetYaar**, and select the toy in the
 browser's device chooser. The current interface directs parents to Chrome or
 Edge on desktop or Android when Web Bluetooth is unavailable.
 
+After a successful connection the app stores the toy's browser-assigned device id
+in `localStorage`. On the next page load it calls `navigator.bluetooth.getDevices()`
+(the browser keeps the permission granted by the chooser) and, if that toy is
+still granted, scans for the toy for up to 15 seconds. On a desktop the scan is
+restarted every 2 seconds it hears nothing (a Mac's first scan often stays deaf
+for seconds while a restarted one hears the toy quickly). On Android it is one
+scan for the whole 15 seconds: Android ignores a scan, without any error, once
+an app has started more than five within 30 seconds, and the restarts used that
+up and left the page unable to find a toy that was advertising. The app then makes at most two
+`gatt.connect()` calls (10-second limit each) with the scan running through
+them. Android Chrome shows a "connecting" notification for each scan or connect,
+so the number of both is kept small. The scan uses `watchAdvertisements()`;
+browsers without it connect directly. All of this happens without the chooser. Only the last toy is tried, even if others are in range.
+The attempt is silent: if there is no remembered toy, the permission is gone,
+the browser lacks `getDevices()`, or the toy is not heard or refuses the link,
+the opening screen shows the normal Connect button, which always opens the
+chooser. While connected, the Bluetooth icon beside the battery on the Remote
+screen opens the chooser. The app first reaches the picked toy; only then does it
+drop the current one and open the remote on the new toy, which becomes the
+remembered one. A cancelled chooser or a toy that cannot be reached leaves the
+current remote as it is (the latter with a short notice). While connecting, automatically or after a
+press, the Connect button only says "Connecting..." and the opening message
+names the toy. Chrome and Edge without
+`getDevices()` (the new permissions backend flag is off) show a dismissible
+opening-screen panel with the flag address to copy, since a page cannot link to
+`chrome://` addresses.
+
 Web Bluetooth requires a secure origin. The deployed HTTPS site and
 `http://localhost` are valid; a page opened through `file://` or an ordinary
 `http://192.168.x.x` LAN address is not. Bluetooth permissions are associated
@@ -34,8 +61,22 @@ with the site's origin, so moving the app to a different domain requires the
 parent to grant access again.
 
 After connecting, the app checks the device's connection-access diagnostic when
-available. An unapproved device sees **Device not approved. Hold both buttons
-for 3 seconds to open pairing mode, then reconnect.** Authentication finishes
+available, and every refusal has its own message:
+
+| The toy's reason | What the parent sees |
+|---|---|
+| Not paired, pairing mode closed | **Device not approved. Hold both buttons for 3 seconds to open pairing mode, then reconnect.** |
+| Not paired, a speaker is connected | **Can't pair while a phone is connected to SweetYaar as a speaker. Disconnect the speaker, hold both buttons for 3 seconds to open pairing mode, then reconnect.** |
+| Paired, but another remote is connected during music | **Another remote is connected while SweetYaar plays music. Close it there, or stop the music, then connect.** |
+| The toy could not read its pairings (short of memory) | **SweetYaar is busy right now. Try again in a moment.** |
+| Another remote took control | **Someone else took control.** |
+
+If a link drops without the app having read a reason (a phone ends the link
+itself when a pairing is refused), the app connects once more only to read
+it, and falls back to the generic hint if there is none. When the automatic
+reconnect cannot find a toy it has connected to before, the opening screen
+says **Couldn't find SweetYaar. Check it is on and nearby, then tap Connect.**
+instead of the new-phone pairing hint. Authentication finishes
 before any controls load. While the diagnostic is pending, the app makes one
 encrypted status read to trigger Android bonding; an unencrypted diagnostic
 poll alone may not open Android's pairing dialog. It then rechecks the device's
@@ -554,3 +595,8 @@ uv run python -m pytest
 Automated tests do not grant real browser permissions, install the app, or
 exercise a physical BLE radio. Changes to connection behavior still require a
 manual check on the intended HTTPS origin and hardware.
+
+## Third-party assets
+
+The copy icon (`app/public/assets/icon-copy.png`) is
+<a href="https://www.flaticon.com/free-icons/ui" title="ui icons">Ui icons created by Radhe Icon - Flaticon</a>.

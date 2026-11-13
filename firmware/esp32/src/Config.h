@@ -217,6 +217,10 @@ static constexpr uint8_t DEFAULT_BEDTIME_VOLUME_CAP_PCT = 65;
 // Part of the Bluetooth memory budget; see the note at I2S_DMA_BUFFER_COUNT.
 static constexpr int     BT_A2DP_RINGBUFFER_BYTES = 8 * 1024;
 static constexpr int     BT_A2DP_I2S_TASK_STACK_BYTES = 2048;
+// The speaker and the parent service are separate devices to a phone, so
+// they carry different names: the parent service the toy's own name, the
+// speaker that name with this suffix.
+static constexpr char    BT_SPEAKER_NAME_SUFFIX[] = " Speaker";
 // Connection slots the Bluetooth controller reserves memory for at start-up
 // (the SDK defaults are 3 and 2). Two BLE links cover a takeover; one Classic
 // link is all the toy accepts, since it stops being connectable once a

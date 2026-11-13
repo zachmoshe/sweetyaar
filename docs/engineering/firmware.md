@@ -229,6 +229,13 @@ Tried and not kept:
   another 2 KB. Its use during an update or a settings save has not been
   measured, so it is unchanged.
 
+A phone the toy does not know that links, or asks to pair, as a speaker while
+pairing mode is closed gets only a generic failure on its own screen, so the
+toy answers every refused attempt
+with one red flash and the error sound (no sound in Quiet time). That can only
+be a phone that already remembers the toy, for example after the toy's
+pairings were reset: a new phone cannot see the toy until pairing mode is open.
+
 A second BLE link while a phone is connected over Classic Bluetooth crashes the
 same way: a takeover or second phone connecting during music rebooted the toy
 every time (in the `btController` task or in Bluedroid's `reassemble_and_dispatch`,
@@ -243,16 +250,18 @@ link (from the ACL, before A2DP connects, when the heap is still about 17 KB):
 - If several BLE links are up when the Classic phone arrives, the controller
   stays and every other link is disconnected once the Classic link has settled
   (see below). With no controller yet, the newest link stays.
-- Once it has that one link the toy stops advertising, and starts again when
-  the link or the Classic phone goes. With no BLE link it keeps advertising, so
-  a bonded remote can still connect during music.
-- A link that still arrives beside the controller is refused (`decision=audio-busy`,
-  access state `5`) and dropped. A takeover needs the speaker or the first
-  remote to disconnect.
-- Stopping advertising and dropping extra links wait until 3 s after the Classic
-  link appeared. Doing either during the connection's setup, when the heap is
-  at its lowest, asserted in the controller (`host_recv_pkt_cb`) on the
-  `advertising` device scenario. New links are still refused at once.
+- The toy keeps advertising throughout, so every phone can reach it and be
+  told why it is refused. (It used to stop advertising once it had its one
+  link; a second remote then simply could not find the toy, with no
+  explanation.)
+- A link that arrives beside the controller is refused and dropped: a paired
+  phone with `decision=remote-busy` (access state `6`), an unpaired one with
+  `decision=audio-busy` (access state `5`). A takeover needs the speaker or
+  the first remote to disconnect.
+- Dropping extra links waits until 3 s after the Classic link appeared.
+  Stopping advertising or dropping a link during the connection's setup, when
+  the heap is at its lowest, asserted in the controller (`host_recv_pkt_cb`)
+  on the `advertising` device scenario. New links are still refused at once.
 - A refused peer is dropped 0.3 s after it reads its access state (so the app
   can show why), or after 4 s if it never does, instead of 10 s. An
   unauthenticated peer is dropped after 10 s instead of 30 s, and BLE publishes
@@ -448,6 +457,16 @@ Most content settings are saved in `/config.json` or the relevant theme's
 `metadata.json` on the SD card. The Bluetooth device name is different: it is
 stored in the ESP32's non-volatile storage so replacing the card does not rename
 the toy.
+
+A phone lists the toy twice, once as a speaker and once for the parent app, so
+the two carry different names: the parent service advertises the toy's name,
+and the speaker is that name followed by " Speaker" (`BT_SPEAKER_NAME_SUFFIX`).
+The Bluetooth stack keeps a single local name, used by Classic and also
+returned as the GAP device name to a BLE central that reads it after
+connecting. That name is the speaker's; the parent service's name is written
+into its scan response by hand (`setAdvertisedName`). A central that prefers
+the GAP name over the advertised one will therefore show the speaker's name
+for the parent service too.
 
 SD JSON saves write a sibling `.tmp` file first, flush and close it, and compare
 the serializer's byte count and the resulting file size with the expected
@@ -760,7 +779,7 @@ green, and Quiet time remains purple. Normal blue indicates Classic audio.
 
 The ten-second gesture is measured from the start of the same hold. It cancels
 the window, deletes the stack bonds, and disconnects both
-transports. The indicator flashes red for 250 ms. Once deletion is committed,
+transports. The indicator shows solid red for 0.5 s. Once deletion is committed,
 the toy stores a new BLE address for the parent service and restarts (see "BLE
 identity after a bond reset"); playback and Quiet time end with the restart.
 Both buttons must be released before another hold can begin, and a hold that
@@ -863,10 +882,12 @@ supplies remembered keys; the button-controlled window authorizes new enrollment
 
 The public read-only `access` characteristic (`...78A1`) returns one byte for
 the requesting connection: `0` pairing required, `1` authentication pending,
-`2` authenticated controller, `3` authentication failed, `4` taken over, or `5`
-pairing refused because a phone is connected over Classic. A new device refused
-because the window is closed reports `0`, or `5` while a Classic phone is
-connected, since pairing cannot succeed until the speaker disconnects.
+`2` authenticated controller, `3` authentication failed, `4` taken over, `5`
+pairing refused because a phone is connected over Classic, `6` a paired phone
+refused because another remote holds the one link allowed beside a speaker, or
+`7` the toy could not read its pairings just now (try again). A new device
+refused because the window is closed reports `0`, or `5` while a Classic phone
+is connected, since pairing cannot succeed until the speaker disconnects.
 It exposes no settings or control data. Rejected peers have up to ten seconds
 to read the reason before firmware disconnects them; the app reads it before
 accessing controls and disconnects immediately after displaying a refusal.
@@ -1065,7 +1086,7 @@ the main loop remains the only LED hardware owner.
 | BLE controller connected without Classic audio | Keep the normal local idle/playback or Quiet time pattern. |
 | Classic Bluetooth audio started | Blue, 0.5 s on / 0.5 s off. |
 | Pairing window open, including during BT playback or BLE control | Blue, 0.2 s on / 0.2 s off throughout the window. |
-| Bluetooth approvals cleared | Red once for 250 ms, then restore the current state's pattern. |
+| Bluetooth approvals cleared | Solid red once for 500 ms, shown in full before the restart that follows a reset. |
 | Quiet time | Purple, 1 s on / 0.25 s off. |
 | Persistent error after initialization | Red, 0.25 s on / 0.25 s off; currently set for SD initialization/removal failures and other persistent `error` notices. |
 | Firmware update mode | Yellow, 0.5 s on / 0.5 s off. |
@@ -1084,7 +1105,7 @@ subsystems initialize:
 [LED]   Quiet time: purple 1000ms on / 250ms off
 [LED]   persistent error: red 250ms on / 250ms off
 [LED]   pairing window open: blue 200ms on / 200ms off
-[LED]   Bluetooth approvals cleared: red once for 250ms, then current state
+[LED]   Bluetooth approvals cleared: red once for 500ms, then current state
 [LED]   firmware update: yellow 500ms on / 500ms off
 [LED]   deep sleep/off: off
 ```
@@ -1095,7 +1116,7 @@ of adding a new color; its 0.5 s blink keeps it distinct from the solid yellow o
 boot. Initialization intentionally outranks errors so boot stays yellow. Once boot
 clears `Initializing`, pairing feedback outranks playback, connections, and errors, and a latched error
 outranks other operational states. Reset feedback has highest priority for its
-single 250 ms flash, then normal state indication resumes;
+single 500 ms flash, then normal state indication resumes;
 active Bluetooth audio outranks an idle Bluetooth connection, which in turn
 outranks Quiet time, local playback, and ready. Adding a second
 indicator later means setting `SWEETYAAR_STATUS_LED_PIXEL_COUNT`, wiring LED1

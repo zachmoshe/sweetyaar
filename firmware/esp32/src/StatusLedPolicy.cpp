@@ -13,7 +13,7 @@ StatusLedModeDefinition statusLedModeDefinition(StatusLedMode mode) {
                     {StatusLedMode::Pairing, LedColors::BLUE, 200, 200}};
         case StatusLedMode::PairingReset:
             return {"Bluetooth approvals cleared", "red",
-                    {StatusLedMode::PairingReset, LedColors::RED, 250, 0}};
+                    {StatusLedMode::PairingReset, LedColors::RED, 500, 0}};
         case StatusLedMode::Updating:
             return {"firmware update", "yellow",
                     {StatusLedMode::Updating, LedColors::YELLOW, 500, 500}};

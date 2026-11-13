@@ -104,22 +104,22 @@ int main() {
     pattern = selectStatusLedPattern(playing);
     assert(pattern.mode == StatusLedMode::BluetoothPlaying && pattern.onMs == 500);
     pattern = selectStatusLedPattern(pairing | statusSignalBit(StatusSignal::PairingReset));
-    assert(pattern.mode == StatusLedMode::PairingReset && pattern.onMs == 250 && pattern.offMs == 0);
+    assert(pattern.mode == StatusLedMode::PairingReset && pattern.onMs == 500 && pattern.offMs == 0);
 
     StatusLed led;
     const auto reset = statusSignalBit(StatusSignal::PairingReset);
     led._signals = reset | statusSignalBit(StatusSignal::Ready);
     led.service(10000);
     assert(led.color.red == 255 && led.writes == 1);
-    led.service(10249);
+    led.service(10499);
     assert(led.color.red == 255 && led.writes == 1);
     assert(led._signals.load() & reset);
-    led.service(10250);
+    led.service(10500);
     assert(led._mode == StatusLedMode::Ready && led.color.green == 255 && led.writes == 2);
     assert(led._signals.load() == statusSignalBit(StatusSignal::Ready));
-    led.service(11250);
+    led.service(11500);
     assert(led.color.green == 0);
-    led.service(12250);
+    led.service(12500);
     assert(led.color.green == 255);
     led.service(13000);
     led.service(70000);
@@ -150,23 +150,23 @@ int main() {
         current._signals = reset | statusSignalBit(StatusSignal::Ready);
         current.service(flashStart);
         current._signals = reset | statusSignalBit(state);
-        current.service(flashStart + 249);
+        current.service(flashStart + 499);
         assert(current._mode == StatusLedMode::PairingReset && current.color.red == 255);
-        current.service(flashStart + 250);
+        current.service(flashStart + 500);
         const auto normal = selectStatusLedPattern(statusSignalBit(state));
         assert(current._mode == normal.mode && current._phaseOn);
         assert(current._signals.load() == statusSignalBit(state));
         assert(current.color.red == normal.color.red && current.color.green == normal.color.green &&
                current.color.blue == normal.color.blue);
-        current.service(flashStart + 250 + normal.onMs);
+        current.service(flashStart + 500 + normal.onMs);
         assert(!current._phaseOn); // normal blinking resumes after the request is consumed
-        current.service(flashStart + 250 + normal.onMs + normal.offMs);
+        current.service(flashStart + 500 + normal.onMs + normal.offMs);
         assert(current._phaseOn);
-        current.service(flashStart + 2000);
+        current.service(flashStart + 2500);
         current._signals.fetch_or(reset); // new action needs no persistent reset state cleared first
-        current.service(flashStart + 3000);
+        current.service(flashStart + 3500);
         assert(current._mode == StatusLedMode::PairingReset);
-        current.service(flashStart + 3250);
+        current.service(flashStart + 4000);
         assert(current._mode == normal.mode);
     }
 

@@ -23,8 +23,24 @@ bool BLEParentService::writableIndex(int index) {
            index == 17 || index == 18;
 }
 
-bool BLEParentService::begin(const String& deviceName, uint16_t localMtu) {
-    BLEDevice::init(deviceName.c_str());
+// The advertised name goes in the scan response by hand. The stack would
+// otherwise insert its one local name there, which is the speaker's.
+static void setAdvertisedName(BLEAdvertising* adv, const String& deviceName) {
+    constexpr size_t LIMIT = 29;  // a 31-byte packet less the length and type bytes
+    std::string name = deviceName.c_str();
+    BLEAdvertisementData response;
+    if (name.size() <= LIMIT) {
+        response.setName(name);
+    } else {
+        size_t cut = LIMIT;
+        while (cut > 0 && (static_cast<uint8_t>(name[cut]) & 0xC0) == 0x80) --cut;  // whole UTF-8 characters
+        response.setShortName(name.substr(0, cut));
+    }
+    adv->setScanResponseData(response);
+}
+
+bool BLEParentService::begin(const String& deviceName, const String& stackName, uint16_t localMtu) {
+    BLEDevice::init(stackName.c_str());
     // SC_BOND advertises support but permits legacy fallback unless strict
     // acceptance is enabled. Set both key bounds; Arduino's setKeySize only
     // sets the maximum, and its security setters discard API errors.
@@ -248,6 +264,7 @@ bool BLEParentService::begin(const String& deviceName, uint16_t localMtu) {
     }
     adv->addServiceUUID(BLE_SERVICE_UUID);
     adv->setScanResponse(true);
+    setAdvertisedName(adv, deviceName);
     adv->setMinPreferred(0x06);   // help iPhone connections (min connection interval hint)
     adv->setMaxPreferred(0x12);   // max connection interval hint
     // A fixed 100 ms (units of 0.625 ms). With 100-250 ms a phone that was
@@ -423,10 +440,11 @@ bool BLEParentService::sendLogData(const uint8_t* packet, size_t length) {
         _logDataChar->getHandle(), length, const_cast<uint8_t*>(packet), false) == ESP_OK;
 }
 
-void BLEParentService::updateDeviceName(const String& deviceName) {
-    esp_ble_gap_set_device_name(deviceName.c_str());
+void BLEParentService::updateDeviceName(const String& deviceName, const String& stackName) {
+    esp_ble_gap_set_device_name(stackName.c_str());
     if (_server) {
         BLEDevice::stopAdvertising();
+        setAdvertisedName(BLEDevice::getAdvertising(), deviceName);
         BLEDevice::startAdvertising();
         _advertising = Advertising::Starting;
         _advertisingChangedAt = millis();
@@ -630,7 +648,9 @@ void BLEParentService::connected(esp_ble_gatts_cb_param_t* param) {
         slot->reject = !bluetoothAccess.ready() || security.keysOutsidePairing || lookupFailed ||
             secondLink || (!known && (!bluetoothAccess.pairingOpen() || classicBusy));
         slot->rejectedAt = slot->connectedAt;
-        slot->rejectionReason = lookupFailed ? AccessState::AuthenticationFailed
+        // Each refusal carries its own reason, which the app shows.
+        slot->rejectionReason = lookupFailed ? AccessState::Busy
+            : (secondLink && known) ? AccessState::RemoteBusy
             : classicBusy ? AccessState::AudioBusy : AccessState::PairingRequired;
     }
     // The controller stops advertising when a connection is made; loop() decides
@@ -642,7 +662,7 @@ void BLEParentService::connected(esp_ble_gatts_cb_param_t* param) {
         connection.remote_bda[3], connection.remote_bda[4], connection.remote_bda[5],
         known, bluetoothAccess.pairingOpen() ? "open" : "closed",
         !slot ? "no-free-slot" : slot->reject ? accessStateName(slot->rejectionReason) : "authenticate");
-    if (!slot || lookupFailed) {
+    if (!slot) {
         disconnectPeer(connection.conn_id);
         return;
     }
@@ -697,6 +717,8 @@ const char* BLEParentService::accessStateName(AccessState state) {
         case AccessState::Ready: return "ready";
         case AccessState::TakenOver: return "taken-over";
         case AccessState::AudioBusy: return "audio-busy";
+        case AccessState::RemoteBusy: return "remote-busy";
+        case AccessState::Busy: return "busy";
         default: return "authentication-failed";
     }
 }
@@ -1040,8 +1062,8 @@ void BLEParentService::pollAdvertising(bool canNotify) {
         if (snapshot.id == NO_CONNECTION) continue;
         ++links;
         if (snapshot.reject) {
-            const bool told = classic && snapshot.reasonRead &&
-                now - snapshot.reasonReadAt >= REJECTION_READ_GRACE_MS;
+            const bool told = (classic || snapshot.rejectionReason == AccessState::Busy) &&
+                snapshot.reasonRead && now - snapshot.reasonReadAt >= REJECTION_READ_GRACE_MS;
             if (told || now - snapshot.rejectedAt >= (classic ? REJECTION_GRACE_CLASSIC_MS : REJECTION_GRACE_MS))
                 disconnectPeer(snapshot.id);
         } else if (!snapshot.authenticated &&
@@ -1091,8 +1113,11 @@ void BLEParentService::pollAdvertising(bool canNotify) {
 void BLEParentService::pollAdvertisingState(uint32_t now, bool classic, bool settled, int links) {
     if (!_server) return;
     if (!settled) return;  // no advertising change while a Classic connection sets up
-    // Beside a Classic phone one BLE link is the limit, so stop inviting more.
-    const bool wanted = links < MAX_LINKS && !(classic && links > 0);
+    // The toy stays findable beside a Classic phone and its one remote: a
+    // second remote is then refused with a reason the app can show, instead
+    // of simply not finding the toy.
+    (void)classic;
+    const bool wanted = links < MAX_LINKS;
     const Advertising state = _advertising;
     if ((state == Advertising::Starting || state == Advertising::Stopping) &&
         now - _advertisingChangedAt >= ADVERTISING_EVENT_TIMEOUT_MS) {

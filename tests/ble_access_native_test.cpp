@@ -159,7 +159,15 @@ struct esp_ble_adv_params_t {
     int adv_int_min = 0, adv_int_max = 0, adv_type = 0, own_addr_type = 0, channel_map = 0,
         adv_filter_policy = 0;
 };
+struct BLEAdvertisementData {
+    std::string name;
+    bool shortened = false;
+    void setName(std::string value) { name = value; shortened = false; }
+    void setShortName(std::string value) { name = value; shortened = true; }
+};
 struct BLEAdvertising {
+    BLEAdvertisementData scanResponse;
+    void setScanResponseData(BLEAdvertisementData& data) { scanResponse = data; }
     uint8_t address[6] = {};
     int addressType = BLE_ADDR_TYPE_PUBLIC;
     void setDeviceAddress(uint8_t* next, int type) { memcpy(address, next, 6); addressType = type; }
@@ -175,7 +183,8 @@ struct BLEDevice {
     static inline int starts = 0;
     static inline int servers = 0;
     static inline esp_gatts_cb_t customGatt = nullptr;
-    static void init(const char*) {}
+    static inline std::string stackName;
+    static void init(const char* name) { stackName = name; }
     static void setCustomGattsHandler(esp_gatts_cb_t callback) { customGatt = callback; }
     static int setMTU(int) { return ESP_OK; }
     static BLEServer* createServer() {
@@ -279,11 +288,11 @@ int main() {
         securityParameters.clear();
         securityFailureAt = failure;
         BLEParentService failed;
-        assert(!failed.begin("SweetYaar"));
+        assert(!failed.begin("SweetYaar", "SweetYaar Speaker"));
         assert(securityParameters.size() == size_t(failure + 1));
         assert(!failed._server && !failed.isConnected() && !failed.hasLinks());
         failed.pollAdvertising();
-        failed.updateDeviceName("SweetYaar");
+        failed.updateDeviceName("SweetYaar", "SweetYaar Speaker");
         assert(BLEDevice::servers == 0 && BLEDevice::starts == 0);
         assert(callbackRegistrations == 0);
         assert(Serial.output.find("parent service disabled") != std::string::npos);
@@ -293,7 +302,12 @@ int main() {
     BLEParentService initialized;
     assert(BLEDevice::getAdvertising()->addressType == BLE_ADDR_TYPE_PUBLIC);
     BluetoothAccess::hasStoredAddress = true;  // the toy had a bond reset
-    assert(initialized.begin("SweetYaar"));
+    assert(initialized.begin("SweetYaar", "SweetYaar Speaker"));
+    // The parent service advertises the toy's own name; the stack's one
+    // local name, which Classic uses, is the speaker's.
+    assert(BLEDevice::stackName == "SweetYaar Speaker");
+    assert(BLEDevice::getAdvertising()->scanResponse.name == "SweetYaar" &&
+           !BLEDevice::getAdvertising()->scanResponse.shortened);
     assert(BLEDevice::getAdvertising()->addressType == BLE_ADDR_TYPE_RANDOM);
     assert(BLEDevice::getAdvertising()->address[0] == 0xc4);
     assert(Serial.output.find("[BLE] Address C4:01:02:03:04:05 (random static") != std::string::npos);
@@ -828,23 +842,20 @@ int main() {
         assert(BLEDevice::starts == starts + 4);
         advEvent(true, ESP_BT_STATUS_SUCCESS);
 
-        // A Classic phone arriving: the toy stops advertising because it has
-        // its one BLE link, and starts again once that link or the phone goes.
+        // A Classic phone arriving beside the remote: the toy stays findable,
+        // so that a second remote is refused with a reason instead of simply
+        // not finding it. Nothing is stopped or started.
         int stops = advertisingStops;
+        starts = BLEDevice::starts;
         ble.setClassicLinked(true);
-        // Nothing changes while the Classic connection is still setting up.
         ble.pollAdvertising();
-        assert(advertisingStops == stops && ble._advertising == Adv::On);
         fakeMillis += 3000;
         ble.pollAdvertising();
-        assert(advertisingStops == stops + 1 && ble._advertising == Adv::Stopping);
-        advEvent(false, ESP_BT_STATUS_SUCCESS);
-        starts = BLEDevice::starts;
-        ble.pollAdvertising();
+        assert(advertisingStops == stops && ble._advertising == Adv::On);
         assert(BLEDevice::starts == starts && ble.isConnected());
         ble.setClassicLinked(false);
         ble.pollAdvertising();
-        assert(BLEDevice::starts == starts + 1);
+        assert(advertisingStops == stops && BLEDevice::starts == starts);
         advEvent(true, ESP_BT_STATUS_SUCCESS);
         ble.disconnected(1);
     }
@@ -869,7 +880,7 @@ int main() {
         connect(2);
         ble.pollAdvertising();
         assert(server.closed.empty());
-        assert(readAccess(2) == 5 && !canWrite(2));
+        assert(readAccess(2) == 6 && !canWrite(2));      // remote-busy: paired, but the link is taken
         fakeMillis += 299; ble.pollAdvertising();
         assert(server.closed.empty());
         fakeMillis += 1; ble.pollAdvertising();
@@ -897,17 +908,19 @@ int main() {
     }
 
     // A bond list that cannot be read (no memory) is not "not bonded": the
-    // phone is disconnected to try again, and its bond is never deleted, even
-    // if its saved-key authentication then completes.
+    // phone is told the toy is busy and dropped to try again, and its bond is
+    // never deleted, even if its saved-key authentication then completes.
     {
         removedBonds.clear();
         server.closed.clear();
         BluetoothAccess::failLookups = true;
         connect(1);
-        assert(server.closed.size() == 1 && server.closed[0] == 1);
-        assert(readAccess(1) == 3);                  // authentication failed, not "pair again"
+        assert(server.closed.empty());               // kept long enough to be told why
+        assert(readAccess(1) == 7);                  // busy, not "pair again"
         auth(1);
         assert(removedBonds.empty() && !ble.isConnected());
+        fakeMillis += 300; ble.pollAdvertising();    // dropped right after it read the reason
+        assert(server.closed.size() == 1 && server.closed[0] == 1);
         ble.disconnected(1);
         BluetoothAccess::failLookups = false;
         connect(1); auth(1);

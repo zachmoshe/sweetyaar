@@ -32,6 +32,9 @@ public:
     // Called from loop() with one shared millis() sample. It changes the LED
     // only when the selected mode or blink phase changes.
     void service(uint32_t nowMs);
+    // Show one colour now, outside the pattern engine, until service() runs
+    // again. For a caller that is about to block or restart.
+    void hold(LedColor color);
 
     // Send an explicit black frame while 5V_PERIPH_SW is still powered.
     void prepareForPeripheralPowerOff();

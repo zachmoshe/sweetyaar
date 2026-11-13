@@ -28,5 +28,9 @@ constexpr uint32_t IDLE_LINK_MS = 30000;
 // when the connection's set-up ran out of heap: the stack then accepts no
 // speaker at all until the firmware restarts.
 bool takeIncompleteLink();
+// True once after a phone the toy does not know linked, or asked to pair,
+// while pairing mode was closed. The phone only says that connecting failed,
+// so the toy signals the refusal.
+bool takePairingRefused();
 constexpr uint32_t INCOMPLETE_LINK_MS = 5000;
 }

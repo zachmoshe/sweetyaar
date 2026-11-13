@@ -226,6 +226,7 @@ function createContext() {
     URL,
     setTimeout,
     clearTimeout,
+    AbortController,
     crypto: require("crypto").webcrypto,
     localStorage: (() => {
       const values = new Map();
@@ -755,9 +756,13 @@ function makeBleHarness(options = {}) {
     addEventListener(name, handler) {
       this.listeners[name] = handler;
     },
+    removeEventListener(name) {
+      delete this.listeners[name];
+    },
     gatt: {
       connected: false,
       async connect() {
+        if (options.connectError) throw options.connectError;
         this.connected = true;
         return server;
       },
@@ -767,6 +772,7 @@ function makeBleHarness(options = {}) {
     }
   };
   let requestCount = 0;
+  navigator.bluetooth.getDevices = async () => options.grantedDevices ? options.grantedDevices(device) : [];
   navigator.bluetooth.requestDevice = async (request) => {
     requestCount += 1;
     if (options.requestError) throw options.requestError;
@@ -1971,6 +1977,32 @@ const tests = [
     assert.strictEqual(state.connected, false);
     assert.strictEqual(ble.device.gatt.connected, false);
   `],
+  ["a second remote during music and a busy toy each get their own message", String.raw`
+    await connectWithFakeBle({ accessState: 6 });
+    assert.strictEqual(state.connected, false);
+    assert.strictEqual(els.openingMessage.textContent, REMOTE_BUSY_MESSAGE);
+    await connectWithFakeBle({ accessState: 7 });
+    assert.strictEqual(state.connected, false);
+    assert.strictEqual(els.openingMessage.textContent, TOY_BUSY_MESSAGE);
+    await connectWithFakeBle({ accessState: 5 });
+    assert.strictEqual(els.openingMessage.textContent, AUDIO_BUSY_MESSAGE);
+  `],
+  ["a link that drops without a reason is asked once more why it was refused", String.raw`
+    REFUSAL_PROBE_MS = 200;
+    // The first link fails on the access read (the phone dropped it); the probe then reads 5.
+    const ble = makeBleHarness({ accessState: 5 });
+    let reads = 0;
+    const realRead = ble.chars.access.readValue.bind(ble.chars.access);
+    ble.chars.access.readValue = async function () {
+      reads += 1;
+      if (reads === 1) throw new Error("GATT Server is disconnected. Cannot retrieve services.");
+      return realRead();
+    };
+    await connect();
+    assert.strictEqual(state.connected, false);
+    assert.strictEqual(els.openingMessage.textContent, AUDIO_BUSY_MESSAGE);
+    assert.strictEqual(reads, 2);
+  `],
   ["failed authentication is not reported as missing firmware", String.raw`
     await connectWithFakeBle({ accessState: 3 });
     assert.strictEqual(state.connected, false);
@@ -2749,6 +2781,203 @@ const tests = [
 
     assert.strictEqual(state.settings.message, "SD write failed");
     assert.strictEqual(state.settings.dirty, true, "Expected settings to remain dirty after failed save");
+  `],
+  ["startup reconnects to the remembered toy without the chooser", String.raw`
+    const ble = makeBleHarness({ grantedDevices: (device) => [{ id: "other", gatt: {} }, device] });
+    assert.strictEqual(await autoConnect(), undefined);
+    assert.strictEqual(state.connected, false); // nothing remembered yet
+    await els.connectButton.click();
+    await waitUntil(() => state.connected && !state.remoteInitializing, "first connection");
+    assert.strictEqual(localStorage.getItem("sweetyaar-last-device-id"), "fake-device");
+    assert.strictEqual(ble.requestCount, 1);
+    ble.device.gatt.disconnect();
+    ble.device.listeners.gattserverdisconnected({ target: ble.device });
+    assert.strictEqual(state.connected, false);
+    const seen = [];
+    const realConnect = ble.device.gatt.connect;
+    ble.device.gatt.connect = function () {
+      seen.push([els.connectButtonLabel.textContent, els.openingMessage.textContent]);
+      return realConnect.call(this);
+    };
+    await autoConnect();
+    assert.deepStrictEqual(seen, [["Connecting...", "Connecting to SweetYaar..."]]);
+    await waitUntil(() => state.connected && !state.remoteInitializing, "automatic reconnect");
+    assert.strictEqual(ble.requestCount, 1, "the chooser must not open");
+    // Pressing the button behaves the same: the button only says "Connecting...", the panel names the toy.
+    ble.device.gatt.disconnect();
+    ble.device.listeners.gattserverdisconnected({ target: ble.device });
+    const pressed = [];
+    const nextConnect = ble.device.gatt.connect;
+    ble.device.gatt.connect = function () {
+      pressed.push([els.connectButtonLabel.textContent, els.openingMessage.textContent]);
+      return nextConnect.call(this);
+    };
+    await els.connectButton.click();
+    assert.deepStrictEqual(pressed, [["Connecting...", "Connecting to SweetYaar..."]]);
+  `],
+  ["opening screen explains the Bluetooth permissions flag only in Chromium without getDevices()", String.raw`
+    navigator.userAgent = "Mozilla/5.0 Chrome/130.0 Safari/537.36";
+    render();
+    assert.strictEqual(els.flagHint.hidden, false);
+    assert.strictEqual(els.flagHintAddress.textContent, "chrome://flags/#enable-web-bluetooth-new-permissions-backend");
+    navigator.userAgent = "Mozilla/5.0 Chrome/130.0 Edg/130.0";
+    render();
+    assert.strictEqual(els.flagHintAddress.textContent, "edge://flags/#enable-web-bluetooth-new-permissions-backend");
+    await els.flagHintDismiss.change(true);
+    render();
+    assert.strictEqual(els.flagHint.hidden, true);
+    localStorage.setItem("sweetyaar-flag-hint-dismissed", "");
+    navigator.userAgent = "Mozilla/5.0 Firefox/130.0";
+    render();
+    assert.strictEqual(els.flagHint.hidden, true);
+    navigator.userAgent = "Mozilla/5.0 Chrome/130.0";
+    navigator.bluetooth.getDevices = async () => [];
+    render();
+    assert.strictEqual(els.flagHint.hidden, true);
+  `],
+  ["the Bluetooth icon switches toys, and a cancelled or unreachable pick keeps the current remote", String.raw`
+    const ble = await connectWithFakeBle();
+    await els.bluetoothButton.click();
+    assert.strictEqual(ble.requestCount, 1 + 1);
+    // Picking a toy that cannot be reached keeps the current remote.
+    const before = state.device;
+    const unreachable = { id: "far", name: "Far", listeners: {}, addEventListener() {}, removeEventListener() {},
+      gatt: { connected: false, async connect() { throw new Error("no link"); }, disconnect() {} } };
+    navigator.bluetooth.requestDevice = async () => unreachable;
+    await els.bluetoothButton.click();
+    assert.strictEqual(state.connected, true);
+    assert.strictEqual(state.device, before);
+    assert.strictEqual(state.notice.message, "Couldn't connect to Far.");
+    // Cancelling the chooser does the same.
+    navigator.bluetooth.requestDevice = async () => { throw Object.assign(new Error("x"), { name: "NotFoundError" }); };
+    await els.bluetoothButton.click();
+    assert.strictEqual(state.device, before);
+    // A reachable second toy becomes the connected, remembered one.
+    const second = { ...ble.device, id: "second", name: "Second", listeners: {},
+      addEventListener(n, h) { this.listeners[n] = h; }, removeEventListener() {},
+      gatt: { connected: false, async connect() { this.connected = true; return before.gatt.connect(); }, disconnect() { this.connected = false; } } };
+    navigator.bluetooth.requestDevice = async () => second;
+    await els.bluetoothButton.click();
+    await waitUntil(() => state.connected && !state.remoteInitializing, "second toy");
+    assert.strictEqual(state.device, second);
+    assert.strictEqual(localStorage.getItem("sweetyaar-last-device-id"), "second");
+  `],
+  ["startup reconnect uses one scan and retries a failed first link once", String.raw`
+    AUTO_CONNECT_RETRY_MS = 20;
+    localStorage.setItem("sweetyaar-last-device-id", "fake-device");
+    const ble = makeBleHarness({ grantedDevices: (device) => [device] });
+    let scans = 0;
+    ble.device.watchAdvertisements = async () => {
+      scans += 1;
+      setTimeout(() => ble.device.listeners.advertisementreceived?.({ rssi: -40 }), 10);
+    };
+    const realConnect = ble.device.gatt.connect;
+    let attempts = 0;
+    ble.device.gatt.connect = function () {
+      attempts += 1;
+      if (attempts < 2) return Promise.reject(new Error("first link refused"));
+      return realConnect.call(this);
+    };
+    await autoConnect();
+    await waitUntil(() => state.connected && !state.remoteInitializing, "retried connection");
+    assert.strictEqual(attempts, 2);
+    assert.strictEqual(scans, 1, "one scan for the whole attempt");
+    assert.strictEqual(ble.requestCount, 0);
+  `],
+  ["startup reconnect drops a connect that hangs and retries once", String.raw`
+    AUTO_CONNECT_RETRY_MS = 20;
+    AUTO_CONNECT_ATTEMPT_MS = 80;
+    localStorage.setItem("sweetyaar-last-device-id", "fake-device");
+    const ble = makeBleHarness({ grantedDevices: (device) => [device] });
+    const realConnect = ble.device.gatt.connect;
+    let attempts = 0;
+    let disconnects = 0;
+    const realDisconnect = ble.device.gatt.disconnect;
+    ble.device.gatt.disconnect = function () { disconnects += 1; return realDisconnect.call(this); };
+    ble.device.gatt.connect = function () {
+      attempts += 1;
+      if (attempts === 1) return new Promise(() => {}); // never answers
+      return realConnect.call(this);
+    };
+    await autoConnect();
+    await waitUntil(() => state.connected && !state.remoteInitializing, "restarted connection");
+    assert.strictEqual(attempts, 2);
+    assert(disconnects >= 1, "the stuck attempt must be dropped");
+  `],
+  ["a toy heard late in the window is connected with the same scan", String.raw`
+    AUTO_CONNECT_HEAR_MS = 500;
+    localStorage.setItem("sweetyaar-last-device-id", "fake-device");
+    const ble = makeBleHarness({ grantedDevices: (device) => [device] });
+    let scans = 0;
+    ble.device.watchAdvertisements = async () => {
+      scans += 1;
+      setTimeout(() => ble.device.listeners.advertisementreceived?.({ rssi: -40 }), 120);
+    };
+    await autoConnect();
+    await waitUntil(() => state.connected && !state.remoteInitializing, "late toy");
+    assert.strictEqual(scans, 1);
+  `],
+  ["a scan that hears nothing is restarted, then the toy is connected once", String.raw`
+    AUTO_CONNECT_FIND_MS = 3000;
+    AUTO_CONNECT_HEAR_MS = 60;
+    localStorage.setItem("sweetyaar-last-device-id", "fake-device");
+    const ble = makeBleHarness({ grantedDevices: (device) => [device] });
+    let scans = 0;
+    ble.device.watchAdvertisements = async () => {
+      scans += 1;
+      if (scans === 3) setTimeout(() => ble.device.listeners.advertisementreceived?.({ rssi: -40 }), 10);
+    };
+    const realConnect = ble.device.gatt.connect;
+    let connects = 0;
+    ble.device.gatt.connect = function () { connects += 1; return realConnect.call(this); };
+    await autoConnect();
+    await waitUntil(() => state.connected && !state.remoteInitializing, "connection after restarted scans");
+    assert.strictEqual(scans, 3);
+    assert.strictEqual(connects, 1);
+  `],
+  ["on Android the scan is not restarted, however long the toy takes to be heard", String.raw`
+    navigator.userAgent = "Mozilla/5.0 (Linux; Android 14) Chrome/130.0 Mobile Safari/537.36";
+    AUTO_CONNECT_FIND_MS = 3000;
+    AUTO_CONNECT_HEAR_MS = 60;
+    localStorage.setItem("sweetyaar-last-device-id", "fake-device");
+    const ble = makeBleHarness({ grantedDevices: (device) => [device] });
+    let scans = 0;
+    ble.device.watchAdvertisements = async () => {
+      scans += 1;
+      setTimeout(() => ble.device.listeners.advertisementreceived?.({ rssi: -40 }), 400);
+    };
+    await autoConnect();
+    await waitUntil(() => state.connected && !state.remoteInitializing, "connection after one long scan");
+    assert.strictEqual(scans, 1);
+  `],
+  ["startup reconnect failing or finding no granted toy stays quiet and leaves the Connect button", String.raw`
+    AUTO_CONNECT_FIND_MS = 250;
+    AUTO_CONNECT_HEAR_MS = 80;
+    AUTO_CONNECT_RETRY_MS = 20;
+    AUTO_CONNECT_ATTEMPT_MS = 100;
+    localStorage.setItem("sweetyaar-last-device-id", "fake-device");
+    let ble = makeBleHarness({ grantedDevices: () => [] });
+    await autoConnect();
+    assert.strictEqual(state.connected, false);
+    assert.strictEqual(state.busy, false);
+    // Never heard: no connect at all.
+    ble = makeBleHarness({ grantedDevices: (device) => [device] });
+    ble.device.watchAdvertisements = async () => {};
+    let connects = 0;
+    ble.device.gatt.connect = () => { connects += 1; return Promise.reject(new Error("unreachable")); };
+    await autoConnect();
+    assert.strictEqual(connects, 0);
+    assert.strictEqual(state.connected, false);
+    // A phone that connected before is told the toy was not found, not that it may be new.
+    assert.strictEqual(els.openingMessage.textContent, "Couldn't find SweetYaar. Check it is on and nearby, then tap Connect.");
+    // Heard but refusing the link: two connects, then quiet.
+    ble = makeBleHarness({ grantedDevices: (device) => [device], connectError: new Error("out of range") });
+    await autoConnect();
+    assert.strictEqual(state.connected, false);
+    assert.strictEqual(state.busy, false);
+    assert.strictEqual(els.openingMessage.textContent, "Couldn't find SweetYaar. Check it is on and nearby, then tap Connect.");
+    assert.strictEqual(ble.requestCount, 0);
+    assert.strictEqual(els.connectButton.disabled, false);
   `],
 ];
 

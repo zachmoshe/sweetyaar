@@ -270,8 +270,24 @@ int main() {
     fakeNow += ClassicBluetooth::INCOMPLETE_LINK_MS; link(3, false);
     assert(!ClassicBluetooth::takeIncompleteLink());
     bluetoothAccess.open = false;
+    (void)ClassicBluetooth::takePairingRefused();
     link(9);                                                    // not among the saved pairings
+    assert(ClassicBluetooth::takePairingRefused());             // the toy signals the refusal
     fakeNow += ClassicBluetooth::INCOMPLETE_LINK_MS; link(9, false);
     assert(!ClassicBluetooth::takeIncompleteLink());
+    // A pairing request while pairing mode is closed is reported once, so
+    // the toy can signal the refusal; one inside the window is not.
+    (void)ClassicBluetooth::takePairingRefused();
+    bluetoothAccess.open = false;
+    link(3);
+    esp_bt_gap_ssp_confirm_reply(three, true);
+    assert(ClassicBluetooth::takePairingRefused() && !ClassicBluetooth::takePairingRefused());
+    link(3, false);
+    bluetoothAccess.open = true;
+    link(3);
+    esp_bt_gap_ssp_confirm_reply(three, true);
+    assert(!ClassicBluetooth::takePairingRefused());
+    link(3, false);
+    bluetoothAccess.open = false;
     std::cout << "Classic authorization tests passed\n";
 }

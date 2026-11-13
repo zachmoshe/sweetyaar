@@ -61,6 +61,12 @@ extern "C" int __wrap_esp_avrc_tg_set_rn_evt_cap(const void*) { return 0; }
 
 // --wrap intercepts the SDK's Just Works auto-confirm, as well as the ordinary
 // SSP reply. Saved-key reconnects do not call it. Never accept by address alone.
+namespace { volatile bool pairingRefused = false; }
+bool ClassicBluetooth::takePairingRefused() {
+    const bool taken = pairingRefused;
+    pairingRefused = false;
+    return taken;
+}
 extern "C" void __wrap_BTA_DmConfirm(uint8_t* address, uint8_t accept) {
     bool allow = accept && bluetoothAccess.pairingOpen();
     portENTER_CRITICAL(&mux);
@@ -75,6 +81,7 @@ extern "C" void __wrap_BTA_DmConfirm(uint8_t* address, uint8_t accept) {
     portEXIT_CRITICAL(&mux);
     DLOG(BT_JUST_WORKS,
         allow ? "allow" : "deny", bluetoothAccess.pairingOpen() ? "open" : "closed");
+    if (!allow && !bluetoothAccess.pairingOpen()) pairingRefused = true;
     __real_BTA_DmConfirm(address, allow);
 }
 
@@ -96,6 +103,10 @@ void ClassicBluetooth::connected(const uint8_t* address, bool success) {
     if (link && !bluetoothAccess.ready()) link->rejected = true;
     if (link) link->bonded = bonded;
     portEXIT_CRITICAL(&mux);
+    // A phone the toy does not know, outside pairing mode: it remembers the
+    // toy but the toy has forgotten it. It cannot become a speaker, and its
+    // own screen will only say that connecting failed.
+    if (bluetoothAccess.ready() && !bonded && !bluetoothAccess.pairingOpen()) pairingRefused = true;
     if (!bluetoothAccess.ready()) {
         // This also closes a link racing a reset, including one without A2DP.
         esp_bt_gap_remove_bond_device(const_cast<uint8_t*>(address));

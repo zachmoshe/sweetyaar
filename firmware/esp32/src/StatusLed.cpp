@@ -198,6 +198,10 @@ void StatusLed::releaseAfterPeripheralPowerOff() {
     pinMode(PIN_STATUS_LED_DATA, INPUT);
 }
 
+void StatusLed::hold(LedColor color) {
+    if (_initialized) showColor(color, true);
+}
+
 void StatusLed::showColor(LedColor color, bool force) {
     if (!force && sameColor(color, _lastColor)) {
         return;

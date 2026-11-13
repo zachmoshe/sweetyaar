@@ -1,7 +1,7 @@
 "use strict";
 
 const CACHE_PREFIX = "sweetyaar-parent";
-const CACHE_VERSION = "sweetyaar-parent-v63";
+const CACHE_VERSION = "sweetyaar-parent-v67";
 
 const PRECACHE_URLS = [
   "./",
@@ -23,6 +23,7 @@ const PRECACHE_URLS = [
   "./assets/header-decoration-teddy@2x.png",
   "./assets/icon-animal.png",
   "./assets/icon-bluetooth.svg",
+  "./assets/icon-copy.png",
   "./assets/icon-pause.png",
   "./assets/icon-song.png",
   "./assets/icon-stop.png",

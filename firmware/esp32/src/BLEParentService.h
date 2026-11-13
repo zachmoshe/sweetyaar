@@ -62,7 +62,10 @@ public:
 
     // Call once after NVS is ready. On security configuration failure, returns
     // false without creating the GATT service or starting advertising.
-    bool begin(const String& deviceName, uint16_t localMtu = BLE_LOCAL_MTU);
+    // deviceName is what the parent service advertises. stackName is the
+    // Bluetooth stack's one local name, which Classic uses and which a
+    // connected BLE central also reads as the GAP device name.
+    bool begin(const String& deviceName, const String& stackName, uint16_t localMtu = BLE_LOCAL_MTU);
 
     // Push current values to the subscribed, authenticated controller.
     void updateVolume(uint8_t volumePct);
@@ -76,7 +79,7 @@ public:
     void updateConfigAttribute(size_t index, const String& value);
     void updateBatteryState(uint8_t state);
     void updateChargerStatus(const ChargerStatus::Snapshot& snapshot);
-    void updateDeviceName(const String& deviceName);
+    void updateDeviceName(const String& deviceName, const String& stackName);
     // Read-only firmware description: version, mode and the log position.
     void updateFirmwareInfo(const String& json);
     void updateOtaStatus(const uint8_t* status, size_t length);
@@ -172,7 +175,12 @@ private:
     // Public, per-connection diagnostic; it never authorizes control access.
     enum class AccessState : uint8_t {
         PairingRequired = 0, Authenticating = 1, Ready = 2,
-        AuthenticationFailed = 3, TakenOver = 4, AudioBusy = 5
+        AuthenticationFailed = 3, TakenOver = 4, AudioBusy = 5,
+        // A paired phone turned away because another remote holds the one
+        // link allowed beside a speaker.
+        RemoteBusy = 6,
+        // The toy could not read its pairings just now (memory); try again.
+        Busy = 7
     };
     static const char* accessStateName(AccessState state);
     static constexpr uint32_t REJECTION_GRACE_MS = 10000;

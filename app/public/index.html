@@ -238,7 +238,7 @@
 
     .ready-top-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 64px;
+      grid-template-columns: minmax(0, 1fr) auto;
       gap: 10px;
       align-items: stretch;
     }
@@ -407,14 +407,16 @@
     }
 
     .connect-button {
-      display: grid;
-      grid-template-columns: auto auto;
+      display: flex;
       justify-content: center;
       align-items: center;
       gap: 14px;
-      width: min(100%, 316px);
+      width: fit-content;
+      min-width: min(100%, 316px);
+      max-width: 100%;
       min-height: 70px;
       margin: 26px auto 0;
+      padding: 12px 26px;
       border: 0;
       border-radius: 13px;
       background: linear-gradient(180deg, #1686ff, #006add);
@@ -442,8 +444,15 @@
     }
 
     .connect-button .bt-icon {
+      flex: none;
       width: 31px;
       height: 31px;
+    }
+
+    .connect-button span {
+      min-width: 0;
+      text-align: center;
+      overflow-wrap: anywhere;
     }
 
     .connect-button:hover:not(:disabled) {
@@ -477,6 +486,50 @@
     .info-card p {
       min-width: 0;
       overflow-wrap: anywhere;
+    }
+
+    .flag-hint p + .flag-hint-address,
+    .flag-hint .flag-hint-address + p {
+      margin-top: 6px;
+    }
+
+    .flag-hint-address {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .flag-hint code {
+      min-width: 0;
+      font-size: 0.85em;
+      overflow-wrap: anywhere;
+    }
+
+    .flag-hint-copy {
+      flex: none;
+      padding: 0 4px;
+      border: 0;
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 17px;
+      line-height: 1;
+    }
+
+    .flag-hint-copy img {
+      display: block;
+      width: 18px;
+      height: 18px;
+      opacity: 0.6;
+    }
+
+    .flag-hint-dismiss {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: clamp(12px, 3.2vw, 13px);
     }
 
     .install-banner {
@@ -1293,9 +1346,37 @@
     }
 
     .ready-side-controls {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      min-height: 76px;
+    }
+
+    /* The Bluetooth mark in the app's blue, via the shared asset; its drawn
+       height matches the battery body. */
+    .bluetooth-button {
       display: grid;
       place-items: center;
-      min-height: 76px;
+      width: 52px;
+      height: 64px;
+      padding: 0;
+      border: 0;
+      border-radius: 14px;
+      background: transparent;
+      color: #0a74ee;
+      cursor: pointer;
+    }
+
+    .bluetooth-button:focus-visible { outline: 2px solid var(--teal-dark); }
+    .bluetooth-button:disabled { cursor: default; opacity: 0.5; }
+
+    .bluetooth-glyph {
+      display: block;
+      width: 60px;
+      height: 60px;
+      background-color: currentColor;
+      -webkit-mask: url("assets/icon-bluetooth.svg") center / contain no-repeat;
+      mask: url("assets/icon-bluetooth.svg") center / contain no-repeat;
     }
 
     /* A standing battery centred beside the status card, filling from the
@@ -2565,6 +2646,21 @@
           <span id="connectButtonLabel">Connect to SweetYaar</span>
         </button>
 
+        <article class="card info-card flag-hint" id="flagHint" hidden>
+          <span class="info-icon" aria-hidden="true">i</span>
+          <div>
+            <p><strong>Skip the device chooser next time.</strong> In the address bar open:</p>
+            <div class="flag-hint-address">
+              <code id="flagHintAddress">chrome://flags/#enable-web-bluetooth-new-permissions-backend</code>
+              <button class="flag-hint-copy" id="flagHintCopy" type="button" aria-label="Copy address" title="Copy address"><img src="assets/icon-copy.png" alt=""><span hidden>&#10003;</span></button>
+            </div>
+            <p>Set it to <em>Enabled</em>, then relaunch the browser.</p>
+            <label class="flag-hint-dismiss">
+              <input id="flagHintDismiss" type="checkbox"> Don't show this again
+            </label>
+          </div>
+        </article>
+
         <img class="opening-art" src="assets/opening-hero-art.png" alt="">
 
         <article class="card info-card">
@@ -2628,6 +2724,9 @@
             <span class="status-dot" aria-hidden="true"></span>
           </article>
           <div class="ready-side-controls">
+            <button class="bluetooth-button" id="bluetoothButton" type="button" aria-label="Connect to a different SweetYaar" title="Connect to a different SweetYaar">
+              <span class="bluetooth-glyph" aria-hidden="true"></span>
+            </button>
             <button class="battery-indicator unknown" id="batteryIndicator" type="button" aria-label="Battery status unknown" aria-controls="chargerView" title="Battery and charging details">
               <span class="battery-body" aria-hidden="true">
                 <span class="battery-fill"></span>
@@ -3282,6 +3381,10 @@
       installBanner: document.querySelector("#installBanner"),
       installButton: document.querySelector("#installButton"),
       installDismissButton: document.querySelector("#installDismissButton"),
+      flagHint: document.querySelector("#flagHint"),
+      flagHintAddress: document.querySelector("#flagHintAddress"),
+      flagHintCopy: document.querySelector("#flagHintCopy"),
+      flagHintDismiss: document.querySelector("#flagHintDismiss"),
       noticeBanner: document.querySelector("#noticeBanner"),
       noticeMessage: document.querySelector("#noticeMessage"),
       noticeDismiss: document.querySelector("#noticeDismiss"),
@@ -3370,6 +3473,7 @@
       logsStatus: document.querySelector("#logsStatus"),
       settingsLatestVersion: document.querySelector("#settingsLatestVersion"),
       settingsUpdateButton: document.querySelector("#settingsUpdateButton"),
+      bluetoothButton: document.querySelector("#bluetoothButton"),
       settingsUpdateNote: document.querySelector("#settingsUpdateNote"),
       updateCard: document.querySelector("#updateCard"),
       updateCardMessage: document.querySelector("#updateCardMessage"),
@@ -3966,6 +4070,7 @@
       els.batteryIndicator.classList.toggle("charger-warning", warning);
       els.batteryIndicator.setAttribute("aria-label", presentation.label + (error ? ", charger error" : warning ? ", charger warning" : ""));
       els.batteryIndicator.disabled = !state.connected || state.remoteInitializing;
+      els.bluetoothButton.disabled = !state.connected || state.remoteInitializing || state.busy || state.update.active;
 
       els.batteryWarning.hidden = !presentation.warning;
       if (!presentation.warning) return;
@@ -5276,6 +5381,7 @@
       els.connectButton.disabled = state.busy;
       els.connectButton.setAttribute("aria-busy", state.busy ? "true" : "false");
       els.connectButtonLabel.textContent = state.busy ? "Connecting..." : `Connect to ${displayDeviceName()}`;
+      renderFlagHint();
       els.openingMessage.textContent =
         state.message || "New phone? Hold both buttons on the toy for 3 seconds, then connect.";
 
@@ -5620,7 +5726,11 @@
     const QUIET_TIME_SECONDS = 600;
     const TAKEOVER_MESSAGE = "Someone else took control.";
     const PAIRING_REQUIRED_MESSAGE = "Device not approved. Hold both buttons for 3 seconds to open pairing mode, then reconnect.";
-    const AUDIO_BUSY_MESSAGE = "Can't pair while music is playing through SweetYaar. Pause the music, hold both buttons for 3 seconds to open pairing mode, then reconnect.";
+    const AUDIO_BUSY_MESSAGE = "Can't pair while a phone is connected to SweetYaar as a speaker. Disconnect the speaker, hold both buttons for 3 seconds to open pairing mode, then reconnect.";
+    const REMOTE_BUSY_MESSAGE = "Another remote is connected while SweetYaar plays music. Close it there, or stop the music, then connect.";
+    const TOY_BUSY_MESSAGE = "SweetYaar is busy right now. Try again in a moment.";
+    // Refusals the toy explains through its access value.
+    const REFUSAL_MESSAGES = { 0: PAIRING_REQUIRED_MESSAGE, 5: AUDIO_BUSY_MESSAGE, 6: REMOTE_BUSY_MESSAGE, 7: TOY_BUSY_MESSAGE };
     const CONNECTION_PAIRING_HINT = "Couldn't connect. If this is a new device, hold both buttons for 3 seconds to open pairing mode.";
 
     function connectionMessageError(message) {
@@ -5637,11 +5747,10 @@
         const value = await readCharacteristic(access);
         if (value.byteLength !== 1) throw connectionMessageError("Couldn't check device access. Please reconnect.");
         const accessState = value.getUint8(0);
-        if (accessState === 0) throw connectionMessageError(PAIRING_REQUIRED_MESSAGE);
+        if (REFUSAL_MESSAGES[accessState]) throw connectionMessageError(REFUSAL_MESSAGES[accessState]);
         if (accessState === 2) return;
         if (accessState === 3) throw connectionMessageError("Couldn't authenticate. Reconnect and check for a Bluetooth pairing request.");
         if (accessState === 4) throw connectionMessageError(TAKEOVER_MESSAGE);
-        if (accessState === 5) throw connectionMessageError(AUDIO_BUSY_MESSAGE);
         if (accessState !== 1 || Date.now() >= deadline) {
           throw connectionMessageError("Pairing did not finish. Reconnect and check for a Bluetooth pairing request.");
         }
@@ -5666,6 +5775,9 @@
     }
 
     function describeConnectionError(error) {
+      // A refusal the toy explained is shown to the parent and is not an
+      // error worth a console trace; anything else is.
+      if (error?.userMessage && !error.technicalMessage) return error.userMessage;
       console.error("[SweetYaar connection error]", error?.technicalMessage || error);
       if (error?.userMessage) return error.userMessage;
       if (/insufficient (authentication|authorization|encryption)|not (paired|bonded|authorized)/i.test(error?.message || "")) {
@@ -7065,38 +7177,188 @@
       return "Technical error - couldn't connect.";
     }
 
-    async function connect() {
+    const LAST_DEVICE_KEY = "sweetyaar-last-device-id";
+    // The automatic reconnect finds the toy with a scan of up to
+    // AUTO_CONNECT_FIND_MS and then makes at most two connects.
+    // - On a Mac a scan that has heard nothing within a couple of seconds
+    //   usually stays deaf, while a restarted one often hears the toy at once,
+    //   so the scan is restarted every AUTO_CONNECT_HEAR_MS.
+    // - Android ignores a scan, without an error, once an app has started
+    //   more than five within 30 seconds. Restarting every two seconds used
+    //   that up in one slow attempt and left the page deaf to a toy that was
+    //   advertising, so Android gets a single scan (and one notification).
+    let AUTO_CONNECT_FIND_MS = 15000;
+    let AUTO_CONNECT_HEAR_MS = 2000;
+    let AUTO_CONNECT_ATTEMPT_MS = 10000;
+    let AUTO_CONNECT_RETRY_MS = 500;
+    const AUTO_CONNECT_ATTEMPTS = 2;
+
+    function rememberedDeviceId() {
+      try { return localStorage.getItem(LAST_DEVICE_KEY) || ""; } catch (error) { return ""; }
+    }
+
+    function rememberDeviceId(id) {
+      try { localStorage.setItem(LAST_DEVICE_KEY, id); } catch (error) { /* private mode */ }
+    }
+
+    function bluetoothUsable(message) {
       if (!("bluetooth" in navigator)) {
-        setMessage("This browser does not support Web Bluetooth. Use Chrome or Edge on desktop or Android.");
-        return;
+        if (message) setMessage("This browser does not support Web Bluetooth. Use Chrome or Edge on desktop or Android.");
+        return false;
       }
       if (!window.isSecureContext) {
-        setMessage("Open this page over HTTPS or localhost to use Web Bluetooth.");
-        return;
+        if (message) setMessage("Open this page over HTTPS or localhost to use Web Bluetooth.");
+        return false;
       }
+      return true;
+    }
 
-      state.disconnectReason = "";
-      state.device = null;
-      state.busy = true;
-      setMessage("Connecting...");
+    // Chrome and Edge only expose getDevices() (remembered toys, no chooser)
+    // with the new permissions backend; the flag page cannot be linked from a
+    // web page, so show its address to copy.
+    const FLAG_HINT_DISMISSED_KEY = "sweetyaar-flag-hint-dismissed";
+    function flagHintAddress() {
+      const ua = navigator.userAgent || "";
+      if (/iPhone|iPad|iPod/.test(ua) || !/Chrome\/|Edg\//.test(ua)) return "";
+      return `${/Edg\//.test(ua) ? "edge" : "chrome"}://flags/#enable-web-bluetooth-new-permissions-backend`;
+    }
+    function flagHintNeeded() {
+      if (!bluetoothUsable(false) || typeof navigator.bluetooth.getDevices === "function") return false;
+      try { if (localStorage.getItem(FLAG_HINT_DISMISSED_KEY)) return false; } catch (error) { /* shown */ }
+      return !!flagHintAddress();
+    }
+    function renderFlagHint() {
+      const needed = flagHintNeeded();
+      els.flagHint.hidden = !needed;
+      if (needed) els.flagHintAddress.textContent = flagHintAddress();
+    }
 
+    async function pickDeviceWithChooser() {
       try {
-        let device;
-        try {
-          device = await navigator.bluetooth.requestDevice({
-            filters: [{ services: [UUIDS.service] }]
-          });
-        } catch (error) {
-          if (error?.name === "NotFoundError") {
-            throw connectionMessageError(`${displayDeviceName()} was not selected.`);
-          }
-          throw error;
+        return await navigator.bluetooth.requestDevice({
+          filters: [{ services: [UUIDS.service] }]
+        });
+      } catch (error) {
+        if (error?.name === "NotFoundError") {
+          throw connectionMessageError(`${displayDeviceName()} was not selected.`);
         }
-        setDeviceNameFromBluetooth(device);
-        state.device = device;
+        throw error;
+      }
+    }
+
+    // Starts the browser's advertisement scan for the toy. `heard` resolves true
+    // at its first advertisement (or at once when the browser cannot watch
+    // advertisements, then connect directly). Stop it when done: while it runs,
+    // the browser keeps the toy "in range" for gatt.connect().
+    function watchToy(device) {
+      let markHeard;
+      const heard = new Promise((resolve) => { markHeard = resolve; });
+      if (typeof device.watchAdvertisements !== "function") {
+        markHeard(true);
+        return { heard, stop() {} };
+      }
+      const abort = new AbortController();
+      const onAdvertisement = () => markHeard(true);
+      device.addEventListener("advertisementreceived", onAdvertisement);
+      device.watchAdvertisements({ signal: abort.signal }).catch(() => markHeard(true));
+      return {
+        heard,
+        stop() {
+          device.removeEventListener("advertisementreceived", onAdvertisement);
+          abort.abort();
+        }
+      };
+    }
+
+    function withTimeout(promise, ms, timeoutValue) {
+      let timer;
+      const limit = new Promise((resolve) => { timer = setTimeout(() => resolve(timeoutValue), ms); });
+      return Promise.race([promise, limit]).finally(() => clearTimeout(timer));
+    }
+
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    function scanWindowMs() {
+      return /Android/i.test(navigator.userAgent || "") ? AUTO_CONNECT_FIND_MS : AUTO_CONNECT_HEAR_MS;
+    }
+    async function connectWithRetries(device) {
+      const deadline = Date.now() + AUTO_CONNECT_FIND_MS;
+      let scan = null;
+      try {
+        let heard = false;
+        while (!heard && Date.now() < deadline) {
+          scan = watchToy(device);
+          heard = await withTimeout(scan.heard, Math.min(scanWindowMs(), deadline - Date.now()), false);
+          if (!heard) {
+            scan.stop();
+            scan = null;
+          }
+        }
+        if (!heard) throw Object.assign(new Error("not in range"), { quiet: true });
+
+        // Connecting to a toy the browser has not heard fails at once, so the
+        // scan keeps running through the connect and stops after it.
+        let lastError;
+        for (let attempt = 1; attempt <= AUTO_CONNECT_ATTEMPTS; attempt += 1) {
+          try {
+            const server = await withTimeout(device.gatt.connect(), AUTO_CONNECT_ATTEMPT_MS, null);
+            if (!server) throw new Error("connect timed out");
+            return server;
+          } catch (error) {
+            lastError = error;
+            // Drops a pending connect too, so the next attempt starts clean.
+            if (device.gatt) device.gatt.disconnect();
+            if (attempt < AUTO_CONNECT_ATTEMPTS) await sleep(AUTO_CONNECT_RETRY_MS);
+          }
+        }
+        lastError.quiet = true;
+        throw lastError;
+      } finally {
+        if (scan) scan.stop();
+      }
+    }
+
+    // A link that was up and then failed without an explanation (the phone
+    // dropped it when a pairing was refused, for example). Connect once more
+    // only to read why; null when the toy gives no refusal reason.
+    let REFUSAL_PROBE_MS = 8000;
+    async function refusalReason(device) {
+      device.removeEventListener("gattserverdisconnected", onDisconnected);
+      try {
+        if (device.gatt.connected) device.gatt.disconnect();
+        const server = await withTimeout(device.gatt.connect(), REFUSAL_PROBE_MS, null);
+        if (!server) return null;
+        const service = await server.getPrimaryService(UUIDS.service);
+        const value = await withTimeout(readCharacteristic(await getCharacteristic(service, "access")), REFUSAL_PROBE_MS, null);
+        if (!value || value.byteLength !== 1) return null;
+        return REFUSAL_MESSAGES[value.getUint8(0)] || null;
+      } catch {
+        return null;
+      } finally {
+        try { if (device.gatt.connected) device.gatt.disconnect(); } catch {}
+      }
+    }
+
+    // Link up and open the remote on an already chosen device. `silent` keeps a
+    // failure to reach the toy off the screen (the automatic attempt at startup).
+    async function connectToDevice(device, { silent = false } = {}) {
+      state.disconnectReason = "";
+      setDeviceNameFromBluetooth(device);
+      state.device = device;
+      state.busy = true;
+      setMessage(`Connecting to ${displayDeviceName()}...`);
+
+      let linked = false;
+      try {
         device.addEventListener("gattserverdisconnected", onDisconnected);
 
-        const server = await device.gatt.connect();
+        let server;
+        if (silent) {
+          server = await connectWithRetries(device);
+        } else {
+          server = await device.gatt.connect();
+        }
+        linked = true;
+        rememberDeviceId(device.id);
         try {
           await openRemote(server, device);
         } catch (error) {
@@ -7104,11 +7366,86 @@
           await openRemote(server, device);
         }
       } catch (error) {
-        disconnectWithReason(state.disconnectReason || describeConnectionError(error));
+        if (error?.quiet) {
+          state.disconnectReason = "";
+          device.removeEventListener("gattserverdisconnected", onDisconnected);
+          state.device = null;
+          // A phone that has connected before is not a new phone: say the toy
+          // was not found instead of the pairing hint.
+          state.message = `Couldn't find ${displayDeviceName()}. Check it is on and nearby, then tap Connect.`;
+          if (device.gatt?.connected) device.gatt.disconnect();
+        } else {
+          let reason = state.disconnectReason || "";
+          if (!reason && linked && !error?.userMessage) reason = (await refusalReason(device)) || "";
+          disconnectWithReason(reason || describeConnectionError(error));
+        }
       } finally {
         state.busy = false;
         render();
       }
+    }
+
+    async function connect() {
+      if (!bluetoothUsable(true)) return;
+      state.disconnectReason = "";
+      state.device = null;
+      state.busy = true;
+      setMessage("Connecting...");
+      let device;
+      try {
+        device = await pickDeviceWithChooser();
+      } catch (error) {
+        disconnectWithReason(state.disconnectReason || describeConnectionError(error));
+        state.busy = false;
+        render();
+        return;
+      }
+      await connectToDevice(device);
+    }
+
+    // From Settings while connected: pick another toy without losing the
+    // current link if the chooser is cancelled.
+    async function chooseAnotherDevice() {
+      if (!bluetoothUsable(false) || !state.connected || state.busy || state.update.active) return;
+      let device;
+      try {
+        device = await navigator.bluetooth.requestDevice({
+          filters: [{ services: [UUIDS.service] }]
+        });
+      } catch (error) {
+        return; // cancelled or none found: stay on the current toy
+      }
+      if (!state.connected || device.id === state.device?.id) return;
+      // Reach the new toy first, so a failure leaves the current remote untouched.
+      try {
+        await device.gatt.connect();
+      } catch (error) {
+        if (device.gatt?.connected) device.gatt.disconnect();
+        showNotice("warn", `Couldn't connect to ${`${device.name || ""}`.trim() || "that device"}.`);
+        return;
+      }
+      const previous = state.device;
+      state.disconnectReason = "";
+      onDisconnected();
+      if (previous?.gatt?.connected) previous.gatt.disconnect();
+      await connectToDevice(device);
+    }
+
+    // At page load: reconnect to the toy this browser used last, with no chooser.
+    // The browser keeps the permission from the earlier chooser pick; only the
+    // id of the last toy is stored here. Any failure leaves the Connect button.
+    async function autoConnect() {
+      if (!bluetoothUsable(false) || typeof navigator.bluetooth.getDevices !== "function") return;
+      const id = rememberedDeviceId();
+      if (!id) return;
+      let device;
+      try {
+        device = (await navigator.bluetooth.getDevices()).find((granted) => granted.id === id);
+      } catch (error) {
+        return;
+      }
+      if (!device || state.busy || state.connected) return;
+      await connectToDevice(device, { silent: true });
     }
 
     // Status first: it alone opens the remote; controls load in the background.
@@ -7260,6 +7597,23 @@
     }
 
     els.connectButton.addEventListener("click", connect);
+    els.bluetoothButton.addEventListener("click", chooseAnotherDevice);
+    els.flagHintCopy.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(flagHintAddress());
+        const [icon, done] = [els.flagHintCopy.querySelector("img"), els.flagHintCopy.querySelector("span")];
+        icon.hidden = true;
+        done.hidden = false;
+        setTimeout(() => { icon.hidden = false; done.hidden = true; }, 1500);
+      } catch (error) {
+        els.flagHintCopy.title = "Copy failed; select the address instead";
+      }
+    });
+    els.flagHintDismiss.addEventListener("change", () => {
+      if (!els.flagHintDismiss.checked) return;
+      try { localStorage.setItem(FLAG_HINT_DISMISSED_KEY, "1"); } catch (error) { /* session only */ }
+      els.flagHint.hidden = true;
+    });
     els.installButton.addEventListener("click", promptInstall);
     els.installDismissButton.addEventListener("click", () => {
       state.installDismissed = true;
@@ -7545,6 +7899,7 @@
     render();
     registerServiceWorker();
     void uploadQueuedLogs();
+    void autoConnect();
   </script>
 </body>
 </html>
