@@ -120,6 +120,14 @@ public:
 
     // Refuses fresh BLE pairing while A2DP audio plays; bonded reconnects still work.
     void setAudioActive(bool active) { _btAudioActive = active; }
+    // True while a phone has a Classic Bluetooth link, with or without A2DP.
+    // Classic and BLE together leave very little heap, so while this is set:
+    // only one BLE link is kept (the controller, else the newest), the toy
+    // stops advertising once it has that link, and no fresh pairing is allowed.
+    void setClassicLinked(bool linked) {
+        if (linked && !_classicLinked) _classicSince = millis();
+        _classicLinked = linked;
+    }
 
 private:
     BLEServer*         _server   = nullptr;
@@ -168,6 +176,14 @@ private:
     };
     static const char* accessStateName(AccessState state);
     static constexpr uint32_t REJECTION_GRACE_MS = 10000;
+    // While a Classic phone is linked a refused peer may not hold a link that
+    // long: it goes shortly after reading why it was refused, or at this limit.
+    static constexpr uint32_t REJECTION_GRACE_CLASSIC_MS = 4000;
+    static constexpr uint32_t REJECTION_READ_GRACE_MS = 300;
+    static constexpr uint32_t AUTH_TIMEOUT_MS = 30000;
+    static constexpr uint32_t AUTH_TIMEOUT_CLASSIC_MS = 10000;
+    // Two links cover a takeover (old and new controller); no third is invited.
+    static constexpr int MAX_LINKS = 2;
     struct Peer {
         uint16_t id = NO_CONNECTION;
         uint8_t address[6] = {};
@@ -177,15 +193,18 @@ private:
         uint32_t retiredAt = 0;
         uint32_t subscriptions = 0;
         uint32_t rejectedAt = 0;
+        uint32_t reasonReadAt = 0;  // when a refused peer first read its access state
         AccessState rejectionReason = AccessState::AuthenticationFailed;
         bool known = false;
         bool authenticated = false;
         bool newKeys = false;
         bool reject = false;
+        bool reasonRead = false;
         bool retiring = false;
         bool noticeSent = false;
         bool noticeConfirmed = false;
         bool disconnectRequested = false;
+        bool lookupFailed = false; // the bond list could not be read at connect
         bool layoutCheck = false; // compare its cached GATT layout from loop()
     };
     Peer _peers[3];
@@ -246,8 +265,25 @@ private:
     volatile bool    _newConfigCommand = false;
     char             _pendingConfigCommand[384] = {0};
 
-    volatile bool    _restartAdvPending = false;
+    // Advertising is driven from loop() and confirmed by the stack's events:
+    // a start that fails (for example at low heap) is retried, never assumed.
+    enum class Advertising : uint8_t { Off, Starting, On, Stopping };
+    volatile Advertising _advertising = Advertising::Off;
+    uint32_t _advertisingChangedAt = 0;
+    uint32_t _advertisingRetryAt = 0;
+    bool _advertisingFailureLogged = false;
+    esp_ble_adv_params_t _advertisingParams = {};
+    void pollAdvertisingState(uint32_t now, bool classic, bool settled, int links);
+    static constexpr uint16_t ADVERTISING_INTERVAL = 0xA0;  // 100 ms, fixed
+    static constexpr uint32_t ADVERTISING_RETRY_MS = 1000;
+    static constexpr uint32_t ADVERTISING_EVENT_TIMEOUT_MS = 3000;
     volatile bool    _btAudioActive = false;
+    volatile bool    _classicLinked = false;
+    uint32_t         _classicSince = 0;
+    // A Classic connection's setup takes the heap to its lowest point. Stopping
+    // advertising or dropping a link then asserted in the controller
+    // (host_recv_pkt_cb), so that housekeeping waits until the link has settled.
+    static constexpr uint32_t CLASSIC_SETTLE_MS = 3000;
     portMUX_TYPE     _mux = portMUX_INITIALIZER_UNLOCKED;
 
     // Server callbacks (connect/disconnect)

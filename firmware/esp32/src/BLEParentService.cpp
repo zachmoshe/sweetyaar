@@ -236,7 +236,8 @@ bool BLEParentService::begin(const String& deviceName, uint16_t localMtu) {
 
     BLEAdvertising* adv = BLEDevice::getAdvertising();
     uint8_t address[6];
-    if (BluetoothAccess::storedBleAddress(address)) {
+    const bool hasAddress = BluetoothAccess::storedBleAddress(address);
+    if (hasAddress) {
         // Must precede advertising: Bluedroid refuses a new random address
         // while advertising, and then uses it as the identity in pairing.
         adv->setDeviceAddress(address, BLE_ADDR_TYPE_RANDOM);
@@ -249,9 +250,22 @@ bool BLEParentService::begin(const String& deviceName, uint16_t localMtu) {
     adv->setScanResponse(true);
     adv->setMinPreferred(0x06);   // help iPhone connections (min connection interval hint)
     adv->setMaxPreferred(0x12);   // max connection interval hint
-    adv->setMinInterval(0xA0);    // 100ms — coexistence headroom for Classic BT
-    adv->setMaxInterval(0x190);   // 250ms
+    // A fixed 100 ms (units of 0.625 ms). With 100-250 ms a phone that was
+    // streaming to the toy often could not find it within the app's 15 s.
+    adv->setMinInterval(ADVERTISING_INTERVAL);
+    adv->setMaxInterval(ADVERTISING_INTERVAL);
+    // Arduino configures the advertising payload on this first start. Later
+    // starts use the same parameters directly: its start() allocates with a
+    // throwing new and reports no result.
+    _advertisingParams.adv_int_min = ADVERTISING_INTERVAL;
+    _advertisingParams.adv_int_max = ADVERTISING_INTERVAL;
+    _advertisingParams.adv_type = ADV_TYPE_IND;
+    _advertisingParams.own_addr_type = hasAddress ? BLE_ADDR_TYPE_RANDOM : BLE_ADDR_TYPE_PUBLIC;
+    _advertisingParams.channel_map = ADV_CHNL_ALL;
+    _advertisingParams.adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY;
     BLEDevice::startAdvertising();
+    _advertising = Advertising::Starting;
+    _advertisingChangedAt = millis();
 
     Serial.printf("[BLE] Advertising as \"%s\" service=%s configCmd=%s configResp=%s\n",
                   deviceName.c_str(),
@@ -414,6 +428,8 @@ void BLEParentService::updateDeviceName(const String& deviceName) {
     if (_server) {
         BLEDevice::stopAdvertising();
         BLEDevice::startAdvertising();
+        _advertising = Advertising::Starting;
+        _advertisingChangedAt = millis();
     }
     DLOG(BLE_NAME_SET, deviceName.c_str());
 }
@@ -511,11 +527,14 @@ BLEParentService::Peer* BLEParentService::peer(uint16_t id) {
 }
 
 BLEParentService::Peer* BLEParentService::peerByAddress(const uint8_t* address) {
+    // Most events carry the connection's own address. Reading the bond list
+    // (a heap allocation of every saved key) is needed only when they do not.
+    for (auto& p : _peers)
+        if (p.id != NO_CONNECTION && memcmp(p.address, address, 6) == 0) return &p;
     uint8_t identity[6];
     bool resolved = BluetoothAccess::bleIdentity(address, identity);
     for (auto& p : _peers) {
         if (p.id == NO_CONNECTION) continue;
-        if (memcmp(p.address, address, 6) == 0) return &p;
         if (resolved) {
             uint8_t candidateIdentity[6];
             const bool matched = p.known ? (memcpy(candidateIdentity, p.identity, 6), true)
@@ -535,7 +554,7 @@ void BLEParentService::clearPending() {
 BLEParentService::EarlySecurity* BLEParentService::earlySecurity(const uint8_t* address, bool create) {
     const uint32_t now = millis();
     uint8_t identity[6];
-    const bool resolved = BluetoothAccess::bleIdentity(address, identity);
+    bool resolved = false, tried = false; // read the bond list only if needed
     for (auto& item : _earlySecurity) {
         EarlySecurity snapshot;
         portENTER_CRITICAL(&_mux);
@@ -543,10 +562,14 @@ BLEParentService::EarlySecurity* BLEParentService::earlySecurity(const uint8_t* 
         snapshot = item;
         portEXIT_CRITICAL(&_mux);
         if (!snapshot.used) continue;
+        if (memcmp(snapshot.address, address, 6) == 0) return &item;
+        if (!tried) {
+            tried = true;
+            resolved = BluetoothAccess::bleIdentity(address, identity);
+        }
         uint8_t otherIdentity[6];
-        if (memcmp(snapshot.address, address, 6) == 0 ||
-            (resolved && BluetoothAccess::bleIdentity(snapshot.address, otherIdentity) &&
-             memcmp(identity, otherIdentity, 6) == 0)) return &item;
+        if (resolved && BluetoothAccess::bleIdentity(snapshot.address, otherIdentity) &&
+            memcmp(identity, otherIdentity, 6) == 0) return &item;
     }
     if (create) {
         portENTER_CRITICAL(&_mux);
@@ -566,14 +589,23 @@ BLEParentService::EarlySecurity* BLEParentService::earlySecurity(const uint8_t* 
 
 void BLEParentService::connected(esp_ble_gatts_cb_param_t* param) {
     const auto& connection = param->connect;
-    bool known = bluetoothAccess.bleBonded(connection.remote_bda);
+    // One read of the bond list per connection. If it cannot be read the phone
+    // is neither known nor unknown: it is disconnected to try again, and its
+    // bond is never touched.
     uint8_t identity[6] = {};
-    if (known) BluetoothAccess::bleIdentity(connection.remote_bda, identity);
+    const auto lookup = BluetoothAccess::bleLookup(connection.remote_bda, identity);
+    const bool lookupFailed = lookup == BluetoothAccess::BondLookup::Unknown;
+    const bool known = bluetoothAccess.ready() && lookup == BluetoothAccess::BondLookup::Bonded;
+    if (!known) memset(identity, 0, sizeof(identity));
     auto* early = earlySecurity(connection.remote_bda);
     EarlySecurity security;
     Peer* slot = nullptr;
     portENTER_CRITICAL(&_mux);
-    for (auto& p : _peers) if (p.id == NO_CONNECTION) { slot = &p; break; }
+    bool otherLink = false;
+    for (auto& p : _peers) {
+        if (p.id == NO_CONNECTION) { if (!slot) slot = &p; }
+        else if (!p.reject) otherLink = true;
+    }
     if (slot) {
         if (early && early->used) {
             security = *early;
@@ -587,19 +619,30 @@ void BLEParentService::connected(esp_ble_gatts_cb_param_t* param) {
         slot->connectedAt = millis();
         slot->sequence = ++_connectionSequence;
         slot->newKeys = security.newKeys;
-        slot->reject = !bluetoothAccess.ready() || security.keysOutsidePairing ||
-            (!known && !bluetoothAccess.pairingOpen());
+        // A phone connected over Classic leaves too little heap for the pairing
+        // computation, so only bonded phones may connect then; a new one is
+        // turned away before any pairing starts (see "Bluetooth memory budget").
+        const bool classicBusy = _classicLinked || _btAudioActive;
+        slot->lookupFailed = lookupFailed;
+        // A second link beside a Classic phone has crashed the stack for lack
+        // of heap, so the controller keeps its link and this one is refused.
+        const bool secondLink = classicBusy && otherLink;
+        slot->reject = !bluetoothAccess.ready() || security.keysOutsidePairing || lookupFailed ||
+            secondLink || (!known && (!bluetoothAccess.pairingOpen() || classicBusy));
         slot->rejectedAt = slot->connectedAt;
-        slot->rejectionReason = _btAudioActive ? AccessState::AudioBusy : AccessState::PairingRequired;
+        slot->rejectionReason = lookupFailed ? AccessState::AuthenticationFailed
+            : classicBusy ? AccessState::AudioBusy : AccessState::PairingRequired;
     }
-    _restartAdvPending = true; // keep a slot available for takeover
+    // The controller stops advertising when a connection is made; loop() decides
+    // whether to start it again.
+    _advertising = Advertising::Off;
     portEXIT_CRITICAL(&_mux);
     DLOG(BLE_CONNECT, connection.conn_id,
         connection.remote_bda[0], connection.remote_bda[1], connection.remote_bda[2],
         connection.remote_bda[3], connection.remote_bda[4], connection.remote_bda[5],
         known, bluetoothAccess.pairingOpen() ? "open" : "closed",
         !slot ? "no-free-slot" : slot->reject ? accessStateName(slot->rejectionReason) : "authenticate");
-    if (!slot) {
+    if (!slot || lookupFailed) {
         disconnectPeer(connection.conn_id);
         return;
     }
@@ -629,7 +672,6 @@ void BLEParentService::disconnected(uint16_t connection, uint16_t reason) {
         _ownerId = NO_CONNECTION;
         clearPending();
     }
-    _restartAdvPending = true;
     portEXIT_CRITICAL(&_mux);
     DLOG(BLE_DISCONNECT, connection, reason, wasOwner);
 }
@@ -663,10 +705,15 @@ void BLEParentService::handleGap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_pa
     if (event == ESP_GAP_BLE_ADV_START_COMPLETE_EVT || event == ESP_GAP_BLE_ADV_STOP_COMPLETE_EVT) {
         const auto status = event == ESP_GAP_BLE_ADV_START_COMPLETE_EVT
             ? param->adv_start_cmpl.status : param->adv_stop_cmpl.status;
-        if (status != ESP_BT_STATUS_SUCCESS) {
+        const bool ok = status == ESP_BT_STATUS_SUCCESS;
+        if (!ok) {
             DLOG(BLE_ADVERTISING_FAILED,
                 event == ESP_GAP_BLE_ADV_START_COMPLETE_EVT ? "start" : "stop", status);
         }
+        // A failed start leaves it off and a failed stop leaves it on; loop() retries.
+        const bool start = event == ESP_GAP_BLE_ADV_START_COMPLETE_EVT;
+        _advertising = (start == ok) ? Advertising::On : Advertising::Off;
+        _advertisingChangedAt = millis();
     }
     if (event == ESP_GAP_BLE_PASSKEY_NOTIF_EVT) {
         return; // Arduino's default handler logs the passcode
@@ -675,9 +722,9 @@ void BLEParentService::handleGap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_pa
         auto* p = peerByAddress(param->ble_security.ble_req.bd_addr);
         // A peripheral receives this event for fresh pairing. Saved-key
         // encryption does not need this grant, even for an approved peer.
-        // Also deny while A2DP audio plays: fresh pairing then exhausted
-        // Bluedroid heap and asserted in host_recv_pkt_cb.
-        const bool audioBusy = _btAudioActive;
+        // Also deny while a phone is connected over Classic: fresh pairing then
+        // exhausted Bluedroid heap and asserted in host_recv_pkt_cb.
+        const bool audioBusy = _classicLinked || _btAudioActive;
         portENTER_CRITICAL(&_mux);
         const bool allow = (!p || !p->reject) && bluetoothAccess.pairingOpen() && !audioBusy;
         const uint16_t connection = p ? p->id : NO_CONNECTION;
@@ -755,7 +802,7 @@ void BLEParentService::handleGap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_pa
                     ? AccessState::PairingRequired : AccessState::AuthenticationFailed;
             }
             portEXIT_CRITICAL(&_mux);
-            if (auth.success && (!snapshot.known || snapshot.newKeys))
+            if (auth.success && !snapshot.lookupFailed && (!snapshot.known || snapshot.newKeys))
                 esp_ble_remove_bond_device(auth.bd_addr);
             return;
         }
@@ -833,6 +880,10 @@ bool BLEParentService::filterGatt(esp_gatts_cb_event_t event, esp_gatt_if_t inte
         : authenticated ? (allowed ? AccessState::Ready : AccessState::TakenOver)
         : AccessState::Authenticating;
     const bool accessRead = event == ESP_GATTS_READ_EVT && _accessChar && param->read.handle == _accessChar->getHandle();
+    if (accessRead && p && p->reject && !p->reasonRead) {
+        p->reasonRead = true;
+        p->reasonReadAt = millis();
+    }
     portEXIT_CRITICAL(&_mux);
     if (accessRead) {
         esp_gatt_rsp_t reply{};
@@ -939,10 +990,11 @@ void BLEParentService::notifyOwner(BLECharacteristic* characteristic, bool inval
     const uint16_t owner = subscribedOwner(characteristic);
     if (owner == NO_CONNECTION) return;
     uint8_t changed = 1;
-    std::string value;
-    if (!invalidation) value = characteristic->getValue();
+    // Send from the stored value: a copy could fail to allocate and abort.
+    // Bluedroid copies the bytes before this returns.
     esp_ble_gatts_send_indicate(configGattsIf, owner, characteristic->getHandle(),
-        invalidation ? 1 : value.size(), invalidation ? &changed : reinterpret_cast<uint8_t*>(&value[0]),
+        invalidation ? 1 : characteristic->getLength(),
+        invalidation ? &changed : characteristic->getData(),
         characteristic == _noticeChar);
 }
 
@@ -959,16 +1011,42 @@ void BLEParentService::disconnectAll() {
 
 void BLEParentService::pollAdvertising(bool canNotify) {
     const uint32_t now = millis();
+    const bool classic = _classicLinked || _btAudioActive;
+    const bool settled = !_classicLinked || now - _classicSince >= CLASSIC_SETTLE_MS;
+    int links = 0;
+    if (classic && settled) {
+        // Keep one link beside the Classic phone: the controller, else the newest.
+        uint16_t keep = NO_CONNECTION, drop[3];
+        int drops = 0;
+        portENTER_CRITICAL(&_mux);
+        const Peer* newest = nullptr;
+        for (const auto& p : _peers) {
+            if (p.id == NO_CONNECTION || p.reject || p.retiring) continue;
+            if (!newest || int32_t(p.sequence - newest->sequence) > 0) newest = &p;
+        }
+        keep = peer(_ownerId) ? uint16_t(_ownerId) : newest ? newest->id : NO_CONNECTION;
+        // A refused peer is left to the grace period below, so that the app
+        // can read why it was refused and tell the parent.
+        for (const auto& p : _peers)
+            if (p.id != NO_CONNECTION && p.id != keep && !p.reject && !p.disconnectRequested) drop[drops++] = p.id;
+        portEXIT_CRITICAL(&_mux);
+        for (int i = 0; i < drops; ++i) disconnectPeer(drop[i]);
+    }
     for (size_t i = 0; i < 3; ++i) {
         Peer snapshot;
         portENTER_CRITICAL(&_mux);
         snapshot = _peers[i];
         portEXIT_CRITICAL(&_mux);
         if (snapshot.id == NO_CONNECTION) continue;
+        ++links;
         if (snapshot.reject) {
-            if (now - snapshot.rejectedAt >= REJECTION_GRACE_MS) disconnectPeer(snapshot.id);
+            const bool told = classic && snapshot.reasonRead &&
+                now - snapshot.reasonReadAt >= REJECTION_READ_GRACE_MS;
+            if (told || now - snapshot.rejectedAt >= (classic ? REJECTION_GRACE_CLASSIC_MS : REJECTION_GRACE_MS))
+                disconnectPeer(snapshot.id);
         } else if (!snapshot.authenticated &&
-            (now - snapshot.connectedAt >= 30000 || (!snapshot.known && !bluetoothAccess.pairingOpen()))) {
+            (now - snapshot.connectedAt >= (classic ? AUTH_TIMEOUT_CLASSIC_MS : AUTH_TIMEOUT_MS) ||
+             (!snapshot.known && !bluetoothAccess.pairingOpen()))) {
             bool rejected = false;
             portENTER_CRITICAL(&_mux);
             if (_peers[i].id == snapshot.id && !_peers[i].authenticated && !_peers[i].reject) {
@@ -1007,9 +1085,40 @@ void BLEParentService::pollAdvertising(bool canNotify) {
         }
     }
     pollServiceChanged();
-    if (_restartAdvPending) {
-        _restartAdvPending = false;
-        BLEDevice::startAdvertising();
+    pollAdvertisingState(now, classic, settled, links);
+}
+
+void BLEParentService::pollAdvertisingState(uint32_t now, bool classic, bool settled, int links) {
+    if (!_server) return;
+    if (!settled) return;  // no advertising change while a Classic connection sets up
+    // Beside a Classic phone one BLE link is the limit, so stop inviting more.
+    const bool wanted = links < MAX_LINKS && !(classic && links > 0);
+    const Advertising state = _advertising;
+    if ((state == Advertising::Starting || state == Advertising::Stopping) &&
+        now - _advertisingChangedAt >= ADVERTISING_EVENT_TIMEOUT_MS) {
+        // No completion event: assume the request was lost and decide again.
+        _advertising = state == Advertising::Starting ? Advertising::Off : Advertising::On;
+        _advertisingChangedAt = now;
+        DLOG(BLE_ADVERTISING, state == Advertising::Starting ? "start-unconfirmed" : "stop-unconfirmed",
+            links, int(classic));
+        return;
+    }
+    if (wanted && state == Advertising::Off && int32_t(now - _advertisingRetryAt) >= 0) {
+        const esp_err_t result = esp_ble_gap_start_advertising(&_advertisingParams);
+        if (result == ESP_OK) {
+            _advertising = Advertising::Starting;
+            _advertisingChangedAt = now;
+            _advertisingFailureLogged = false;
+        } else {
+            if (!_advertisingFailureLogged) DLOG(BLE_ADVERTISING_FAILED, "start", unsigned(result));
+            _advertisingFailureLogged = true;
+            _advertisingRetryAt = now + ADVERTISING_RETRY_MS;
+        }
+    } else if (!wanted && state == Advertising::On) {
+        if (esp_ble_gap_stop_advertising() == ESP_OK) {
+            _advertising = Advertising::Stopping;
+            _advertisingChangedAt = now;
+        }
     }
 }
 

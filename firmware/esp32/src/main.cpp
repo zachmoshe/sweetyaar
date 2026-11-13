@@ -35,6 +35,7 @@
 #include "SleepEntryCheck.h"
 #include "OtaUpdate.h"
 #include "DevLog.h"
+#include <esp_bt.h>
 
 // ---------------------------------------------------------------------------
 // Global objects
@@ -84,8 +85,9 @@ volatile bool btAudioActive = false;
 uint32_t lastQuietPublishMs = 0;
 // After BT A2DP connects, hold off BLE notify() calls for this many ms.
 // The BTDM HCI transport asserts if BLE packets are injected while A2DP is
-// still completing its stream setup (hci_hal_h4.c:553).
-static const uint32_t BT_SETTLE_MS = 400;
+// still completing its stream setup (hci_hal_h4.c:553), and that setup is
+// also when the heap is lowest (a publish 0.4 s in found 640 bytes free).
+static const uint32_t BT_SETTLE_MS = 2000;
 uint32_t btConnectedAtMs = 0;
 bool btSettleBlePublishPending = false;
 bool wokeFromVibration = false;
@@ -107,6 +109,11 @@ static constexpr uint32_t RTC_BEDTIME_CLOCK_MAGIC = 0xBED71AAB;
 
 RTC_DATA_ATTR uint32_t rtcHeapRestartCount = 0;
 RTC_DATA_ATTR uint32_t rtcHeapRestartMagic = 0;
+// Consecutive restarts made because a speaker connection did not complete.
+RTC_DATA_ATTR uint32_t rtcSpeakerRestartCount = 0;
+RTC_DATA_ATTR uint32_t rtcSpeakerRestartMagic = 0;
+static constexpr uint32_t RTC_SPEAKER_RESTART_MAGIC = 0x5BEA4E12UL;
+static constexpr uint32_t MAX_SPEAKER_RESTARTS = 3;
 static constexpr uint32_t RTC_HEAP_RESTART_MAGIC = 0xBEEFD00DUL;
 static constexpr uint32_t MAX_HEAP_RESTARTS = 3;
 
@@ -150,6 +157,7 @@ void printBluetoothAddress(const char* label);
 void scheduleBluetoothReopen(const char* reason);
 void reopenBluetoothForPairing(const char* reason);
 void pollBluetoothReopen();
+void pollIncompleteSpeakerLink();
 void pollBluetoothPairing();
 void applyVolume(uint8_t pct);
 void applyEffectiveVolume(const char* reason);
@@ -224,12 +232,14 @@ static void btConnectionStateChanged(esp_a2d_connection_state_t state,
                                      void* /*obj*/) {
     if (state == ESP_A2D_CONNECTION_STATE_CONNECTED) {
         btLinkConnected = true;
+        rtcSpeakerRestartCount = 0;
         btAudioActive = false;
         statusLed.setSignal(StatusSignal::BluetoothPlaying, false);
         statusLed.setSignal(StatusSignal::BluetoothConnected, true);
         btConnectedAtMs = millis();
         DLOG(BT_CONNECTED,
-                      ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+                      heap_caps_get_free_size(MALLOC_CAP_8BIT),
+                      heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
         sm.postEvent(Event::BT_CONNECTED);
     } else if (state == ESP_A2D_CONNECTION_STATE_DISCONNECTED) {
         btLinkConnected = false;
@@ -341,6 +351,7 @@ void setup() {
 
     // I2S (must be set up before BT sink and WAV player)
     setupI2S();
+
 
     // Bluetooth A2DP sink. Reserve its audio queue before SD/WAV playback has
     // a chance to fragment heap; otherwise connection-time allocation can fail.
@@ -605,7 +616,14 @@ void loop() {
     restartIfBleIdentityChanged();
     pollBluetoothReopen();
     applyPendingBtNameIfPossible();
+    // A Classic link without A2DP makes the phone show a speaker that is not one.
+    ClassicBluetooth::closeIdleLinks(millis());
+    pollIncompleteSpeakerLink();
     if (ENABLE_BLE_PARENT_SERVICE) {
+        // From the ACL, before A2DP, so that new BLE links are refused at once.
+        // Stopping advertising and dropping extra links wait for the Classic
+        // connection to settle (see CLASSIC_SETTLE_MS).
+        bleService.setClassicLinked(btLinkConnected || ClassicBluetooth::hasLinks());
         bleService.pollAdvertising(!btLinkConnected || millis() - btConnectedAtMs >= BT_SETTLE_MS);
     }
     serviceSongChecks();
@@ -1390,6 +1408,20 @@ void setupBT(const String& deviceName) {
     // automatic confirmation before fresh keys can be negotiated.
     sink->activate_pin_code(false);
     sink->reserveAudioQueue();
+    {
+        // Start the controller here, with fewer connection slots than the SDK
+        // default; the library then finds it running and leaves it alone.
+        esp_bt_controller_config_t controller = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+        controller.ble_max_conn = BT_CONTROLLER_BLE_LINKS;
+        controller.bt_max_acl_conn = BT_CONTROLLER_CLASSIC_LINKS;
+        const esp_err_t initResult = esp_bt_controller_init(&controller);
+        const esp_err_t enableResult = initResult == ESP_OK ? esp_bt_controller_enable(
+            ENABLE_BLE_PARENT_SERVICE ? ESP_BT_MODE_BTDM : ESP_BT_MODE_CLASSIC_BT) : ESP_FAIL;
+        if (initResult != ESP_OK || enableResult != ESP_OK) {
+            DLOG(BT_CONTROLLER_START, BT_CONTROLLER_BLE_LINKS, BT_CONTROLLER_CLASSIC_LINKS,
+                 int(initResult), int(enableResult));
+        }
+    }
     sink->start(deviceName.c_str());
     printBluetoothAddress("Classic BT");
     sink->set_auto_reconnect(false, 0);
@@ -1467,6 +1499,33 @@ void pollBluetoothPairing() {
 // ---------------------------------------------------------------------------
 // pollBluetoothReopen()
 // ---------------------------------------------------------------------------
+// A paired phone's link came and went without its audio connection, and the
+// toy did not refuse it. That happens when the connection's set-up ran out of
+// heap, and afterwards the stack accepts no speaker at all. Restart while
+// idle so the next attempt works; a connection that completes clears the count.
+void pollIncompleteSpeakerLink() {
+    static bool pending = false;
+    if (ClassicBluetooth::takeIncompleteLink()) pending = true;
+    if (!pending) return;
+    if (btLinkConnected) {  // a later attempt worked after all
+        pending = false;
+        return;
+    }
+    if (sm.currentState() != State::IDLE) return;
+    pending = false;
+    if (rtcSpeakerRestartMagic != RTC_SPEAKER_RESTART_MAGIC) {
+        rtcSpeakerRestartMagic = RTC_SPEAKER_RESTART_MAGIC;
+        rtcSpeakerRestartCount = 0;
+    }
+    if (rtcSpeakerRestartCount >= MAX_SPEAKER_RESTARTS) return;  // not helping: stop trying
+    ++rtcSpeakerRestartCount;
+    DLOG(BT_SPEAKER_INCOMPLETE, static_cast<unsigned long>(rtcSpeakerRestartCount),
+         static_cast<unsigned long>(MAX_SPEAKER_RESTARTS));
+    delay(200);
+    esp_restart();
+}
+
+// ---------------------------------------------------------------------------
 void pollBluetoothReopen() {
     if (!btReopenPending) {
         return;
@@ -1484,17 +1543,20 @@ void pollBluetoothReopen() {
         return;
     }
 
-    // Restart while idle if the next connection may not fit: a connection
-    // takes up to ~14 KB at its peak, and its setup needs 4 KB contiguous
-    // Bluedroid buffers. See "Bluetooth memory budget" in firmware.md.
-    const uint32_t SAFE_FREE_HEAP = 20000;
+    // Restart while idle if the next connection may not fit: its setup needs
+    // one contiguous buffer of about 4.2 KB. Measured on data memory only
+    // (MALLOC_CAP_8BIT): ESP.getFreeHeap() and getMaxAllocHeap() also count a
+    // 6 KB code-only region, which read 6 KB high and never showed a largest
+    // block under 5,620 bytes. 14000 is the old 20000 without that region.
+    // See "Bluetooth memory budget" in firmware.md.
+    const uint32_t SAFE_FREE_HEAP = 14000;
     const uint32_t SAFE_LARGEST_BLOCK = 5000;
-    uint32_t freeNow = ESP.getFreeHeap();
-    uint32_t largestNow = ESP.getMaxAllocHeap();
+    uint32_t freeNow = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+    uint32_t largestNow = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
     DLOG(BT_POST_SESSION_HEAP,
                   static_cast<unsigned long>(freeNow),
                   static_cast<unsigned long>(largestNow),
-                  static_cast<unsigned long>(ESP.getMinFreeHeap()));
+                  static_cast<unsigned long>(heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)));
     if (freeNow < SAFE_FREE_HEAP || largestNow < SAFE_LARGEST_BLOCK) {
         if (rtcHeapRestartMagic != RTC_HEAP_RESTART_MAGIC) {
             rtcHeapRestartCount = 0;

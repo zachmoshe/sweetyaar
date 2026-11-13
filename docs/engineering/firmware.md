@@ -162,17 +162,150 @@ during local WAV playback, and no allocation failure or reboot. The measurements
 were taken on the generic prototype and do not establish long-duration
 reliability.
 
-Fresh BLE pairing is not possible within this budget while Classic audio plays.
-On the production board (about 15.6 KB free, largest block 8.7 KB at audio
-start), a fresh LE Secure Connections pairing during playback asserted in
-`host_recv_pkt_cb` and rebooted. The firmware therefore refuses BLE pairing
-requests while A2DP audio is `STARTED` (`SECURITY_REQUEST ... audio=active
-decision=deny`), even with the pairing window open. Saved-key reconnects of a
+#### What a speaker connection needs (measured 2026-11-12, production board)
+
+Measured with the `classic-stress` device scenario and the allocation tracker
+build (`sweetyaar-memtrack`, `tools/memprobe_report.py`):
+
+- **The hardest moment is a speaker joining while a remote is connected.** The
+  connection's set-up peaks about 6 KB above its steady cost. Before the changes
+  below the heap fell to 0.3-0.8 KB at that moment, and the outcome was luck:
+  the same build passed one cycle and failed the next.
+- **Two ways it failed.** Either the heap was simply exhausted, or 3 KB was
+  still free but no free block was larger than 4,084 bytes: the set-up needs
+  one contiguous buffer of about 4.2 KB. After one speaker session the free
+  heap is fragmented (largest block 3-8 KB of 14-17 KB free), because the stack
+  keeps about 2.6 KB of connection records (`process_l2cap_cmd`,
+  `l2c_link_hci_conn_req`, `L2CA_ErtmConnectReq`) allocated where the session's
+  buffers were.
+- **A failed set-up does not always crash.** With BLE publishes held back (the
+  2 s settle) the set-up fails quietly instead, and the stack then accepts no
+  speaker at all until a restart: the link comes up, A2DP never connects, and
+  the toy drops the link after 11 s.
+- **The post-session health check did not see this.** It read
+  `ESP.getFreeHeap()` and `ESP.getMaxAllocHeap()`, which include a 6 KB region
+  that can hold only code: free read 6.0 KB high and the largest block never
+  below 5,620 bytes. It now reads data memory (`MALLOC_CAP_8BIT`) and restarts
+  when the largest block is under 5,000 bytes or less than 14,000 bytes are
+  free (the old 20,000 without that region). In the recorded runs the new test
+  would have fired after 13 of 37 sessions before the savings below and after
+  none of 50 with them; all were measured with no remote connected.
+
+Three changes follow from this:
+
+- **AVRCP is not started.** The toy never used it (no remote control, and phone
+  volume is applied by the phone). Linker wraps (`-Wl,--wrap=esp_avrc_...` in
+  `platformio.ini`) replace the five calls the A2DP library makes to start
+  AVRCP with stubs in `ClassicBluetooth.cpp` that report success and do
+  nothing. This leaves about 5 KB more free during a
+  speaker session and 0.9 KB more at ready. Check a phone's volume buttons
+  after any change here.
+- **The controller starts with 2 BLE and 1 Classic connection slots** instead
+  of the SDK's 3 and 2 (`BT_CONTROLLER_BLE_LINKS`, `BT_CONTROLLER_CLASSIC_LINKS`
+  in `Config.h`; `setupBT()` starts the controller itself). About 2.3 KB more
+  free at ready. Two BLE links cover a takeover; the toy is not connectable
+  over Classic once a speaker is linked, so one Classic slot is enough.
+- **A speaker link that never got its audio restarts the toy.** When the link
+  of a phone the toy already had a pairing for ends after 5 s or more without
+  an A2DP connection, and the toy neither refused nor closed it and no pairing
+  was attempted on it, the firmware restarts as soon as it is idle. (A new
+  phone pairing, and a phone the toy has forgotten, also leave without audio;
+  counting those restarted the toy in the middle of a pairing.)
+  The restart is logged (`[BT] Speaker connection did not complete; restarting`, at most three
+  times in a row; a completed connection clears the count).
+
+With these, `classic-stress` passed 20 of 20 cycles (two runs) with at least
+3.0 KB free throughout, against 6 of 10 with two crashes and 0.8 KB before them (the same
+board and Mac, same day). Free heap is about 24.8 KB at ready (was 21.6 KB)
+and about 12.5 KB with a speaker and a remote connected (was about 7 KB).
+
+Tried and not kept:
+
+- **Dropping the remote when a speaker links.** The BLE link was gone within
+  20 ms and its memory was free, but the speaker connection then failed.
+- **A 4.6 KB block held while idle and released when a speaker links**, to
+  guarantee the contiguous set-up buffer. No difference once AVRCP was off.
+- **A 6 KB loop-task stack** (8 KB now, 5 KB of it unused at ready) would free
+  another 2 KB. Its use during an update or a settings save has not been
+  measured, so it is unchanged.
+
+A second BLE link while a phone is connected over Classic Bluetooth crashes the
+same way: a takeover or second phone connecting during music rebooted the toy
+every time (in the `btController` task or in Bluedroid's `reassemble_and_dispatch`,
+both with a NULL pointer after a failed allocation). A phone's A2DP connection
+takes about 4-7 KB, and the first BLE link then leaves only 4-9 KB free (as
+little as 3 KB briefly); a second one leaves about 2-4 KB. The parent has to
+disconnect the first remote (or the speaker phone) before using a second device.
+
+The firmware therefore keeps a single BLE link while a phone has a Classic
+link (from the ACL, before A2DP connects, when the heap is still about 17 KB):
+
+- If several BLE links are up when the Classic phone arrives, the controller
+  stays and every other link is disconnected once the Classic link has settled
+  (see below). With no controller yet, the newest link stays.
+- Once it has that one link the toy stops advertising, and starts again when
+  the link or the Classic phone goes. With no BLE link it keeps advertising, so
+  a bonded remote can still connect during music.
+- A link that still arrives beside the controller is refused (`decision=audio-busy`,
+  access state `5`) and dropped. A takeover needs the speaker or the first
+  remote to disconnect.
+- Stopping advertising and dropping extra links wait until 3 s after the Classic
+  link appeared. Doing either during the connection's setup, when the heap is
+  at its lowest, asserted in the controller (`host_recv_pkt_cb`) on the
+  `advertising` device scenario. New links are still refused at once.
+- A refused peer is dropped 0.3 s after it reads its access state (so the app
+  can show why), or after 4 s if it never does, instead of 10 s. An
+  unauthenticated peer is dropped after 10 s instead of 30 s, and BLE publishes
+  wait 2 s after the A2DP connection.
+
+Without a Classic phone the toy stops advertising at two BLE links (the old and
+new controller of a takeover). Not yet validated with phones: repeat
+`classic-stress` and a two-phone run before relying on it.
+
+The toy advertises every 100 ms, fixed (it was 100-250 ms). A phone streaming
+to the toy scans with the same radio it sends audio with, and with the longer
+interval it often did not find the toy within the app's 15 s although the toy
+was advertising (a Mac beside it heard it normally). The larger part of that
+problem was in the app (see "scans for the toy" in mobile-app.md): Android
+ignores scans started too often. With both changes a phone reconnected on ten
+reloads out of ten during music, and `classic-stress` (10 of 10), `advertising`
+and `advertising-audio` passed on 2026-11-13. Repeat those after changing it.
+
+Two attempts to prevent it made things worse and were dropped. Stopping
+advertising while a Classic phone and a BLE controller were connected, and
+advertising faster (30-50 ms) while idle so a Mac's scan hears the toy sooner,
+each lowered the pass rate of a Mac-only stress run of Classic and BLE
+connections to between 0 and 5 in 10 (`classic-stress`, `tests/README.md`), against 10
+in 10 on the unchanged build, and the stop-advertising call ran when the heap was
+at about 700 bytes. Do not change advertising intervals or stop or restart
+advertising around a Classic connection without repeating that run. The stress
+run also shows how little margin the unchanged build has: the lowest heap seen
+was 470 to 820 bytes.
+
+Fresh BLE pairing is not possible within this budget while a phone is connected
+over Classic. On the production board (about 15.6 KB free, largest block 8.7 KB
+at audio start), a fresh LE Secure Connections pairing during playback asserted
+in `host_recv_pkt_cb` and rebooted; so did one that was still running when a
+phone's stream started a moment after the Classic connection. The firmware
+therefore lets only bonded phones connect over BLE while a Classic phone is
+connected: a new device is turned away at connect (`CONNECT ... decision=audio-busy`)
+before any pairing starts, and a pairing request from any peer is refused
+(`SECURITY_REQUEST ... audio=active decision=deny`) even with the pairing window
+open. Enroll the parent app while no phone is connected as a speaker. Saved-key reconnects of a
 bonded remote are still allowed during playback: repeated reconnects while
 streaming authenticated without a reboot, with about 10.8 KB free (largest block
 5.6 KB) after audio restarted with the remote connected. A refused pairing
-reports access state `5`, and the app asks the parent to pause the music and
-pair again.
+reports access state `5`, and the app asks the parent to disconnect the speaker
+and pair again. A phone that "forgot" the toy on Android still looks bonded to
+the toy, asks to pair, and is refused this way; Android may then drop the
+speaker bond (power-cycle the toy and pair the speaker again).
+
+Reading the bond list allocates a copy of every saved key (about 90 bytes per
+bond). A failed read is never treated as "not bonded": at connect it reports
+`Unknown`, the phone is disconnected to try again (access state `3`), and its
+bond is not deleted even if its saved-key authentication then completes. The
+list is read once per connection; later security events match the connection's
+own address first. The Classic bond check uses the stack, not the heap.
 
 BLE values must never abort the firmware when the heap runs out. Arduino BLE
 copies every value into a `std::string`, and a failed copy throws
@@ -202,14 +335,15 @@ catalog's cost; see the catalog description above for why it keeps no names.
 
 After each Classic session, once the 1.5-second cooldown ends in idle, the
 firmware logs `[BT] Post-session heap: free=... largest=... min=...` and
-restarts if the next connection may not fit:
+restarts if the next connection may not fit. All three numbers are data memory
+(`MALLOC_CAP_8BIT`), the only kind Bluetooth can use:
 
-- **Free heap below 20,000 bytes.** A connection consumed up to about 14 KB at
-  its peak: free heap fell from about 21.7 KB after a session to a lowest point
-  of about 7.7 KB (`min`, the low-water mark since boot).
-- **Largest free block below 5,000 bytes.** Connection setup needs 4 KB
-  contiguous Bluedroid buffers, which a fragmented heap cannot provide whatever
-  its total.
+- **Largest free block below 5,000 bytes.** Connection setup needs one
+  contiguous buffer of about 4.2 KB, which a fragmented heap cannot provide
+  whatever its total.
+- **Free heap below 14,000 bytes.** A connection consumes up to about 14 KB at
+  its peak. (Until 2026-11-13 the check read 20,000 on a number that included
+  6 KB of code-only memory; this is the same limit.)
 
 On the third consecutive low reading it enters deep sleep instead of
 restarting. An 8-cycle Mac
@@ -611,9 +745,9 @@ Boot and wake start with pairing closed. Previously approved phones can reconnec
 while the toy is awake; a new phone needs the physical three-second gesture.
 Fresh Classic and BLE pairing requests require an open window even from a
 previously bonded address; saved-key authentication on an ordinary reconnect
-does not require that grant. Fresh BLE pairing is also refused while Classic
-audio is playing (see "Bluetooth memory budget"); pause the music to enroll the
-parent app. This
+does not require that grant. Fresh BLE pairing is also refused while a phone is
+connected over Classic (see "Bluetooth memory budget"); disconnect the speaker
+to enroll the parent app. This
 admission policy does not guarantee bond preservation against unsolicited
 re-pairing: the bundled Bluetooth stack can clear keys before or during rejection.
 The window lasts a full 60 seconds from opening, even if audio and BLE both
@@ -655,7 +789,11 @@ link silently for bonds created through Chrome, and System Settings > Forget
 does not reliably remove those bonds, so the parent app could not reconnect.
 
 The parent service therefore advertises from a BLE static random address
-(the two most significant bits set) that a bond reset replaces. The new
+(the two most significant bits set) that a bond reset replaces. It never uses
+the public address, which is also the Classic one: a phone keeps a single
+record for an address it sees on both transports, and a refused BLE pairing
+then deleted its speaker pairing as well (Android). The first boot creates the
+address (`BluetoothAccess::begin`), before advertising starts. The new
 address is drawn from the hardware random generator and stored in NVS
 (`sy-access/bleAddr`) before the reset is committed, so a reboot mid-reset
 draws another one rather than keeping the old. Bluedroid accepts a random
@@ -667,10 +805,10 @@ toy's identity during pairing, so every central stores the new bond under it
 and sees a new device: no stale keys and no stale GATT cache. The app finds the
 toy by its service UUID, not its address, and keeps no device ID.
 
-A toy that was never reset keeps its public address (`[BLE] Address: public`),
-so a firmware update does not force parents to pair again. Classic Bluetooth
-always keeps its public address. The old entries on phones and computers
-remain as unused records.
+A toy updated from firmware that still used the public address gets its first
+static address at the next boot, so parents pair the app once more; the old
+entries on phones and computers remain as unused records. Classic Bluetooth
+always keeps its public address.
 
 New BLE bonds require LE Secure Connections with a full 16-byte encryption key.
 Firmware enables strict security-mode acceptance and sets both minimum and
@@ -701,7 +839,13 @@ deletion. Removal is retried, and a reboot resumes an unfinished reset. This
 marker stores no device identities or keys. A storage failure leaves access
 disabled and is logged.
 
-BLE keeps advertising while a controller is connected. The most recently
+BLE keeps advertising while a controller is connected, except beside a Classic
+phone (see "Bluetooth memory budget"). Advertising is driven from the main loop
+and confirmed by the stack's events: a connection stops it, the loop starts it
+again, and a start that fails or is never confirmed is retried every second
+(`[BLE] ADVERTISING start failed`, logged once per failure streak). Restarts
+call the stack directly; Arduino's `startAdvertising()` reports no result and
+allocates with a throwing `new`. The most recently
 connected phone that successfully authenticates becomes the controller. An
 unapproved phone can enroll only during the window; afterward only approved,
 bonded phones can take over. The previous controller immediately loses command
@@ -720,9 +864,9 @@ supplies remembered keys; the button-controlled window authorizes new enrollment
 The public read-only `access` characteristic (`...78A1`) returns one byte for
 the requesting connection: `0` pairing required, `1` authentication pending,
 `2` authenticated controller, `3` authentication failed, `4` taken over, or `5`
-pairing refused because Classic audio is playing. A new device refused because
-the window is closed reports `0`, or `5` while Classic audio plays, since
-pairing cannot succeed until the music is paused.
+pairing refused because a phone is connected over Classic. A new device refused
+because the window is closed reports `0`, or `5` while a Classic phone is
+connected, since pairing cannot succeed until the speaker disconnects.
 It exposes no settings or control data. Rejected peers have up to ten seconds
 to read the reason before firmware disconnects them; the app reads it before
 accessing controls and disconnects immediately after displaying a refusal.
@@ -815,6 +959,11 @@ owns the stream volume; the toy's local volume setting only affects WAV files
 from the SD card. When the source disconnects, the firmware returns to idle and
 accepts another approved source after a short cleanup period (or a new source
 if pairing is still open). There is one Classic audio connection at a time.
+A Classic link that is refused A2DP, or that has had no A2DP connection for
+30 seconds (outside a pairing in progress), is closed with its bond kept
+(`[BT] ACL_CLOSE ... decision=bond-kept`), so a phone never shows the toy as
+connected while it is not its speaker. Bonds are deleted only by the reset
+gesture, or for keys that should not exist (made outside the window).
 Opening pairing does not interrupt it: disconnect the current audio source on
 its phone before connecting another.
 

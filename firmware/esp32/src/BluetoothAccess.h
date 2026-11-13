@@ -20,8 +20,12 @@ public:
     // and a reboot resumes it; access stays closed until deletion completes.
     bool forgetBonds();
     static bool bleIdentity(const uint8_t* address, uint8_t* identity);
-    // The parent service's static random address since the last bond reset;
-    // false while the toy has never been reset (it then uses its public address).
+    // Unknown means the bond list could not be read (no memory). It is never
+    // "not bonded": a caller must not delete keys or ask for pairing on it.
+    enum class BondLookup { NotBonded, Bonded, Unknown };
+    static BondLookup bleLookup(const uint8_t* address, uint8_t* identity);
+    // The parent service's static random address. begin() creates one on the
+    // first boot and a bond reset replaces it; false only if storage failed.
     static bool storedBleAddress(uint8_t* address);
     // True once after a bond reset stored a new BLE address. It applies only
     // before advertising starts, so the caller restarts the firmware.

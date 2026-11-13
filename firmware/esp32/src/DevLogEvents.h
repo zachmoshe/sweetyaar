@@ -116,9 +116,9 @@
 #define DEVLOG_ID_BLE_MTU_FAILED 0x0204
 #define DEVLOG_FMT_BLE_MTU_FAILED "[BLE] MTU request failed: %d"
 #define DEVLOG_ID_BLE_ADDRESS_RANDOM 0x0205
-#define DEVLOG_FMT_BLE_ADDRESS_RANDOM "[BLE] Address %02X:%02X:%02X:%02X:%02X:%02X (random static, from the last bond reset)"
+#define DEVLOG_FMT_BLE_ADDRESS_RANDOM "[BLE] Address %02X:%02X:%02X:%02X:%02X:%02X (random static, separate from Classic)"
 #define DEVLOG_ID_BLE_ADDRESS_PUBLIC 0x0206
-#define DEVLOG_FMT_BLE_ADDRESS_PUBLIC "[BLE] Address: public (no bond reset yet)"
+#define DEVLOG_FMT_BLE_ADDRESS_PUBLIC "[BLE] Address: public (no stored address)"
 #define DEVLOG_ID_BLE_LOW_MEMORY 0x0207
 #define DEVLOG_FMT_BLE_LOW_MEMORY "[BLE] Low memory: value not updated (len=%u free=%u largest=%u)"
 #define DEVLOG_ID_BLE_CONFIG_TOO_LARGE 0x0208
@@ -167,6 +167,8 @@
 #define DEVLOG_FMT_BLE_CONFIG_COMMAND "[BLE] Config command %s id=%lu"
 #define DEVLOG_ID_BLE_CONFIG_ERROR 0x021E
 #define DEVLOG_FMT_BLE_CONFIG_ERROR "[BLE] Config command id=%lu failed: %s"
+#define DEVLOG_ID_BLE_ADVERTISING 0x021F
+#define DEVLOG_FMT_BLE_ADVERTISING "[BLE] ADVERTISING %s (no confirmation from the stack) links=%d classic=%d"
 
 // --- 0x03xx: Classic Bluetooth, access and pairing --------------------------
 #define DEVLOG_ID_BT_CONNECTED 0x0301
@@ -227,6 +229,10 @@
 #define DEVLOG_FMT_PAIRING_CLEARING "[Pairing] Clearing all bonds"
 #define DEVLOG_ID_PAIRING_RESET_FAILED 0x031D
 #define DEVLOG_FMT_PAIRING_RESET_FAILED "[Pairing] Bond reset storage error; access disabled"
+#define DEVLOG_ID_BT_SPEAKER_INCOMPLETE 0x031E
+#define DEVLOG_FMT_BT_SPEAKER_INCOMPLETE "[BT] Speaker connection did not complete; restarting (%lu/%lu)"
+#define DEVLOG_ID_BT_CONTROLLER_START 0x031F
+#define DEVLOG_FMT_BT_CONTROLLER_START "[BT] Controller slots ble=%d classic=%d init=%d enable=%d"
 
 // --- 0x04xx: charger and battery --------------------------------------------
 #define DEVLOG_ID_CHARGER_EVENTS 0x0401

@@ -154,6 +154,11 @@ struct BLEServerCallbacks {
 };
 void BLEServer::setCallbacks(BLEServerCallbacks* callbacks) { delete callbacks; }
 enum { BLE_ADDR_TYPE_PUBLIC, BLE_ADDR_TYPE_RANDOM };
+enum { ADV_TYPE_IND, ADV_CHNL_ALL = 7, ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY = 0 };
+struct esp_ble_adv_params_t {
+    int adv_int_min = 0, adv_int_max = 0, adv_type = 0, own_addr_type = 0, channel_map = 0,
+        adv_filter_policy = 0;
+};
 struct BLEAdvertising {
     uint8_t address[6] = {};
     int addressType = BLE_ADDR_TYPE_PUBLIC;
@@ -162,8 +167,9 @@ struct BLEAdvertising {
     void setScanResponse(bool) {}
     void setMinPreferred(int) {}
     void setMaxPreferred(int) {}
-    void setMinInterval(int) {}
-    void setMaxInterval(int) {}
+    int minInterval = 0, maxInterval = 0;
+    void setMinInterval(int units) { minInterval = units; }
+    void setMaxInterval(int units) { maxInterval = units; }
 };
 struct BLEDevice {
     static inline int starts = 0;
@@ -183,6 +189,15 @@ struct BLEDevice {
     static void startAdvertising() { ++starts; }
     static void stopAdvertising() {}
 };
+// Restarts after the first use the stack directly, with a result to check.
+int advertisingStartResult = ESP_OK, advertisingStops = 0;
+esp_ble_adv_params_t lastAdvertisingParams;
+int esp_ble_gap_start_advertising(esp_ble_adv_params_t* params) {
+    lastAdvertisingParams = *params;
+    if (advertisingStartResult == ESP_OK) ++BLEDevice::starts;
+    return advertisingStartResult;
+}
+int esp_ble_gap_stop_advertising() { ++advertisingStops; return ESP_OK; }
 int lastResponse = ESP_OK, encryptedRequests = 0;
 int lastAccess = -1;
 bool securityAccepted = false;
@@ -237,6 +252,14 @@ struct BluetoothAccess {
     static bool bleIdentity(const uint8_t* address, uint8_t* identity) {
         memcpy(identity, address, 6); return bonds.count(address[5]);
     }
+    enum class BondLookup { NotBonded, Bonded, Unknown };
+    static inline bool failLookups = false;  // the bond list cannot be read
+    static inline int lookups = 0;
+    static BondLookup bleLookup(const uint8_t* address, uint8_t* identity) {
+        ++lookups;
+        if (failLookups) return BondLookup::Unknown;
+        return bleIdentity(address, identity) ? BondLookup::Bonded : BondLookup::NotBonded;
+    }
 } bluetoothAccess;
 
 #include "ble_service_under_test.inc"
@@ -282,6 +305,8 @@ int main() {
     assert(securityParameters.at(ESP_BLE_SM_SET_INIT_KEY) == (ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK));
     assert(securityParameters.at(ESP_BLE_SM_SET_RSP_KEY) == (ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK));
     assert(initialized._server->service.started && BLEDevice::servers == 1 && BLEDevice::starts == 1);
+    // Advertising uses a fixed 100 ms interval (see ADVERTISING_INTERVAL).
+    assert(BLEDevice::getAdvertising()->minInterval == 0xA0 && BLEDevice::getAdvertising()->maxInterval == 0xA0);
     assert(callbackRegistrations == 2 && !initialized.isConnected());
     // Bonded clients learn about a changed table only through manual mode.
     assert(serviceChangeMode == 1 && initialized._gattLayout != 0);
@@ -546,6 +571,35 @@ int main() {
     assert(securityAccepted);
     ble.disconnected(1);
 
+    // While a phone is connected over Classic, a new BLE phone is turned away at
+    // connect (before any pairing), a pairing request is denied even inside the
+    // window, and a bonded phone still connects with its saved keys.
+    {
+        const bool wasOpen = bluetoothAccess.open;
+        bluetoothAccess.open = true;
+        ble.setClassicLinked(true);
+        connect(77);
+        assert(readAccess(77) == 5);  // audio-busy, readable without pairing
+        assert(!canWrite(77));
+        assert(Serial.output.find("CONNECT conn=77 peer=00:00:00:00:00:4D bonded=0 pairing=open decision=audio-busy") != std::string::npos);
+        ble.disconnected(77);
+        request.ble_security.ble_req.bd_addr[5] = 1;
+        connect(1);
+        ble.handleGap(ESP_GAP_BLE_SEC_REQ_EVT, &request);
+        assert(!securityAccepted);    // no fresh pairing under Classic, window or not
+        assert(Serial.output.find("SECURITY_REQUEST conn=1 decision=deny pairing=open audio=active") != std::string::npos);
+        ble.disconnected(1);
+        connect(1); auth(1);          // saved keys
+        assert(readAccess(1) == 2 && canWrite(1));
+        ble.disconnected(1);
+        ble.setClassicLinked(false);
+        connect(77);                  // with the Classic phone gone, pairing works again
+        ble.handleGap(ESP_GAP_BLE_SEC_REQ_EVT, &request);
+        assert(readAccess(77) != 5);
+        ble.disconnected(77);
+        bluetoothAccess.open = wasOpen;
+    }
+
     // A success callback alone cannot grant access without a saved bond.
     bluetoothAccess.open = true;
     connect(88);
@@ -732,6 +786,139 @@ int main() {
     assert(!ble._layoutPending && storedLayouts.at("000000000001") == 0x1234);
     assert(Serial.output.find("SERVICE_CHANGED conn=1 status=timeout") != std::string::npos);
     ble.disconnected(1);
+
+
+    // Advertising is confirmed, not assumed: a connection stops it, loop()
+    // starts it again, and a start that fails is retried until one succeeds.
+    {
+        auto advEvent = [&](bool start, int status) {
+            esp_ble_gap_cb_param_t p{};
+            p.adv_start_cmpl.status = p.adv_stop_cmpl.status = status;
+            ble.handleGap(start ? ESP_GAP_BLE_ADV_START_COMPLETE_EVT : ESP_GAP_BLE_ADV_STOP_COMPLETE_EVT, &p);
+        };
+        using Adv = BLEParentService::Advertising;
+        ble._advertising = Adv::On;
+        connect(1); auth(1);
+        assert(ble._advertising == Adv::Off);
+        int starts = BLEDevice::starts;
+        advertisingStartResult = 1;                  // no memory for the request
+        fakeMillis += 10; ble.pollAdvertising();
+        assert(BLEDevice::starts == starts && ble._advertising == Adv::Off);
+        assert(Serial.output.find("[BLE] ADVERTISING start failed") != std::string::npos);
+        ble.pollAdvertising();                       // not before the retry delay
+        assert(BLEDevice::starts == starts);
+        advertisingStartResult = ESP_OK;
+        fakeMillis += 1000; ble.pollAdvertising();
+        assert(BLEDevice::starts == starts + 1 && ble._advertising == Adv::Starting);
+        advEvent(true, 1);                           // the stack refused it
+        assert(ble._advertising == Adv::Off);
+        fakeMillis += 1000; ble.pollAdvertising();
+        assert(BLEDevice::starts == starts + 2);
+        advEvent(true, ESP_BT_STATUS_SUCCESS);
+        assert(ble._advertising == Adv::On);
+        ble.pollAdvertising();
+        assert(BLEDevice::starts == starts + 2);     // already on
+        // A start with no completion event is tried again.
+        ble._advertising = Adv::Off;
+        ble.pollAdvertising();
+        assert(BLEDevice::starts == starts + 3);
+        fakeMillis += 3000; ble.pollAdvertising();
+        assert(ble._advertising == Adv::Off);
+        ble.pollAdvertising();
+        assert(BLEDevice::starts == starts + 4);
+        advEvent(true, ESP_BT_STATUS_SUCCESS);
+
+        // A Classic phone arriving: the toy stops advertising because it has
+        // its one BLE link, and starts again once that link or the phone goes.
+        int stops = advertisingStops;
+        ble.setClassicLinked(true);
+        // Nothing changes while the Classic connection is still setting up.
+        ble.pollAdvertising();
+        assert(advertisingStops == stops && ble._advertising == Adv::On);
+        fakeMillis += 3000;
+        ble.pollAdvertising();
+        assert(advertisingStops == stops + 1 && ble._advertising == Adv::Stopping);
+        advEvent(false, ESP_BT_STATUS_SUCCESS);
+        starts = BLEDevice::starts;
+        ble.pollAdvertising();
+        assert(BLEDevice::starts == starts && ble.isConnected());
+        ble.setClassicLinked(false);
+        ble.pollAdvertising();
+        assert(BLEDevice::starts == starts + 1);
+        advEvent(true, ESP_BT_STATUS_SUCCESS);
+        ble.disconnected(1);
+    }
+
+    // A Classic phone arriving while two BLE links are up: the controller
+    // stays and every other link is dropped at once, without its grace period.
+    {
+        bluetoothAccess.bonds.insert(2);
+        connect(1); auth(1);
+        connect(2);                                  // still authenticating
+        server.closed.clear();
+        ble.setClassicLinked(true);
+        fakeMillis += 3000;
+        ble.pollAdvertising();
+        assert(server.closed.size() == 1 && server.closed[0] == 2);
+        assert(ble.isConnected() && readAccess(1) == 2);
+        ble.disconnected(2);
+        // A second link arriving beside the Classic phone is refused even
+        // though it is bonded: no takeover while music can play.
+        server.closed.clear();
+        // It stays just long enough for the app to read why and say so.
+        connect(2);
+        ble.pollAdvertising();
+        assert(server.closed.empty());
+        assert(readAccess(2) == 5 && !canWrite(2));
+        fakeMillis += 299; ble.pollAdvertising();
+        assert(server.closed.empty());
+        fakeMillis += 1; ble.pollAdvertising();
+        assert(server.closed.size() == 1 && server.closed[0] == 2 && readAccess(1) == 2);
+        ble.disconnected(2);
+        // An app that never reads the reason is dropped at the limit.
+        server.closed.clear();
+        connect(2);
+        fakeMillis += 3999; ble.pollAdvertising();
+        assert(server.closed.empty());
+        fakeMillis += 1; ble.pollAdvertising();
+        assert(server.closed.size() == 1 && server.closed[0] == 2);
+        ble.disconnected(2);
+        ble.disconnected(1);
+        // With no controller, the newest link is the one kept.
+        ble.setClassicLinked(false);
+        connect(1); connect(2);
+        server.closed.clear();
+        ble.setClassicLinked(true);
+        fakeMillis += 3000;
+        ble.pollAdvertising();
+        assert(server.closed.size() == 1 && server.closed[0] == 1);
+        ble.disconnected(1); ble.disconnected(2);
+        ble.setClassicLinked(false);
+    }
+
+    // A bond list that cannot be read (no memory) is not "not bonded": the
+    // phone is disconnected to try again, and its bond is never deleted, even
+    // if its saved-key authentication then completes.
+    {
+        removedBonds.clear();
+        server.closed.clear();
+        BluetoothAccess::failLookups = true;
+        connect(1);
+        assert(server.closed.size() == 1 && server.closed[0] == 1);
+        assert(readAccess(1) == 3);                  // authentication failed, not "pair again"
+        auth(1);
+        assert(removedBonds.empty() && !ble.isConnected());
+        ble.disconnected(1);
+        BluetoothAccess::failLookups = false;
+        connect(1); auth(1);
+        assert(readAccess(1) == 2 && removedBonds.empty());
+        // One read of the bond list per connection, none for its later events.
+        ble.disconnected(1);
+        const int lookups = BluetoothAccess::lookups;
+        connect(1);
+        assert(BluetoothAccess::lookups == lookups + 1);
+        ble.disconnected(1);
+    }
 
     std::cout << "BLE authorization and takeover tests passed\n";
 }

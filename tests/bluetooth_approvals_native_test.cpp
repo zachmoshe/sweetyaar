@@ -112,7 +112,11 @@ int main() {
     assert(!access.ready() && !access.pairingOpen());
     assert(poll(access) && access.ready());
     assert(classicRemovals.empty() && bleRemovals.empty());
-    assert(Preferences::writes == 0);
+    // The only write is the parent service's own BLE address, created on the
+    // first boot so it never shares the Classic (public) address.
+    uint8_t bootAddress[6] = {};
+    assert(Preferences::writes == 1 && BluetoothAccess::storedBleAddress(bootAddress));
+    assert(isStaticRandomAddress(bootAddress));
     address(phone, 1);
     assert(access.classicBonded(phone) && !access.bleBonded(phone));
     address(phone, 5);
@@ -129,6 +133,9 @@ int main() {
     BluetoothAccess reboot;
     reboot.begin();
     assert(poll(reboot));
+    uint8_t rebootAddress[6] = {};
+    assert(Preferences::writes == writes && BluetoothAccess::storedBleAddress(rebootAddress));
+    assert(memcmp(bootAddress, rebootAddress, 6) == 0);  // kept across boots
     assert(reboot.bleBonded(phone) && !reboot.pairingOpen());
     reboot.openPairing(nowMs);
     nowMs += 59999; assert(reboot.pairingOpen());

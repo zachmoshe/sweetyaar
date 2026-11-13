@@ -24,8 +24,10 @@ struct {
     uint32_t getMaxAllocHeap() { return g_largestBlock; }
     uint32_t getMinFreeHeap() { return 7000; }
 } ESP;
-unsigned heap_caps_get_free_size(int) { return 50000; }
-unsigned heap_caps_get_largest_free_block(int) { return 40000; }
+// Data memory, which the post-session check reads.
+unsigned heap_caps_get_free_size(int) { return g_freeHeap; }
+unsigned heap_caps_get_largest_free_block(int) { return g_largestBlock; }
+unsigned heap_caps_get_minimum_free_size(int) { return 7000; }
 bool g_restartDelayAllowed = false;
 void delay(uint32_t) {
     if (!g_restartDelayAllowed) throw std::runtime_error("Unexpected blocking delay");
@@ -77,7 +79,7 @@ int heapScenario(const std::string& scenario) {
     const bool lowFree = scenario == "heap-low-free";
     const bool lowLargest = scenario == "heap-low-largest";
     assert(lowFree || lowLargest || scenario == "heap-at-limits");
-    g_freeHeap = lowFree ? 19999 : 20000;
+    g_freeHeap = lowFree ? 13999 : 14000;
     g_largestBlock = lowLargest ? 4999 : 5000;
     g_restartDelayAllowed = true;  // the restart path flushes the log first
     event(Event::BT_CONNECTED, State::BT_STREAMING);

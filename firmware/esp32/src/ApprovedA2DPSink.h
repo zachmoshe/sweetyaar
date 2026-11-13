@@ -60,7 +60,15 @@ protected:
             logPeer("AUTH_COMPLETE", param->auth_cmpl.bda, param->auth_cmpl.stat,
                 !success ? "stack-authentication-failed" : allowed ? "accept" : "bond-not-authorized");
             if (success && !allowed) {
-                esp_bt_gap_remove_bond_device(param->auth_cmpl.bda);
+                // Delete only keys that should not exist: ones made on this link
+                // or for an address without a saved bond. A saved bond that is
+                // refused for another reason is kept; only its link is closed.
+                if (ClassicBluetooth::pairedOnThisLink(param->auth_cmpl.bda) ||
+                    !bluetoothAccess.classicBonded(param->auth_cmpl.bda)) {
+                    esp_bt_gap_remove_bond_device(param->auth_cmpl.bda);
+                } else {
+                    ClassicBluetooth::closeLink(param->auth_cmpl.bda);
+                }
                 esp_a2d_sink_disconnect(param->auth_cmpl.bda);
             }
             return;
@@ -83,10 +91,15 @@ protected:
             if (!_sessionApproved) {
                 logPeer("A2DP_REJECT", param->conn_stat.remote_bda, 0, "device-not-approved");
                 esp_a2d_sink_disconnect(param->conn_stat.remote_bda);
+                // Without this the phone stays "connected" to a toy that is
+                // not its speaker. The bond is kept for the next attempt.
+                ClassicBluetooth::closeLink(param->conn_stat.remote_bda);
                 return; // do not start audio or report an authorized connection
             }
+            ClassicBluetooth::audioConnected(param->conn_stat.remote_bda, true);
         } else if (param->conn_stat.state == ESP_A2D_CONNECTION_STATE_DISCONNECTED) {
             _sessionApproved = false;
+            ClassicBluetooth::audioConnected(param->conn_stat.remote_bda, false);
         }
         LowLatencyA2DPSinkQueued::handle_connection_state(event, data);
         if (param->conn_stat.state == ESP_A2D_CONNECTION_STATE_CONNECTED &&

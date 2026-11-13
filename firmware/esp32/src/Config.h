@@ -217,6 +217,12 @@ static constexpr uint8_t DEFAULT_BEDTIME_VOLUME_CAP_PCT = 65;
 // Part of the Bluetooth memory budget; see the note at I2S_DMA_BUFFER_COUNT.
 static constexpr int     BT_A2DP_RINGBUFFER_BYTES = 8 * 1024;
 static constexpr int     BT_A2DP_I2S_TASK_STACK_BYTES = 2048;
+// Connection slots the Bluetooth controller reserves memory for at start-up
+// (the SDK defaults are 3 and 2). Two BLE links cover a takeover; one Classic
+// link is all the toy accepts, since it stops being connectable once a
+// speaker is linked. Together they free about 2.3 KB of heap.
+static constexpr int     BT_CONTROLLER_BLE_LINKS = 2;
+static constexpr int     BT_CONTROLLER_CLASSIC_LINKS = 1;
 
 // BLE parent controls are live session controls for local SD/WAV playback.
 static constexpr bool ENABLE_BLE_PARENT_SERVICE = true;

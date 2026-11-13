@@ -47,6 +47,17 @@ void BluetoothAccess::begin() {
         return;
     }
     _storageOk = true;
+    // The parent service never uses the public address, which is also the
+    // Classic one: a phone would then keep a single record for both transports
+    // and a refused BLE pairing could delete its speaker pairing.
+    uint8_t address[6];
+    if (prefs.getBytes("bleAddr", address, sizeof(address)) != sizeof(address) ||
+        !isStaticRandomAddress(address)) {
+        uint8_t random[6];
+        esp_fill_random(random, sizeof(random));
+        makeStaticRandomAddress(random, address);
+        if (prefs.putBytes("bleAddr", address, sizeof(address)) != sizeof(address)) DLOG(ACCESS_INIT_FAILED);
+    }
     _maintenance = prefs.getBool("clearPending", false) ? Maintenance::Reset : Maintenance::None;
     _lastPoll = millis() - 500;
 }
@@ -63,8 +74,10 @@ bool BluetoothAccess::classicBonded(const uint8_t* address) const {
     if (!ready()) return false;
     int count = esp_bt_gap_get_bond_device_num();
     if (count <= 0 || count > 32) return false;
-    std::unique_ptr<esp_bd_addr_t[]> bonds(new (std::nothrow) esp_bd_addr_t[count]);
-    if (!bonds || esp_bt_gap_get_bond_device_list(&count, bonds.get()) != ESP_OK) return false;
+    // On the stack: a failed heap allocation here would read as "not bonded"
+    // and end with a valid bond being deleted.
+    esp_bd_addr_t bonds[32];
+    if (esp_bt_gap_get_bond_device_list(&count, bonds) != ESP_OK) return false;
     for (int i = 0; i < count; ++i)
         if (memcmp(bonds[i], address, 6) == 0) return true;
     return false;
@@ -74,8 +87,11 @@ bool BluetoothAccess::classicConnectionsAllowed() {
 }
 
 bool BluetoothAccess::bleIdentity(const uint8_t* address, uint8_t* identity) {
+    return bleLookup(address, identity) == BondLookup::Bonded;
+}
+BluetoothAccess::BondLookup BluetoothAccess::bleLookup(const uint8_t* address, uint8_t* identity) {
     BleBonds bonds;
-    if (!bonds.load()) return false;
+    if (!bonds.load()) return BondLookup::Unknown;
     bool found = false;
     for (int i = 0; i < bonds.count && !found; ++i) {
         const auto& bond = bonds.data[i];
@@ -88,7 +104,7 @@ bool BluetoothAccess::bleIdentity(const uint8_t* address, uint8_t* identity) {
             found = true;
         }
     }
-    return found;
+    return found ? BondLookup::Bonded : BondLookup::NotBonded;
 }
 bool BluetoothAccess::bleBonded(const uint8_t* address) const {
     uint8_t identity[6];

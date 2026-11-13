@@ -13,7 +13,8 @@ using portMUX_TYPE = int;
 #define portMUX_INITIALIZER_UNLOCKED 0
 #define portENTER_CRITICAL(mux) ((void)(mux))
 #define portEXIT_CRITICAL(mux) ((void)(mux))
-uint32_t millis() { return 1234; }
+uint32_t fakeNow = 1234;
+uint32_t millis() { return fakeNow; }
 
 using esp_bt_gap_cb_event_t = int;
 using esp_bt_discovery_mode_t = int;
@@ -55,6 +56,11 @@ int esp_bt_gap_ssp_confirm_reply(uint8_t* address, bool allow) { __wrap_BTA_DmCo
 int esp_bt_gap_pin_reply(uint8_t*, bool allow, int, uint8_t*) { assert(!allow); return 0; }
 int esp_bt_gap_ssp_passkey_reply(uint8_t*, bool allow, int) { assert(!allow); return 0; }
 void esp_bt_gap_remove_bond_device(uint8_t* address) { removed.insert(address[5]); }
+std::set<uint8_t> closed;  // links closed with their bond kept
+extern "C" void BTA_DmCloseACL(uint8_t* address, uint8_t removeBond, uint8_t transport) {
+    assert(!removeBond && transport == 1);  // BR/EDR, and never deletes keys
+    closed.insert(address[5]);
+}
 void esp_a2d_sink_disconnect(uint8_t* address) { ++rejected; lastDisconnected = address[5]; }
 struct BluetoothAccess {
     bool open = false;
@@ -196,5 +202,76 @@ int main() {
     assert(!ClassicBluetooth::authenticated(gap.cfm_req.bda, false));
     assert(!ClassicBluetooth::canUseAudio(gap.cfm_req.bda));
     link(2, false);
+
+    // Closing a link never costs a saved bond. A third link has no slot (the
+    // controller allows two) and is closed with its bond kept.
+    removed.clear(); closed.clear();
+    bluetoothAccess.bonds = {3, 4, 5};
+    link(3); link(4); link(5);
+    assert(closed.count(5) && removed.empty());
+    link(4, false);
+    // A bonded phone refused on a rejected link keeps its bond too.
+    closed.clear();
+    link(5);
+    gap.auth_cmpl.bda[5] = 5;
+    gap.auth_cmpl.stat = ESP_BT_STATUS_SUCCESS;
+    ClassicBluetooth::disconnectAll();          // marks every link rejected
+    removed.clear();
+    sink.app_gap_callback(ESP_BT_GAP_AUTH_CMPL_EVT, &gap);
+    assert(closed.count(5) && !removed.count(5));
+    // An A2DP connection that is not approved closes the whole link, so the
+    // phone does not stay "connected" to a toy that is not its speaker.
+    closed.clear();
+    connection.conn_stat.state = ESP_A2D_CONNECTION_STATE_CONNECTED;
+    connection.conn_stat.remote_bda[5] = 5;
+    sink.handle_connection_state(0, &connection);
+    assert(closed.count(5) && !removed.count(5));
+    link(5, false); link(3, false);
+    // A link with no A2DP connection is closed after IDLE_LINK_MS; one with
+    // audio, or one still pairing inside the window, is left alone.
+    closed.clear(); removed.clear();
+    link(3); link(4);
+    uint8_t three[6] = {0, 0, 0, 0, 0, 3}, four[6] = {0, 0, 0, 0, 0, 4};
+    ClassicBluetooth::audioConnected(three, true);
+    assert(ClassicBluetooth::closeIdleLinks(millis() + ClassicBluetooth::IDLE_LINK_MS - 1) == 0);
+    assert(ClassicBluetooth::closeIdleLinks(millis() + ClassicBluetooth::IDLE_LINK_MS) == 1);
+    assert(closed.count(4) && !closed.count(3) && removed.empty());
+    assert(ClassicBluetooth::closeIdleLinks(millis() + 2 * ClassicBluetooth::IDLE_LINK_MS) == 0); // once
+    link(4, false);
+    ClassicBluetooth::audioConnected(three, false);
+    bluetoothAccess.open = true;
+    esp_bt_gap_ssp_confirm_reply(three, true);  // pairing in progress
+    assert(ClassicBluetooth::pairedOnThisLink(three) && !ClassicBluetooth::pairedOnThisLink(four));
+    assert(ClassicBluetooth::closeIdleLinks(millis() + 2 * ClassicBluetooth::IDLE_LINK_MS) == 0);
+    bluetoothAccess.open = false;
+    assert(ClassicBluetooth::closeIdleLinks(millis() + 2 * ClassicBluetooth::IDLE_LINK_MS) == 1);
+    link(3, false);
+    // A paired phone whose link ends without ever getting A2DP, though nothing
+    // here refused or closed it, is reported once so the firmware can restart.
+    bluetoothAccess.bonds = {3, 4, 5};
+    bluetoothAccess.open = false;
+    (void)ClassicBluetooth::takeIncompleteLink();
+    link(3); fakeNow += ClassicBluetooth::INCOMPLETE_LINK_MS - 1; link(3, false);
+    assert(!ClassicBluetooth::takeIncompleteLink());            // too short to judge
+    link(3); fakeNow += ClassicBluetooth::INCOMPLETE_LINK_MS; link(3, false);
+    assert(ClassicBluetooth::takeIncompleteLink() && !ClassicBluetooth::takeIncompleteLink());
+    link(3); ClassicBluetooth::audioConnected(three, true); ClassicBluetooth::audioConnected(three, false);
+    fakeNow += ClassicBluetooth::INCOMPLETE_LINK_MS; link(3, false);
+    assert(!ClassicBluetooth::takeIncompleteLink());            // it did get its audio
+    link(3); fakeNow += ClassicBluetooth::IDLE_LINK_MS;
+    assert(ClassicBluetooth::closeIdleLinks(millis()) == 1);
+    link(3, false);
+    assert(!ClassicBluetooth::takeIncompleteLink());            // closed by the toy itself
+    // A new phone pairing, and a phone the toy has forgotten, also leave
+    // without audio; neither is a sign of trouble.
+    bluetoothAccess.open = true;
+    link(3);
+    esp_bt_gap_ssp_confirm_reply(three, true);
+    fakeNow += ClassicBluetooth::INCOMPLETE_LINK_MS; link(3, false);
+    assert(!ClassicBluetooth::takeIncompleteLink());
+    bluetoothAccess.open = false;
+    link(9);                                                    // not among the saved pairings
+    fakeNow += ClassicBluetooth::INCOMPLETE_LINK_MS; link(9, false);
+    assert(!ClassicBluetooth::takeIncompleteLink());
     std::cout << "Classic authorization tests passed\n";
 }
