@@ -61,21 +61,6 @@ Both return to normal after the cue. Bluetooth's negotiated sample rate is
 preserved; the cue is resampled when needed. No full sound is copied to RAM, and
 the existing I2S/A2DP buffer reservations are unchanged.
 
-These original cues were synthesized for SweetYaar; no third-party instrument
-samples or recordings were used. The sound-design alternatives are retained in
-the separate `codex/status-sound-options` worktree.
-
-The original battery audition is
-[`03-gentle-nudge-medium.wav`](../../../../content/system-sounds/battery-options/03-gentle-nudge-medium.wav).
-This branch removes only all-zero edge PCM and updates WAV lengths.
-Its generator and audition alternatives are retained alongside that file;
-see [battery cue auditions](../../../../docs/engineering/battery-sound-options.md).
-
-The selected production charger audition is
-[`01-sunrise.wav`](../../../../content/system-sounds/charger-happy-options/01-sunrise.wav).
-The embedded charger asset matches the trimmed `charger-sunrise.wav` preview.
-See [happier charger cue auditions](../../../../docs/engineering/charger-happy-sound-options.md).
-
-Trimmed previews and before/after sample counts and SHA-256 values are retained
-in [`content/system-sounds/trimmed`](../../../../content/system-sounds/trimmed/).
-These trims retain pitch, sample rate, bit depth, channel count and sample gain.
+These cues are original to SweetYaar; no third-party samples or recordings
+are used. To change a cue, replace its WAV here (same format) and update the
+table above.

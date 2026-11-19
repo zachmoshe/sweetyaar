@@ -86,7 +86,7 @@ If the venv is active, `pytest` is equivalent.
 
 - `conftest.py`: shared `repo_root` fixture.
 - `helpers.py`: subprocess helpers and PlatformIO discovery.
-- `test_firmware_config.py`: static checks for checked-in SD-card templates and app-owned config defaults.
+- `test_firmware_config.py`: static checks of the firmware build configuration (board flags, LED timing, charger settings).
 - `test_firmware_build.py`: no-device firmware build checks through PlatformIO.
 - `test_animal_prompts.py`: the animal-prompt mapping (`content/animal_prompts/prompts.json`)
   is complete, and its ElevenLabs generator writes the bucket layout (fake API, no network).
@@ -161,7 +161,7 @@ Pytest only discovers `test_*.py` files directly. The `.js`, `.cpp`, and
 
 ## Current Tests
 
-- `test_firmware_config.py`: checks the SD-card template, board-specific polarity overrides, and the default status-LED brightness setting.
+- `test_firmware_config.py`: checks board-specific polarity overrides and the default status-LED brightness setting.
 - `test_firmware_build.py::test_sweetyaar_firmware_build`: builds the production and generic PlatformIO environments and expects each real-app firmware build to succeed; generic includes the current RGBW bench-LED override.
 - `test_state_machine.py::test_state_machine_native_transitions`: compiles the real state machine on the host and runs the C++ scenarios in `state_machine_native_test.cpp`.
 - `test_state_machine.py::test_sleep_entry_check_native_rules`: checks the 500 ms vibration observation window, quiet/moving/open inputs, cancellation, repeated attempts, and timer wraparound.
@@ -192,10 +192,10 @@ Pytest only discovers `test_*.py` files directly. The `.js`, `.cpp`, and
 - Add parent-app behavior to `parent_app_ui_test.js`; keep `test_parent_app.py` as the thin pytest wrapper.
 - Put shared subprocess and PlatformIO helpers in `helpers.py`.
 
-For deterministic scan API tests against `content/sd-card-template`, prefer a future
-native scanner test with a fake filesystem/SD layer around the firmware scanner.
-Do not rely on the inserted SD card for CI-like tests, and do not reimplement
-the scanner in Python just to inspect the template.
+For deterministic scan API tests, prefer a future native scanner test with a
+fake filesystem/SD layer around the firmware scanner. Do not rely on the
+inserted SD card for CI-like tests, and do not reimplement the scanner in
+Python.
 
 ## Useful Filters
 

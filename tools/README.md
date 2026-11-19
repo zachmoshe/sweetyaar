@@ -1,9 +1,8 @@
 # Project tools
 
 Standalone development and maintenance utilities live here (the device test
-runner, `convert_wavs_to_mono.py`) and the animal-sound pipeline in `animals/`
-(`build_animals.py`; see
-[content/animal-sounds](../content/animal-sounds/README.md)).
+runner, `convert_wavs_to_mono.py`). The SD card's animal files are built by
+SweetYaar Studio's export (see [studio.md](../docs/engineering/studio.md)).
 Common user-facing commands should be exposed through the root `Makefile`.
 
 `reset_mac_bluetooth.py` (`make reset-mac-bluetooth`) makes a development Mac

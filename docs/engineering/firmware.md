@@ -83,7 +83,7 @@ The card stores audio, content metadata, and configuration:
 | ------------------------------ | ------------------------------------------------------------------- |
 | `/songs/<theme>/*.wav`         | Song WAV files grouped into themes such as `lullabies` or `nature`. |
 | `/songs/<theme>/metadata.json` | The theme's display name, shuffle setting, and disabled tracks.     |
-| `/animals/*.wav`               | Animal-sound WAV files (built per toy by `make animals`, see [animal sounds](../../content/animal-sounds/README.md)). |
+| `/animals/*.wav`               | Animal-sound WAV files (built by SweetYaar Studio's export, see [Studio](studio.md)). |
 | `/animals/metadata.json`       | Shuffle and disabled-track settings for animal sounds.              |
 | `/config.json`                 | Default volume and theme, Bedtime settings, and sleep settings.     |
 
@@ -362,9 +362,64 @@ largest block, with no restart. Both limits are guards derived from that run
 and earlier crashes, not measured failure points. `tools/bt_heap_stress.py`
 repeats the test.
 
-The checked-in [SD-card template](../../content/sd-card-template/README.txt) contains a
-complete example card with the supported layout and configuration schema. If
-the card or configuration is missing, Bluetooth speaker mode still starts and
+### `/config.json`
+
+The toy-wide settings. Every key is optional: a missing key, or a value of the
+wrong type, takes the firmware default (`firmware/esp32/src/Config.h`), and
+`ParentConfig.cpp` applies the limits below. The parent app's Settings screen
+writes this file; the firmware keeps keys it does not know untouched.
+
+```json
+{
+  "schemaVersion": 2,
+  "defaultVolumePct": 75,
+  "defaultTheme": "lullabies",
+  "disabledThemes": [],
+  "bedtime": { "enabled": true, "startTime": "18:30", "endTime": "06:30", "theme": "lullabies", "volumeCapPct": 65 },
+  "sleep": { "enabled": true, "normalIdleSec": 600, "vibrationWakeIdleSec": 120, "bleIdleSec": 120 }
+}
+```
+
+| Key | Type | Default | Limits and meaning |
+| --- | --- | --- | --- |
+| `schemaVersion` | number | 2 | Written by the app; the firmware does not read it. |
+| `defaultVolumePct` | number | 75 | Local volume at boot, clamped to 0–100. |
+| `defaultTheme` | string | `lullabies` | Theme folder id played after boot. An id over 63 bytes (126 escaped JSON bytes) is ignored and logged. |
+| `disabledThemes` | array of strings | `[]` | Theme folder ids hidden from the toy and the selector. At most 64 are kept; Animals cannot be disabled. |
+| `bedtime.enabled` | boolean | true | The Bedtime mode master switch. |
+| `bedtime.startTime`, `bedtime.endTime` | `"HH:MM"` or minutes after midnight | 18:30, 06:30 | Local clock times; the window may cross midnight. An invalid time keeps the default. |
+| `bedtime.theme` | string | `lullabies` | The theme Bedtime switches to; same id rules as `defaultTheme`. |
+| `bedtime.volumeCapPct` | number | 65 | Caps the effective local volume during Bedtime, clamped to 0–100. |
+| `sleep.enabled` | boolean | true | Automatic deep sleep. |
+| `sleep.normalIdleSec` | seconds | 600 | Idle time before sleep after real activity. |
+| `sleep.vibrationWakeIdleSec` | seconds | 120 | Idle time before sleep when only the vibration switch woke the toy. |
+| `sleep.bleIdleSec` | seconds | 120 | How long a connected but idle parent app may keep the toy awake. |
+
+The three `sleep` times accept 1 s to 24 h: below 1 s means the default, above
+24 h is capped. Sleep is skipped while a song or animal plays, while a phone is
+connected for Bluetooth audio, and during Quiet time; a wake is a full reboot.
+The toy's Bluetooth name and the log-sharing setting are not in this file (see
+the ESP32 non-volatile storage below).
+
+### `metadata.json` of a theme and of `/animals`
+
+```json
+{ "schemaVersion": 2, "name": "Lullabies", "shuffle": false, "disabledSongs": [], "attribution": "Music: [IMSLP](https://imslp.org)" }
+```
+
+| Key | Type | Default | Limits and meaning |
+| --- | --- | --- | --- |
+| `schemaVersion` | number | 2 | Not read. |
+| `name` | string | the folder id (`Animals` for `/animals`) | Display name. The app always shows Animals as "Animals". |
+| `shuffle` | boolean | false for songs, true for animals | Play the theme in random order. |
+| `disabledSongs` | array of file names | `[]` | Files in the folder the toy skips; the app keeps at most 128. |
+| `attribution` | string | none | One line of Markdown, at most 160 bytes, no control characters, shown by the app under the theme name (only `[label](https://…)` becomes a link). Anything else drops it, with a log line; it is also dropped, not the theme, when it alone overflows the 512-byte scan page. |
+
+A theme folder without `metadata.json` uses these defaults. Bedtime's theme is
+chosen in `/config.json`, not here. Songs in a folder play in alphabetical
+order of their file names.
+
+If the card or configuration is missing, Bluetooth speaker mode still starts and
 the firmware uses safe defaults where possible, but local audio cannot play
 without readable content.
 If `/config.json` cannot be read or is not a valid JSON object, the error LED is
@@ -546,8 +601,8 @@ active, using its 5 ms idle yield only when both are idle. This keeps cue feedin
 ahead of I2S consumption even when charger interrupts cause frequent I2C polls;
 the existing audio buffer reservations are unchanged.
 
-The selected battery cue is the first **Gentle nudge** audition: G4–G4–E4,
-0.764 seconds after silence trimming, stored once as `assets/sounds/battery.wav`. It plays once whenever
+The battery cue is G4–G4–E4, 0.764 seconds, stored once as
+`assets/sounds/battery.wav`. It plays once whenever
 the public battery status changes into `MEDIUM` or `LOW`, provided valid charger
 input is absent.
 This includes the first medium/low reading after power-on or deep-sleep
@@ -562,9 +617,8 @@ playing, even if charging is paused, disabled or finished. The output drains
 the existing DMA buffers before releasing the speaker. An invalid charger
 observation suppresses warnings until input can be determined again.
 
-The selected charger cue is **Sunrise** (option 1 of the second audition round):
-C5–E5–G5, 0.494 seconds after silence trimming,
-stored as `assets/sounds/charger.wav`. It plays once per cable connection only
+The charger cue is C5–E5–G5, 0.494 seconds, stored as
+`assets/sounds/charger.wav`. It plays once per cable connection only
 after both `VIN_PGOOD_STAT` and interpreted `ChargerStatus::State::Charging` are
 confirmed. This requires a successful status read after charging was enabled,
 not a stale charge phase from before the `/CE` transition. Boot and deep-sleep

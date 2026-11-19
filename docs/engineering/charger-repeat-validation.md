@@ -27,10 +27,9 @@ frame at each endpoint and all intervening samples. They remain 44.1 kHz,
 the previous diagnostic image's assets. A separate trimmed Sunrise preview is
 0.49449 seconds and is not embedded in this comparison image.
 
-Original audition WAVs remain available. Their generators now use the preserved
-untrimmed pairing reference so existing note extraction offsets remain valid.
-Trimmed previews and exact sample counts/hashes are in
-`content/system-sounds/trimmed/manifest.json`.
+The audition WAVs, their generators and the trimmed previews this record
+refers to were later removed from the repository (2026-11-14); they remain in
+Git history.
 
 ## Validation
 

@@ -17,7 +17,7 @@ PYTHON ?= $(VENV_DIR)/bin/python
 PIO ?= $(VENV_DIR)/bin/pio
 UV ?= uv
 
-.PHONY: help setup app build flash monitor flash-monitor clean test test-unit test-device test-app test-firmware check-python check-pio animals create-published-firmware release-firmware ota-update reset-mac-bluetooth fetch-logs fetch-logs-ble parse-logs logs-ui deploy-logs-api deploy-admin admin-image
+.PHONY: help setup app build flash monitor flash-monitor clean test test-unit test-device test-app test-firmware check-python check-pio create-published-firmware release-firmware ota-update reset-mac-bluetooth fetch-logs fetch-logs-ble parse-logs logs-ui deploy-logs-api deploy-admin admin-image
 
 help: ## Show the available project commands.
 	@printf 'SweetYaar project commands\n\n'
@@ -115,15 +115,6 @@ deploy-admin: check-python ## Deploy SweetYaar Admin (log viewer) to Cloud Run b
 admin-image: check-python ## Build the SweetYaar Admin image locally with Docker (sweetyaar-admin:local).
 	"$(PYTHON)" "$(ROOT_DIR)/tools/deploy_admin.py" --local
 
-PROFILE ?= default
-SDCARD ?=
-OUT ?=
-TTS ?=
-PAUSE ?=
-ANIMALS ?=
-
-animals: check-python ## Build the SD-card /animals WAVs for PROFILE (OUT=<folder>, TTS=<folder> own recordings, PAUSE=<s>, ANIMALS="dog cat", SDCARD=<card>).
-	"$(PYTHON)" "$(ROOT_DIR)/tools/animals/build_animals.py" "$(PROFILE)" $(if $(OUT),--out "$(OUT)",) $(if $(TTS),--tts "$(TTS)",) $(if $(PAUSE),--pause "$(PAUSE)",) $(if $(ANIMALS),--animals $(ANIMALS),) $(if $(SDCARD),--sdcard "$(SDCARD)",)
 
 test: check-python ## Run the complete pytest suite.
 	cd "$(ROOT_DIR)" && "$(PYTHON)" -m pytest

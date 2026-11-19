@@ -103,7 +103,6 @@ or `make monitor SERIAL_PORT=/dev/cu.SLAB_USBtoUART`.
 - `firmware/esp32/`: PlatformIO project and firmware source.
 - `app/`: the Web Bluetooth parent remote and its design assets.
 - `hardware/`: KiCad projects for the mainboard and debugger, libraries, enclosure models and datasheet index.
-- `content/sd-card-template/`: the SD card's folder structure, metadata and config.
 - `tests/`: host-side pytest, native C++, app and firmware-build tests.
 - `tools/`: utilities such as the device test runner, log tools and audio converters.
 - `docs/`: the engineering guides, findings and overview.

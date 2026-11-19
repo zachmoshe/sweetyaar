@@ -1,9 +1,8 @@
-"""Regression checks for firmware build and SD configuration."""
+"""Regression checks for the firmware build configuration."""
 
 from __future__ import annotations
 
 import configparser
-import json
 import pathlib
 import re
 import shutil
@@ -13,7 +12,6 @@ import pytest
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-CONFIG_PATH = ROOT / "content" / "sd-card-template" / "config.json"
 PLATFORMIO_PATH = ROOT / "firmware" / "esp32" / "platformio.ini"
 FIRMWARE_CONFIG_PATH = ROOT / "firmware" / "esp32" / "src" / "Config.h"
 BQ25186_SOURCE_PATH = ROOT / "firmware" / "esp32" / "src" / "BQ25186Charger.cpp"
@@ -44,45 +42,6 @@ def platformio_build_flags(name: str) -> list[str]:
     # PlatformIO unescapes \" in build_flags before calling the compiler.
     flags = re.findall(r"-D\S+", expand(config[f"env:{name}"]["build_flags"]))
     return [flag.replace('\\"', '"') for flag in flags]
-
-
-def test_sd_template_matches_the_config_schema() -> None:
-    """Structure and technical limits only; default themes and volumes are content choices."""
-    config = json.loads(CONFIG_PATH.read_text())
-
-    def percent(value) -> bool:
-        return isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 100
-
-    def theme_id(value) -> bool:
-        # Theme IDs must fit the firmware's 63-byte live-theme buffer.
-        return isinstance(value, str) and 0 < len(value.encode()) <= 63
-
-    def clock(value) -> bool:
-        return isinstance(value, str) and re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", value) is not None
-
-    def seconds(value) -> bool:
-        # The app accepts 1 s to one day for each sleep timeout.
-        return isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= 86400
-
-    assert config["schemaVersion"] == 2
-    assert set(config) == {"schemaVersion", "defaultVolumePct", "defaultTheme",
-                           "disabledThemes", "bedtime", "sleep"}
-    assert percent(config["defaultVolumePct"])
-    assert theme_id(config["defaultTheme"])
-    assert isinstance(config["disabledThemes"], list)
-    assert all(theme_id(theme) for theme in config["disabledThemes"])
-
-    bedtime = config["bedtime"]
-    assert set(bedtime) == {"enabled", "startTime", "endTime", "theme", "volumeCapPct"}
-    assert isinstance(bedtime["enabled"], bool)
-    assert clock(bedtime["startTime"]) and clock(bedtime["endTime"])
-    assert theme_id(bedtime["theme"])
-    assert percent(bedtime["volumeCapPct"])
-
-    sleep = config["sleep"]
-    assert set(sleep) == {"enabled", "normalIdleSec", "vibrationWakeIdleSec", "bleIdleSec"}
-    assert isinstance(sleep["enabled"], bool)
-    assert all(seconds(sleep[key]) for key in ("normalIdleSec", "vibrationWakeIdleSec", "bleIdleSec"))
 
 
 def test_generic_board_overrides_hardware_inversions() -> None:
