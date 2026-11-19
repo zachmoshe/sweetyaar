@@ -199,7 +199,7 @@ Three changes follow from this:
   AVRCP with stubs in `ClassicBluetooth.cpp` that report success and do
   nothing. This leaves about 5 KB more free during a
   speaker session and 0.9 KB more at ready. Check a phone's volume buttons
-  after any change here.
+  after any change here. It is one of the "Firmware hooks".
 - **The controller starts with 2 BLE and 1 Classic connection slots** instead
   of the SDK's 3 and 2 (`BT_CONTROLLER_BLE_LINKS`, `BT_CONTROLLER_CLASSIC_LINKS`
   in `Config.h`; `setupBT()` starts the controller itself). About 2.3 KB more
@@ -464,9 +464,10 @@ and the speaker is that name followed by " Speaker" (`BT_SPEAKER_NAME_SUFFIX`).
 The Bluetooth stack keeps a single local name, used by Classic and also
 returned as the GAP device name to a BLE central that reads it after
 connecting. That name is the speaker's; the parent service's name is written
-into its scan response by hand (`setAdvertisedName`). A central that prefers
-the GAP name over the advertised one will therefore show the speaker's name
-for the parent service too.
+into its scan response by hand (`setAdvertisedName`). A central that reads
+the GAP Device Name after connecting (macOS, Chrome's chooser) is answered
+with the toy's own name by a hook; see "The GAP Device Name hook" under
+"Firmware hooks".
 
 SD JSON saves write a sibling `.tmp` file first, flush and close it, and compare
 the serializer's byte count and the resulting file size with the expected
@@ -849,8 +850,8 @@ pairability on the Bluetooth task and intercepts `BTA_DmConfirm`, including
 Bluedroid's automatic Just Works confirmation. It refuses fresh pairing outside
 the window. A2DP requires successful stack authentication; bond-address membership
 alone never proves possession of a key. Pairing finishing after the deadline is
-rejected and its new bond removed. The adapter is guarded against SDK upgrades;
-revalidate its private ABI and linker wrapping before changing the SDK.
+rejected and its new bond removed. The `BTA_DmConfirm` hook is one of the
+"Firmware hooks"; follow that section before changing the SDK.
 
 Reset persists a pending-deletion marker before disconnecting. Access remains
 disabled until both transports have disconnected and bond-store snapshots confirm
@@ -1386,6 +1387,71 @@ The high-level components are:
 There is no Wi-Fi setup flow. The only runtime wireless interfaces are Classic
 Bluetooth audio and BLE parent control; firmware updates also arrive over BLE
 (see [Firmware updates](#firmware-updates)).
+
+## Firmware hooks
+
+The firmware changes a few library functions at link time with
+`-Wl,--wrap=<function>` (in `platformio.ini`): calls to `<function>` go to
+our `__wrap_<function>`, which may call the original as `__real_<function>`.
+The libraries' files are not modified. Some hooks rely on internals of the
+prebuilt Bluetooth stack (ESP-IDF 4.4.7 in Arduino-ESP32 2.0.17, platform
+`espressif32@6.12.0`), so they are listed here; change one only together
+with this table, and read the upgrade steps below before changing the
+platform version.
+
+| Hook | Where | What it changes and why | Relies on | Ships |
+| --- | --- | --- | --- | --- |
+| `BTA_DmConfirm` | `ClassicBluetooth.cpp` | Gates Bluedroid's automatic Just Works confirmation, so a phone can pair as a speaker only while pairing mode is open (see "Bluetooth pairing and remote ownership"). There is no public API for this. | Bluedroid's private function and its arguments | Yes |
+| 5 × `esp_avrc_*` | `ClassicBluetooth.cpp` | Stubs the calls the A2DP library makes to start AVRCP, which the toy never uses; frees about 5 KB during a speaker session (see "Bluetooth memory budget"). | Public ESP-IDF functions | Yes |
+| `BTM_ReadLocalDeviceName` | `BLEParentService.cpp` | Answers a BLE central's read of the GAP Device Name with the remote's name instead of the speaker's (see below). | The callers of a private function and one exact call site | Yes |
+| `malloc`, `calloc`, `realloc`, `free` and their `heap_caps_` forms | `MemProbe.cpp` | Records allocations for the heap measurements. | Public functions | No: only the `sweetyaar-memtrack` diagnostic build |
+
+### The GAP Device Name hook
+
+Bluedroid keeps one local name: the speaker's, the toy's name plus
+" Speaker" (`BT_SPEAKER_NAME_SUFFIX`). The parent service advertises the
+toy's own name in its scan response (`setAdvertisedName`), which Android
+shows. But a central that reads the GAP Device Name characteristic after
+connecting, as macOS does (and Chrome's device chooser after it), got the
+speaker's name for the remote too. ESP-IDF's only setter
+(`esp_ble_gap_set_device_name`) changes the one name for both.
+
+In the stack, `BTM_ReadLocalDeviceName()` hands out that name to three
+callers: `gap_read_attr_value` (the GAP Device Name read), `bta_dm_set_eir`
+(the Classic discovery name that phones list for the speaker) and
+`bta_dm_get_dev_name`. The wrapper returns the remote's name only when it is
+called from `gap_read_attr_value`, recognised by the exact return address of
+that call; every other caller gets the real name. The library has the call
+as `l32r` + `callx8`, returning 0x82 bytes into the function; the linker
+shortens it to `call8`, returning at 0x80, while the wrapper is within
+`call8`'s 512 KB reach (426 KB in November 2026). The hook accepts both
+(`GAP_NAME_CALL_RETURN_SHORT`/`_LONG`); in each form nothing else returns to
+the other offset. Each answer is logged as `[BLE] Device name answered as
+"<name>"` (event `0x0220`).
+
+If a library change moves the call or adds a caller, the return address no
+longer matches and the hook passes every call through: macOS shows the
+speaker's name again and nothing else changes. To keep that from going
+unnoticed, `tools/check_firmware_hooks.py` checks the prebuilt `libbt.a`
+(the three callers, and the call's return offset) and the linked firmware
+(the call reaches the wrapper at one of the two offsets). It runs after
+every link (`check_firmware_hooks_post.py`, which fails the build) and in
+`tests/test_firmware_hooks.py`.
+
+macOS keeps the name it learned when it bonded; a Mac that paired before
+this hook may need to forget the toy once to show the remote's name.
+
+### Before changing the platform or SDK version
+
+1. Build. The post-link check must pass; if it fails, re-derive the call
+   site with `xtensa-esp32-elf-objdump -dr` on `gap_ble.c.obj` from
+   `libbt.a` and on the linked `firmware.elf`, then update the two offsets
+   in `BLEParentService.cpp` and the expected callers in the checker.
+2. Revalidate `BTA_DmConfirm`'s private ABI (its arguments and when
+   Bluedroid calls it) against the new stack.
+3. Run the real-device checks: pairing inside and outside the window
+   (`make test-device`), the remote's name on a Mac and on Android, and a
+   phone's volume buttons during speaker audio.
 
 ## Building and flashing
 

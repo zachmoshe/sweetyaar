@@ -23,6 +23,51 @@ bool BLEParentService::writableIndex(int index) {
            index == 17 || index == 18;
 }
 
+// ---- Firmware hook: the remote's GAP Device Name ----------------------
+// See "Firmware hooks" in docs/engineering/firmware.md before changing this
+// or the ESP-IDF/Arduino version.
+//
+// Bluedroid keeps one local name, the speaker's ("<name> Speaker"); Classic
+// discovery (EIR, what Android lists) and the GAP Device Name characteristic
+// that a connected BLE central reads (what macOS and Chrome's chooser show)
+// both take it from BTM_ReadLocalDeviceName(). No public API sets the GAP
+// name alone, so the link wraps that function (-Wl,--wrap in platformio.ini)
+// and answers with the remote's name only when the caller is the GAP read,
+// identified by the exact return address of its call inside
+// gap_read_attr_value() in the linked firmware. Every other caller
+// (bta_dm_set_eir, bta_dm_get_dev_name) gets the real name. If a library
+// change moves that call, nothing matches and the hook does nothing (macOS
+// shows the speaker's name again); tools/check_firmware_hooks.py fails the
+// build in that case.
+extern "C" uint8_t __real_BTM_ReadLocalDeviceName(char** name);
+extern "C" void gap_read_attr_value(void);  // only its address is used
+// Where gap_read_attr_value's call to BTM_ReadLocalDeviceName returns, from
+// the function's start. libbt.a has an l32r + callx8 that returns at 0x82;
+// the linker shortens it to a call8 returning at 0x80 while the wrapper is
+// within call8's 512 KB reach (426 KB today). Either is exact: in each form
+// nothing else returns to the other offset.
+static constexpr uintptr_t GAP_NAME_CALL_RETURN_SHORT = 0x80;
+static constexpr uintptr_t GAP_NAME_CALL_RETURN_LONG = 0x82;
+static constexpr uint8_t BTM_SUCCESS_STATUS = 0;  // tBTM_STATUS BTM_SUCCESS
+static char gapDeviceName[65] = "";               // the remote's name; empty = no hook
+
+static void setGapDeviceName(const String& deviceName) {
+    strlcpy(gapDeviceName, deviceName.c_str(), sizeof(gapDeviceName));
+}
+
+extern "C" uint8_t __wrap_BTM_ReadLocalDeviceName(char** name) {
+    const uintptr_t caller = reinterpret_cast<uintptr_t>(__builtin_return_address(0));
+    const uintptr_t gapRead = reinterpret_cast<uintptr_t>(&gap_read_attr_value);
+    const bool fromGapRead = caller == gapRead + GAP_NAME_CALL_RETURN_SHORT ||
+                             caller == gapRead + GAP_NAME_CALL_RETURN_LONG;
+    if (name && gapDeviceName[0] != '\0' && fromGapRead) {
+        *name = gapDeviceName;
+        DLOG_DETAIL(BLE_GAP_NAME_ANSWERED, gapDeviceName);
+        return BTM_SUCCESS_STATUS;
+    }
+    return __real_BTM_ReadLocalDeviceName(name);
+}
+
 // The advertised name goes in the scan response by hand. The stack would
 // otherwise insert its one local name there, which is the speaker's.
 static void setAdvertisedName(BLEAdvertising* adv, const String& deviceName) {
@@ -40,6 +85,7 @@ static void setAdvertisedName(BLEAdvertising* adv, const String& deviceName) {
 }
 
 bool BLEParentService::begin(const String& deviceName, const String& stackName, uint16_t localMtu) {
+    setGapDeviceName(deviceName);
     BLEDevice::init(stackName.c_str());
     // SC_BOND advertises support but permits legacy fallback unless strict
     // acceptance is enabled. Set both key bounds; Arduino's setKeySize only
@@ -441,6 +487,7 @@ bool BLEParentService::sendLogData(const uint8_t* packet, size_t length) {
 }
 
 void BLEParentService::updateDeviceName(const String& deviceName, const String& stackName) {
+    setGapDeviceName(deviceName);
     esp_ble_gap_set_device_name(stackName.c_str());
     if (_server) {
         BLEDevice::stopAdvertising();

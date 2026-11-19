@@ -169,6 +169,8 @@
 #define DEVLOG_FMT_BLE_CONFIG_ERROR "[BLE] Config command id=%lu failed: %s"
 #define DEVLOG_ID_BLE_ADVERTISING 0x021F
 #define DEVLOG_FMT_BLE_ADVERTISING "[BLE] ADVERTISING %s (no confirmation from the stack) links=%d classic=%d"
+#define DEVLOG_ID_BLE_GAP_NAME_ANSWERED 0x0220
+#define DEVLOG_FMT_BLE_GAP_NAME_ANSWERED "[BLE] Device name answered as \"%s\""
 
 // --- 0x03xx: Classic Bluetooth, access and pairing --------------------------
 #define DEVLOG_ID_BT_CONNECTED 0x0301

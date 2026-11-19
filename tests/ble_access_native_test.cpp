@@ -271,6 +271,14 @@ struct BluetoothAccess {
     }
 } bluetoothAccess;
 
+// The GAP Device Name hook's stack symbols (see "Firmware hooks" in
+// docs/engineering/firmware.md): the stack's one local name, and the GAP read
+// whose return address the hook recognises. On the host nothing calls from
+// inside gap_read_attr_value, so every call must get the stack's name.
+char stackLocalName[] = "SweetYaar Speaker";
+extern "C" uint8_t __real_BTM_ReadLocalDeviceName(char** name) { *name = stackLocalName; return 0; }
+extern "C" void gap_read_attr_value(void) {}
+
 #include "ble_service_under_test.inc"
 
 int dispatches = 0;
@@ -282,6 +290,14 @@ void dispatch(int event, int, esp_ble_gatts_cb_param_t* p) {
 }
 
 int main() {
+    // The name hook passes through any caller that is not the GAP read.
+    {
+        setGapDeviceName("SweetYaar");
+        char* name = nullptr;
+        assert(__wrap_BTM_ReadLocalDeviceName(&name) == 0);
+        assert(std::string(name) == "SweetYaar Speaker");
+        assert(Serial.output.find("Device name answered") == std::string::npos);
+    }
     // A rejected security setting must leave the remote unavailable, including
     // after normal loop polling and a later device-name update.
     for (int failure = 0; failure < 7; ++failure) {

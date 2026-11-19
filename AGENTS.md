@@ -87,7 +87,12 @@ explicitly says to reuse an existing branch or worktree (or to work on `main`).
 
 - Classic Just Works lives in `ClassicBluetooth.cpp`, pinned to ESP-IDF 4.4.7.
   Keep `-Wl,--wrap=BTA_DmConfirm`; do not use `BTA_DM_CONN_PAIRED`, whose filter
-  excludes Just Works keys. Revalidate its private ABI before any SDK upgrade.
+  excludes Just Works keys.
+- The firmware hooks library internals with `-Wl,--wrap` (pairing confirm,
+  AVRCP stubs, the remote's GAP Device Name). They are listed in "Firmware
+  hooks" in firmware.md; follow its steps before changing the platform/SDK
+  version, and keep `tools/check_firmware_hooks.py` passing (it runs after
+  every link).
 - Pairing is bond-only. Do not reintroduce separate persistent approval lists,
   and do not replace the persisted `clearPending` bond reset with
   fire-and-forget asynchronous bond removal.
