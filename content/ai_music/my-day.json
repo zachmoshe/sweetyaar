@@ -1,0 +1,1532 @@
+{
+  "_comment": "An AI-generated song theme: a child's day from waking up to good night. Instrumental (works in every language), with everyday sounds and animals woven in. Generate with generate.py (see README.md). Lively and soft songs alternate; the last three wind down for bedtime. Songs with 'sections' are generated from a composition plan: each section is a chunk whose length comes from its bars and the song's bpm, so the song has a form (intro, A, B, A' a step higher, ending) and moving harmony instead of one repeated loop.",
+  "id": "my-day",
+  "name": "✨ My Day ☀️",
+  "shuffle": false,
+  "attribution": "Music generated with [Eleven Music](https://elevenlabs.io/music) by ElevenLabs.",
+  "defaults": {
+    "model_id": "music_v2_5",
+    "output_format": "mp3_44100_128",
+    "length_s": 120,
+    "force_instrumental": true,
+    "style": "Instrumental only, no vocals, no singing. Modern children's TV and picture-book production: clean, warm, bright, not harsh, gentle dynamics suitable for toddlers. Clear memorable melody that repeats, simple chords. End with a clear, gentle ending, no fade into silence.",
+    "sample_rate": 44100,
+    "target_rms_db": -19,
+    "peak_db": -1,
+    "negative_styles": [
+      "vocals",
+      "singing",
+      "lyrics",
+      "speech",
+      "harsh",
+      "distorted",
+      "repetitive loop",
+      "static harmony"
+    ],
+    "silence_db": -50,
+    "tail_s": 0.8
+  },
+  "songs": [
+    {
+      "id": "01-good-morning",
+      "title": "Good Morning, Sunshine",
+      "mood": "lively",
+      "prompt": "A bright wake-up song. Start with a soft music-box alarm chime and a rooster crowing once, then birds chirping as a sunny glockenspiel and ukulele melody comes in. Bring in hand claps, light shaker and pizzicato strings; the tune grows happier and bouncier. 112 BPM, C major.",
+      "bpm": 112,
+      "key": "C major",
+      "styles": [
+        "children's music",
+        "instrumental",
+        "glockenspiel",
+        "ukulele",
+        "pizzicato strings",
+        "hand claps",
+        "bright warm kids TV production"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 4,
+          "cue": "music-box alarm chime, then glockenspiel alone; a rooster crows once, birds chirp; the hook over I–V",
+          "styles": [
+            "gentle start",
+            "introduce the main hook"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 8,
+          "cue": "main melody on glockenspiel and ukulele, chords I–V–vi–IV; birds chirp between phrases",
+          "styles": [
+            "catchy simple melody",
+            "I–V–vi–IV chord progression"
+          ]
+        },
+        {
+          "name": "B",
+          "bars": 8,
+          "cue": "a new contrasting melody on flute, higher, chords IV–V–iii–vi, ending on V; a window opens",
+          "styles": [
+            "new melody",
+            "flute lead",
+            "IV–V–iii–vi chord progression",
+            "ends on the dominant"
+          ]
+        },
+        {
+          "name": "A (varied)",
+          "bars": 8,
+          "cue": "main melody again, now on pizzicato strings with a counter-line from glockenspiel and ukulele; hand claps join",
+          "styles": [
+            "variation of the main melody",
+            "counter-melody"
+          ]
+        },
+        {
+          "name": "C (new key, slower)",
+          "bars": 4,
+          "bpm": 99,
+          "key": "A minor",
+          "cue": "modulate to A minor, tempo eases to 99 BPM; sleepy yawn-and-stretch feeling, soft and dreamy; a big happy yawn-like slide on the clarinet",
+          "styles": [
+            "key change",
+            "modulation to A minor",
+            "slower tempo",
+            "new instruments",
+            "harp and soft clarinet"
+          ]
+        },
+        {
+          "name": "D (up a step, fuller)",
+          "bars": 12,
+          "key": "D major",
+          "cue": "back to 112 BPM and up a whole step to D major; wide awake and joyful, light drums come in; birds and claps together",
+          "styles": [
+            "key change up a whole step",
+            "fuller arrangement",
+            "trumpet and drums",
+            "building energy"
+          ]
+        },
+        {
+          "name": "A' (home key)",
+          "bars": 8,
+          "key": "C major",
+          "cue": "return to the home key C major; the main melody on glockenspiel and ukulele with everything together; a final rooster crow",
+          "styles": [
+            "return to the main melody",
+            "home key",
+            "complete arrangement"
+          ]
+        },
+        {
+          "name": "Ending",
+          "bars": 4,
+          "key": "C major",
+          "cue": "the hook one last time, a cheerful ding; IV–V–I cadence",
+          "styles": [
+            "clear ending",
+            "perfect cadence"
+          ]
+        }
+      ],
+      "target_s": 120
+    },
+    {
+      "id": "02-getting-dressed",
+      "title": "Getting Dressed",
+      "mood": "lively",
+      "prompt": "A playful, silly dressing-up song. Marimba and clarinet trade a hopping melody over bass and light brushed drums. Everyday sounds land on the beat: a zipper zipping up, a button snap, a sock pulled on with a squeak, shoes tapping. Cheeky and fun, like a cartoon getting ready. 118 BPM, F major.",
+      "bpm": 118,
+      "key": "F major",
+      "styles": [
+        "children's music",
+        "instrumental",
+        "marimba",
+        "clarinet",
+        "walking bass",
+        "brushed drums",
+        "playful cartoon"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 4,
+          "cue": "marimba plays the hook; a zipper zips up; the hook over I–V",
+          "styles": [
+            "gentle start",
+            "introduce the main hook"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 8,
+          "cue": "main melody on marimba, chords I–vi–ii–V; a button snaps on the beat",
+          "styles": [
+            "catchy simple melody",
+            "I–vi–ii–V chord progression"
+          ]
+        },
+        {
+          "name": "B",
+          "bars": 8,
+          "cue": "a new contrasting melody on clarinet, higher, chords IV–I–ii–V, ending on V; a sock pulled on with a squeak",
+          "styles": [
+            "new melody",
+            "clarinet lead",
+            "IV–I–ii–V chord progression",
+            "ends on the dominant"
+          ]
+        },
+        {
+          "name": "C (new key, slower)",
+          "bars": 16,
+          "bpm": 104,
+          "key": "D minor",
+          "cue": "modulate to D minor, tempo eases to 104 BPM; a funny, wobbly moment, like getting stuck in a sweater; a sweater swish",
+          "styles": [
+            "key change",
+            "modulation to D minor",
+            "slower tempo",
+            "new instruments",
+            "bassoon and tuba"
+          ]
+        },
+        {
+          "name": "D (up a step, fuller)",
+          "bars": 4,
+          "key": "G major",
+          "cue": "back to 118 BPM and up a whole step to G major; all dressed and proud, bouncy; velcro rips on the beat",
+          "styles": [
+            "key change up a whole step",
+            "fuller arrangement",
+            "brass section and drums",
+            "building energy"
+          ]
+        },
+        {
+          "name": "A' (home key)",
+          "bars": 8,
+          "key": "F major",
+          "cue": "return to the home key F major; the main melody on marimba with everything together; a final zipper zip",
+          "styles": [
+            "return to the main melody",
+            "home key",
+            "complete arrangement"
+          ]
+        },
+        {
+          "name": "Ending",
+          "bars": 4,
+          "key": "F major",
+          "cue": "a ta-da flourish; IV–V–I cadence",
+          "styles": [
+            "clear ending",
+            "perfect cadence"
+          ]
+        }
+      ],
+      "target_s": 110
+    },
+    {
+      "id": "03-brush-your-teeth",
+      "title": "Brush, Brush, Brush",
+      "mood": "lively",
+      "prompt": "A catchy toothbrushing song, about two minutes like a real brushing routine. Start with a tap running and a splash, then a toy piano and xylophone melody over a steady, gentle shaker that sounds like brushing back and forth. Small bubbly water pops between phrases, a final rinse splash and a happy ding at the end. 104 BPM, G major.",
+      "bpm": 104,
+      "key": "G major",
+      "styles": [
+        "children's music",
+        "instrumental",
+        "toy piano",
+        "xylophone",
+        "steady shaker like brushing",
+        "soft bass",
+        "catchy routine song"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 4,
+          "cue": "a tap runs, toy piano plays the hook; water running from the tap; the hook over I–V",
+          "styles": [
+            "gentle start",
+            "introduce the main hook"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 8,
+          "cue": "main melody on toy piano and xylophone, chords I–IV–V–I; a brushing rhythm on the shaker",
+          "styles": [
+            "catchy simple melody",
+            "I–IV–V–I chord progression"
+          ]
+        },
+        {
+          "name": "B",
+          "bars": 8,
+          "cue": "a new contrasting melody on recorder, higher, chords vi–IV–I–V, ending on V; small bubbly pops",
+          "styles": [
+            "new melody",
+            "recorder lead",
+            "vi–IV–I–V chord progression",
+            "ends on the dominant"
+          ]
+        },
+        {
+          "name": "A (varied)",
+          "bars": 8,
+          "cue": "main melody again, now on vibraphone with a counter-line from toy piano and xylophone; brushing continues",
+          "styles": [
+            "variation of the main melody",
+            "counter-melody"
+          ]
+        },
+        {
+          "name": "C (new key, slower)",
+          "bars": 4,
+          "bpm": 92,
+          "key": "E minor",
+          "cue": "modulate to E minor, tempo eases to 92 BPM; brushing the back teeth slowly and carefully, gentle; a slow back-and-forth brushing sound",
+          "styles": [
+            "key change",
+            "modulation to E minor",
+            "slower tempo",
+            "new instruments",
+            "soft strings and celesta"
+          ]
+        },
+        {
+          "name": "D (up a step, fuller)",
+          "bars": 8,
+          "key": "A major",
+          "cue": "back to 104 BPM and up a whole step to A major; brushing the front teeth, fast and sparkly; quick brushing and sparkles",
+          "styles": [
+            "key change up a whole step",
+            "fuller arrangement",
+            "glockenspiel and light drums",
+            "building energy"
+          ]
+        },
+        {
+          "name": "A' (home key)",
+          "bars": 8,
+          "key": "G major",
+          "cue": "return to the home key G major; the main melody on toy piano and xylophone with everything together; the tap turns off",
+          "styles": [
+            "return to the main melody",
+            "home key",
+            "complete arrangement"
+          ]
+        },
+        {
+          "name": "Ending",
+          "bars": 4,
+          "key": "G major",
+          "cue": "a rinse splash and a sparkly ding; IV–V–I cadence",
+          "styles": [
+            "clear ending",
+            "perfect cadence"
+          ]
+        }
+      ],
+      "target_s": 120
+    },
+    {
+      "id": "04-breakfast-time",
+      "title": "Breakfast Time",
+      "mood": "lively",
+      "prompt": "A cheerful kitchen breakfast tune. Acoustic guitar and whistling-style recorder melody with upright bass and soft brushes. Kitchen sounds play along in rhythm: spoons clinking on bowls, cereal pouring, a cup set down, a little kettle whistle as a fill. Warm, homey, sunny. 100 BPM, D major.",
+      "bpm": 100,
+      "key": "D major",
+      "styles": [
+        "children's music",
+        "instrumental",
+        "acoustic guitar",
+        "recorder",
+        "upright bass",
+        "soft brushes",
+        "warm homey"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 4,
+          "cue": "acoustic guitar plays the hook; spoons clink on bowls; the hook over I–V",
+          "styles": [
+            "gentle start",
+            "introduce the main hook"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 8,
+          "cue": "main melody on recorder, chords I–V–vi–IV; cereal pours",
+          "styles": [
+            "catchy simple melody",
+            "I–V–vi–IV chord progression"
+          ]
+        },
+        {
+          "name": "B",
+          "bars": 8,
+          "cue": "a new contrasting melody on whistling-style flute, higher, chords ii–V–I–vi, ending on V; a cup set down",
+          "styles": [
+            "new melody",
+            "whistling-style flute lead",
+            "ii–V–I–vi chord progression",
+            "ends on the dominant"
+          ]
+        },
+        {
+          "name": "C (new key, slower)",
+          "bars": 8,
+          "bpm": 88,
+          "key": "B minor",
+          "cue": "modulate to B minor, tempo eases to 88 BPM; waiting for the toast, calm and cozy; the toaster ticks",
+          "styles": [
+            "key change",
+            "modulation to B minor",
+            "slower tempo",
+            "new instruments",
+            "felt piano and cello"
+          ]
+        },
+        {
+          "name": "D (up a step, fuller)",
+          "bars": 4,
+          "key": "E major",
+          "cue": "back to 100 BPM and up a whole step to E major; breakfast is ready, happy and bouncy; toast pops up on the beat",
+          "styles": [
+            "key change up a whole step",
+            "fuller arrangement",
+            "horns and claps",
+            "building energy"
+          ]
+        },
+        {
+          "name": "A' (home key)",
+          "bars": 8,
+          "key": "D major",
+          "cue": "return to the home key D major; the main melody on recorder with everything together; spoons clink together",
+          "styles": [
+            "return to the main melody",
+            "home key",
+            "complete arrangement"
+          ]
+        },
+        {
+          "name": "Ending",
+          "bars": 4,
+          "key": "D major",
+          "cue": "a little kettle whistle and a spoon clink; IV–V–I cadence",
+          "styles": [
+            "clear ending",
+            "perfect cadence"
+          ]
+        }
+      ],
+      "target_s": 110
+    },
+    {
+      "id": "05-off-to-kindergarten",
+      "title": "Off to Kindergarten",
+      "mood": "lively",
+      "prompt": "An adventurous walking song for the way to kindergarten. Start with a front door closing and little footsteps, then a marching-band style melody on glockenspiel, trumpet-like brass and snare. A friendly bus horn beeps twice, a bicycle bell rings, a dog barks hello in the background. Brave, bouncy and proud. 120 BPM, B-flat major.",
+      "bpm": 120,
+      "key": "B-flat major",
+      "styles": [
+        "children's music",
+        "instrumental",
+        "marching band",
+        "glockenspiel",
+        "trumpet",
+        "snare drum",
+        "brave and bouncy"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 4,
+          "cue": "a front door closes, little footsteps, snare starts; footsteps on the beat; the hook over I–V",
+          "styles": [
+            "gentle start",
+            "introduce the main hook"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 8,
+          "cue": "main melody on glockenspiel and trumpet, chords I–IV–V–I; a bicycle bell rings",
+          "styles": [
+            "catchy simple melody",
+            "I–IV–V–I chord progression"
+          ]
+        },
+        {
+          "name": "B",
+          "bars": 8,
+          "cue": "a new contrasting melody on clarinet, higher, chords vi–ii–V–I, ending on V; a friendly bus horn beeps twice",
+          "styles": [
+            "new melody",
+            "clarinet lead",
+            "vi–ii–V–I chord progression",
+            "ends on the dominant"
+          ]
+        },
+        {
+          "name": "A (varied)",
+          "bars": 8,
+          "cue": "main melody again, now on xylophone with a counter-line from glockenspiel and trumpet; a dog barks hello",
+          "styles": [
+            "variation of the main melody",
+            "counter-melody"
+          ]
+        },
+        {
+          "name": "C (new key, slower)",
+          "bars": 16,
+          "bpm": 106,
+          "key": "G minor",
+          "cue": "modulate to G minor, tempo eases to 106 BPM; walking past a quiet park, looking around curiously; birds in the park",
+          "styles": [
+            "key change",
+            "modulation to G minor",
+            "slower tempo",
+            "new instruments",
+            "flute and harp"
+          ]
+        },
+        {
+          "name": "D (up a step, fuller)",
+          "bars": 4,
+          "key": "C major",
+          "cue": "back to 120 BPM and up a whole step to C major; almost there, excited and proud; footsteps quicken",
+          "styles": [
+            "key change up a whole step",
+            "fuller arrangement",
+            "full brass and cymbals",
+            "building energy"
+          ]
+        },
+        {
+          "name": "A' (home key)",
+          "bars": 8,
+          "key": "B-flat major",
+          "cue": "return to the home key B-flat major; the main melody on glockenspiel and trumpet with everything together; a door opens with a bell",
+          "styles": [
+            "return to the main melody",
+            "home key",
+            "complete arrangement"
+          ]
+        },
+        {
+          "name": "Ending",
+          "bars": 4,
+          "key": "B-flat major",
+          "cue": "arriving with a happy fanfare; IV–V–I cadence",
+          "styles": [
+            "clear ending",
+            "perfect cadence"
+          ]
+        }
+      ],
+      "target_s": 125
+    },
+    {
+      "id": "06-playground",
+      "title": "Playground Fun",
+      "mood": "lively",
+      "prompt": "The most energetic song: playtime outside. Upbeat ukulele, steel drums and bouncy synth bass with claps and a light drum kit. Playground sounds woven in: a slide going whoosh down, a swing creaking up and down, a ball bouncing, a whistle toot. Joyful, running, jumping energy, then a happy final stop. 128 BPM, A major.",
+      "bpm": 128,
+      "key": "A major",
+      "styles": [
+        "children's music",
+        "instrumental",
+        "ukulele",
+        "steel drums",
+        "bouncy synth bass",
+        "claps and light drum kit",
+        "joyful energetic"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 4,
+          "cue": "steel drums play the hook; a slide goes whoosh; the hook over I–V",
+          "styles": [
+            "gentle start",
+            "introduce the main hook"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 8,
+          "cue": "main melody on steel drums and ukulele, chords I–V–vi–IV; a ball bounces on the beat",
+          "styles": [
+            "catchy simple melody",
+            "I–V–vi–IV chord progression"
+          ]
+        },
+        {
+          "name": "B",
+          "bars": 8,
+          "cue": "a new contrasting melody on whistle-like synth lead, higher, chords IV–V–I–vi, ending on V; a swing creaks up and down",
+          "styles": [
+            "new melody",
+            "whistle-like synth lead lead",
+            "IV–V–I–vi chord progression",
+            "ends on the dominant"
+          ]
+        },
+        {
+          "name": "A (varied)",
+          "bars": 8,
+          "cue": "main melody again, now on marimba with a counter-line from steel drums and ukulele; a whistle toots",
+          "styles": [
+            "variation of the main melody",
+            "counter-melody"
+          ]
+        },
+        {
+          "name": "C (new key, slower)",
+          "bars": 16,
+          "bpm": 113,
+          "key": "F-sharp minor",
+          "cue": "modulate to F-sharp minor, tempo eases to 113 BPM; lying on the grass catching breath, dreamy clouds; birds and a soft breeze",
+          "styles": [
+            "key change",
+            "modulation to F-sharp minor",
+            "slower tempo",
+            "new instruments",
+            "vibraphone and soft pads"
+          ]
+        },
+        {
+          "name": "D (up a step, fuller)",
+          "bars": 12,
+          "key": "B major",
+          "cue": "back to 128 BPM and up a whole step to B major; running and jumping again, the biggest energy; slide, swing and ball together",
+          "styles": [
+            "key change up a whole step",
+            "fuller arrangement",
+            "full band with brass hits",
+            "building energy"
+          ]
+        },
+        {
+          "name": "A' (home key)",
+          "bars": 8,
+          "key": "A major",
+          "cue": "return to the home key A major; the main melody on steel drums and ukulele with everything together; one last whoosh down the slide",
+          "styles": [
+            "return to the main melody",
+            "home key",
+            "complete arrangement"
+          ]
+        },
+        {
+          "name": "Ending",
+          "bars": 4,
+          "key": "A major",
+          "cue": "a happy final jump and stop; IV–V–I cadence",
+          "styles": [
+            "clear ending",
+            "perfect cadence"
+          ]
+        }
+      ],
+      "target_s": 135
+    },
+    {
+      "id": "07-down-on-the-farm",
+      "title": "Down on the Farm",
+      "mood": "lively",
+      "prompt": "A silly farmyard hoedown. Banjo, fiddle and xylophone play a bouncy tune over a light kick drum and shaker. Real farm animals answer the melody in rhythm, one after another: a duck quacks, a cow moos, a sheep bleats, a pig oinks, a rooster crows, then they all join for the last chorus. Happy and funny. 120 BPM, G major.",
+      "bpm": 120,
+      "key": "G major",
+      "styles": [
+        "children's music",
+        "instrumental",
+        "country hoedown",
+        "banjo",
+        "fiddle",
+        "xylophone",
+        "silly cartoon farm"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 4,
+          "cue": "banjo picks the hook; a rooster crows; the hook over I–V",
+          "styles": [
+            "gentle start",
+            "introduce the main hook"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 8,
+          "cue": "main melody on fiddle, chords I–IV–V–I; a duck quacks and a cow moos in the gaps",
+          "styles": [
+            "catchy simple melody",
+            "I–IV–V–I chord progression"
+          ]
+        },
+        {
+          "name": "B",
+          "bars": 8,
+          "cue": "a new contrasting melody on xylophone, higher, chords vi–IV–ii–V, ending on V; a sheep bleats and a pig oinks answering each phrase",
+          "styles": [
+            "new melody",
+            "xylophone lead",
+            "vi–IV–ii–V chord progression",
+            "ends on the dominant"
+          ]
+        },
+        {
+          "name": "A (varied)",
+          "bars": 8,
+          "cue": "main melody again, now on harmonica with a counter-line from fiddle; a horse neighs and a goat bleats",
+          "styles": [
+            "variation of the main melody",
+            "counter-melody"
+          ]
+        },
+        {
+          "name": "C (new key, slower)",
+          "bars": 16,
+          "bpm": 106,
+          "key": "E minor",
+          "cue": "modulate to E minor, tempo eases to 106 BPM; evening in the barn, sleepy animals, gentle; sleepy cow moo and a soft hen cluck",
+          "styles": [
+            "key change",
+            "modulation to E minor",
+            "slower tempo",
+            "new instruments",
+            "accordion and soft guitar"
+          ]
+        },
+        {
+          "name": "D (up a step, fuller)",
+          "bars": 12,
+          "key": "A major",
+          "cue": "back to 120 BPM and up a whole step to A major; the animal parade, everyone dancing; all the animals call in rhythm",
+          "styles": [
+            "key change up a whole step",
+            "fuller arrangement",
+            "full band with washboard and claps",
+            "building energy"
+          ]
+        },
+        {
+          "name": "A' (home key)",
+          "bars": 8,
+          "key": "G major",
+          "cue": "return to the home key G major; the main melody on fiddle with everything together; duck, cow, sheep and pig one after another",
+          "styles": [
+            "return to the main melody",
+            "home key",
+            "complete arrangement"
+          ]
+        },
+        {
+          "name": "Ending",
+          "bars": 4,
+          "key": "G major",
+          "cue": "banjo tag, a last rooster crow and a moo; IV–V–I cadence",
+          "styles": [
+            "clear ending",
+            "perfect cadence"
+          ]
+        }
+      ],
+      "target_s": 140
+    },
+    {
+      "id": "08-rainy-day",
+      "title": "Rainy Day Puddles",
+      "mood": "soft",
+      "prompt": "A cozy, curious rainy-day song. Start with soft rain on a window and a distant gentle thunder rumble, then a pizzicato strings and celesta melody that tiptoes like raindrops. Later rubber boots splash in puddles on the beat and a frog croaks. Playful but calm, never scary. 92 BPM, E-flat major.",
+      "bpm": 92,
+      "key": "E-flat major",
+      "styles": [
+        "children's music",
+        "instrumental",
+        "pizzicato strings",
+        "celesta",
+        "soft piano",
+        "gentle and curious",
+        "cozy"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 4,
+          "cue": "soft rain on a window, celesta plays the hook; rain on the window, a distant soft thunder rumble; the hook over I–V",
+          "styles": [
+            "gentle start",
+            "introduce the main hook"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 8,
+          "cue": "main melody on pizzicato strings and celesta, chords I–vi–IV–V; raindrops tiptoe with the melody",
+          "styles": [
+            "catchy simple melody",
+            "I–vi–IV–V chord progression"
+          ]
+        },
+        {
+          "name": "B",
+          "bars": 8,
+          "cue": "a new contrasting melody on clarinet, higher, chords ii–V–iii–vi, ending on V; rubber boots splash in puddles on the beat",
+          "styles": [
+            "new melody",
+            "clarinet lead",
+            "ii–V–iii–vi chord progression",
+            "ends on the dominant"
+          ]
+        },
+        {
+          "name": "C (new key, slower)",
+          "bars": 8,
+          "bpm": 85,
+          "key": "C minor",
+          "cue": "modulate to C minor, tempo eases to 85 BPM; watching the rain from inside, warm and dreamy; soft steady rain",
+          "styles": [
+            "key change",
+            "modulation to C minor",
+            "slower tempo",
+            "new instruments",
+            "felt piano and cello"
+          ]
+        },
+        {
+          "name": "D (up a step, fuller)",
+          "bars": 4,
+          "key": "F major",
+          "cue": "back to 92 BPM and up a whole step to F major; rain stops and a rainbow appears, bright; birds start to sing after the rain",
+          "styles": [
+            "key change up a whole step",
+            "fuller arrangement",
+            "glockenspiel and warm strings",
+            "warm and full but still gentle"
+          ]
+        },
+        {
+          "name": "A' (home key)",
+          "bars": 8,
+          "key": "E-flat major",
+          "cue": "return to the home key E-flat major; the main melody on pizzicato strings and celesta with everything together; puddle splashes",
+          "styles": [
+            "return to the main melody",
+            "home key",
+            "complete arrangement"
+          ]
+        },
+        {
+          "name": "Ending",
+          "bars": 4,
+          "key": "E-flat major",
+          "cue": "the last raindrops plink, gentle; IV–V–I cadence",
+          "styles": [
+            "clear ending",
+            "perfect cadence"
+          ]
+        }
+      ],
+      "target_s": 120
+    },
+    {
+      "id": "09-picnic-in-the-park",
+      "title": "Picnic in the Park",
+      "mood": "lively",
+      "prompt": "A sunny picnic song in the park. Acoustic guitar, flute and glockenspiel with a light, swinging groove. Nature sounds: birds singing, a bee buzzing past, leaves rustling in the breeze, a happy dog barking once. Relaxed, sunny, carefree. 104 BPM, F major.",
+      "bpm": 104,
+      "key": "F major",
+      "styles": [
+        "children's music",
+        "instrumental",
+        "acoustic guitar",
+        "flute",
+        "glockenspiel",
+        "light swing groove",
+        "sunny carefree"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 4,
+          "cue": "acoustic guitar plays the hook; birds singing; the hook over I–V",
+          "styles": [
+            "gentle start",
+            "introduce the main hook"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 8,
+          "cue": "main melody on flute, chords I–IV–ii–V; a bee buzzes past",
+          "styles": [
+            "catchy simple melody",
+            "I–IV–ii–V chord progression"
+          ]
+        },
+        {
+          "name": "B",
+          "bars": 8,
+          "cue": "a new contrasting melody on glockenspiel, higher, chords vi–IV–I–V, ending on V; leaves rustle in the breeze",
+          "styles": [
+            "new melody",
+            "glockenspiel lead",
+            "vi–IV–I–V chord progression",
+            "ends on the dominant"
+          ]
+        },
+        {
+          "name": "C (new key, slower)",
+          "bars": 12,
+          "bpm": 92,
+          "key": "D minor",
+          "cue": "modulate to D minor, tempo eases to 92 BPM; lying under a tree looking at clouds; a gentle breeze",
+          "styles": [
+            "key change",
+            "modulation to D minor",
+            "slower tempo",
+            "new instruments",
+            "harp and soft strings"
+          ]
+        },
+        {
+          "name": "D (up a step, fuller)",
+          "bars": 4,
+          "key": "G major",
+          "cue": "back to 104 BPM and up a whole step to G major; playing catch, happy; a ball thrown and caught",
+          "styles": [
+            "key change up a whole step",
+            "fuller arrangement",
+            "claps and light drums",
+            "building energy"
+          ]
+        },
+        {
+          "name": "A' (home key)",
+          "bars": 8,
+          "key": "F major",
+          "cue": "return to the home key F major; the main melody on flute with everything together; birds singing",
+          "styles": [
+            "return to the main melody",
+            "home key",
+            "complete arrangement"
+          ]
+        },
+        {
+          "name": "Ending",
+          "bars": 4,
+          "key": "F major",
+          "cue": "a final happy flute trill; IV–V–I cadence",
+          "styles": [
+            "clear ending",
+            "perfect cadence"
+          ]
+        }
+      ],
+      "target_s": 115
+    },
+    {
+      "id": "10-tidy-up",
+      "title": "Tidy Up Time",
+      "mood": "lively",
+      "prompt": "A motivating tidy-up march. Toy-soldier style snare, glockenspiel and tuba-like bass with a clear, repeating melody. Toy blocks clatter into a box on the beat, a toy car rolls, a drawer closes, and the song ends with a satisfied little fanfare. Encouraging and fun. 116 BPM, C major.",
+      "bpm": 116,
+      "key": "C major",
+      "styles": [
+        "children's music",
+        "instrumental",
+        "toy-soldier march",
+        "snare drum",
+        "glockenspiel",
+        "tuba bass",
+        "encouraging and fun"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 4,
+          "cue": "snare roll, glockenspiel plays the hook; toy blocks clatter into a box; the hook over I–V",
+          "styles": [
+            "gentle start",
+            "introduce the main hook"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 8,
+          "cue": "main melody on glockenspiel, chords I–IV–V–I; blocks on the beat",
+          "styles": [
+            "catchy simple melody",
+            "I–IV–V–I chord progression"
+          ]
+        },
+        {
+          "name": "B",
+          "bars": 8,
+          "cue": "a new contrasting melody on piccolo, higher, chords vi–IV–V–I, ending on V; a toy car rolls",
+          "styles": [
+            "new melody",
+            "piccolo lead",
+            "vi–IV–V–I chord progression",
+            "ends on the dominant"
+          ]
+        },
+        {
+          "name": "C (new key, slower)",
+          "bars": 12,
+          "bpm": 102,
+          "key": "A minor",
+          "cue": "modulate to A minor, tempo eases to 102 BPM; looking for the last lost toy, curious; a curious rummage in the toy box",
+          "styles": [
+            "key change",
+            "modulation to A minor",
+            "slower tempo",
+            "new instruments",
+            "pizzicato strings and bassoon"
+          ]
+        },
+        {
+          "name": "D (up a step, fuller)",
+          "bars": 4,
+          "key": "D major",
+          "cue": "back to 116 BPM and up a whole step to D major; found it, almost done, proud; blocks and drawer together",
+          "styles": [
+            "key change up a whole step",
+            "fuller arrangement",
+            "full marching band",
+            "building energy"
+          ]
+        },
+        {
+          "name": "A' (home key)",
+          "bars": 8,
+          "key": "C major",
+          "cue": "return to the home key C major; the main melody on glockenspiel with everything together; the toy box lid closes",
+          "styles": [
+            "return to the main melody",
+            "home key",
+            "complete arrangement"
+          ]
+        },
+        {
+          "name": "Ending",
+          "bars": 4,
+          "key": "C major",
+          "cue": "a satisfied little fanfare; IV–V–I cadence",
+          "styles": [
+            "clear ending",
+            "perfect cadence"
+          ]
+        }
+      ],
+      "target_s": 105
+    },
+    {
+      "id": "11-car-ride",
+      "title": "Car Ride Adventure",
+      "mood": "lively",
+      "prompt": "A road-trip song in the car. Driving bass, ukulele and vibraphone with a steady, rolling groove. Car sounds: an engine starting and humming, a turn-signal ticking in time with the beat, a friendly horn beep, passing cars whooshing by. Happy, looking out of the window. 110 BPM, D major.",
+      "bpm": 110,
+      "key": "D major",
+      "styles": [
+        "children's music",
+        "instrumental",
+        "driving bass",
+        "ukulele",
+        "vibraphone",
+        "steady rolling groove",
+        "happy road trip"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 4,
+          "cue": "engine starts, ukulele plays the hook; engine humming; the hook over I–V",
+          "styles": [
+            "gentle start",
+            "introduce the main hook"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 8,
+          "cue": "main melody on vibraphone, chords I–V–vi–IV; the turn signal ticks in time",
+          "styles": [
+            "catchy simple melody",
+            "I–V–vi–IV chord progression"
+          ]
+        },
+        {
+          "name": "B",
+          "bars": 8,
+          "cue": "a new contrasting melody on harmonica, higher, chords IV–I–V–vi, ending on V; a friendly horn beep",
+          "styles": [
+            "new melody",
+            "harmonica lead",
+            "IV–I–V–vi chord progression",
+            "ends on the dominant"
+          ]
+        },
+        {
+          "name": "C (new key, slower)",
+          "bars": 16,
+          "bpm": 97,
+          "key": "B minor",
+          "cue": "modulate to B minor, tempo eases to 97 BPM; a quiet tunnel, everything soft and echoing; echo in a tunnel",
+          "styles": [
+            "key change",
+            "modulation to B minor",
+            "slower tempo",
+            "new instruments",
+            "soft synth pads and harp"
+          ]
+        },
+        {
+          "name": "D (up a step, fuller)",
+          "bars": 4,
+          "key": "E major",
+          "cue": "back to 110 BPM and up a whole step to E major; out of the tunnel into the sunshine; horn beep and passing cars",
+          "styles": [
+            "key change up a whole step",
+            "fuller arrangement",
+            "full band with handclaps",
+            "building energy"
+          ]
+        },
+        {
+          "name": "A' (home key)",
+          "bars": 8,
+          "key": "D major",
+          "cue": "return to the home key D major; the main melody on vibraphone with everything together; engine turns off",
+          "styles": [
+            "return to the main melody",
+            "home key",
+            "complete arrangement"
+          ]
+        },
+        {
+          "name": "Ending",
+          "bars": 4,
+          "key": "D major",
+          "cue": "arriving, engine off; IV–V–I cadence",
+          "styles": [
+            "clear ending",
+            "perfect cadence"
+          ]
+        }
+      ],
+      "target_s": 120
+    },
+    {
+      "id": "12-bath-time",
+      "title": "Bath Time Bubbles",
+      "mood": "soft",
+      "prompt": "A playful but gentle bath-time song. Music box and marimba melody with warm felt piano and soft strings. Water sounds: splashing, bubbles popping between phrases, a rubber duck squeaking twice, the tap filling the tub at the start. Bubbly and warm, starting to slow down for the evening. 88 BPM, F major.",
+      "bpm": 88,
+      "key": "F major",
+      "styles": [
+        "children's music",
+        "instrumental",
+        "music box",
+        "marimba",
+        "warm felt piano",
+        "soft strings",
+        "bubbly and warm"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 4,
+          "cue": "the tap fills the tub, music box plays the hook; water filling the tub; the hook over I–V",
+          "styles": [
+            "gentle start",
+            "introduce the main hook"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 8,
+          "cue": "main melody on music box and marimba, chords I–vi–IV–V; splashes between phrases",
+          "styles": [
+            "catchy simple melody",
+            "I–vi–IV–V chord progression"
+          ]
+        },
+        {
+          "name": "B",
+          "bars": 8,
+          "cue": "a new contrasting melody on flute, higher, chords IV–V–iii–vi, ending on V; bubbles pop",
+          "styles": [
+            "new melody",
+            "flute lead",
+            "IV–V–iii–vi chord progression",
+            "ends on the dominant"
+          ]
+        },
+        {
+          "name": "C (new key, slower)",
+          "bars": 4,
+          "bpm": 81,
+          "key": "D minor",
+          "cue": "modulate to D minor, tempo eases to 81 BPM; floating and relaxed in warm water; soft water lapping",
+          "styles": [
+            "key change",
+            "modulation to D minor",
+            "slower tempo",
+            "new instruments",
+            "harp and cello"
+          ]
+        },
+        {
+          "name": "D (up a step, fuller)",
+          "bars": 8,
+          "key": "G major",
+          "cue": "back to 88 BPM and up a whole step to G major; bubble party, playful; bubbles and duck squeaks",
+          "styles": [
+            "key change up a whole step",
+            "fuller arrangement",
+            "glockenspiel and pizzicato strings",
+            "warm and full but still gentle"
+          ]
+        },
+        {
+          "name": "A' (home key)",
+          "bars": 8,
+          "key": "F major",
+          "cue": "return to the home key F major; the main melody on music box and marimba with everything together; water draining gurgle",
+          "styles": [
+            "return to the main melody",
+            "home key",
+            "complete arrangement"
+          ]
+        },
+        {
+          "name": "Ending",
+          "bars": 4,
+          "key": "F major",
+          "cue": "the water drains, a last bubble; IV–V–I cadence",
+          "styles": [
+            "clear ending",
+            "perfect cadence"
+          ]
+        }
+      ],
+      "target_s": 120
+    },
+    {
+      "id": "13-pajamas-on",
+      "title": "Pajamas On",
+      "mood": "soft",
+      "prompt": "A soft, cozy song for putting on pajamas. Felt piano and gentle nylon-string guitar with warm cello, no drums. A soft clock ticking, a blanket rustling, a cat purring. Tender, slow, comforting. 76 BPM, G major.",
+      "bpm": 76,
+      "key": "G major",
+      "styles": [
+        "children's music",
+        "lullaby",
+        "instrumental",
+        "felt piano",
+        "nylon-string guitar",
+        "warm cello",
+        "no drums, tender"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 4,
+          "cue": "felt piano plays the hook; a soft clock ticking; the hook over I–V",
+          "styles": [
+            "gentle start",
+            "introduce the main hook"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 8,
+          "cue": "main melody on felt piano, chords I–IV–ii–V; a blanket rustles",
+          "styles": [
+            "catchy simple melody",
+            "I–IV–ii–V chord progression"
+          ]
+        },
+        {
+          "name": "B",
+          "bars": 8,
+          "cue": "a new contrasting melody on nylon-string guitar, higher, chords vi–IV–I–V, ending on V; a cat purrs",
+          "styles": [
+            "new melody",
+            "nylon-string guitar lead",
+            "vi–IV–I–V chord progression",
+            "ends on the dominant"
+          ]
+        },
+        {
+          "name": "C (new key, slower)",
+          "bars": 4,
+          "bpm": 70,
+          "key": "E minor",
+          "cue": "modulate to E minor, tempo eases to 70 BPM; choosing a favorite teddy, cozy; a teddy squeak",
+          "styles": [
+            "key change",
+            "modulation to E minor",
+            "slower tempo",
+            "new instruments",
+            "celesta and soft clarinet"
+          ]
+        },
+        {
+          "name": "D (up a step, fuller)",
+          "bars": 4,
+          "key": "A major",
+          "cue": "back to 76 BPM and up a whole step to A major; snuggled under the blanket, warm; the clock ticks softly",
+          "styles": [
+            "key change up a whole step",
+            "fuller arrangement",
+            "warm string section",
+            "warm and full but still gentle"
+          ]
+        },
+        {
+          "name": "A' (home key)",
+          "bars": 8,
+          "key": "G major",
+          "cue": "return to the home key G major; the main melody on felt piano with everything together; a light switch clicks",
+          "styles": [
+            "return to the main melody",
+            "home key",
+            "complete arrangement"
+          ]
+        },
+        {
+          "name": "Ending",
+          "bars": 4,
+          "key": "G major",
+          "cue": "a soft yawn-like slide, very gentle; IV–V–I cadence",
+          "styles": [
+            "clear ending",
+            "perfect cadence"
+          ]
+        }
+      ],
+      "target_s": 120
+    },
+    {
+      "id": "14-story-time",
+      "title": "Story Time",
+      "mood": "soft",
+      "prompt": "A dreamy story-time song, like a page turning into a fairy tale. Harp, celesta and soft strings with a gentle flute melody, no drums. Pages turn softly between phrases, a sleepy owl hoots far away. Magical, warm, calm. 72 BPM, D major.",
+      "bpm": 72,
+      "key": "D major",
+      "styles": [
+        "lullaby",
+        "instrumental",
+        "harp",
+        "celesta",
+        "soft strings",
+        "3/4 waltz time",
+        "magical and warm"
+      ],
+      "beats_per_bar": 3,
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 4,
+          "cue": "a book opens, harp plays the hook; pages turn softly; the hook over I–V",
+          "styles": [
+            "gentle start",
+            "introduce the main hook"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 8,
+          "cue": "main melody on flute, chords I–vi–IV–V; a page turn between phrases",
+          "styles": [
+            "catchy simple melody",
+            "I–vi–IV–V chord progression"
+          ]
+        },
+        {
+          "name": "B",
+          "bars": 8,
+          "cue": "a new contrasting melody on celesta, higher, chords IV–I–ii–V, ending on V; a sleepy owl hoots far away",
+          "styles": [
+            "new melody",
+            "celesta lead",
+            "IV–I–ii–V chord progression",
+            "ends on the dominant"
+          ]
+        },
+        {
+          "name": "A (varied)",
+          "bars": 8,
+          "cue": "main melody again, now on oboe with a counter-line from flute; pages turn",
+          "styles": [
+            "variation of the main melody",
+            "counter-melody"
+          ]
+        },
+        {
+          "name": "C (new key, slower)",
+          "bars": 4,
+          "bpm": 66,
+          "key": "B minor",
+          "cue": "modulate to B minor, tempo eases to 66 BPM; a mysterious forest in the story, gentle wonder; leaves rustle in a magic forest",
+          "styles": [
+            "key change",
+            "modulation to B minor",
+            "slower tempo",
+            "new instruments",
+            "clarinet and soft horn"
+          ]
+        },
+        {
+          "name": "D (up a step, fuller)",
+          "bars": 12,
+          "key": "E major",
+          "cue": "back to 72 BPM and up a whole step to E major; the happy part of the story, magical; twinkling chimes",
+          "styles": [
+            "key change up a whole step",
+            "fuller arrangement",
+            "warm full strings and glockenspiel",
+            "warm and full but still gentle"
+          ]
+        },
+        {
+          "name": "A' (home key)",
+          "bars": 8,
+          "key": "D major",
+          "cue": "return to the home key D major; the main melody on flute with everything together; the book closes",
+          "styles": [
+            "return to the main melody",
+            "home key",
+            "complete arrangement"
+          ]
+        },
+        {
+          "name": "Ending",
+          "bars": 4,
+          "key": "D major",
+          "cue": "the book closes softly; IV–V–I cadence",
+          "styles": [
+            "clear ending",
+            "perfect cadence"
+          ]
+        }
+      ],
+      "target_s": 140
+    },
+    {
+      "id": "15-goodnight-stars",
+      "title": "Goodnight, Stars",
+      "mood": "soft",
+      "prompt": "The softest lullaby to end the day. Music box, warm felt piano and very soft strings, slow and peaceful, no drums. Crickets chirp quietly at night, gentle wind chimes, a far-away owl. Gets softer and slower toward the end, ending on a single quiet music-box note. 66 BPM, F major.",
+      "bpm": 66,
+      "key": "F major",
+      "beats_per_bar": 3,
+      "styles": [
+        "lullaby",
+        "instrumental",
+        "music box",
+        "warm felt piano",
+        "very soft strings",
+        "3/4 waltz time",
+        "peaceful and tender"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 4,
+          "cue": "music box alone plays the hook; crickets chirp softly; the hook over I–V",
+          "styles": [
+            "gentle start",
+            "introduce the main hook"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 8,
+          "cue": "main melody on felt piano, chords I–vi–IV–V; crickets in the background",
+          "styles": [
+            "catchy simple melody",
+            "I–vi–IV–V chord progression"
+          ]
+        },
+        {
+          "name": "B",
+          "bars": 8,
+          "cue": "a new contrasting melody on cello, higher, chords IV–I–ii–V, ending on V; wind chimes, a far-away owl hoots",
+          "styles": [
+            "new melody",
+            "cello lead",
+            "IV–I–ii–V chord progression",
+            "ends on the dominant"
+          ]
+        },
+        {
+          "name": "C (new key, slower)",
+          "bars": 16,
+          "bpm": 61,
+          "key": "D minor",
+          "cue": "modulate to D minor, tempo eases to 61 BPM; looking at the stars, dreamy and still; gentle night breeze",
+          "styles": [
+            "key change",
+            "modulation to D minor",
+            "slower tempo",
+            "new instruments",
+            "harp and soft celesta"
+          ]
+        },
+        {
+          "name": "D (up a step, fuller)",
+          "bars": 8,
+          "key": "G major",
+          "cue": "back to 66 BPM and up a whole step to G major; the moon rises, warm and safe; a far-away owl",
+          "styles": [
+            "key change up a whole step",
+            "fuller arrangement",
+            "warm string section, still very soft",
+            "warm and full but still gentle"
+          ]
+        },
+        {
+          "name": "A' (home key)",
+          "bars": 8,
+          "key": "F major",
+          "cue": "return to the home key F major; the main melody on felt piano with everything together; crickets fade",
+          "styles": [
+            "return to the main melody",
+            "home key",
+            "complete arrangement"
+          ]
+        },
+        {
+          "name": "Ending",
+          "bars": 4,
+          "key": "F major",
+          "cue": "slowing down, ends on a single quiet music-box note; IV–V–I cadence",
+          "styles": [
+            "clear ending",
+            "perfect cadence"
+          ]
+        }
+      ],
+      "target_s": 160
+    }
+  ],
+  "preview": [
+    "01-good-morning",
+    "07-down-on-the-farm",
+    "15-goodnight-stars"
+  ]
+}

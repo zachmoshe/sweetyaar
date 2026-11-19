@@ -1,14 +1,27 @@
 "use strict";
 
 const CACHE_PREFIX = "sweetyaar-parent";
-const CACHE_VERSION = "sweetyaar-parent-v68";
+const CACHE_VERSION = "sweetyaar-parent-v182";
 
 const PRECACHE_URLS = [
   "./",
   "./favicon.ico",
   "./index.html",
   "./logs-queue.js",
+  "./ble-connect.js",
   "./manifest.webmanifest",
+  "./studio/",
+  "./studio/index.html",
+  "./studio/base.css",
+  "./studio/studio.css",
+  "./studio/audio.js",
+  "./studio/exporter.js",
+  "./studio/content.js",
+  "./studio/animals.js",
+  "./studio/parts.js",
+  "./studio/device.js",
+  "./studio/store.js",
+  "./studio/studio.js",
   "./tokens.css",
   "./assets/apple-touch-icon.png",
   "./assets/bedtime-day-art.png",
@@ -37,6 +50,27 @@ const PRECACHE_URLS = [
   "./assets/ready-bottom-graphics.png",
   "./assets/ready-bottom-graphics@2x.png",
   "./assets/streaming-toy-scene.png",
+  "./assets/studio-banner.jpg",
+  "./assets/studio-icon.png",
+  "./assets/studio/hero-wide.jpg",
+  "./assets/studio/edit-strip.png",
+  "./assets/studio/record.jpg",
+  "./assets/studio/themes.png",
+  "./assets/studio/animals-trio.png",
+  "./assets/studio/sdcard.png",
+  "./assets/studio/sd-icon.png",
+  "./assets/studio/settings.png",
+  "./assets/studio/logo.png",
+  "./assets/studio/library.png",
+  "./assets/studio/toy.png",
+  "./assets/studio/drop.png",
+  "./assets/studio/prompt.png",
+  "./assets/studio/sound.png",
+  "./assets/studio-tools/trim.png",
+  "./assets/studio-tools/fades.png",
+  "./assets/studio-tools/normalize.png",
+  "./assets/studio-tools/noise.png",
+  "./assets/studio-tools/speaker.png",
   "./assets/tab-doll.png",
   "./assets/tab-remote.png",
   "./assets/tab-settings.png"
@@ -48,7 +82,9 @@ importScripts("logs-queue.js");
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_VERSION)
-      .then((cache) => cache.addAll(PRECACHE_URLS))
+      // Fresh from the server: the browser's HTTP cache could hand back an
+      // older copy of a file (an image, say) under the new version.
+      .then((cache) => cache.addAll(PRECACHE_URLS.map((url) => new Request(url, { cache: "reload" }))))
       .then(() => self.skipWaiting())
   );
 });

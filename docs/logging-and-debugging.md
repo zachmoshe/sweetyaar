@@ -763,6 +763,8 @@ Project `sweetyaar`, billing linked, under no organization:
 - Bucket `sweetyaar-admin-resources`: `me-west1`, Standard, uniform access,
   public access prevented, object versioning on. SweetYaar Admin's files,
   one folder per feature: `logs-viewer/annotations.json` holds the notes.
+  Studio's public content is in a separate bucket, `sweetyaar-studio-resources`
+  (see "Shared content" in [studio.md](engineering/studio.md)).
 - Function `logs-api`: HTTP, Python 3.12, 256 MiB, 30 s timeout, at most 2
   instances, public (the API checks every upload). Its image repository
   `gcf-artifacts` keeps the two newest images.

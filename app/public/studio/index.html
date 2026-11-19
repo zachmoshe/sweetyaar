@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SweetYaar Studio</title>
+  <link rel="icon" href="../favicon.ico">
+  <link rel="stylesheet" href="../tokens.css">
+  <link rel="stylesheet" href="base.css">
+  <link rel="stylesheet" href="studio.css">
+</head>
+<body class="v3">
+  <header class="hero">
+    <a class="back" href="../">← Parent remote</a>
+    <div class="hero-text">
+      <a class="logo" href="./" data-go="library"><img src="../assets/studio/logo.png" alt=""><span>SweetYaar Studio</span></a>
+      <p>Make the songs and animal sounds your toy plays.</p>
+      <div class="hero-actions">
+        <span class="device-split" id="deviceSplit"><button class="device-btn" id="deviceBtn" type="button"></button><button class="device-stop" id="deviceStop" type="button" aria-label="Stop connecting" title="Stop connecting" hidden><span aria-hidden="true">&#10005;</span></button></span>
+        <button class="btn export" id="exportBtn"><img src="../assets/studio/sd-icon.png" alt="">Export to SD card…</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="view active" id="view-library">
+      <div class="shelf songs-shelf">
+        <div class="shelf-head">
+          <img class="badge-art" src="../assets/studio/themes.png" alt="">
+          <div><h2>Themes &amp; songs</h2><p class="sub">Each theme is a collection the child switches between.</p></div>
+          <span class="spacer"></span>
+          <button class="btn primary big" id="newThemeBtn">+ New theme</button>
+        </div>
+        <div class="plist" id="themesList"></div>
+      </div>
+      <div class="shelf animals-shelf">
+        <div class="shelf-head">
+          <img class="badge-art" src="../assets/studio/animals-trio.png" alt="">
+          <div><h2>Animals</h2><p class="sub">“Who says moo?” and then the cow. Match questions with sounds.</p></div>
+        </div>
+        <div class="plist" id="animalsList"></div>
+      </div>
+      <div class="shelf settings-shelf">
+        <div class="shelf-head">
+          <img class="badge-art" src="../assets/studio/settings.png" alt="">
+          <div><h2>Toy settings</h2><p class="sub">Starting volume and theme, Bedtime and sleep. Exported as the card's <code>config.json</code>; the parent remote can change them later.</p></div>
+        </div>
+        <div id="toySettings"></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-editor">
+      <div class="ehead">
+        <a class="back" href="./" data-go="library">← Library</a>
+        <div class="etitle"><label class="tname" title="Rename"><input id="trackName" maxlength="60" aria-label="Name" spellcheck="false"><span aria-hidden="true">✎</span></label><span class="tag" id="trackTheme"></span></div>
+        <span class="spacer"></span>
+        <button class="btn ebtn" id="undoBtn" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>Undo</button>
+        <button class="btn primary ebtn" id="saveBtn" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4"/><rect x="8" y="13" width="8" height="5" rx="1"/></svg>Save</button>
+      </div>
+      <div class="console">
+        <div class="screen">
+          <div class="wavebox" id="wavebox"><div class="lane" id="lane" aria-label="Parts"></div><canvas id="wave" height="240"></canvas><div class="dropline" id="dropline" hidden></div></div>
+          <div class="ovwrap"><canvas id="overview" height="56" aria-label="Overview. The highlighted box is the part shown above; drag it to move."></canvas><span class="ovtime" id="timeInfo" title="The part of the track shown above, and its total length"></span></div>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn primary" id="playBtn" disabled>▶ Play</button>
+          <button class="btn" id="cutBtn" disabled title="Remove the selected part (Delete)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg> Cut selection</button>
+          <button class="btn" id="clearSel" disabled>Clear selection</button>
+          <button class="btn" id="partBtn" disabled title="Make the selected range a part you can drag">Make part</button>
+          <button class="btn" id="fuseBtn" disabled title="Join the selected parts into one">Fuse parts</button>
+          <button class="btn" id="insertBtn" title="Insert audio files at the position as new parts">Insert file…</button>
+          <button class="btn rec" id="recordBtn" title="Record at the position as a new part"><span class="recdot"></span> Record</button>
+          <span class="spacer"></span>
+        </div>
+        <div class="recpanel" id="recPanel" hidden>
+          <img class="recart" src="../assets/studio/record.jpg" alt="">
+          <div class="rechead">
+            <b>Record</b><span class="recstate" id="recState"></span>
+            <select id="micSelect" hidden aria-label="Microphone"></select>
+            <span class="spacer"></span>
+            <button class="btn small" id="recClose">Close</button>
+          </div>
+          <canvas id="recScope" height="70" aria-label="What the microphone hears"></canvas>
+          <div class="recrow">
+            <div class="meter"><i id="recMeter"></i></div>
+            <button class="btn rec" id="recStart" disabled><span class="recdot"></span> Start recording</button>
+            <b class="rectime" id="recTime" hidden>0:00.0</b>
+            <button class="btn" id="recPause" hidden>❚❚ Pause</button>
+            <button class="btn primary" id="recStop" hidden>■ Stop and add</button>
+            <button class="btn" id="recDiscard" hidden>Discard take</button>
+          </div>
+          <p class="sub" id="recHint"></p>
+        </div>
+        <div class="controls">
+          <div class="knobwrap">
+            <div class="knob" id="knob" role="slider" tabindex="0" aria-label="Track volume" aria-valuemin="-12" aria-valuemax="12" aria-valuenow="0" title="Drag up/right to raise, down/left to lower. Double-click to reset.">
+              <div id="knobTick" aria-hidden="true"></div>
+            </div>
+            <div class="knoblabel"><b>Volume <span id="gainVal">0.0 dB</span></b><span id="gainScope">Whole track · applied when you save</span></div>
+            <input type="hidden" id="gain" value="0">
+          </div>
+          <div class="zoombtns">
+            <button class="btn icon" id="zoomOut" title="Zoom out" aria-label="Zoom out"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg></button>
+            <button class="btn icon" id="zoomIn" title="Zoom in" aria-label="Zoom in"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg></button>
+            <button class="btn icon" id="zoomFit" title="Fit whole track" aria-label="Fit whole track"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button>
+          </div>
+        </div>
+      </div>
+      <div class="pads">
+        <div class="fixhead"><h3>Quick fixes</h3><span class="sub" id="fixScope">Apply to the whole track</span></div>
+        <div class="fixes">
+          <div class="fix">
+            <img class="art" src="../assets/studio-tools/trim.png" alt="" loading="lazy"><div class="fixtext"><b>Trim silence</b><span>Remove quiet audio at the start and end.</span>
+              <div class="segmented trimseg" id="trimLevel" role="radiogroup" aria-label="How much to trim">
+                <button type="button" data-db="-60" aria-pressed="false" title="Studio-clean files: only true silence goes">Gentle</button>
+                <button type="button" data-db="-50" aria-pressed="true" title="Most recordings">Normal</button>
+                <button type="button" data-db="-40" aria-pressed="false" title="Home recordings with hiss or room hum">Firm</button>
+                <button type="button" data-db="-30" aria-pressed="false" title="Noisy rooms; may clip soft starts like h or s">Strong</button>
+              </div>
+            </div>
+            <button class="btn" id="fixTrim">Trim</button>
+          </div>
+          <div class="fix">
+            <img class="art" src="../assets/studio-tools/fades.png" alt="" loading="lazy"><div class="fixtext"><b>Fade in / out</b>
+              <label class="slide">Fade in <input type="range" id="fadeIn" min="0" max="10" step="0.5" value="0.5"><span id="fadeInVal">0.5 s</span></label>
+              <label class="slide">Fade out <input type="range" id="fadeOut" min="0" max="10" step="0.5" value="2"><span id="fadeOutVal">2.0 s</span></label>
+            </div>
+            <button class="btn" id="fixFade">Apply fades</button>
+          </div>
+          <div class="fix">
+            <img class="art" src="../assets/studio-tools/normalize.png" alt="" loading="lazy"><div class="fixtext"><b>Normalize volume</b>
+              <span class="row">
+                <label class="check"><input type="radio" name="loud" value="standard" checked> Standard</label>
+                <label class="check"><input type="radio" name="loud" value="child"> Child-safe (quieter, lower peaks)</label>
+              </span>
+            </div>
+            <button class="btn" id="fixNorm">Normalize</button>
+          </div>
+          <div class="fix">
+            <img class="art" src="../assets/studio-tools/noise.png" alt="" loading="lazy"><div class="fixtext"><b>Reduce background noise</b><span>Hiss, hum and room tone, learned from the quietest moments.</span>
+              <div class="segmented trimseg" id="noiseLevel" role="radiogroup" aria-label="How much to reduce">
+                <button type="button" data-amount="light" aria-pressed="false" title="A little: keeps the voice fully natural">Light</button>
+                <button type="button" data-amount="medium" aria-pressed="true" title="Most home recordings">Medium</button>
+                <button type="button" data-amount="strong" aria-pressed="false" title="Loud hiss or hum; the voice may sound a little thinner">Strong</button>
+              </div>
+            </div>
+            <button class="btn" id="fixNoise">Reduce noise</button>
+          </div>
+          <div class="fix">
+            <img class="art" src="../assets/studio-tools/speaker.png" alt="" loading="lazy"><div class="fixtext"><b>Doll speaker preset</b><span>Removes bass the doll's small speaker can't play, lifts the voice a little and keeps peaks safe. Best applied once, at the end.</span></div>
+            <button class="btn" id="fixSpeaker">Apply preset</button>
+          </div>
+        </div>
+      </div>
+      <details class="howwrap"><summary>How to use the waveform</summary><div class="howto" aria-label="How to use the waveform">
+          <span class="how"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/></svg><b>Click</b> set position, clear selection</span>
+          <span class="how"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="1" stroke-dasharray="3 3"/></svg><b>Drag</b> select a range</span>
+          <span class="how"><kbd>⇧</kbd><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="7 8 3 12 7 16"/><polyline points="17 8 21 12 17 16"/><line x1="3" y1="12" x2="21" y2="12"/></svg><b>Shift + drag</b> scrub and listen</span>
+          <span class="how"><kbd>⌘</kbd>/<kbd>Ctrl</kbd><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg><b>+ scroll</b> zoom in / out</span>
+          <span class="how"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg><b>Drag a part</b> (strip above) reorder</span>
+          <span class="how"><kbd>⇧</kbd><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/></svg><b>Shift + click parts</b> select several parts</span>
+          <span class="how"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg><b>Drop files</b> add them as parts</span>
+          <span class="how"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="7 8 3 12 7 16"/><polyline points="17 8 21 12 17 16"/><line x1="3" y1="12" x2="21" y2="12"/></svg><b>Scroll</b> move along when zoomed</span>
+        </div></details>
+    </section>
+  </main>
+
+  <dialog id="exportDlg">
+    <button class="dlgclose" id="exportClose" aria-label="Close">&times;</button>
+    <h3 style="margin-bottom:8px">Export to a folder or SD card</h3>
+    <p class="sub xintro">Choose the folder to export to. It can also be an SD card in a card reader.</p>
+    <div class="xdir" id="dirCard">
+      <span class="xdiricon" id="dirIcon" aria-hidden="true"></span>
+      <div class="xdirtext"><div class="xdirname" id="dirName"></div><div class="sub" id="dirKind"></div></div>
+      <button class="btn" id="pickDir">Choose folder…</button>
+    </div>
+    <p class="sub dirwarn" id="dirWarn" hidden></p>
+    <section class="xbox" id="cardNow" hidden></section>
+    <section class="xbox out" id="cardOut" hidden></section>
+    <label class="row sub xkeep"><input type="checkbox" id="exportConfig" checked> Also export the toy settings (<code>config.json</code>)</label>
+    <label class="row sub xkeep2"><input type="checkbox" id="keepOther" checked> Keep other themes, files and folders already in the folder</label>
+    <div class="xprogress" id="exportProgress" hidden><div></div></div>
+    <p class="xwarn" id="exportWarn" hidden></p>
+    <p class="sub exportstatus" id="exportStatus" role="status"></p>
+    <div class="xgo"><button class="btn primary" id="exportWrite">Export</button></div>
+  </dialog>
+
+  <div class="toast" id="toast" popover="manual" role="status"></div>
+  <script src="../ble-connect.js"></script>
+  <script src="device.js"></script>
+  <script src="store.js"></script>
+  <script src="audio.js"></script>
+  <script src="exporter.js"></script>
+  <script src="content.js"></script>
+  <script src="animals.js"></script>
+  <script src="parts.js"></script>
+  <script src="studio.js"></script>
+</body>
+</html>

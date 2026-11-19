@@ -1,0 +1,115 @@
+{
+  "_comment": "Spoken animal questions for SweetYaar Studio (bucket folder animal-prompts/). One block per language; 'defaults' applies to every language, and a language may override any of its keys. output_format: what ElevenLabs returns, the best our Starter plan allows (lossless 48 kHz PCM; 44.1 kHz PCM needs Pro); the script converts it to sample_rate WAV with ffmpeg. Model and voice settings match the website's (Eleven v4: our four voices are professional clones verified on v4; v3 made Danit sound wrong). trim_threshold_db/target_rms_db/peak_db: silence trim and loudness levelling. seed: fixed, so a rerun gives the same take. max_length_ratio/max_retakes: a take much longer than its language's median (the model sometimes repeats the start of the sentence) is redone with other seeds. Generate with generate.py (see README.md).",
+
+  "defaults": {
+    "model_id": "eleven_v4",
+    "tags": "[childish] [warm] [engaged]",
+    "voice_settings": {
+      "stability": 0.5,
+      "similarity_boost": 0.75,
+      "style": 0.0,
+      "use_speaker_boost": true,
+      "speed": 1.0,
+      "clone_strength": 0.0
+    },
+    "output_format": "pcm_48000",
+    "sample_rate": 44100,
+    "trim_threshold_db": -40,
+    "target_rms_db": -20,
+    "peak_db": -1,
+    "seed": 1,
+    "max_length_ratio": 1.4,
+    "max_retakes": 3
+  },
+
+  "attribution": "Spoken questions generated with [ElevenLabs](https://elevenlabs.io) (commercial licence, Starter plan).",
+
+  "animals": ["cat", "cow", "dog", "duck", "elephant", "fish", "frog", "horse", "lion", "monkey", "owl", "rooster", "sheep"],
+
+  "languages": {
+    "en": {
+      "name": "English",
+      "voice": "FgiNpTIapnCbaD6xiqIo",
+      "voice_name": "Sunny - Bubbly, Children Narrator",
+      "prompts": {
+        "cat": "How does a cat sound?",
+        "cow": "How does a cow sound?",
+        "dog": "How does a dog sound?",
+        "duck": "How does a duck sound?",
+        "elephant": "How does an elephant sound?",
+        "fish": "How does a fish sound?",
+        "frog": "How does a frog sound?",
+        "horse": "How does a horse sound?",
+        "lion": "How does a lion sound?",
+        "monkey": "How does a monkey sound?",
+        "owl": "How does an owl sound?",
+        "rooster": "How does a rooster sound?",
+        "sheep": "How does a sheep sound?"
+      }
+    },
+
+    "he": {
+      "name": "עברית",
+      "_comment": "Niqqud tells the voice how to read each word. עוֹשָׂה (feminine) for פרה, צפרדע, כבשה; עוֹשֶׂה (masculine) for the rest. Write a vocal sheva as the vowel actually said: the voice reads every sheva as silent (תַּרְנְגוֹל came out \"tarngol\"), so rooster is תַּרְנֶגוֹל.",
+      "voice": "s0T0DT6EAPeX57MQpn3I",
+      "voice_name": "Danit - Natural Israeli Hebrew",
+      "prompts": {
+        "cat": "אֵיךְ עוֹשֶׂה חָתוּל?",
+        "cow": "אֵיךְ עוֹשָׂה פָּרָה?",
+        "dog": "אֵיךְ עוֹשֶׂה כֶּלֶב?",
+        "duck": "אֵיךְ עוֹשֶׂה בַּרְוָז?",
+        "elephant": "אֵיךְ עוֹשֶׂה פִּיל?",
+        "fish": "אֵיךְ עוֹשֶׂה דָּג?",
+        "frog": "אֵיךְ עוֹשָׂה צְפַרְדֵּעַ?",
+        "horse": "אֵיךְ עוֹשֶׂה סוּס?",
+        "lion": "אֵיךְ עוֹשֶׂה אַרְיֵה?",
+        "monkey": "אֵיךְ עוֹשֶׂה קוֹף?",
+        "owl": "אֵיךְ עוֹשֶׂה יַנְשׁוּף?",
+        "rooster": "אֵיךְ עוֹשֶׂה תַּרְנֶגוֹל?",
+        "sheep": "אֵיךְ עוֹשָׂה כִּבְשָׂה?"
+      }
+    },
+
+    "fr": {
+      "name": "Français",
+      "voice": "uFA9UGUhpwqGjVhz3lA2",
+      "voice_name": "Christine - Storyteller",
+      "prompts": {
+        "cat": "Comment fait le chat ?",
+        "cow": "Comment fait la vache ?",
+        "dog": "Comment fait le chien ?",
+        "duck": "Comment fait le canard ?",
+        "elephant": "Comment fait l'éléphant ?",
+        "fish": "Comment fait le poisson ?",
+        "frog": "Comment fait la grenouille ?",
+        "horse": "Comment fait le cheval ?",
+        "lion": "Comment fait le lion ?",
+        "monkey": "Comment fait le singe ?",
+        "owl": "Comment fait le hibou ?",
+        "rooster": "Comment fait le coq ?",
+        "sheep": "Comment fait le mouton ?"
+      }
+    },
+
+    "ar": {
+      "name": "العربية",
+      "voice": "g3YpdjT1OTh9cunaumJs",
+      "voice_name": "Layla - Modern Arabic",
+      "prompts": {
+        "cat": "ماذا يقول القط؟",
+        "cow": "ماذا تقول البقرة؟",
+        "dog": "ماذا يقول الكلب؟",
+        "duck": "ماذا تقول البطة؟",
+        "elephant": "ماذا يقول الفيل؟",
+        "fish": "ماذا تقول السمكة؟",
+        "frog": "ماذا يقول الضفدع؟",
+        "horse": "ماذا يقول الحصان؟",
+        "lion": "ماذا يقول الأسد؟",
+        "monkey": "ماذا يقول القرد؟",
+        "owl": "ماذا تقول البومة؟",
+        "rooster": "ماذا يقول الديك؟",
+        "sheep": "ماذا يقول الخروف؟"
+      }
+    }
+  }
+}

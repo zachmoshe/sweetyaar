@@ -222,7 +222,7 @@ def test_parent_app_service_worker_precache_contract(repo_root) -> None:
         r'const CACHE_VERSION = "sweetyaar-parent-v\d+";',
         sw_source,
     )
-    assert "cache.addAll(PRECACHE_URLS)" in sw_source
+    assert "cache.addAll(PRECACHE_URLS.map((url) => new Request(url, { cache: \"reload\" })))" in sw_source
     assert "self.skipWaiting()" in sw_source
     assert "self.clients.claim()" in sw_source
     assert "function networkFirst" in sw_source

@@ -10,7 +10,8 @@ const root = path.resolve(__dirname, "..");
 const html = fs.readFileSync(path.join(root, "app", "public", "index.html"), "utf8");
 const match = html.match(/<script>\s*([\s\S]*?)\s*<\/script>/);
 assert(match, "app/public/index.html must contain the parent app script");
-const appScript = match[1];
+// The page loads ble-connect.js before its own script; so does the test.
+const appScript = fs.readFileSync(path.join(root, "app", "public", "ble-connect.js"), "utf8") + "\n" + match[1];
 
 class FakeClassList {
   constructor(owner) {

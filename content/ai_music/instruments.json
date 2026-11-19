@@ -1,0 +1,1063 @@
+{
+  "_comment": "An AI-generated theme for meeting musical instruments: each piece (about 45 s) puts one instrument in front and shows what it can do. The featured instrument is alone at the start and always on top. Every piece must keep moving: each section brings a new melodic phrase (never the same few notes again), the harmony progresses, the key modulates at least once (for unpitched percussion: new drums, techniques, grooves and tempos instead), and accompanying instruments are added as it goes, then it returns home for the ending. Generate with generate.py.",
+  "id": "meet-the-instruments",
+  "name": "✨ Meet the Instruments 🎶",
+  "shuffle": false,
+  "attribution": "Music generated with [Eleven Music](https://elevenlabs.io/music) by ElevenLabs.",
+  "_planned": [
+    "piano",
+    "violin",
+    "cello",
+    "classical guitar",
+    "harp",
+    "flute",
+    "clarinet",
+    "saxophone",
+    "trumpet",
+    "trombone",
+    "drums",
+    "xylophone",
+    "tuba",
+    "harmonica"
+  ],
+  "defaults": {
+    "model_id": "music_v2_5",
+    "output_format": "mp3_44100_128",
+    "length_s": 45,
+    "force_instrumental": true,
+    "style": "Instrumental only, no vocals. A short showcase piece for children: one featured instrument clearly in front, recorded close and warm. Always developing: new melodic phrases in every section, moving chord progressions, key changes, more accompanying instruments joining as it goes. Clean, gentle, not harsh. End with a clear ending, no fade.",
+    "sample_rate": 44100,
+    "target_rms_db": -19,
+    "peak_db": -1,
+    "negative_styles": [
+      "vocals",
+      "singing",
+      "lyrics",
+      "speech",
+      "harsh",
+      "distorted",
+      "featured instrument buried in the mix",
+      "repetitive loop",
+      "repeated riff",
+      "ostinato",
+      "same phrase repeated",
+      "static harmony",
+      "one chord",
+      "heavy drum kit",
+      "choir",
+      "humming",
+      "vocal oohs and aahs",
+      "human voice"
+    ],
+    "silence_db": -50,
+    "tail_s": 0.8
+  },
+  "songs": [
+    {
+      "id": "01-piano",
+      "title": "The Piano",
+      "mood": "bright",
+      "prompt": "A short piano showcase for children that keeps growing: the piano alone sweeping from its lowest to highest notes, a playful tune in C, a new tune in F with the melody down in the bass as strings join, a tender slow D minor part with rolling arpeggios, quick sparkling runs and a glissando in G, and big chords to finish.",
+      "bpm": 104,
+      "key": "C major",
+      "styles": [
+        "solo piano",
+        "piano is the loudest instrument",
+        "grand piano close-miked",
+        "virtuoso children's piano showcase",
+        "bright and playful",
+        "children's music"
+      ],
+      "negative": [
+        "another instrument taking the melody",
+        "electric piano",
+        "guitar",
+        "loud accompaniment",
+        "loud strings",
+        "synth"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 2,
+          "cue": "the piano completely alone: one deep low note, then a sweep of notes climbing all the way to the top, a bright chord",
+          "styles": [
+            "solo piano alone",
+            "full range low to high",
+            "no accompaniment"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 3,
+          "cue": "a playful, bouncy tune in the right hand over a hopping left hand, chords I–V–vi–IV; every bar a new idea, no bar repeated",
+          "styles": [
+            "piano melody loud and in front",
+            "accompaniment very soft in the background",
+            "playful melody that moves",
+            "bouncy left hand",
+            "I–V–vi–IV"
+          ],
+          "context_adherence": "medium"
+        },
+        {
+          "name": "B (new key, low melody)",
+          "bars": 4,
+          "cue": "modulate to F major: a brand-new tune played low in the bass while the right hand sparkles above; soft pizzicato strings and upright bass join, chords I–iii–IV–V",
+          "styles": [
+            "piano melody loud and in front",
+            "accompaniment very soft in the background",
+            "key change",
+            "melody in the low register",
+            "pizzicato strings join",
+            "I–iii–IV–V"
+          ],
+          "key": "F major",
+          "context_adherence": "medium"
+        },
+        {
+          "name": "C (minor, slower)",
+          "bars": 3,
+          "cue": "slower and tender in D minor: big rolling arpeggios with the soft pedal and a gentle singing melody, a cello holds long notes underneath, chords i–VI–iv–V",
+          "styles": [
+            "piano melody loud and in front",
+            "accompaniment very soft in the background",
+            "tender",
+            "rolling arpeggios",
+            "sustain pedal",
+            "soft cello",
+            "i–VI–iv–V"
+          ],
+          "bpm": 88,
+          "key": "D minor",
+          "context_adherence": "medium"
+        },
+        {
+          "name": "D (up to G, sparkling)",
+          "bars": 4,
+          "cue": "bright and faster in G major: fast sparkling scales, a glissando up the keys, trills, light shaker and the strings bounce along",
+          "styles": [
+            "piano melody loud and in front",
+            "accompaniment very soft in the background",
+            "key change",
+            "fast scales",
+            "piano glissando",
+            "trills",
+            "virtuoso but gentle"
+          ],
+          "bpm": 116,
+          "key": "G major",
+          "context_adherence": "medium"
+        },
+        {
+          "name": "Ending",
+          "bars": 2,
+          "cue": "big chords stepping from low to high, then one tiny sparkling top note",
+          "styles": [
+            "piano melody loud and in front",
+            "accompaniment very soft in the background",
+            "big chords",
+            "final cadence",
+            "clear ending"
+          ],
+          "bpm": 116,
+          "key": "G major"
+        }
+      ]
+    },
+    {
+      "id": "02-violin",
+      "title": "The Violin",
+      "mood": "spring",
+      "prompt": "Solo violin plays the famous main theme of Vivaldi's 'Spring' (The Four Seasons, first movement, E major, public domain), loud and in front, with a light string-orchestra and harpsichord accompaniment far behind.",
+      "bpm": 100,
+      "key": "E major",
+      "styles": [
+        "solo violin",
+        "Vivaldi Spring main theme",
+        "baroque violin concerto",
+        "violin is the loudest instrument",
+        "violin close-miked",
+        "bright and joyful",
+        "children's music"
+      ],
+      "negative": [
+        "piano",
+        "piano lead",
+        "loud accompaniment",
+        "guitar",
+        "synth",
+        "modern pop"
+      ],
+      "sections": [
+        {
+          "name": "Theme",
+          "bars": 6,
+          "cue": "the famous joyful 'Spring' theme from Vivaldi's Four Seasons on the solo violin, each phrase played loud then answered softly like an echo",
+          "styles": [
+            "violin melody loud and in front",
+            "accompaniment very soft in the background",
+            "Vivaldi Spring theme",
+            "echo phrases",
+            "baroque"
+          ]
+        },
+        {
+          "name": "Birdsong",
+          "bars": 4,
+          "cue": "the solo violin imitates birds singing: high trills, quick chirping notes and little runs, as in Vivaldi's Spring",
+          "styles": [
+            "violin melody loud and in front",
+            "accompaniment very soft in the background",
+            "violin trills",
+            "high birdsong figures",
+            "virtuoso but gentle"
+          ],
+          "context_adherence": "medium"
+        },
+        {
+          "name": "Theme again, new key",
+          "bars": 4,
+          "cue": "the Spring theme returns on the violin, now in B major, with the strings answering",
+          "styles": [
+            "violin melody loud and in front",
+            "accompaniment very soft in the background",
+            "key change",
+            "Vivaldi Spring theme",
+            "baroque"
+          ],
+          "key": "B major",
+          "context_adherence": "medium"
+        },
+        {
+          "name": "Ending",
+          "bars": 3,
+          "cue": "back home in E major: the theme's last phrase, a quick violin run and a bright final chord",
+          "styles": [
+            "violin melody loud and in front",
+            "accompaniment very soft in the background",
+            "final cadence",
+            "clear ending"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "03-cello",
+      "title": "The Cello",
+      "mood": "warm",
+      "prompt": "A short cello showcase for children that keeps growing: the cello alone with its deepest string, a warm singing melody in C, a playful walking pizzicato tune in F as harp joins, a tender slow A minor melody with double stops, a high fast melody in G as strings and flute join, and a slide down to the deepest note.",
+      "bpm": 96,
+      "key": "C major",
+      "styles": [
+        "solo cello",
+        "cello is the loudest instrument",
+        "rich cello close-miked",
+        "expressive cello showcase",
+        "warm and playful",
+        "children's music"
+      ],
+      "negative": [
+        "cello section taking the melody",
+        "double bass taking the melody",
+        "guitar",
+        "loud accompaniment",
+        "piano",
+        "piano lead",
+        "synth"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 2,
+          "cue": "the cello completely alone: its deepest open string, long and rich, then a rising phrase",
+          "styles": [
+            "solo cello alone",
+            "deep low string",
+            "no accompaniment"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 3,
+          "cue": "the cello sings a warm, smooth melody in its middle voice, like a person humming, a soft harp far behind, chords I–IV–V–vi; every bar a new idea, no bar repeated",
+          "styles": [
+            "cello melody loud and in front",
+            "accompaniment very soft in the background",
+            "warm singing melody",
+            "legato",
+            "I–IV–V–vi"
+          ],
+          "context_adherence": "medium"
+        },
+        {
+          "name": "B (new key, pizzicato)",
+          "bars": 4,
+          "cue": "modulate to F major: a brand-new playful tune, the cello plucks a bouncy walking line then bows a short answer, harp joins, chords I–vi–ii–V",
+          "styles": [
+            "cello melody loud and in front",
+            "accompaniment very soft in the background",
+            "key change",
+            "cello pizzicato walking line",
+            "harp joins",
+            "I–vi–ii–V"
+          ],
+          "key": "F major",
+          "context_adherence": "medium"
+        },
+        {
+          "name": "C (minor, slower)",
+          "bars": 3,
+          "cue": "slower and tender in A minor: a deep, sad, beautiful melody with two-note double stops over soft strings, chords i–VI–III–V",
+          "styles": [
+            "cello melody loud and in front",
+            "accompaniment very soft in the background",
+            "tender",
+            "double stops",
+            "soft strings",
+            "minor key",
+            "i–VI–III–V"
+          ],
+          "bpm": 84,
+          "key": "A minor",
+          "context_adherence": "medium"
+        },
+        {
+          "name": "D (up to G, high and bright)",
+          "bars": 4,
+          "cue": "bright and faster in G major: the cello climbs high and plays a quick, joyful melody with runs, the strings and a flute join with a counter-melody",
+          "styles": [
+            "cello melody loud and in front",
+            "accompaniment very soft in the background",
+            "key change",
+            "high cello register",
+            "fast runs",
+            "strings and flute join"
+          ],
+          "bpm": 108,
+          "key": "G major",
+          "context_adherence": "medium"
+        },
+        {
+          "name": "Ending",
+          "bars": 2,
+          "cue": "the cello slides all the way down to its deepest note under a final soft chord",
+          "styles": [
+            "cello melody loud and in front",
+            "accompaniment very soft in the background",
+            "slide down",
+            "deep final note",
+            "clear ending"
+          ],
+          "bpm": 108,
+          "key": "G major"
+        }
+      ]
+    },
+    {
+      "id": "04-classical-guitar",
+      "title": "The Classical Guitar",
+      "mood": "gentle",
+      "prompt": "A classical guitar solo for children: a nylon-string guitar alone, played fingerstyle like a Spanish concert guitarist, with a flowing arpeggio melody, a key change, tremolo, bell-like harmonics and fast scales, and a gentle ending. Almost no accompaniment.",
+      "bpm": 96,
+      "key": "E minor",
+      "styles": [
+        "solo classical guitar",
+        "nylon-string concert guitar",
+        "fingerstyle",
+        "Spanish classical guitar",
+        "guitar close-miked",
+        "intimate and warm",
+        "children's music"
+      ],
+      "negative": [
+        "steel-string guitar",
+        "strumming pop",
+        "drums",
+        "bass guitar",
+        "piano",
+        "electric guitar",
+        "band",
+        "loud accompaniment"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 2,
+          "cue": "the classical guitar alone: a slow, singing melody over soft bass notes plucked with the thumb",
+          "styles": [
+            "solo classical guitar alone",
+            "thumb bass notes",
+            "no accompaniment"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 4,
+          "cue": "a flowing fingerpicked arpeggio piece in E minor, the melody on top keeps moving to new notes, chords i–iv–VII–III",
+          "styles": [
+            "classical guitar melody loud and in front",
+            "accompaniment very soft in the background",
+            "flowing arpeggios",
+            "melody on top",
+            "i–iv–VII–III"
+          ],
+          "context_adherence": "medium"
+        },
+        {
+          "name": "B (major key)",
+          "bars": 4,
+          "cue": "the music brightens into E major: a new, sweet melody, the bass walking underneath, chords I–vi–IV–V",
+          "styles": [
+            "classical guitar melody loud and in front",
+            "accompaniment very soft in the background",
+            "key change to major",
+            "new melody",
+            "walking bass on the guitar"
+          ],
+          "key": "E major",
+          "context_adherence": "medium"
+        },
+        {
+          "name": "C (tremolo)",
+          "bars": 4,
+          "cue": "a shimmering tremolo melody, the same note plucked very fast with three fingers, rising higher, in A minor",
+          "styles": [
+            "classical guitar melody loud and in front",
+            "accompaniment very soft in the background",
+            "guitar tremolo technique",
+            "shimmering",
+            "rising melody"
+          ],
+          "key": "A minor",
+          "bpm": 88,
+          "context_adherence": "medium"
+        },
+        {
+          "name": "D (harmonics and scales)",
+          "bars": 3,
+          "cue": "bell-like harmonics chime, then quick, clean scales run up and down in G major",
+          "styles": [
+            "classical guitar melody loud and in front",
+            "accompaniment very soft in the background",
+            "guitar harmonics",
+            "fast scales",
+            "virtuoso but gentle"
+          ],
+          "key": "G major",
+          "bpm": 104,
+          "context_adherence": "medium"
+        },
+        {
+          "name": "Ending",
+          "bars": 2,
+          "cue": "back in E minor: the opening melody once more, a soft rolled final chord",
+          "styles": [
+            "classical guitar melody loud and in front",
+            "accompaniment very soft in the background",
+            "rolled final chord",
+            "clear ending"
+          ],
+          "key": "E minor"
+        }
+      ]
+    },
+    {
+      "id": "05-harp",
+      "title": "The Harp",
+      "mood": "dreamy",
+      "prompt": "A harp showcase for children: the harp alone with a big glissando, then one long, flowing, singing melody that keeps going to new places, a new key with harmonics, a tender low minor part, rippling arpeggios with a soft flute, and a final glissando. Instruments only, no voices.",
+      "bpm": 92,
+      "key": "C major",
+      "styles": [
+        "solo concert harp",
+        "harp is the loudest instrument",
+        "harp close-miked",
+        "harp showcase",
+        "instrumental only, no voices",
+        "dreamy and sparkling"
+      ],
+      "negative": [
+        "angelic voices",
+        "choir",
+        "guitar",
+        "human voice",
+        "humming",
+        "loud accompaniment",
+        "music box",
+        "piano",
+        "piano lead",
+        "synth",
+        "vocal oohs and aahs",
+        "vocal pad"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 2,
+          "cue": "the harp completely alone: a big glissando sweeping up all the strings and back down, then one soft chord",
+          "styles": [
+            "solo harp alone",
+            "harp glissando",
+            "no accompaniment"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 6,
+          "cue": "one long, flowing harp melody on the high strings that keeps moving to new notes, over gentle low arpeggios; chords I–vi–IV–V–iii–vi–ii–V",
+          "styles": [
+            "harp melody loud and in front",
+            "accompaniment very soft in the background",
+            "long singing melody",
+            "melody that never repeats",
+            "harp arpeggios underneath"
+          ],
+          "context_adherence": "medium"
+        },
+        {
+          "name": "B (new key, harmonics)",
+          "bars": 4,
+          "cue": "modulate to F major: a brand-new plucked melody with bell-like harmonics, celesta and pizzicato strings join, chords I–iii–IV–V",
+          "styles": [
+            "harp melody loud and in front",
+            "accompaniment very soft in the background",
+            "key change",
+            "plucked melody",
+            "harp harmonics",
+            "celesta",
+            "pizzicato strings"
+          ],
+          "key": "F major",
+          "context_adherence": "medium"
+        },
+        {
+          "name": "C (minor, slower)",
+          "bars": 3,
+          "cue": "slower and tender in A minor: the harp plays a melody on its deep low strings, a cello plays softly with it, chords i–iv–VI–V",
+          "styles": [
+            "harp melody loud and in front",
+            "accompaniment very soft in the background",
+            "tender",
+            "low harp strings",
+            "soft cello",
+            "minor key"
+          ],
+          "bpm": 80,
+          "key": "A minor",
+          "context_adherence": "medium"
+        },
+        {
+          "name": "D (up to G, rippling)",
+          "bars": 4,
+          "cue": "brighter in G major: quick rippling arpeggios, little glissandi between phrases, a flute and light orchestra join with a counter-melody",
+          "styles": [
+            "harp melody loud and in front",
+            "accompaniment very soft in the background",
+            "key change",
+            "rippling arpeggios",
+            "glissandi",
+            "flute and light orchestra"
+          ],
+          "bpm": 100,
+          "key": "G major",
+          "context_adherence": "medium"
+        },
+        {
+          "name": "Ending",
+          "bars": 2,
+          "cue": "one last glissando sweep up and a soft final chord that rings",
+          "styles": [
+            "harp melody loud and in front",
+            "accompaniment very soft in the background",
+            "final glissando",
+            "ringing chord",
+            "clear ending"
+          ],
+          "bpm": 100,
+          "key": "G major"
+        }
+      ]
+    },
+    {
+      "id": "07-clarinet",
+      "title": "The Clarinet",
+      "mood": "playful",
+      "prompt": "A short clarinet showcase for children: the warm low register alone, a smooth singing melody, playful jumps from low to high with staccato notes and a trill, a rising run and a gentle low ending. Light piano and pizzicato bass. 100 BPM, F major.",
+      "bpm": 100,
+      "key": "F major",
+      "styles": [
+        "solo clarinet",
+        "clarinet in front",
+        "close-miked warm clarinet",
+        "light piano accompaniment",
+        "pizzicato double bass",
+        "children's music",
+        "chamber music"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 2,
+          "cue": "clarinet completely alone in its deep, dark, woody low register: a slow rising phrase",
+          "styles": [
+            "solo clarinet alone",
+            "low chalumeau register",
+            "no accompaniment"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 4,
+          "cue": "the clarinet sings a smooth, legato, round melody in the middle register; soft piano chords I–vi–IV–V join underneath",
+          "styles": [
+            "legato singing melody",
+            "smooth round clarinet tone",
+            "soft piano chords"
+          ]
+        },
+        {
+          "name": "B",
+          "bars": 4,
+          "cue": "playful: the clarinet jumps from low notes to high bright notes and back, short staccato notes, then a quick trill; pizzicato bass bounces along",
+          "styles": [
+            "staccato",
+            "wide leaps low to high",
+            "clarinet trill",
+            "playful and bouncy"
+          ]
+        },
+        {
+          "name": "Ending",
+          "bars": 2,
+          "cue": "a fast rising run up to a bright high note, then the clarinet settles on a soft low final note with the piano's last chord",
+          "styles": [
+            "rising scale run",
+            "gentle final cadence",
+            "soft low last note"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "11-drums",
+      "title": "The Drums",
+      "mood": "energetic",
+      "prompt": "A rock-concert drum solo for children: a short rock band intro, then the band stops and the drummer plays a wild, ever-changing solo all around the kit: heavy kick and snare, racing tom rolls, thundering double bass drum and cymbals, a sudden quiet part with whispers on the hi-hat and rims, a fast build-up, then the band crashes back in for a big ending. Never the same beat twice.",
+      "bpm": 120,
+      "key": "E major",
+      "allow_styles": [
+        "heavy drum kit"
+      ],
+      "negative": [
+        "steady repeated beat",
+        "same groove",
+        "drum loop",
+        "drum machine",
+        "background music",
+        "guitar solo",
+        "drums in the background"
+      ],
+      "styles": [
+        "rock concert drum solo",
+        "live rock drummer",
+        "drums in front",
+        "big arena drum sound",
+        "acoustic drum kit",
+        "electric guitar",
+        "bass guitar",
+        "children's rock"
+      ],
+      "sections": [
+        {
+          "name": "Band intro",
+          "bars": 4,
+          "cue": "a short, happy rock band intro: electric guitar riff, bass and drums in E major, ending on a big stop with a cymbal crash",
+          "styles": [
+            "rock band",
+            "guitar riff",
+            "big stop"
+          ]
+        },
+        {
+          "name": "Solo 1: kick and snare",
+          "bars": 3,
+          "cue": "the band stops; the drummer alone: slow heavy kick and snare calling and answering each other, loud rimshots, cheeky pauses",
+          "styles": [
+            "drum solo",
+            "kick and snare only",
+            "rimshots",
+            "call and response"
+          ]
+        },
+        {
+          "name": "Solo 2: around the toms",
+          "bars": 3,
+          "cue": "something new: fast rolls racing around the toms, from the high toms down to the thundering floor tom, then back up",
+          "styles": [
+            "drum solo",
+            "fast tom rolls",
+            "floor tom thunder",
+            "sticks flying around the kit"
+          ]
+        },
+        {
+          "name": "Solo 3: double kick and cymbals",
+          "bars": 3,
+          "cue": "something new again: thundering double bass drum underneath, crash and china cymbals exploding on top, ping-ping on the ride bell",
+          "styles": [
+            "drum solo",
+            "double bass drum",
+            "crash and china cymbals",
+            "ride bell"
+          ]
+        },
+        {
+          "name": "Solo 4: quiet trick",
+          "bars": 2,
+          "cue": "suddenly very quiet: whispering hi-hat ticks, stick clicks, rim taps and soft ghost notes on the snare",
+          "styles": [
+            "very quiet",
+            "hi-hat whispers",
+            "stick clicks",
+            "rim taps",
+            "ghost notes"
+          ]
+        },
+        {
+          "name": "Solo 5: build-up",
+          "bars": 3,
+          "cue": "a snare roll starts soft and grows louder and faster, toms and cymbals join, the whole kit builds to a huge peak",
+          "styles": [
+            "crescendo",
+            "snare roll",
+            "accelerating",
+            "whole kit"
+          ],
+          "bpm": 132
+        },
+        {
+          "name": "Band returns",
+          "bars": 4,
+          "cue": "the band crashes back in, now in A major: guitar and bass play big chords while the drummer fills every gap, then three final hits together and a long cymbal crash",
+          "styles": [
+            "key change",
+            "band returns",
+            "drum fills between chords",
+            "big rock ending"
+          ],
+          "bpm": 132,
+          "key": "A major"
+        }
+      ]
+    },
+    {
+      "id": "12-xylophone",
+      "title": "The Xylophone",
+      "mood": "bouncy",
+      "prompt": "A xylophone showcase for children: the wooden xylophone alone with bright bouncy notes, a hopping tune, a new key with pizzicato strings, a soft slow minor part with tremolo rolls, fast runs and glissandi in a brighter key, and a final glissando and chord.",
+      "bpm": 112,
+      "key": "C major",
+      "styles": [
+        "solo xylophone",
+        "xylophone is the loudest instrument",
+        "wooden xylophone played with hard mallets",
+        "xylophone close-miked",
+        "bright and bouncy",
+        "children's music"
+      ],
+      "negative": [
+        "marimba",
+        "vibraphone",
+        "glockenspiel",
+        "music box",
+        "celesta",
+        "piano",
+        "loud accompaniment",
+        "drum kit"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 2,
+          "cue": "the xylophone completely alone: bright, dry, wooden notes hopping up, then a quick glissando down",
+          "styles": [
+            "solo xylophone alone",
+            "wooden mallet sound",
+            "no accompaniment"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 4,
+          "cue": "a bouncy, hopping xylophone tune that jumps to new notes every bar, pizzicato bass very soft underneath, chords I–V–vi–IV",
+          "styles": [
+            "xylophone melody loud and in front",
+            "accompaniment very soft in the background",
+            "bouncy staccato melody",
+            "melody that moves",
+            "I–V–vi–IV"
+          ],
+          "context_adherence": "medium"
+        },
+        {
+          "name": "B (new key)",
+          "bars": 4,
+          "cue": "modulate to F major: a brand-new xylophone tune in quick pairs of notes, soft pizzicato strings and a woodblock join, chords I–iii–IV–V",
+          "styles": [
+            "xylophone melody loud and in front",
+            "accompaniment very soft in the background",
+            "key change",
+            "new melody",
+            "pizzicato strings",
+            "woodblock"
+          ],
+          "key": "F major",
+          "context_adherence": "medium"
+        },
+        {
+          "name": "C (minor, slower)",
+          "bars": 4,
+          "cue": "slower and soft in A minor: the xylophone plays a gentle melody with shimmering tremolo rolls on long notes, soft strings far behind",
+          "styles": [
+            "xylophone melody loud and in front",
+            "accompaniment very soft in the background",
+            "xylophone tremolo rolls",
+            "soft and gentle",
+            "minor key"
+          ],
+          "key": "A minor",
+          "bpm": 96,
+          "context_adherence": "medium"
+        },
+        {
+          "name": "D (up to G, fast)",
+          "bars": 5,
+          "cue": "bright and faster in G major: very fast xylophone runs up and down, glissandi between phrases, a cheeky skeleton-dance tune, light orchestra joins",
+          "styles": [
+            "xylophone melody loud and in front",
+            "accompaniment very soft in the background",
+            "key change",
+            "fast xylophone runs",
+            "xylophone glissando",
+            "virtuoso but playful"
+          ],
+          "key": "G major",
+          "bpm": 124,
+          "context_adherence": "medium"
+        },
+        {
+          "name": "Ending",
+          "bars": 2,
+          "cue": "a last glissando up the whole xylophone, three bright final notes and a soft final chord",
+          "styles": [
+            "xylophone melody loud and in front",
+            "accompaniment very soft in the background",
+            "final glissando",
+            "clear ending"
+          ],
+          "key": "G major",
+          "bpm": 124
+        }
+      ]
+    },
+    {
+      "id": "13-tuba",
+      "title": "The Tuba",
+      "mood": "funny",
+      "prompt": "A short tuba showcase for children that keeps growing: the tuba alone with deep notes, a march tune in B-flat, a new rising tune in E-flat as clarinets and horns join, a tender minor melody with strings, a triumphant brass-band variation in C, and a big low ending.",
+      "bpm": 104,
+      "key": "B-flat major",
+      "styles": [
+        "solo tuba",
+        "tuba in front",
+        "big warm round tuba tone",
+        "piano",
+        "clarinets",
+        "french horns",
+        "strings",
+        "brass band",
+        "children's music"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 2,
+          "cue": "the tuba completely alone: a deep descending B-flat arpeggio, like a friendly elephant saying hello",
+          "styles": [
+            "solo tuba alone",
+            "very low notes",
+            "no accompaniment"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 4,
+          "cue": "a cheerful march tune on the tuba that climbs higher each bar, piano chords I–IV–V–I, light woodblock",
+          "styles": [
+            "march",
+            "stepwise melody that moves",
+            "I–IV–V–I",
+            "piano and woodblock"
+          ]
+        },
+        {
+          "name": "B (new key)",
+          "bars": 4,
+          "key": "E-flat major",
+          "cue": "modulate up to E-flat: a brand-new rising tuba tune, clarinets answer each phrase, French horns hold warm chords I–vi–ii–V",
+          "styles": [
+            "key change",
+            "new melody",
+            "clarinets answer",
+            "French horns",
+            "I–vi–ii–V"
+          ]
+        },
+        {
+          "name": "C (minor, slower)",
+          "bars": 4,
+          "bpm": 92,
+          "key": "G minor",
+          "cue": "slower and tender in G minor: the tuba sings a smooth legato melody higher up over soft strings, chords i–iv–VII–III–V",
+          "styles": [
+            "lyrical legato tuba",
+            "soft strings",
+            "minor key",
+            "i–iv–VII–III–V"
+          ]
+        },
+        {
+          "name": "D (up to C, full band)",
+          "bars": 4,
+          "key": "C major",
+          "cue": "bright modulation to C major: the full brass band joins, trumpets, trombones, glockenspiel, the tuba leads a proud variation of the march tune with a counter-melody above",
+          "styles": [
+            "key change",
+            "full brass band",
+            "trumpets and trombones",
+            "glockenspiel",
+            "triumphant",
+            "counter-melody"
+          ]
+        },
+        {
+          "name": "Ending",
+          "bars": 2,
+          "key": "C major",
+          "cue": "quick tuba notes tumbling down to its lowest note, the whole band hits a big final chord",
+          "styles": [
+            "fast descending run",
+            "very low final note",
+            "big final chord",
+            "clear ending"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "14-harmonica",
+      "title": "The Harmonica",
+      "mood": "cheerful",
+      "prompt": "A short harmonica (blues harp, a small mouth organ played by breathing in and out) showcase for children: the harmonica alone with a train-whistle chord and bent notes, a happy tune with piano, a chugging train tune in a new key with bass and brushes, a wistful slow minor melody with strings, a bouncy wah-wah blues, and a whistle-like ending. The harmonica is always the lead; no guitar.",
+      "bpm": 100,
+      "key": "G major",
+      "negative": [
+        "guitar",
+        "acoustic guitar",
+        "banjo",
+        "fiddle",
+        "violin lead",
+        "accordion",
+        "melodica",
+        "guitar lead"
+      ],
+      "styles": [
+        "harmonica solo",
+        "harmonica lead",
+        "blues harp",
+        "breathy reedy harmonica tone",
+        "harmonica bends",
+        "piano",
+        "upright bass",
+        "children's music"
+      ],
+      "sections": [
+        {
+          "name": "Intro",
+          "bars": 2,
+          "cue": "the harmonica completely alone: a two-note train-whistle chord breathed in and out, then one long reedy note that bends down and back up",
+          "styles": [
+            "solo harmonica alone",
+            "breathy reed sound",
+            "note bend",
+            "no accompaniment"
+          ]
+        },
+        {
+          "name": "A",
+          "bars": 4,
+          "cue": "a cheerful harmonica tune that climbs and answers itself, soft piano chords I–IV–V–I",
+          "styles": [
+            "harmonica melody that moves",
+            "soft piano",
+            "I–IV–V–I"
+          ]
+        },
+        {
+          "name": "B (new key, train)",
+          "bars": 4,
+          "cue": "modulate to C major: a new harmonica tune riding a chugging train rhythm of breathy harmonica chords, upright bass and soft brushes join, chords I–vi–IV–V",
+          "styles": [
+            "key change",
+            "new melody",
+            "harmonica chugging rhythm",
+            "upright bass",
+            "brushes",
+            "I–vi–IV–V"
+          ],
+          "key": "C major"
+        },
+        {
+          "name": "C (minor, slower)",
+          "bars": 4,
+          "cue": "slower and wistful in E minor: long bent harmonica notes sing a tender melody over soft strings and piano, chords i–VI–III–VII",
+          "styles": [
+            "slow tender harmonica",
+            "bent notes",
+            "soft strings",
+            "minor key",
+            "i–VI–III–VII"
+          ],
+          "bpm": 88,
+          "key": "E minor"
+        },
+        {
+          "name": "D (up to A, blues)",
+          "bars": 4,
+          "cue": "bright modulation to A major: a bouncy blues, the harmonica plays quick notes, trills and a wah-wah made with cupped hands, piano and bass bounce along",
+          "styles": [
+            "key change",
+            "bouncy blues",
+            "harmonica wah-wah",
+            "harmonica trills",
+            "fast harmonica"
+          ],
+          "bpm": 112,
+          "key": "A major"
+        },
+        {
+          "name": "Ending",
+          "bars": 2,
+          "cue": "the harmonica slides up like a train whistle, a final piano chord, one last soft harmonica note",
+          "styles": [
+            "harmonica whistle slide",
+            "final chord",
+            "clear ending"
+          ],
+          "key": "A major"
+        }
+      ]
+    }
+  ]
+}

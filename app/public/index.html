@@ -500,6 +500,39 @@
     .connect-stop:hover { background-image: linear-gradient(180deg, #0878f1, #005fc4); }
     .connect-stop[hidden] { display: none; }
 
+    .studio-card {
+      display: block; margin-top: 18px; overflow: hidden; border-radius: var(--radius-card);
+      background: var(--card); border: 1px solid var(--line); box-shadow: var(--soft-shadow);
+      color: var(--ink); text-decoration: none;
+    }
+    .studio-card .studio-banner { display: block; width: 100%; aspect-ratio: 860 / 431; object-fit: cover; }
+    .studio-card .studio-body { display: flex; align-items: center; gap: 12px; padding: 9px 16px; }
+    .studio-card b { font-size: 19px; color: var(--teal-dark); white-space: nowrap; }
+    .studio-card .studio-text { font-size: 13px; color: var(--muted); }
+    .studio-card .studio-text-mobile { display: none; }
+    .studio-card .studio-open { margin-left: auto; flex: none; font-size: 14px; font-weight: 600; color: var(--teal-dark); }
+    .studio-card:hover .studio-open { text-decoration: underline; }
+    .studio-card .studio-icon { display: none; }
+    .studio-card.studio-card-remote { margin-top: 0; }
+    @media (max-width: 767px) {
+      .studio-card { filter: grayscale(1); opacity: .75; }
+      /* On the Remote screen of a phone: one thin row, like Quiet time. */
+      .studio-card.studio-card-remote {
+        display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 12px; align-items: center;
+        min-height: 64px; padding: 11px 16px;
+      }
+      .studio-card-remote .studio-banner { display: none; }
+      .studio-card-remote .studio-icon { display: block; width: 38px; height: 38px; object-fit: contain; border-radius: 9px; }
+      .studio-card-remote .studio-body { display: grid; gap: 2px; min-width: 0; padding: 0; }
+      .studio-card-remote b { font-size: clamp(15px, 4vw, 17px); font-weight: 790; line-height: 1.1; }
+      .studio-card-remote .studio-text-mobile { margin-top: 0; font-size: clamp(12px, 3.2vw, 13px); font-weight: 700; line-height: 1.15;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .studio-card .studio-body { display: block; }
+      .studio-card b { display: block; }
+      .studio-card .studio-open { display: none; }
+      .studio-card .studio-text-mobile { display: block; margin-top: 2px; }
+    }
+
     .opening-art,
     .stream-art {
       display: block;
@@ -2706,6 +2739,15 @@
           <span class="info-icon" aria-hidden="true">i</span>
           <p>Make sure the device is powered on and nearby.</p>
         </article>
+
+        <a class="studio-card" href="studio/">
+          <img class="studio-banner" src="assets/studio-banner.jpg" alt="">
+          <div class="studio-body">
+            <b>SweetYaar Studio</b>
+            <span class="studio-text studio-text-mobile">SweetYaar Studio is best used on a tablet or laptop</span>
+            <span class="studio-open">Open →</span>
+          </div>
+        </a>
       </div>
     </section>
 
@@ -2860,6 +2902,16 @@
             <span class="quiet-switch" aria-hidden="true"><span class="quiet-knob"></span></span>
           </button>
         </section>
+
+        <a class="studio-card studio-card-remote" href="studio/">
+          <img class="studio-banner" src="assets/studio-banner.jpg" alt="">
+          <img class="studio-icon" src="assets/studio-icon.png" alt="">
+          <div class="studio-body">
+            <b>SweetYaar Studio</b>
+            <span class="studio-text studio-text-mobile">Best used on a tablet or laptop</span>
+            <span class="studio-open">Open →</span>
+          </div>
+        </a>
 
         <p class="device-watch" id="deviceWatch" aria-label="Device clock">Toy clock not set</p>
 
@@ -3186,6 +3238,7 @@
   </main>
 
   <script src="logs-queue.js"></script>
+  <script src="ble-connect.js"></script>
   <script>
     "use strict";
 
@@ -5769,14 +5822,17 @@
 
     const NOTICE_AUTO_DISMISS_MS = 6000;
     const QUIET_TIME_SECONDS = 600;
-    const TAKEOVER_MESSAGE = "Someone else took control.";
-    const PAIRING_REQUIRED_MESSAGE = "Device not approved. Hold both buttons for 3 seconds to open pairing mode, then reconnect.";
-    const AUDIO_BUSY_MESSAGE = "Can't pair while a phone is connected to SweetYaar as a speaker. Disconnect the speaker, hold both buttons for 3 seconds to open pairing mode, then reconnect.";
-    const REMOTE_BUSY_MESSAGE = "Another remote is connected while SweetYaar plays music. Close it there, or stop the music, then connect.";
-    const TOY_BUSY_MESSAGE = "SweetYaar is busy right now. Try again in a moment.";
+    // Finding and linking the toy, and the refusal messages, are shared with
+    // Studio (ble-connect.js).
+    const BLE = globalThis.SweetYaarBle;
+    const TAKEOVER_MESSAGE = BLE.MESSAGES.takeover;
+    const PAIRING_REQUIRED_MESSAGE = BLE.MESSAGES.pairingRequired;
+    const AUDIO_BUSY_MESSAGE = BLE.MESSAGES.audioBusy;
+    const REMOTE_BUSY_MESSAGE = BLE.MESSAGES.remoteBusy;
+    const TOY_BUSY_MESSAGE = BLE.MESSAGES.toyBusy;
     // Refusals the toy explains through its access value.
-    const REFUSAL_MESSAGES = { 0: PAIRING_REQUIRED_MESSAGE, 5: AUDIO_BUSY_MESSAGE, 6: REMOTE_BUSY_MESSAGE, 7: TOY_BUSY_MESSAGE };
-    const CONNECTION_PAIRING_HINT = "Couldn't connect. If this is a new device, hold both buttons for 3 seconds to open pairing mode.";
+    const REFUSAL_MESSAGES = BLE.REFUSALS;
+    const CONNECTION_PAIRING_HINT = BLE.MESSAGES.pairingHint;
 
     function connectionMessageError(message) {
       const error = new Error(message);
@@ -7222,29 +7278,16 @@
       return "Technical error - couldn't connect.";
     }
 
-    const LAST_DEVICE_KEY = "sweetyaar-last-device-id";
-    // The automatic reconnect finds the toy with a scan of up to
-    // AUTO_CONNECT_FIND_MS and then makes at most two connects.
-    // - On a Mac a scan that has heard nothing within a couple of seconds
-    //   usually stays deaf, while a restarted one often hears the toy at once,
-    //   so the scan is restarted every AUTO_CONNECT_HEAR_MS.
-    // - Android ignores a scan, without an error, once an app has started
-    //   more than five within 30 seconds. Restarting every two seconds used
-    //   that up in one slow attempt and left the page deaf to a toy that was
-    //   advertising, so Android gets a single scan (and one notification).
-    let AUTO_CONNECT_FIND_MS = 15000;
-    let AUTO_CONNECT_HEAR_MS = 2000;
-    let AUTO_CONNECT_ATTEMPT_MS = 10000;
-    let AUTO_CONNECT_RETRY_MS = 500;
-    const AUTO_CONNECT_ATTEMPTS = 2;
+    // The automatic reconnect's timing (see connectWithRetries in
+    // ble-connect.js); variables so tests can shorten them.
+    let AUTO_CONNECT_FIND_MS = BLE.TIMING.findMs;
+    let AUTO_CONNECT_HEAR_MS = BLE.TIMING.hearMs;
+    let AUTO_CONNECT_ATTEMPT_MS = BLE.TIMING.attemptMs;
+    let AUTO_CONNECT_RETRY_MS = BLE.TIMING.retryMs;
+    const AUTO_CONNECT_ATTEMPTS = BLE.TIMING.attempts;
 
-    function rememberedDeviceId() {
-      try { return localStorage.getItem(LAST_DEVICE_KEY) || ""; } catch (error) { return ""; }
-    }
-
-    function rememberDeviceId(id) {
-      try { localStorage.setItem(LAST_DEVICE_KEY, id); } catch (error) { /* private mode */ }
-    }
+    const rememberedDeviceId = () => BLE.rememberedId(localStorage);
+    const rememberDeviceId = (id) => BLE.remember(localStorage, id);
 
     function bluetoothUsable(message) {
       if (!("bluetooth" in navigator)) {
@@ -7291,85 +7334,13 @@
       }
     }
 
-    // Starts the browser's advertisement scan for the toy. `heard` resolves true
-    // at its first advertisement (or at once when the browser cannot watch
-    // advertisements, then connect directly). Stop it when done: while it runs,
-    // the browser keeps the toy "in range" for gatt.connect().
-    function watchToy(device) {
-      let markHeard;
-      const heard = new Promise((resolve) => { markHeard = resolve; });
-      if (typeof device.watchAdvertisements !== "function") {
-        markHeard(true);
-        return { heard, stop() {} };
-      }
-      const abort = new AbortController();
-      const onAdvertisement = () => markHeard(true);
-      device.addEventListener("advertisementreceived", onAdvertisement);
-      device.watchAdvertisements({ signal: abort.signal }).catch(() => markHeard(true));
-      return {
-        heard,
-        stop() {
-          device.removeEventListener("advertisementreceived", onAdvertisement);
-          abort.abort();
-        }
-      };
-    }
-
-    function withTimeout(promise, ms, timeoutValue) {
-      let timer;
-      const limit = new Promise((resolve) => { timer = setTimeout(() => resolve(timeoutValue), ms); });
-      return Promise.race([promise, limit]).finally(() => clearTimeout(timer));
-    }
-
-    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-    // Rejects with a `stopped` error as soon as |signal| aborts (Stop pressed).
-    function orStop(promise, signal) {
-      if (!signal) return promise;
-      const stopped = new Promise((_, reject) => {
-        const fail = () => reject(Object.assign(new Error("stopped"), { stopped: true }));
-        if (signal.aborted) fail(); else signal.addEventListener("abort", fail, { once: true });
+    const { withTimeout, orStop } = BLE;
+    function connectWithRetries(device, signal = null) {
+      return BLE.connectWithRetries(device, {
+        signal, userAgent: navigator.userAgent || "",
+        findMs: AUTO_CONNECT_FIND_MS, hearMs: AUTO_CONNECT_HEAR_MS,
+        attemptMs: AUTO_CONNECT_ATTEMPT_MS, retryMs: AUTO_CONNECT_RETRY_MS, attempts: AUTO_CONNECT_ATTEMPTS
       });
-      return Promise.race([promise, stopped]);
-    }
-    function scanWindowMs() {
-      return /Android/i.test(navigator.userAgent || "") ? AUTO_CONNECT_FIND_MS : AUTO_CONNECT_HEAR_MS;
-    }
-    async function connectWithRetries(device, signal = null) {
-      const deadline = Date.now() + AUTO_CONNECT_FIND_MS;
-      let scan = null;
-      try {
-        let heard = false;
-        while (!heard && Date.now() < deadline) {
-          scan = watchToy(device);
-          heard = await orStop(withTimeout(scan.heard, Math.min(scanWindowMs(), deadline - Date.now()), false), signal);
-          if (!heard) {
-            scan.stop();
-            scan = null;
-          }
-        }
-        if (!heard) throw Object.assign(new Error("not in range"), { quiet: true });
-
-        // Connecting to a toy the browser has not heard fails at once, so the
-        // scan keeps running through the connect and stops after it.
-        let lastError;
-        for (let attempt = 1; attempt <= AUTO_CONNECT_ATTEMPTS; attempt += 1) {
-          try {
-            const server = await orStop(withTimeout(device.gatt.connect(), AUTO_CONNECT_ATTEMPT_MS, null), signal);
-            if (!server) throw new Error("connect timed out");
-            return server;
-          } catch (error) {
-            if (error?.stopped) throw error;
-            lastError = error;
-            // Drops a pending connect too, so the next attempt starts clean.
-            if (device.gatt) device.gatt.disconnect();
-            if (attempt < AUTO_CONNECT_ATTEMPTS) await orStop(sleep(AUTO_CONNECT_RETRY_MS), signal);
-          }
-        }
-        lastError.quiet = true;
-        throw lastError;
-      } finally {
-        if (scan) scan.stop();
-      }
     }
 
     // A link that was up and then failed without an explanation (the phone

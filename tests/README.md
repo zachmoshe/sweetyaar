@@ -88,6 +88,8 @@ If the venv is active, `pytest` is equivalent.
 - `helpers.py`: subprocess helpers and PlatformIO discovery.
 - `test_firmware_config.py`: static checks for checked-in SD-card templates and app-owned config defaults.
 - `test_firmware_build.py`: no-device firmware build checks through PlatformIO.
+- `test_animal_prompts.py`: the animal-prompt mapping (`content/animal_prompts/prompts.json`)
+  is complete, and its ElevenLabs generator writes the bucket layout (fake API, no network).
 - `test_battery_monitor.py`: runs the real battery monitor with a fake clock and
   ADC; checks nonblocking startup, delayed polls, seed weighting, invalid-reading
   recovery, charging notifications, timer wraparound, and reinitialization.

@@ -17,6 +17,15 @@ Wi-Fi setup, native-app package, or application server. See
 [Firmware](firmware.md) for the behavior implemented by the toy and
 [Hardware](hardware.md) for the board and electrical design.
 
+The opening screen also shows a SweetYaar Studio card linking to
+[Studio](studio.md), a separate content editor page. Below 768 px the card is
+grey and says Studio is best used on a tablet or laptop; it still opens Studio.
+The Remote screen ends with the same card, so Studio is reachable while
+connected (which matters now that the app reconnects by itself at startup).
+Below 768 px it is also a thin row like Quiet time: the Studio icon, the name
+and the hint, without the banner. Studio makes its own Bluetooth connection, so
+opening it simply leaves the remote.
+
 ## Connecting to the toy
 
 The toy must be powered on and nearby. For a new phone, hold both toy buttons for
@@ -28,7 +37,9 @@ browser's device chooser. The current interface directs parents to Chrome or
 Edge on desktop or Android when Web Bluetooth is unavailable.
 
 After a successful connection the app stores the toy's browser-assigned device id
-in `localStorage`. On the next page load it calls `navigator.bluetooth.getDevices()`
+in `localStorage`. Finding and linking the remembered toy, that key and the
+refusal messages live in `app/public/ble-connect.js`, which SweetYaar Studio
+uses too, so both pages reconnect the same way. On the next page load it calls `navigator.bluetooth.getDevices()`
 (the browser keeps the permission granted by the chooser) and, if that toy is
 still granted, scans for the toy for up to 15 seconds. On a desktop the scan is
 restarted every 2 seconds it hears nothing (a Mac's first scan often stays deaf
@@ -431,7 +442,9 @@ that does not provide it.
 The app does not force a page reload while BLE is active. A newly deployed
 version is used on a later reload or launch. Whenever the application shell or
 precache list changes, increment `CACHE_VERSION` in `app/public/sw.js`; activation
-then removes older SweetYaar caches.
+then removes older SweetYaar caches. The new version's files are fetched with
+`cache: "reload"`, so a stale copy in the browser's HTTP cache cannot end up in
+the new cache.
 
 ## How the app is organized
 

@@ -1,0 +1,288 @@
+/* Studio design — "Playroom": one scrolling page under a big illustrated
+   header. Loaded after base.css, which holds the layout-independent styles.
+   Themes are colourful tiles on a wooden shelf (an open tile spreads across
+   the shelf); Animals is a second shelf. The editor is the wooden mixing
+   console from the artwork: a dark screen for the wave, chunky toy keys and
+   the quick fixes as wooden pads. Artwork: app/design/studio-art. */
+
+:root {
+  --mint-wall: #d4ece8;
+  --mint-soft: #eaf6f3;
+  --wood: #efd6b1;
+  --wood-mid: #e2bf8d;
+  --wood-dark: #c99a62;
+  --coral: #ef8466;
+  --coral-dark: #d9654a;
+  --butter: #f7d56e;
+  --lav: #b9a7e4;
+  --sky: #8ccbe9;
+  --page: #f7f1e8;
+  --card: #fffdf8;
+  --line: #eadcc8;
+  --screen: #234542;
+}
+
+html, body { height: auto; }
+body { display: block; background: var(--page); }
+main { overflow: visible; padding: 0 36px 80px; }
+.view { max-width: 1360px; }
+h2 { margin: 0; font-family: var(--font-brand); font-weight: 400; font-size: 28px; color: #3c5558; }
+
+/* ---- Header scene ---- */
+.hero {
+  position: relative; display: flex; align-items: center; min-height: 340px; padding: 30px 48px 46px;
+  background: #cbe4e0;
+}
+/* The studio scene at the right, scaled so the desk's front edge meets the
+   wooden strip below; it fades into the wall colour behind the title. */
+.hero::before { content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: min(72%, 920px); background: url("../assets/studio/hero-wide.jpg") right -10px bottom -86px / auto 600px no-repeat;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 40%); mask-image: linear-gradient(90deg, transparent, #000 40%); }
+.hero > * { position: relative; z-index: 1; }
+.hero::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 22px; background: linear-gradient(180deg, var(--wood), var(--wood-mid)); box-shadow: 0 -2px 0 rgba(255, 255, 255, .5) inset, 0 6px 14px rgba(120, 80, 30, .18); }
+.hero > .back { position: absolute; top: 16px; right: 20px; padding: 7px 12px; border-radius: 12px; background: rgba(255, 255, 255, .8); color: var(--ink); font-size: 13px; text-decoration: none; }
+/* Title and subtitle on the left; the two actions at the right end of the
+   free wall, about 70 px before the frog (which starts about 470 px from
+   the header's right edge). On narrower screens they go below the title. */
+.hero-text { flex: 1; margin-right: 490px; display: grid; grid-template-columns: auto 1fr; grid-template-areas: "logo act" "sub act"; align-items: center; gap: 12px 24px; }
+.hero .logo { grid-area: logo; display: flex; align-items: center; gap: 16px; text-decoration: none; font-family: var(--font-brand); font-size: 40px; line-height: 1; white-space: nowrap; color: #0b6d66; }
+.hero .logo img { width: auto; height: 104px; filter: drop-shadow(0 6px 8px rgba(73, 55, 34, .18)); }
+.hero p { grid-area: sub; align-self: start; font-size: 17px; color: #45625f; }
+.hero-actions { grid-area: act; justify-self: end; display: flex; align-items: center; gap: 10px; }
+/* Both actions are regular buttons of the same height, side by side and
+   compact enough to stay clear of the scene. */
+.hero .device-split { display: flex; }
+.hero .device-btn, .hero .btn.export {
+  display: flex; flex-direction: row; align-items: center; gap: 10px;
+  height: 50px; padding: 0 16px; border: 0; border-radius: 16px;
+  font-size: 14px; font-weight: 600; white-space: nowrap;
+}
+.hero .device-btn { box-shadow: 0 4px 0 #0052ad; }
+.hero .device-btn img { width: 24px; height: 24px; }
+.hero .device-btn.on { border: 0; background: #e6f6ef; color: var(--green); box-shadow: 0 4px 0 #a9dcc4; }
+.hero .device-split.connecting .device-btn { border-radius: 16px 0 0 16px; }
+.hero .device-stop { width: 46px; min-height: 0; border-radius: 0 16px 16px 0; border-left-color: rgba(255, 255, 255, .55); box-shadow: 0 4px 0 #0052ad; font-size: 20px; }
+.hero .btn.export { padding-left: 10px; background: #fff; color: var(--ink); box-shadow: 0 4px 0 var(--wood-dark); }
+.hero .btn.export img { width: 32px; height: 40px; object-fit: contain; }
+.hero .btn.export:hover:not(:disabled) { background: #fffaf2; }
+@media (max-width: 1490px) {
+  .hero-text { margin-right: 0; grid-template-columns: auto; grid-template-areas: "logo" "sub" "act"; }
+  .hero-actions { justify-self: start; margin-top: 6px; }
+}
+/* While editing, the header shrinks to a strip with small buttons. */
+body:has(#view-editor.active) .hero { min-height: 0; padding: 24px 48px 44px; }
+/* The editor keeps a thin header; its art (the bear trimming a clay
+   waveform, a broom, two knobs; transparent) stands on the wooden strip. */
+body:has(#view-editor.active) .hero::before { width: 360px; right: 32px; background: url("../assets/studio/edit-strip.png") right bottom 24px / auto calc(100% - 30px) no-repeat; -webkit-mask-image: none; mask-image: none; }
+body:has(#view-editor.active) .hero .btn.export, body:has(#view-editor.active) .hero > .back { display: none; }   /* the editor has its own ← Library */
+body:has(#view-editor.active) .hero p { display: none; }
+body:has(#view-editor.active) .hero .logo { font-size: 28px; }
+body:has(#view-editor.active) .hero .logo img { height: 60px; }
+body:has(#view-editor.active) .hero-text { margin-right: 0; grid-template-columns: auto auto; grid-template-areas: "logo act"; gap: 24px; }
+body:has(#view-editor.active) .hero-actions { justify-self: start; margin: 0; }
+
+/* ---- Buttons ---- */
+.btn { border-radius: 14px; font-weight: 500; }
+.btn.primary { background: linear-gradient(180deg, #3cbfae, #1f978a); border-color: #1f978a; box-shadow: 0 3px 0 #17786e; font-weight: 600; }
+.btn.primary:hover:not(:disabled) { background: linear-gradient(180deg, #35b3a3, #1a887c); }
+.btn.big { padding: 12px 22px; font-size: 16px; background: linear-gradient(180deg, #f39577, var(--coral-dark)); border-color: var(--coral-dark); box-shadow: 0 4px 0 #b9533c; }
+.btn.big:hover:not(:disabled) { background: linear-gradient(180deg, #ee8b6c, #cc5a40); }
+
+/* ---- Shelves ---- */
+.shelf { position: relative; margin-top: 46px; padding: 0 26px 34px; border-radius: 30px 30px 18px 18px; background: var(--card); box-shadow: 0 14px 34px rgba(73, 55, 34, .1); border-bottom: 16px solid var(--wood-mid); }
+.shelf::after { content: ""; position: absolute; left: 22px; right: 22px; bottom: -30px; height: 14px; border-radius: 0 0 12px 12px; background: var(--wood-dark); opacity: .55; z-index: -1; }
+.shelf-head { display: flex; align-items: center; gap: 18px; padding: 0 0 18px; }
+.badge-art { width: 140px; height: 140px; margin: -44px 0 -10px -6px; object-fit: contain; filter: drop-shadow(0 10px 12px rgba(73, 55, 34, .18)); }
+.animals-shelf .badge-art { width: 190px; }
+.settings-shelf .badge-art { width: 175px; }
+.shelf-head .sub { font-size: 15px; }
+
+/* Bands become small labels */
+.band { margin: 18px 0 10px; padding: 0; border-top: 0; font-size: 12px; font-weight: 700; color: #a2845f; }
+.band .count { font-weight: 600; color: #b9a184; }
+
+/* "On the toy": a blue card with a read-only tree of the toy's SD card. */
+.toybox { display: grid; gap: 12px; margin-top: 20px; padding: 16px 18px; border-radius: 28px; background: #e6f1ff; box-shadow: inset 0 0 0 2px #c6dcf6; }
+.toyboxhead { display: flex; align-items: center; gap: 14px; }
+.toyboxhead > img { flex: none; width: 72px; height: 58px; object-fit: contain; }
+.toyboxhead b { display: flex; align-items: center; gap: 6px; font-size: 18px; color: #2d5f9a; }
+.toyboxhead b .bt { width: 16px; height: 16px; filter: invert(30%) sepia(60%) saturate(1500%) hue-rotate(195deg); }
+.toyboxhead p { margin: 2px 0 0; font-size: 14px; color: #5b7fa8; }
+.toybox .hint { margin: 0; }
+.toybox .meta { margin-left: auto; font-size: 12px; color: #6f8db0; white-space: nowrap; }
+.toybox .tag { font-size: 10px; padding: 1px 6px; }
+.ttree { display: grid; gap: 2px; padding: 6px 8px; border-radius: 16px; background: #fff; }
+.tnode > summary { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; cursor: pointer; list-style: none; font-weight: 600; font-size: 14px; color: #33475f; }
+.tnode > summary::-webkit-details-marker { display: none; }
+.tnode > summary:hover { background: #f1f7ff; }
+.tnode > summary::before { content: ""; flex: none; width: 0; height: 0; border-left: 6px solid #8aa9cc; border-top: 4px solid transparent; border-bottom: 4px solid transparent; transition: transform .15s; }
+.tnode[open] > summary::before { transform: rotate(90deg); }
+.tnode > summary .name { display: flex; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+.tnode > summary .name::before { content: ""; flex: none; width: 22px; height: 22px; border-radius: 7px; background: #e6f1ff url("../assets/icon-song.png") center / 14px no-repeat; }
+.tnode.off > summary .name { opacity: .55; }
+.tkids { margin: 0 0 6px 21px; padding-left: 14px; border-left: 2px solid #dbe8f7; }
+.tleaf { display: flex; align-items: center; gap: 8px; padding: 3px 8px; font-size: 13px; color: #44566c; }
+.tleaf.off { opacity: .5; }
+.tleaf .name { min-width: 0; overflow-wrap: anywhere; }
+.tchips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; border-radius: 16px; background: #fff; }
+.tchips .tleaf { padding: 3px 10px 3px 6px; border-radius: 999px; background: #f1f7ff; }
+.tchips .tleaf::before { content: ""; flex: none; width: 16px; height: 16px; background: url("../assets/icon-animal.png") center / contain no-repeat; }
+
+/* ---- Theme tiles ---- */
+/* My themes (the user's own area, where files go) beside the library. */
+.tsplit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 34%); grid-template-areas: "mine lib"; gap: 20px; align-items: start; margin-bottom: 12px; }
+.tsplit > .mine { grid-area: mine; }
+.tsplit > .tlib { grid-area: lib; }
+@media (max-width: 1000px) { .tsplit { grid-template-columns: minmax(0, 1fr); grid-template-areas: "lib" "mine"; } }
+.mine { display: grid; gap: 14px; padding: 18px; border-radius: 28px; background: #fff3e4; box-shadow: inset 0 0 0 2px #f6dfc2; }
+.minehead { display: flex; align-items: center; gap: 14px; }
+.minehead img { flex: none; width: 86px; height: 72px; object-fit: contain; }
+.minehead > div { flex: 1; min-width: 0; }
+.minehead b { font-size: 20px; color: #9a5a34; }
+.minehead .count { margin-left: 10px; font-size: 13px; font-weight: 600; color: #b9926b; }
+.minehead p { margin: 2px 0 0; font-size: 14px; color: #8a6f55; }
+.minehead .btn.big { flex: none; }
+.mytiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; align-items: start; }
+.mytiles > :not(details) { grid-column: 1 / -1; }
+#themesList > :not(details) { grid-column: 1 / -1; }
+.songs-shelf details.theme[open] { grid-column: 1 / -1; }
+.songs-shelf details.theme { margin: 0; border: 0; border-radius: 22px; background: var(--tile, #fde7dc); box-shadow: 0 4px 0 var(--tile-edge, #f2c7b4); }
+.mytiles > details.theme { --tile: #fff; }
+.mytiles > details.theme:nth-of-type(4n+2) { --tile: #d9f1ec; --tile-edge: #aedcd2; }
+.mytiles > details.theme:nth-of-type(4n+3) { --tile: #fdf0c8; --tile-edge: #eed78f; }
+.mytiles > details.theme:nth-of-type(4n+4) { --tile: #fde3ea; --tile-edge: #f2c0cf; }
+.songs-shelf details.theme.device { --tile: #e6f1ff; --tile-edge: #bcd6f5; }
+.songs-shelf details.theme > summary { list-style: none; padding: 16px 16px 14px; }
+.songs-shelf details.theme > summary::-webkit-details-marker { display: none; }
+/* A tile: the note badge and the name on the first line; the length on the
+   left and the buttons on the right of the second. */
+.songs-shelf .srow { display: flex; flex-wrap: wrap; align-items: center; width: 100%; gap: 10px 8px; }
+.songs-shelf .srow::before { content: ""; order: -2; flex: none; width: 46px; height: 46px; border-radius: 16px; background: rgba(255, 255, 255, .75) url("../assets/icon-song.png") center / 26px no-repeat; }
+.songs-shelf .srow > .name, .songs-shelf .srow > .tname { order: -1; flex: 1 1 calc(100% - 60px); min-width: 0; font-size: 17px; }
+.songs-shelf .srow > .meta { flex: 1 1 auto; }
+.songs-shelf .srow > .tag { order: 0; }
+.songs-shelf .srow .btn.small { margin-left: auto; background: rgba(255, 255, 255, .85); border-color: transparent; }
+.songs-shelf .srow .btn.small ~ .icon-btn { margin-left: 0; }
+.songs-shelf details.theme[open] > summary .srow > .name { flex: 0 1 auto; }
+.songs-shelf .songs { padding: 0 14px 14px; grid-template-columns: minmax(0, 1fr); }   /* long names shorten instead of widening the rows */
+.songs-shelf .tmeta { padding: 12px 14px; margin-bottom: 8px; border: 0; border-radius: 16px; background: rgba(255, 255, 255, .7); }
+.song { border: 0; border-radius: 12px; padding: 8px 10px; box-shadow: 0 1px 0 rgba(0, 0, 0, .04); }
+.icon-btn:hover { background: rgba(255, 255, 255, .9); color: #0b6d66; }
+
+/* The shared library: a lavender panel of tiles to borrow from */
+.songs-shelf .tlib { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin: 0; padding: 18px; border-radius: 28px; background: #e9e1fb; border: 0; box-shadow: inset 0 0 0 2px #d8ccf5; }
+.tlib > :not(details) { grid-column: 1 / -1; }
+.libhead { display: flex; align-items: center; gap: 14px; }
+.libhead img { flex: none; width: 80px; height: 80px; object-fit: contain; }
+.libhead b { font-size: 20px; color: #5b46a8; }
+.libhead p { margin: 2px 0 0; font-size: 14px; color: #6d5fa0; }
+.libhead p b { font-size: inherit; }
+.songs-shelf .tlib details.theme > summary[draggable="true"], .songs-shelf .tlib details.theme > summary[draggable="true"] :not(button):not(button *) { cursor: grab; user-select: none; }
+.songs-shelf .tlib details.theme { border: 0; border-radius: 18px; background: #fff; box-shadow: 0 3px 0 #cfc1f1; }
+.songs-shelf .tlib .srow::before { background-color: #ebe4fb; }
+/* Compact library cards, two (or more) to a row: icon and name, then the
+   length and the button; an open card spans the panel. */
+.songs-shelf .tlib details.theme > summary { padding: 10px 12px 10px; }
+.songs-shelf .tlib .srow { gap: 6px 8px; }
+.songs-shelf .tlib .srow::before { width: 32px; height: 32px; border-radius: 11px; background-size: 18px; }
+.songs-shelf .tlib .srow > .tname { flex-basis: calc(100% - 40px); font-size: 14px; line-height: 1.25; }
+.songs-shelf .tlib .srow > .tname .name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.songs-shelf .tlib .srow > .tname .meta { font-size: 12px; white-space: normal; }
+.songs-shelf .tlib .srow > .tname { overflow: hidden; }
+.songs-shelf .tlib .srow > .tag { font-size: 10px; padding: 1px 6px; }
+.songs-shelf .tlib .srow .btn.small { padding: 4px 10px; font-size: 12px; }
+.songs-shelf .tlib details.theme[open] { grid-column: 1 / -1; }
+/* Closed library tiles: the note icon in the top-right corner (the name
+   wraps beside it), and the tag and button pinned to the bottom edge, so
+   the button sits the same distance from the bottom-right corner in every
+   tile of a row (tiles in a row share its height). */
+.songs-shelf .tlib details.theme:not([open]) { display: flex; flex-direction: column; }
+.songs-shelf .tlib details.theme:not([open]) > summary { flex: 1; display: flex; }
+.songs-shelf .tlib details.theme > summary { position: relative; }
+.songs-shelf .tlib .srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 1fr auto; align-items: end; width: 100%; }
+.songs-shelf .tlib .srow::before { position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; border-radius: 9px; background-size: 16px; }
+.songs-shelf .tlib .srow > .tname { grid-column: 1 / -1; grid-row: 1; align-self: start; padding-right: 32px; }
+.songs-shelf .tlib .srow > .tag { grid-column: 1; grid-row: 2; justify-self: start; }
+.songs-shelf .tlib .srow > .btn.small { grid-column: 2; grid-row: 2; margin: 0; }
+
+.dropnote { display: flex; align-items: center; justify-content: center; padding: 18px 14px; border: 2px dashed #e9c9a3; border-radius: 22px; background: rgba(255, 255, 255, .55); font-size: 14px; line-height: 1.5; color: #8a6f55; text-align: center; }
+.dropnote b { font-size: 16px; color: #9a5a34; }
+.songs-shelf .dropnote { margin: 0; }
+.local.over, details.theme.over { outline: 3px dashed var(--coral); outline-offset: 3px; }
+.mine.over { background: #ffe9d2; }
+
+/* ---- Animals shelf ---- */
+.animals-shelf .tmeta { border: 0; }
+.acolhead { align-items: center; font-size: 16px; }
+.amatch > .atop:nth-child(1) .acolhead::before,
+.amatch > .atop:nth-child(3) .acolhead::before { content: ""; width: 64px; height: 64px; flex: none; background: center / contain no-repeat; }
+.amatch > .atop:nth-child(1) .acolhead::before { background-image: url("../assets/studio/prompt.png"); }
+.amatch > .atop:nth-child(3) .acolhead::before { background-image: url("../assets/studio/sound.png"); }
+.acard { border: 0; border-radius: 999px; padding: 6px 8px 6px 6px; background: #f3efe8; box-shadow: 0 2px 0 #e3dbcf; }
+.acard .icon-btn:first-child { width: 28px; height: 28px; border-radius: 50%; background: #fff; }
+.acard.matched { background: #def4e5; box-shadow: 0 2px 0 #a8dbb9; }
+.acard.lib { border-left: 0; box-shadow: 0 2px 0 #d3c7f1, inset 4px 0 0 var(--lib); }
+.abuildstep { border: 0; border-radius: 20px; background: #fbf6ef; }
+
+/* ---- Editor: the wooden console ---- */
+.ehead { margin: 26px 0 16px; }
+.ehead .back { padding: 8px 14px; border-radius: 12px; background: #fff; box-shadow: 0 2px 0 var(--line); color: var(--ink); text-decoration: none; }
+.etitle { font-family: var(--font-brand); font-size: 28px; }
+.tname input { width: 34ch; max-width: 50vw; }
+/* The track name is only as wide as the name, like a song row's. */
+.etitle .tname input { width: auto; field-sizing: content; min-width: 4ch; }
+/* Undo and Save: the same height and shape, each with a small icon. */
+.ehead .ebtn { display: inline-flex; align-items: center; gap: 7px; height: 42px; padding: 0 16px; border: 0; border-radius: 14px; }
+.ehead .ebtn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.ehead .ebtn:not(.primary) { background: #fff; box-shadow: 0 3px 0 var(--line); color: var(--ink); }
+.ehead .ebtn.primary { box-shadow: 0 3px 0 #17786e; }
+.console { padding: 18px 20px 20px; border-radius: 32px; background: linear-gradient(180deg, #f3dcb9, var(--wood-mid)); box-shadow: 0 6px 0 var(--wood-dark), 0 18px 34px rgba(110, 70, 25, .22), inset 0 2px 0 rgba(255, 255, 255, .55); }
+.screen { padding: 12px; border-radius: 22px; background: radial-gradient(120% 140% at 30% 0%, #2f5a56, var(--screen)); box-shadow: inset 0 3px 10px rgba(0, 0, 0, .35), 0 2px 0 rgba(255, 255, 255, .5); }
+.screen .wavebox { border: 0; border-radius: 14px; background: transparent; }
+.screen .lane { background: rgba(255, 255, 255, .06); border-bottom-color: rgba(255, 255, 255, .1); }
+.screen .part { background: #f7d56e; border-color: #f7d56e; color: #5a4310; }
+.screen .part.sel { background: #7fe0d2; border-color: #7fe0d2; color: #0b4d47; }
+/* Canvas colours read by studio.js (cssColors): pastel bars on the screen. */
+#wave { --wave: #ff9b7d, #6fd8c6, #f8d66d, #c3aef0, #8fd0f2, #f8b2c2; --wave-bar: 6; --wave-sel: rgba(255, 255, 255, .12); --wave-axis: rgba(255, 255, 255, .14); --wave-edge: #f8d66d; --wave-text: #a8cbc6; --wave-cursor: #ff8fa8; }
+.screen #overview { border: 0; background: rgba(0, 0, 0, .18); --ov-wave: #5fa79d; --ov-dim: rgba(20, 45, 43, .55); --ov-box: rgba(127, 224, 210, .14); --ov-edge: rgba(127, 224, 210, .6); --wave-cursor: #ff8fa8; }
+.screen .ovtime { background: rgba(20, 45, 43, .8); color: #bfe9e2; }
+.console .row { margin-top: 16px !important; gap: 10px; }
+.console .row .btn { min-height: 44px; padding: 9px 16px; border: 0; border-radius: 14px; background: #fffaf2; box-shadow: 0 4px 0 var(--wood-dark); }
+.console .row .btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--wood-dark); }
+.console .row .btn:disabled { opacity: .55; }
+.console #playBtn { min-width: 112px; background: linear-gradient(180deg, #f39577, var(--coral-dark)); color: #fff; font-weight: 700; box-shadow: 0 4px 0 #b9533c; }
+.console .btn.rec { color: #c23a62; font-weight: 600; }
+.console .recpanel { border: 0; border-radius: 20px; background: #fffaf2; }
+/* The recording scene (the bear at the microphone) at the left of the panel. */
+.recpanel { grid-template-columns: auto minmax(0, 1fr); column-gap: 16px; }
+.recpanel > :not(.recart) { grid-column: 2; }
+.recpanel > .recart { grid-column: 1; grid-row: 1 / span 4; align-self: center; width: 120px; height: auto; border-radius: 16px; }
+@media (max-width: 700px) { .recpanel > .recart { display: none; } .recpanel > :not(.recart) { grid-column: 1 / -1; } }
+.console .recpanel.live { background: #fdecef; }
+.console .controls { margin-top: 18px; padding: 14px 18px; border: 0; border-radius: 22px; background: rgba(255, 255, 255, .45); }
+.howwrap { margin-top: 18px; }
+.howwrap > summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+.howwrap .howto { margin-top: 8px; border: 0; background: #f0e7da; }
+.pads { margin-top: 26px; }
+.pads .fixhead h3 { font-family: var(--font-brand); font-weight: 400; font-size: 24px; color: #3c5558; }
+.pads .fix { gap: 10px; padding: 12px 14px 14px; border: 0; border-radius: 24px; background: linear-gradient(180deg, #f6e4c8, var(--wood)); box-shadow: 0 5px 0 var(--wood-dark); }
+.pads .fix .art { height: 104px; border-radius: 18px; background: #fffaf2; padding: 6px; box-shadow: inset 0 2px 6px rgba(120, 80, 30, .12); }
+.pads .fix .btn { border: 0; border-radius: 14px; background: linear-gradient(180deg, #3cbfae, #1f978a); box-shadow: 0 3px 0 #17786e; }
+.pads .trimseg button { background: rgba(255, 255, 255, .7); }
+
+dialog { border: 0; border-radius: 28px; padding-top: 140px; background: #fffdf8 url("../assets/studio/sdcard.png") center 8px / 140px no-repeat; box-shadow: 0 6px 0 var(--wood-mid), 0 24px 50px rgba(52, 39, 27, .3); }
+dialog h3 { text-align: center; font-family: var(--font-brand); font-weight: 400; font-size: 24px; }
+
+/* The editor strip stays one row (title and Connect; no Export there) down
+   to phone width, where the button goes below the title. */
+@media (max-width: 640px) {
+  body:has(#view-editor.active) .hero { padding-top: 52px; }
+  body:has(#view-editor.active) .hero-text { grid-template-columns: auto; grid-template-areas: "logo" "act"; gap: 12px; }
+}
+@media (max-width: 900px) {
+  .hero { min-height: 220px; padding: 24px 20px 40px; }
+  .hero::before { display: none; }
+  .hero .logo { font-size: 32px; }
+  main { padding: 0 16px 80px; }
+  .badge-art { width: 96px; height: 96px; }
+  .animals-shelf .badge-art { width: 130px; }
+}
