@@ -1393,6 +1393,10 @@ treats them together:
 5. It prints the exact `git push origin main <tags>` command and what will be
    live. Nothing is pushed for you; pushing the `app-vN` tag deploys.
 
+`make release-app-dry-run` asks the same questions (including the note draft)
+and prints what would happen, without changing a file, building, archiving,
+committing or tagging.
+
 Firmware and app numbers are independent: firmware 1.3.0 may ship with any app
 version, and an app-only release leaves the firmware at its last version. To
 correct a published note, edit it in `release-notes.json` and release again.

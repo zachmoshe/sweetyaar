@@ -196,3 +196,18 @@ def test_firmware_release(repo, tmp_path):
     assert sorted(repo.git("tag", "--list", "app-v*", "fw-v1.1.0").split()) == ["app-v51", "fw-v1.1.0"]
     assert "git push origin main app-v51 fw-v1.1.0" in result.stdout and "firmware 1.1.0" in result.stdout
     assert repo.git("status", "--porcelain", "--untracked-files=no").strip() == ""
+
+
+def test_dry_run_asks_but_changes_nothing(repo):
+    repo.write("firmware/esp32/src/Ble.cpp", "// fix")
+    repo.write("app/public/index.html", INDEX + "// app\n")
+    repo.commit("Fix reconnects")
+    head = repo.git("rev-parse", "HEAD")
+    result = repo.run(["", "", "Stability update: steadier Bluetooth.", "y"], "--dry-run", SWEETYAAR_CLAUDE="/nonexistent")
+    assert result.returncode == 0, result.stderr + result.stdout
+    assert "(dry run) would set FIRMWARE_VERSION to 1.1.0" in result.stdout
+    assert "Release app-v51 with firmware 1.1.0. It would:" in result.stdout
+    assert "tag it app-v51 and fw-v1.1.0" in result.stdout and "Nothing was changed" in result.stdout
+    assert repo.git("rev-parse", "HEAD") == head and repo.git("tag", "--list", "app-v*") == ""
+    assert repo.git("status", "--porcelain").strip() == ""
+    assert 'FIRMWARE_VERSION[] = "1.0.0"' in (repo.path / "firmware/esp32/src/Config.h").read_text()

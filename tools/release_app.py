@@ -22,6 +22,9 @@ Release the parent app, and the firmware when it changed, interactively.
   4. Prints the git push command. Nothing leaves your machine until you run it;
      pushing the app-vN tag is what deploys (.github/workflows/pages.yml).
 
+`make release-app-dry-run` goes through the same questions and prints the plan
+without changing, building or publishing anything.
+
 If you stop after the build (not validated yet), the version and note stay in
 the working tree; run the command again to continue.
 """
@@ -290,14 +293,21 @@ def prepare_firmware(args, firmware_tag: str, commits: list[str]) -> tuple[str, 
         print(f"\nFirmware {version} is already prepared in the working tree; continuing with it.")
         if check_note(note):
             note = write_note(version, None, commits, list(notes.values())[:3])
-            notes_path.write_text(set_note(notes_text, version, note))
+            if not args.dry_run:
+                notes_path.write_text(set_note(notes_text, version, note))
     else:
         version = choose_version(published)
         note = write_note(version, notes.get(version), commits, list(notes.values())[:3])
-        config_path.write_text(set_version(config_text, version))
-        notes_path.write_text(set_note(notes_text, version, note))
-        print(f"Set FIRMWARE_VERSION to {version} and saved the note.")
+        if args.dry_run:
+            print(f"(dry run) would set FIRMWARE_VERSION to {version} and save the note; no file was changed.")
+        else:
+            config_path.write_text(set_version(config_text, version))
+            notes_path.write_text(set_note(notes_text, version, note))
+            print(f"Set FIRMWARE_VERSION to {version} and saved the note.")
 
+    if args.dry_run:
+        print(f"(dry run) would build the production firmware, then wait while you validate {version} on your doll.")
+        return version, note
     if not args.no_build:
         print("\nBuilding the production firmware...")
         pio = os.environ.get("PIO", str(ROOT / ".venv/bin/pio"))
@@ -375,6 +385,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--no-build", action="store_true", help="skip the PlatformIO build")
     parser.add_argument("--skip-tests", action="store_true", help="do not run the host tests")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="go through the questions and show the plan; change, build and publish nothing")
     args = parser.parse_args()
     try:
         firmware_tag, app_tag = last_firmware_tag(), last_app_tag()
@@ -424,6 +436,17 @@ def main() -> int:
         sw_path = ROOT / SERVICE_WORKER
         number = cache_number(sw_path.read_text()) + 1
         what = f"app-v{number}" + (f" with firmware {version}" if version else " (firmware unchanged)")
+        if args.dry_run:
+            steps = ["run the host tests"]
+            if version:
+                steps += ["check the firmware image and archive its ELF", "write app/public/firmware/ (image and manifest)"]
+            steps += [f"bump CACHE_VERSION to {number}", f"commit \"Release {what.replace(' (firmware unchanged)', '')}\"",
+                      f"tag it {' and '.join([f'app-v{number}'] + ([f'fw-v{version}'] if version else []))}"]
+            print(f"\n(dry run) Release {what}. It would:")
+            for step in steps:
+                print(f"  - {step}")
+            print("Nothing was changed, built, archived, committed or tagged.")
+            return 0
         if not args.skip_tests:
             run_tests()
         print(f"\nThis will create release {what}.")

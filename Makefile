@@ -17,7 +17,7 @@ PYTHON ?= $(VENV_DIR)/bin/python
 PIO ?= $(VENV_DIR)/bin/pio
 UV ?= uv
 
-.PHONY: help setup app build flash monitor flash-monitor clean test test-unit test-device test-app test-firmware check-python check-pio release-app ota-update reset-mac-bluetooth fetch-logs fetch-logs-ble parse-logs logs-ui deploy-logs-api deploy-admin admin-image
+.PHONY: help setup app build flash monitor flash-monitor clean test test-unit test-device test-app test-firmware check-python check-pio release-app release-app-dry-run ota-update reset-mac-bluetooth fetch-logs fetch-logs-ble parse-logs logs-ui deploy-logs-api deploy-admin admin-image
 
 help: ## Show the available project commands.
 	@printf 'SweetYaar project commands\n\n'
@@ -54,6 +54,9 @@ clean: check-pio ## Remove generated PlatformIO build output.
 
 release-app: check-pio ## Release the app (and the firmware if it changed): version, note, build, tag. Push is printed, not run.
 	PIO="$(PIO)" "$(PYTHON)" "$(ROOT_DIR)/tools/release_app.py"
+
+release-app-dry-run: check-python ## Walk through a release (questions and plan) without changing, building or publishing anything.
+	"$(PYTHON)" "$(ROOT_DIR)/tools/release_app.py" --dry-run
 
 IMAGE ?= $(FIRMWARE_DIR)/.pio/build/$(PIO_ENV)/firmware.bin
 ota-update: check-python ## Install a local build over BLE from this Mac, any board (run in Terminal; IMAGE=<firmware.bin>).
