@@ -32,3 +32,4 @@ hardware/mainboard/output/
 
 # Local notes, not tracked
 docs/backlog.md
+content/user_guide/*.pdf
