@@ -460,6 +460,7 @@ or build step. Its production files are:
 | `app/public/logs-queue.js` | Diagnostic log sectors waiting on the phone and their upload to the logs API; loaded by the page and by `sw.js`. |
 | `app/public/assets/` | Browser-ready artwork, control icons, favicons, and install icons. |
 | `app/public/firmware/` | Published firmware: `manifest.json` and the compressed production image, written by `make release-app`. Absent until the first release. |
+| `app/public/parents_user_guide.pdf` | The parents' guide, served at `/parents_user_guide.pdf` and linked from the opening screen and "About this doll". `sw.js` never caches it, so parents always get the current file. `make release-app` checks it against each release's changes. |
 | `app/public/CNAME` | The custom domain published with the Pages artifact. |
 
 The interface has six screens: the opening connection screen, the Ready remote,

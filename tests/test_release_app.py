@@ -69,12 +69,40 @@ class Repo:
         path.mkdir(parents=True)
         self.env = {**os.environ, **ENV, "SWEETYAAR_ROOT": str(path)}
         self.git("init", "-q", "-b", "main")
+        self.bin = path.parent / (path.name + "-bin")
+        self.bin.mkdir()
+        self.claude_log, self.clipboard = path.parent / "claude.log", path.parent / "clipboard.txt"
+        self.set_guide({"mismatches": [], "not_covered": []})
+        claude = self.bin / "claude"
+        claude.write_text(
+            '#!/bin/sh\n[ "$1" = "-p" ] || { echo "$@" >> "$CLAUDE_LOG"; exit 0; }\ninput=$(cat)\n'
+            'case "$input" in *"GUIDE CHECK"*) cat "$GUIDE_REPLY";;\n'
+            '*) echo "Stability update: steadier Bluetooth reconnects.";; esac\n')
+        pbcopy = self.bin / "pbcopy"
+        pbcopy.write_text('#!/bin/sh\ncat > "$CLIPBOARD"\n')
+        for script in (claude, pbcopy):
+            script.chmod(0o755)
+        self.env.update({"PATH": f"{self.bin}:{os.environ['PATH']}", "SWEETYAAR_CLAUDE": str(claude),
+                         "CLAUDE_LOG": str(self.claude_log), "CLIPBOARD": str(self.clipboard),
+                         "GUIDE_REPLY": str(self.bin / "guide.json")})
+        self.write_guide_pdf()
         for name, text in {"app/public/sw.js": SW, "app/public/index.html": INDEX,
                            "firmware/esp32/src/Config.h": CONFIG,
                            "firmware/release-notes.json": '{"1.0.0": "First."}\n'}.items():
             self.write(name, text)
         self.commit("Initial release")
         self.git("tag", "-a", "fw-v1.0.0", "-m", "Firmware 1.0.0")
+
+    def set_guide(self, reply):
+        (self.bin / "guide.json").write_text(json.dumps(reply))
+
+    def write_guide_pdf(self):
+        import pypdf
+        writer = pypdf.PdfWriter()
+        writer.add_blank_page(width=200, height=200)
+        (self.path / "app/public").mkdir(parents=True, exist_ok=True)
+        with open(self.path / "app/public/parents_user_guide.pdf", "wb") as out:
+            writer.write(out)
 
     def git(self, *args):
         return subprocess.run(["git", *args], cwd=self.path, check=True, capture_output=True,
@@ -174,11 +202,9 @@ def test_firmware_release(repo, tmp_path):
     gcloud = bin_dir / "gcloud"
     gcloud.write_text('#!/bin/sh\n[ "$3" = describe ] && { echo "ERROR: not found: 404" >&2; exit 1; }\n'
                       'echo "$@" >> "$GCLOUD_LOG"\nexit 0\n')
-    claude = bin_dir / "claude"
-    claude.write_text('#!/bin/sh\ncat >/dev/null\necho "Stability update: steadier Bluetooth reconnects."\n')
-    for script in (gcloud, claude):
+    for script in (gcloud,):
         script.chmod(0o755)
-    env = {"PATH": f"{bin_dir}:{os.environ['PATH']}", "GCLOUD_LOG": str(tmp_path / "gcloud.log")}
+    env = {"PATH": f"{bin_dir}:{repo.env['PATH']}", "GCLOUD_LOG": str(tmp_path / "gcloud.log")}
     # Answers: release firmware, version 1.1.0, accept the draft note, use it, then not validated yet.
     not_validated = repo.run(["", "", "", "y", "n"], "--no-build", **env)
     assert not_validated.returncode == 1 and "run `make release-app` to continue" in not_validated.stdout
@@ -211,3 +237,77 @@ def test_dry_run_asks_but_changes_nothing(repo):
     assert repo.git("rev-parse", "HEAD") == head and repo.git("tag", "--list", "app-v*") == ""
     assert repo.git("status", "--porcelain").strip() == ""
     assert 'FIRMWARE_VERSION[] = "1.0.0"' in (repo.path / "firmware/esp32/src/Config.h").read_text()
+
+
+MISMATCH = {"mismatches": [{"guide": "p.4: 'Hold both buttons for 3 seconds'", "change": "now 5 seconds",
+                            "where": "firmware/esp32/src/Config.h:12", "commit": "abc1234"}],
+            "not_covered": [{"feature": "Bedtime fade-out", "commit": "def5678"}]}
+
+
+def app_change(repo):
+    repo.write("app/public/index.html", INDEX + "// new screen\n")
+    repo.commit("Add a screen")
+
+
+def test_guide_without_mismatches_is_silent(repo):
+    app_change(repo)
+    result = repo.run(["y"])
+    assert result.returncode == 0, result.stderr + result.stdout
+    assert "The guide matches this release's changes." in result.stdout
+
+
+def test_new_features_alone_block_too(repo):
+    app_change(repo)
+    repo.set_guide({"mismatches": [], "not_covered": MISMATCH["not_covered"]})
+    refused = repo.run(["n", "n"])     # no chat, do not release anyway
+    assert refused.returncode == 1 and "Bedtime fade-out" in refused.stdout and "app-v" not in repo.git("tag")
+    assert repo.run(["n", "y", "y"]).returncode == 0   # approved
+
+
+def test_mismatch_can_open_a_claude_session_to_fix_it(repo):
+    app_change(repo)
+    repo.set_guide(MISMATCH)
+    result = repo.run(["y"])           # open a Claude session
+    assert result.returncode == 1 and "run `make release-app` again" in result.stdout
+    assert "Hold both buttons for 3 seconds" in result.stdout
+    prompt = repo.claude_log.read_text()
+    assert "now 5 seconds" in prompt and "Bedtime fade-out" in prompt
+    assert "app-v" not in repo.git("tag")
+
+
+def test_mismatch_can_be_copied_or_overridden(repo):
+    app_change(repo)
+    repo.set_guide(MISMATCH)
+    copied = repo.run(["c"])
+    assert copied.returncode == 1 and "Copied to the clipboard" in copied.stdout
+    assert "now 5 seconds" in repo.clipboard.read_text()
+    refused = repo.run(["n", "n"])     # no chat, do not release anyway
+    assert refused.returncode == 1 and "app-v" not in repo.git("tag")
+    approved = repo.run(["n", "y", "y"])  # no chat, release anyway, continue
+    assert approved.returncode == 0, approved.stderr + approved.stdout
+    assert repo.git("tag", "--list", "app-v*").split() == ["app-v51"]
+
+
+def test_unavailable_check_needs_your_word(repo):
+    app_change(repo)
+    env = {"SWEETYAAR_CLAUDE": "/nonexistent"}
+    refused = repo.run(["n"], **env)
+    assert refused.returncode == 1 and "Could not check" in refused.stdout and "app-v" not in repo.git("tag")
+    assert repo.run(["y", "y"], **env).returncode == 0   # checked it myself, continue
+
+
+def test_a_missing_guide_stops_the_release(repo):
+    app_change(repo)
+    (repo.path / "app/public/parents_user_guide.pdf").unlink()
+    repo.git("add", "-A")
+    repo.git("commit", "-qm", "Lose the guide")
+    result = repo.run(["y"])
+    assert result.returncode == 1 and "parents_user_guide.pdf not found" in result.stderr
+
+
+def test_dry_run_checks_the_guide_too(repo):
+    app_change(repo)
+    repo.set_guide(MISMATCH)
+    result = repo.run(["n"], "--dry-run")   # mismatch found, no chat; a dry run never asks to release anyway
+    assert result.returncode == 0, result.stderr + result.stdout
+    assert "Hold both buttons for 3 seconds" in result.stdout and "Nothing was changed" in result.stdout

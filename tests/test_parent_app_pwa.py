@@ -251,3 +251,15 @@ def test_parent_app_control_icons_are_centered(repo_root, icon_name) -> None:
     center_y = (min_y + max_y) / 2
     assert abs(center_x - ((width - 1) / 2)) <= 1, f"{icon_name}: visual center X {center_x:.1f} not within 1px of canvas center {(width - 1) / 2:.1f}"
     assert abs(center_y - ((height - 1) / 2)) <= 1, f"{icon_name}: visual center Y {center_y:.1f} not within 1px of canvas center {(height - 1) / 2:.1f}"
+
+
+def test_parents_guide_is_linked_and_never_cached(repo_root) -> None:
+    public = repo_root / "app/public"
+    assert (public / "parents_user_guide.pdf").read_bytes().startswith(b"%PDF")
+    index = (public / "index.html").read_text()
+    # Linked on the opening screen and in "About this doll", opening in a new tab.
+    assert len(re.findall(r'href="parents_user_guide\.pdf" target="_blank" rel="noopener"', index)) == 2
+    sw = (public / "sw.js").read_text()
+    assert "parents_user_guide" not in sw.split("self.addEventListener(\"install\"")[0]  # not precached
+    handler = sw.split('self.addEventListener("fetch"')[1]
+    assert 'url.pathname.endsWith(".pdf")' in handler.split("isFirmwarePath(url)")[0]  # bypassed first

@@ -16,7 +16,11 @@ Release the parent app, and the firmware when it changed, interactively.
      accept it; type your own when Claude is unavailable), writes Config.h and
      release-notes.json, builds the production image, and waits while you
      validate it on your doll.
-  3. Runs the host tests, archives the firmware ELF, writes
+  3. Checks the parents' guide (app/public/parents_user_guide.pdf) against this
+     release's changes with `claude -p`: contradictions the changes caused, and
+     new features it does not mention. Contradictions and
+     missing features stop the release unless you approve; you can open a Claude session with them to fix the guide.
+     Then runs the host tests, archives the firmware ELF, writes
      app/public/firmware/, bumps CACHE_VERSION, makes the release commit and
      tags it (app-vN, plus fw-vX.Y.Z for firmware).
   4. Prints the git push command. Nothing leaves your machine until you run it;
@@ -39,6 +43,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import release_firmware as rf  # noqa: E402  image checks, manifest, ELF archive, CACHE_VERSION bump
@@ -54,6 +59,11 @@ NOTE_MAX_CHARS = rf.NOTE_MAX_CHARS
 VERSION_RE = re.compile(r'(FIRMWARE_VERSION\[\]\s*=\s*")(\d+\.\d+\.\d+)(")')
 CACHE_RE = re.compile(r'const CACHE_VERSION = "sweetyaar-parent-v(\d+)";')
 CLAUDE = os.environ.get("SWEETYAAR_CLAUDE", "claude")
+GUIDE = "app/public/parents_user_guide.pdf"
+# What a parent can see or do; the guide is checked against what changed in these.
+GUIDE_DIFF_PATHS = ("firmware/esp32/src", "firmware/release-notes.json", "app/public/index.html",
+                    "app/public/ble-connect.js", "docs/engineering/firmware.md",
+                    "docs/engineering/mobile-app.md", "docs/engineering/studio.md")
 
 
 class Abort(Exception):
@@ -345,6 +355,121 @@ def publish_firmware(version: str, note: str) -> None:
         raise Abort(str(error))
 
 
+# --- parents' guide check -----------------------------------------------------
+
+def guide_prompt(work: pathlib.Path) -> str:
+    return f"""GUIDE CHECK. You are checking the parents' user guide of a children's audio toy (SweetYaar)
+before a release. Work read-only.
+
+Files (already prepared):
+- {work}/guide.txt: the guide's text, with "--- page N ---" markers.
+- {work}/changes.diff: the git diff of the parent-visible code and specs in this release.
+- {work}/commits.txt: the commits in this release.
+The current code is in the repository you are in (firmware/esp32/src, app/public/index.html).
+
+Report two things, only about what THIS release changed (ignore older problems in the guide):
+1. mismatches: guide statements that these changes made wrong or misleading for a parent: button
+   gestures, status-LED behavior, timings, screen and setting names, defaults, update, Bedtime and
+   Quiet time flows. Major ones only; no wording, style or typos. Verify each against the current
+   code (Read/Grep) before reporting it.
+2. not_covered: new parent-visible FEATURES added by these commits that the guide does not mention at
+   all. Features only: not fixes, internals or tuning.
+
+Reply with ONLY this JSON, empty lists when there is nothing:
+{{"mismatches": [{{"guide": "p.N: short quote", "change": "what changed", "where": "file:line", "commit": "abc1234"}}],
+  "not_covered": [{{"feature": "what it is", "commit": "abc1234"}}]}}
+"""
+
+
+def extract_guide(pdf: pathlib.Path, out: pathlib.Path) -> None:
+    try:
+        import pypdf
+    except ImportError:
+        raise Abort("pypdf is not installed; run `make setup`.")
+    reader = pypdf.PdfReader(pdf)
+    out.write_text("\n".join(f"--- page {n} ---\n{page.extract_text()}" for n, page in enumerate(reader.pages, 1)))
+
+
+def parse_guide_reply(text: str) -> dict | None:
+    match = re.search(r"\{.*\}", text, re.S)
+    try:
+        data = json.loads(match.group(0)) if match else None
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    return {key: [item for item in (data.get(key) or []) if isinstance(item, dict)]
+            for key in ("mismatches", "not_covered")}
+
+
+def check_guide(base: str, commit_lines: list[str], run=subprocess.run) -> tuple[dict | None, str]:
+    """Asks Claude to compare the guide with this release's changes. Returns (findings, why not)."""
+    pdf = ROOT / GUIDE
+    if not pdf.exists():
+        raise Abort(f"{GUIDE} not found.")
+    diff = git("diff", base, "HEAD", "--", *GUIDE_DIFF_PATHS)
+    if not diff.strip():
+        return {"mismatches": [], "not_covered": []}, "no parent-visible changes in this release"
+    if not shutil.which(CLAUDE):
+        return None, f"`{CLAUDE}` is not installed"
+    work = pathlib.Path(tempfile.mkdtemp(prefix="sweetyaar-guide-", dir="/tmp"))
+    try:
+        extract_guide(pdf, work / "guide.txt")
+        (work / "changes.diff").write_text(diff)
+        (work / "commits.txt").write_text("\n".join(commit_lines) + "\n")
+        result = run([CLAUDE, "-p", "--tools", "Read,Grep,Glob", "--no-session-persistence"], cwd=ROOT,
+                     input=guide_prompt(work), capture_output=True, text=True, timeout=1200)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return None, f"`{CLAUDE}` failed ({error})"
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    if result.returncode:
+        return None, f"`{CLAUDE}` failed: {(result.stderr or result.stdout).strip()[:200]}"
+    findings = parse_guide_reply(result.stdout)
+    return (findings, "") if findings else (None, "its reply was not the expected JSON")
+
+
+def findings_text(findings: dict) -> str:
+    lines = []
+    for number, item in enumerate(findings["mismatches"], 1):
+        lines.append(f"{number}. Guide {item.get('guide', '?')}\n   Changed: {item.get('change', '?')} "
+                     f"({item.get('where', '?')}, commit {item.get('commit', '?')})")
+    if findings["not_covered"]:
+        lines.append("New features the guide does not mention:")
+        lines += [f"- {item.get('feature', '?')} (commit {item.get('commit', '?')})" for item in findings["not_covered"]]
+    return "\n".join(lines)
+
+
+def fix_prompt(findings: dict) -> str:
+    return (f"The parents' guide ({GUIDE}) does not match what the next SweetYaar release changes. Please help me "
+            f"fix it. Findings:\n\n{findings_text(findings)}\n\nThe guide is a ReportLab-generated PDF whose source "
+            f"is not in the repo; its text can be read with pypdf (a dev dependency). Check each finding against the "
+            f"code before changing anything, and ask me before editing the PDF.")
+
+
+def guide_gate(args, base: str, commit_lines: list[str]) -> bool:
+    """Checks the guide against the release; returns False when the release should stop."""
+    print("\nChecking the parents' guide against this release's changes (read-only, a few minutes)...")
+    findings, why_not = check_guide(base, commit_lines)
+    if findings is None:
+        print(f"  Could not check: {why_not}.")
+        return True if args.dry_run else confirm("Have you checked the guide yourself, and is it up to date?", default=False)
+    if not findings["mismatches"] and not findings["not_covered"]:
+        print(f"  No mismatches ({why_not})." if why_not else "  The guide matches this release's changes.")
+        return True
+    print("\n" + findings_text(findings))
+    answer = ask("\nOpen a Claude session with these findings to fix the guide? (y = open, c = copy them, n = no)", "n").lower()
+    if answer in ("y", "yes"):
+        subprocess.run([CLAUDE, fix_prompt(findings)], cwd=ROOT)
+        print("\nFix the guide, commit it, then run `make release-app` again.")
+        return False
+    if answer == "c":
+        copied = shutil.which("pbcopy") and subprocess.run(["pbcopy"], input=fix_prompt(findings), text=True).returncode == 0
+        print("\nCopied to the clipboard; paste it into a new session." if copied else "\nNo clipboard tool found:\n" + fix_prompt(findings))
+        return False
+    return True if args.dry_run else confirm("Release anyway?", default=False)
+
+
 def release_commit(number: int, version: str | None, note: str | None) -> list[str]:
     """Commits the release and tags it. Returns the tags."""
     paths = [SERVICE_WORKER]
@@ -436,6 +561,9 @@ def main() -> int:
         sw_path = ROOT / SERVICE_WORKER
         number = cache_number(sw_path.read_text()) + 1
         what = f"app-v{number}" + (f" with firmware {version}" if version else " (firmware unchanged)")
+        if not guide_gate(args, base, [line for line, _ in relevant]):
+            print("\nStopped; nothing was committed, tagged or uploaded.")
+            return 1
         if args.dry_run:
             steps = ["run the host tests"]
             if version:

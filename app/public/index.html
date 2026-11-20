@@ -505,6 +505,8 @@
       background: var(--card); border: 1px solid var(--line); box-shadow: var(--soft-shadow);
       color: var(--ink); text-decoration: none;
     }
+    .guide-link { color: var(--ink); text-decoration: none; }
+    .guide-link .guide-open { color: var(--teal-dark); font-weight: 600; }
     .studio-card .studio-banner { display: block; width: 100%; aspect-ratio: 860 / 431; object-fit: cover; }
     .studio-card .studio-body { display: flex; align-items: center; gap: 12px; padding: 9px 16px; }
     .studio-card b { font-size: 19px; color: var(--teal-dark); white-space: nowrap; }
@@ -2740,6 +2742,11 @@
           <p>Make sure the device is powered on and nearby.</p>
         </article>
 
+        <a class="card info-card guide-link" href="parents_user_guide.pdf" target="_blank" rel="noopener">
+          <span class="info-icon" aria-hidden="true">i</span>
+          <p><strong>Parents' guide</strong> &mdash; getting started, Bluetooth, updates and care (PDF)</p>
+        </a>
+
         <a class="studio-card" href="studio/">
           <img class="studio-banner" src="assets/studio-banner.jpg" alt="">
           <div class="studio-body">
@@ -2950,6 +2957,7 @@
             <div>
               <div class="settings-about-row"><span>Firmware</span><span id="settingsFirmwareVersion">—</span></div>
               <div class="settings-about-row"><span>Latest</span><span id="settingsLatestVersion">—</span></div>
+              <a class="settings-about-row guide-link" href="parents_user_guide.pdf" target="_blank" rel="noopener"><span>Parents' guide</span><span class="guide-open">Open PDF</span></a>
             </div>
             <button class="update-button primary" id="settingsUpdateButton" type="button" hidden>Update</button>
             <p class="settings-note" id="settingsUpdateNote" hidden></p>

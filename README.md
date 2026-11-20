@@ -13,7 +13,7 @@ It works entirely on its own: no account, no Wi-Fi and no cloud. Songs and
 sounds live on a microSD card, so the content can change without touching the
 software.
 
-**[Parents' guide (PDF)](docs/SweetYaar_Parents_Guide.pdf)** · **[Open the parent remote](https://sweetyaar.zachmoshe.com)** · **[Real-life findings](docs/findings/README.md)**
+**[Parents' guide (PDF)](https://sweetyaar.zachmoshe.com/parents_user_guide.pdf)** · **[Open the parent remote](https://sweetyaar.zachmoshe.com)** · **[Real-life findings](docs/findings/README.md)**
 
 ## Using SweetYaar
 
@@ -41,7 +41,7 @@ Edge (on Android or a computer) and connect to the doll. The remote can:
 - show the battery and charging state, and install firmware updates.
 
 It can be installed to the home screen and keeps working offline. The
-[Parents' guide](docs/SweetYaar_Parents_Guide.pdf) walks through all of it.
+[Parents' guide](https://sweetyaar.zachmoshe.com/parents_user_guide.pdf) walks through all of it.
 
 ### As a Bluetooth speaker
 

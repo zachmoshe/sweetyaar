@@ -212,6 +212,10 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   const url = new URL(event.request.url);
+  // The parents' guide is large and always fetched fresh; never cache it.
+  if (url.pathname.endsWith(".pdf")) {
+    return;
+  }
   if (isFirmwarePath(url)) {
     event.respondWith(firmwareRequest(event.request));
   } else if (isNavigationRequest(event.request) || isAppShellPath(url)) {

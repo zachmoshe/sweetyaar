@@ -1376,7 +1376,17 @@ treats them together:
    including an update from the previous release (`make ota-update` from the
    Terminal, or `make flash`). Answer no to stop; the version and note stay in
    the working tree and the next run continues from them.
-4. It runs the host tests, then (firmware only) checks that the image carries
+4. It checks the parents' guide (`app/public/parents_user_guide.pdf`) against what
+   this release changes: the guide's text is extracted to a temporary folder
+   and `claude -p` compares it, read-only, with the diff of the parent-visible
+   code and specs since the last release. Only what the release introduced
+   counts (older problems are ignored): contradictions, and new parent-visible
+   features the guide does not mention. Either stops it: it lists them and asks
+   whether to open a Claude session with the findings to fix the guide (or copy
+   them), and otherwise whether to release anyway. Without a working
+   `claude` it asks you to confirm the guide is up to date. The dry run does
+   the same check.
+5. It runs the host tests, then (firmware only) checks that the image carries
    the new version and its own board ID (not the generic board's), fits the app
    slot and round-trips through compression, archives the build's
    `firmware.elf` (below), and writes
@@ -1384,7 +1394,7 @@ treats them together:
    (removing the superseded image). It increments `CACHE_VERSION` in
    `app/public/sw.js`, commits ("Release app-vN" or "Release app-vN with
    firmware X.Y.Z") and tags the commit `app-vN`, plus `fw-vX.Y.Z` for firmware.
-5. It prints the exact `git push origin main <tags>` command and what will be
+6. It prints the exact `git push origin main <tags>` command and what will be
    live. Nothing is pushed for you; pushing the `app-vN` tag deploys.
 
 `make release-app-dry-run` asks the same questions (including the note draft)
@@ -1396,7 +1406,7 @@ version, and an app-only release leaves the firmware at its last version. To
 correct a published note, edit it in `release-notes.json` and release again.
 
 A core dump from the field can only be decoded with the exact ELF of the
-build that crashed, so step 4 uploads it, gzipped, to
+build that crashed, so step 5 uploads it, gzipped, to
 `gs://sweetyaar-firmware-elfs/<board>/<version>/firmware.elf.gz` (project
 `sweetyaar`, with your gcloud login) before it writes anything. It first
 checks that the ELF's SHA-256 is the one the build wrote into the image
