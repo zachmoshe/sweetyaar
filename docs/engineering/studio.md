@@ -1,8 +1,9 @@
 # SweetYaar Studio
 
 Studio is a browser-only content editor for the toy's SD card, served at
-`/studio/` beside the parent remote. The remote's opening screen links to it with a card; below 768 px the card is grey and
-recommends a tablet or laptop, but still opens Studio. There is no server: audio is processed in the page with Web Audio and
+`/studio/` beside the parent remote. The remote's opening and Remote screens
+link to it with a card; below 768 px the card is grey, says to use a tablet or
+laptop and is not a link, since phone browsers cannot export to a folder. There is no server: audio is processed in the page with Web Audio and
 stays in the browser until exported.
 
 ## Layout

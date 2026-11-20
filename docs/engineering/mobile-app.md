@@ -19,7 +19,9 @@ Wi-Fi setup, native-app package, or application server. See
 
 The opening screen also shows a SweetYaar Studio card linking to
 [Studio](studio.md), a separate content editor page. Below 768 px the card is
-grey and says Studio is best used on a tablet or laptop; it still opens Studio.
+grey, says to open Studio on a tablet or laptop, and is not a link: phone
+browsers cannot write to a folder or SD card, so Studio could not export there
+(the page removes the link while the window is that narrow).
 The Remote screen ends with the same card, so Studio is reachable while
 connected (which matters now that the app reconnects by itself at startup).
 Below 768 px it is also a thin row like Quiet time: the Studio icon, the name

@@ -99,6 +99,10 @@ class FakeElement {
     return this.attributes[name];
   }
 
+  removeAttribute(name) {
+    delete this.attributes[name];
+  }
+
   addEventListener(name, handler) {
     this.listeners[name] ??= [];
     this.listeners[name].push(handler);

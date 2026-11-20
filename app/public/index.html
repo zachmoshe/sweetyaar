@@ -517,7 +517,7 @@
     .studio-card .studio-icon { display: none; }
     .studio-card.studio-card-remote { margin-top: 0; }
     @media (max-width: 767px) {
-      .studio-card { filter: grayscale(1); opacity: .75; }
+      .studio-card { filter: grayscale(1); opacity: .75; cursor: default; }
       /* On the Remote screen of a phone: one thin row, like Quiet time. */
       .studio-card.studio-card-remote {
         display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 12px; align-items: center;
@@ -2747,11 +2747,11 @@
           <p><strong>Parents' guide</strong> &mdash; getting started, Bluetooth, updates and care (PDF)</p>
         </a>
 
-        <a class="studio-card" href="studio/">
+        <a class="studio-card" id="studioCard" href="studio/">
           <img class="studio-banner" src="assets/studio-banner.jpg" alt="">
           <div class="studio-body">
             <b>SweetYaar Studio</b>
-            <span class="studio-text studio-text-mobile">SweetYaar Studio is best used on a tablet or laptop</span>
+            <span class="studio-text studio-text-mobile">Open SweetYaar Studio on a tablet or laptop to edit the toy&#8217;s content</span>
             <span class="studio-open">Open →</span>
           </div>
         </a>
@@ -2910,12 +2910,12 @@
           </button>
         </section>
 
-        <a class="studio-card studio-card-remote" href="studio/">
+        <a class="studio-card studio-card-remote" id="studioCardRemote" href="studio/">
           <img class="studio-banner" src="assets/studio-banner.jpg" alt="">
           <img class="studio-icon" src="assets/studio-icon.png" alt="">
           <div class="studio-body">
             <b>SweetYaar Studio</b>
-            <span class="studio-text studio-text-mobile">Best used on a tablet or laptop</span>
+            <span class="studio-text studio-text-mobile">Open it on a tablet or laptop</span>
             <span class="studio-open">Open →</span>
           </div>
         </a>
@@ -3788,6 +3788,18 @@
     }
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    // Studio cannot export from a phone (no folder access), so below 768 px
+    // its cards are a hint only: no link, nothing to tap.
+    const phoneWidth = window.matchMedia("(max-width: 767px)");
+    function updateStudioCards() {
+      for (const card of [document.querySelector("#studioCard"), document.querySelector("#studioCardRemote")]) {
+        if (phoneWidth.matches) { card.removeAttribute("href"); card.setAttribute("aria-disabled", "true"); }
+        else { card.setAttribute("href", "studio/"); card.removeAttribute("aria-disabled"); }
+      }
+    }
+    updateStudioCards();
+    phoneWidth.addEventListener?.("change", updateStudioCards);
 
     // Skips unchanged text so frequent renders don't restart the animation.
     function setScrollingText(el, text) {
