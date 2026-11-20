@@ -212,6 +212,17 @@ def git_commit_id() -> str:
 
 # --- prompts ------------------------------------------------------------------
 
+def paint(text: str, code: str) -> str:
+    """ANSI color for a terminal; plain text when piped or NO_COLOR is set."""
+    if sys.stdout.isatty() and "NO_COLOR" not in os.environ:
+        return f"\033[{code}m{text}\033[0m"
+    return text
+
+
+def tag_cell(label: str, on: bool, color: str) -> str:
+    return paint(label, color) if on else " " * len(label)
+
+
 def ask(prompt: str, default: str | None = None) -> str:
     suffix = f" [{default}]" if default else ""
     try:
@@ -378,16 +389,15 @@ def main() -> int:
         print(f"Last release: {base}. Commits since: {len(commits)} ({ignored} need no release).")
         firmware_base = firmware_tag or base
         firmware_commits = [line for line, kinds in commits_since(firmware_base) if "firmware" in kinds]
+        print(f"\n  {paint('FW ', '2')} {paint('APP', '2')}  commit")
         for line, kinds in relevant:
-            print(f"  [{'+'.join(sorted(kinds))}] {line}")
+            print(f"  {tag_cell('FW ', 'firmware' in kinds, '1;35')} {tag_cell('APP', 'app' in kinds, '1;32')}  {line}")
 
         release_firmware = False
         if prepared:
             release_firmware = True
         elif firmware_commits:
-            print(f"\nThe firmware changed since {firmware_tag} ({len(firmware_commits)} commit(s)):")
-            for line in firmware_commits:
-                print(f"  {line}")
+            print(f"\nThe firmware changed since {firmware_tag} ({len(firmware_commits)} commit(s), marked FW above).")
             release_firmware = confirm("Release firmware too?")
         if not release_firmware and not any("app" in kinds for _, kinds in relevant):
             print("\nNothing to release.")
@@ -418,6 +428,10 @@ def main() -> int:
             run_tests()
         print(f"\nThis will create release {what}.")
         if not confirm("Continue?"):
+            print("\nStopped; nothing was committed, tagged or uploaded.")
+            if version:
+                print(f"The version and note are still in the working tree. To discard them:\n"
+                      f"    git checkout -- {CONFIG_H} {NOTES}")
             return 1
         if version:
             publish_firmware(version, note)

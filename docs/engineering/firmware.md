@@ -1367,7 +1367,7 @@ treats them together:
    under `app/` and `docs/` are app; anything else (tools, workflows,
    Makefile, hardware) stays on `main` and needs no release. With nothing
    relevant it stops.
-2. If the firmware changed since the last `fw-vX.Y.Z`, it lists those commits and
+2. If the firmware changed since the last `fw-vX.Y.Z`, it says how many commits touched the firmware (marked FW in the list) and
    asks whether to release the firmware too. Answering no means the new app
    must be fully compatible with the published firmware: the command asks you
    to confirm that, and refuses when the app's `MIN_FIRMWARE_VERSION` is newer

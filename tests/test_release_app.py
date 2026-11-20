@@ -116,7 +116,7 @@ def test_app_only_release(repo):
     result = repo.run(["y"])
     assert result.returncode == 0, result.stderr + result.stdout
     out = result.stdout
-    assert "Last release: fw-v1.0.0" in out and "[app] " in out and "Tweak a tool" not in out
+    assert "Last release: fw-v1.0.0" in out and "Add a screen" in out and "Tweak a tool" not in out
     assert "Release firmware too?" not in out
     assert "git push origin main app-v51" in out and "firmware 1.0.0" in out
     assert "sweetyaar-parent-v51" in (repo.path / "app/public/sw.js").read_text()
