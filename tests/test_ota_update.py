@@ -120,66 +120,6 @@ def test_release_bumps_the_app_cache_version(repo_root):
     tool.bump_cache_version((repo_root / "app/public/sw.js").read_text())  # current file parses
 
 
-def test_prepare_release_helpers(repo_root):
-    tool = load_tool(repo_root, "create_published_firmware")
-    assert tool.next_minor("1.0.0") == "1.1.0" and tool.next_minor("2.9.4") == "2.10.0"
-    config = 'x\nstatic constexpr char FIRMWARE_VERSION[] = "1.0.0";\ny\n'
-    assert tool.current_version(config) == "1.0.0"
-    assert tool.set_version(config, "1.1.0") == config.replace("1.0.0", "1.1.0")
-    assert tool.check_note("Bedtime songs fade out gently.") is None
-    assert tool.check_note("  ") and tool.check_note("a\nb") and tool.check_note("x" * 161)
-    notes = json.loads(tool.set_note('{"1.0.0": "First."}', "1.10.0", " Newest. "))
-    assert list(notes) == ["1.10.0", "1.0.0"] and notes["1.10.0"] == "Newest."
-    assert json.loads(tool.set_note(json.dumps(notes), "1.10.0", "Fixed."))["1.10.0"] == "Fixed."
-
-
-def test_prepare_release_interactive_run(repo_root, tmp_path):
-    import subprocess
-    repo = tmp_path / "repo"
-    (repo / "firmware/esp32/src").mkdir(parents=True)
-    config = repo / "firmware/esp32/src/Config.h"
-    config.write_text('static constexpr char FIRMWARE_VERSION[] = "1.0.0";\n')
-    (repo / "firmware/release-notes.json").write_text('{"1.0.0": "First release."}\n')
-
-    def git(*args):
-        subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True,
-                       env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
-                            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"})
-
-    git("init", "-q")
-    git("add", ".")
-    git("commit", "-qm", "Initial work")
-    (repo / "firmware/esp32/src/Bedtime.cpp").write_text("feature")
-    git("add", ".")
-    git("commit", "-qm", "Add bedtime fade-out")
-    (repo / "README.md").write_text("docs")
-    git("add", ".")
-    git("commit", "-qm", "Rewrite the README")
-    answers = "\n".join([
-        "0.9.0",                            # rejected: older than current
-        "",                                 # accept the proposed 1.1.0
-        "",                                 # empty note is rejected
-        "Bedtime songs fade out gently.",
-        "y",                                # use this note
-        "y",                                # write the files
-    ]) + "\n"
-    result = subprocess.run([sys.executable, repo_root / "tools/create_published_firmware.py", "--no-build"],
-                            input=answers, capture_output=True, text=True,
-                            env={**os.environ, "SWEETYAAR_ROOT": str(repo)})
-    assert result.returncode == 0, result.stderr + result.stdout
-    out = result.stdout
-    assert "Current firmware version: 1.0.0" in out
-    assert "Add bedtime fade-out" in out and "Initial work" not in out  # only since 1.0.0
-    assert "Rewrite the README" not in out  # only commits that change the firmware
-    assert "New version [1.1.0]" in out and "must be newer than 1.0.0" in out
-    assert "The note is empty." in out
-    assert 'Parents will see: "Version 1.1.0: Bedtime songs fade out gently."' in out
-    assert "make release-firmware" in out
-    assert 'FIRMWARE_VERSION[] = "1.1.0"' in config.read_text()
-    notes = json.loads((repo / "firmware/release-notes.json").read_text())
-    assert notes == {"1.1.0": "Bedtime songs fade out gently.", "1.0.0": "First release."}
-
-
 def test_release_archives_the_matching_elf_once(repo_root, tmp_path):
     import subprocess
     tool = load_release_tool(repo_root)

@@ -43,7 +43,7 @@ says so.
   ESP32 toolchain is cached under `~/.platformio/packages`, and the first build
   of a fresh checkout clones the pinned `lib_deps` from GitHub (network needed).
 - `make help` lists targets. Common ones: `make build`, `make flash`,
-  `make monitor`, `make app`, `make test` (everything), `make test-unit`
+  `make monitor`, `make app`, `make release-app` (release), `make test` (everything), `make test-unit`
   (host only, never touches hardware),
   `make reset-mac-bluetooth` (make this Mac forget nearby toys, found by BLE service; sudo),
   `make fetch-logs` / `make parse-logs` (save and print the
@@ -146,13 +146,15 @@ says so.
 ## Firmware releases and updates
 
 - Firmware updates go over BLE through the parent app (see "Firmware updates"
-  in firmware.md). Releases are manual: `make create-published-firmware`
-  (version, note, build), then `make release-firmware` (publish); a push alone
-  never publishes firmware. Every release needs a short release note in
-  `firmware/release-notes.json`, shown to parents as-is. Ask the user for that
-  text or for approval of a draft; never generate it from commit messages or
-  diffs. `make release-firmware` refuses to run without it. It also archives
-  the build's `firmware.elf` in `gs://sweetyaar-firmware-elfs` (needs a gcloud
+  in firmware.md). Releases are manual and made by one command, `make
+  release-app` (changes since the last tag, version, note, build, host tests,
+  release commit, `app-vN` and `fw-vX.Y.Z` tags, then it prints the push command);
+  pushing `main` deploys nothing, only pushing an `app-vN` tag does. App and
+  firmware are coupled: a new app often needs new firmware. Every firmware
+  release needs a short note in `firmware/release-notes.json`, shown to parents
+  as-is. The command drafts it with `claude -p`; the user must approve or edit
+  it, so never write it yourself unasked and never publish it unapproved. It
+  also archives the build's `firmware.elf` in `gs://sweetyaar-firmware-elfs` (needs a gcloud
   login), so field core dumps can be decoded; an archived ELF is never replaced.
 - The GATT table must stay identical in normal and update mode, and the
   version check plus update commands must keep working for every older

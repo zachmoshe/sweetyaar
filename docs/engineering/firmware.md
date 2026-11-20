@@ -1350,44 +1350,67 @@ A failure discards the partial image; begin may be sent again.
 
 ### Publishing a release
 
-Pushing commits never publishes firmware: parents are offered an update only
-when `app/public/firmware/manifest.json` names a newer version, and only
-`make release-firmware` writes it.
+One command makes every release: `make release-app` (`tools/release_app.py`).
+Pushing `main` deploys nothing and never publishes firmware; parents get a
+release only when an `app-vN` tag is pushed (`.github/workflows/pages.yml`,
+which also checks that the tag matches `CACHE_VERSION` and is on `main`).
+Parents are offered a firmware update only when
+`app/public/firmware/manifest.json` names a newer version.
 
-1. Run `make create-published-firmware`. It shows the current version and the
-   commits that changed `firmware/esp32/` since that version was set, proposes the next minor version (any
-   newer `major.minor.patch` may be typed instead), asks for the one-line
-   release note, writes the version to `Config.h` and the note to
-   `firmware/release-notes.json`, builds the production firmware, and prints
-   the commands for the next steps. Parents see the note as written: a person
-   writes or approves it; it is never generated from commit messages.
-2. Validate the build on your own doll, including an update from the previous
-   release with `make ota-update` (Terminal) or `make flash`, and commit the
-   version and note.
-3. Run `make release-firmware`. It builds the production board, checks that the
-   image carries the new version and its own board ID (not the generic
-   board's), fits the app slot and round-trips through compression, archives
-   the build's `firmware.elf` (below), writes
-   `app/public/firmware/sweetyaar-<version>.bin.z` plus `manifest.json`,
-   removes the superseded image and increments `CACHE_VERSION` in
-   `app/public/sw.js`.
-4. Commit `app/public` and push to `main`. The Pages deployment offers the
-   update to parents on their next connection. To correct a published note,
-   edit it in `release-notes.json` and repeat steps 3–4.
+The app and the firmware are coupled: new app features usually need new
+firmware (BLE characteristics, commands), yet the app reaches every parent at
+once while a toy updates only when its parent accepts. The command therefore
+treats them together:
+
+1. It finds the last release tag (`app-vN`, or `fw-vX.Y.Z` for firmware) and lists
+   the commits since then. Commits under `firmware/esp32/` are firmware;
+   under `app/` and `docs/` are app; anything else (tools, workflows,
+   Makefile, hardware) stays on `main` and needs no release. With nothing
+   relevant it stops.
+2. If the firmware changed since the last `fw-vX.Y.Z`, it lists those commits and
+   asks whether to release the firmware too. Answering no means the new app
+   must be fully compatible with the published firmware: the command asks you
+   to confirm that, and refuses when the app's `MIN_FIRMWARE_VERSION` is newer
+   than the firmware that would be live.
+3. For a firmware release it proposes the next minor version (any newer
+   `major.minor.patch` may be typed), drafts the one-line parent-facing note
+   with `claude -p` and lets you accept, edit or retype it. Without the
+   `claude` command or when it fails, it says so and you write the note. A
+   person always approves the note; parents see it as written. It writes the
+   version to `Config.h` and the note to `firmware/release-notes.json`, builds
+   the production firmware and waits while you validate it on your own doll,
+   including an update from the previous release (`make ota-update` from the
+   Terminal, or `make flash`). Answer no to stop; the version and note stay in
+   the working tree and the next run continues from them.
+4. It runs the host tests, then (firmware only) checks that the image carries
+   the new version and its own board ID (not the generic board's), fits the app
+   slot and round-trips through compression, archives the build's
+   `firmware.elf` (below), and writes
+   `app/public/firmware/sweetyaar-<version>.bin.z` plus `manifest.json`
+   (removing the superseded image). It increments `CACHE_VERSION` in
+   `app/public/sw.js`, commits ("Release app-vN" or "Release app-vN with
+   firmware X.Y.Z") and tags the commit `app-vN`, plus `fw-vX.Y.Z` for firmware.
+5. It prints the exact `git push origin main <tags>` command and what will be
+   live. Nothing is pushed for you; pushing the `app-vN` tag deploys.
+
+Firmware and app numbers are independent: firmware 1.3.0 may ship with any app
+version, and an app-only release leaves the firmware at its last version. To
+correct a published note, edit it in `release-notes.json` and release again.
 
 A core dump from the field can only be decoded with the exact ELF of the
-build that crashed, so step 3 uploads it, gzipped, to
+build that crashed, so step 4 uploads it, gzipped, to
 `gs://sweetyaar-firmware-elfs/<board>/<version>/firmware.elf.gz` (project
 `sweetyaar`, with your gcloud login) before it writes anything. It first
 checks that the ELF's SHA-256 is the one the build wrote into the image
 (`esp_app_desc_t.app_elf_sha256`). Metadata records the version, board,
-commit and both hashes. An archived ELF is never replaced: running step 3
+commit and both hashes. An archived ELF is never replaced: running the release
 again for the same build changes nothing, and a different build of an
 archived version stops the release (publish a new version instead). The ELF
 of 1.1.0 was recovered from the original build, matched by those hashes.
 
 The app's `MIN_FIRMWARE_VERSION` is the oldest firmware it can control. Raise it
-only when the app drops support for older firmware; toys below it show
+when the app stops supporting older firmware (for example, it needs a new BLE
+characteristic; `make release-app` then insists on a firmware release); toys below it show
 **Update needed** and their remote controls stay locked until updated.
 
 ## How the firmware is organized

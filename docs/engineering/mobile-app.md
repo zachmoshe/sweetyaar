@@ -459,7 +459,7 @@ or build step. Its production files are:
 | `app/public/sw.js` | Offline cache contents, update version, request strategies, and Background Sync of queued log sectors. |
 | `app/public/logs-queue.js` | Diagnostic log sectors waiting on the phone and their upload to the logs API; loaded by the page and by `sw.js`. |
 | `app/public/assets/` | Browser-ready artwork, control icons, favicons, and install icons. |
-| `app/public/firmware/` | Published firmware: `manifest.json` and the compressed production image, written by `make release-firmware`. Absent until the first release. |
+| `app/public/firmware/` | Published firmware: `manifest.json` and the compressed production image, written by `make release-app`. Absent until the first release. |
 | `app/public/CNAME` | The custom domain published with the Pages artifact. |
 
 The interface has six screens: the opening connection screen, the Ready remote,
@@ -572,9 +572,14 @@ offline mode, and reload again to verify the cached shell. Finally reconnect to
 the toy from the installed or offline app; offline rendering does not by itself
 prove that Bluetooth permissions and GATT behavior work.
 
-Production is deployed by `.github/workflows/pages.yml`. Relevant pushes to
-`main` upload only `app/public/` to GitHub Pages, so files under `app/design/`, `docs/`,
-and the firmware tree are never part of the web artifact. Pages must use GitHub
+Production is deployed by `.github/workflows/pages.yml`, only when an `app-vN`
+tag is pushed (made by `make release-app`, see
+[Publishing a release](firmware.md#publishing-a-release)); pushing `main` deploys
+nothing. The workflow checks that the tag matches `CACHE_VERSION` and is on
+`main`, then uploads only `app/public/` to GitHub Pages, so files under
+`app/design/`, `docs/`, and the firmware tree are never part of the web artifact.
+The app is coupled to the firmware (BLE contract), which is why one release
+command handles both. Pages must use GitHub
 Actions as its publishing source. Relative paths in the manifest and service
 worker allow the same files to run from the Pages project path, the custom HTTPS
 domain, or a local server rooted at `app/public/`.

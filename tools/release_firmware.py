@@ -1,25 +1,21 @@
 #!/usr/bin/env python3
 """
-Publish firmware images for the parent app's update flow.
+Library for publishing firmware images to the parent app's update flow; the
+entry point is `make release-app` (tools/release_app.py).
 
-Reads FIRMWARE_VERSION from firmware/esp32/src/Config.h and the release note for
-that version from firmware/release-notes.json, compresses the production board's
-built image and writes app/public/firmware/manifest.json. Before that it
-archives the build's firmware.elf in the firmware-elfs bucket, since a core
-dump from the field can only be decoded with the exact ELF that crashed. The generic prototype
-is not published; update it from a Mac with tools/ota_update.py. Deploying the app then
+It checks a built image (version, board, slot size), compresses it and writes
+app/public/firmware/manifest.json, archives the build's firmware.elf in the
+firmware-elfs bucket (a core dump from the field can only be decoded with the
+exact ELF that crashed), and bumps CACHE_VERSION. The generic prototype is not
+published; update it from a Mac with tools/ota_update.py. Deploying the app then
 offers the update to toys running an older version.
 
-The release note is shown to parents as-is. It must be a short text written or
-approved by a person for this release; never generate it from commit messages.
-
-Usage (after a hardware-validated build):
-    .venv/bin/python tools/release_firmware.py --build
+The release note is shown to parents as-is. A person writes or approves it;
+Claude may draft it (release_app.py) but nothing is published unapproved.
 """
 
 from __future__ import annotations
 
-import argparse
 import gzip
 import hashlib
 import json
@@ -171,38 +167,3 @@ def build_release(images: dict[str, bytes], version: str, note: str, out_dir: pa
         }
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     return manifest
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--build", action="store_true", help="build with PlatformIO first")
-    parser.add_argument("--board", action="append", choices=BOARDS, help="limit to these boards (default: all)")
-    args = parser.parse_args()
-    boards = args.board or list(BOARDS)
-    try:
-        version = firmware_version(CONFIG_H.read_text())
-        note = release_note(json.loads(NOTES.read_text()), version)
-        if args.build:
-            pio = ROOT / ".venv/bin/pio"
-            for board in boards:
-                subprocess.run([str(pio), "run", "-d", str(FIRMWARE_DIR), "-e", board], check=True)
-        images = {board: (FIRMWARE_DIR / ".pio/build" / board / "firmware.bin").read_bytes() for board in boards}
-        for board, image in images.items():
-            check_image(board, image, version)
-            elf = (FIRMWARE_DIR / ".pio/build" / board / "firmware.elf").read_bytes()
-            print(archive_elf(board, version, image, elf, git_commit()))
-        manifest = build_release(images, version, note, OUT_DIR)
-        SERVICE_WORKER.write_text(bump_cache_version(SERVICE_WORKER.read_text()))
-    except (ReleaseError, FileNotFoundError, subprocess.CalledProcessError) as error:
-        print(f"release_firmware: {error}", file=sys.stderr)
-        return 1
-    for board, entry in manifest["images"].items():
-        print(f"{board}: {entry['size']} B -> {entry['encodedSize']} B ({entry['file']})")
-    print(f"Wrote {OUT_DIR.relative_to(ROOT)}/manifest.json for {version}: {note}")
-    print("Bumped CACHE_VERSION in app/public/sw.js.")
-    print("Commit app/public and push to main; parents see the update on their next connection.")
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

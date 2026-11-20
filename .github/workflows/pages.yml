@@ -1,12 +1,11 @@
 name: Deploy PWA to GitHub Pages
 
+# Pushing main deploys nothing. A release is an app-vN tag made by
+# `make release-app`; the app and the firmware update it carries go live together.
 on:
   push:
-    branches:
-      - main
-    paths:
-      - app/public/**
-      - .github/workflows/pages.yml
+    tags:
+      - "app-v*"
   workflow_dispatch:
 
 permissions:
@@ -28,6 +27,17 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify the release tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          number="${GITHUB_REF_NAME#app-v}"
+          grep -q "const CACHE_VERSION = \"sweetyaar-parent-v${number}\";" app/public/sw.js \
+            || { echo "::error::${GITHUB_REF_NAME} does not match CACHE_VERSION in app/public/sw.js"; exit 1; }
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
+            || { echo "::error::${GITHUB_REF_NAME} is not on main"; exit 1; }
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
