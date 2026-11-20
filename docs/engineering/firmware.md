@@ -1368,7 +1368,7 @@ treats them together:
    than the firmware that would be live.
 3. For a firmware release it proposes the next minor version (any newer
    `major.minor.patch` may be typed), drafts the one-line parent-facing note
-   with `claude -p` and lets you accept, edit or retype it. Without the
+   with `claude -p` and types it into the prompt line, so you press Enter to accept it or edit it in place. Without the
    `claude` command or when it fails, it says so and you write the note. A
    person always approves the note; parents see it as written. It writes the
    version to `Config.h` and the note to `firmware/release-notes.json`, builds

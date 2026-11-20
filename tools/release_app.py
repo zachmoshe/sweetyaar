@@ -45,6 +45,11 @@ import subprocess
 import sys
 import tempfile
 
+try:
+    import readline  # lets the draft note be edited in place
+except ImportError:
+    readline = None
+
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import release_firmware as rf  # noqa: E402  image checks, manifest, ELF archive, CACHE_VERSION bump
 
@@ -236,13 +241,35 @@ def tag_cell(label: str, on: bool, color: str) -> str:
     return paint(label, color) if on else " " * len(label)
 
 
-def ask(prompt: str, default: str | None = None) -> str:
-    suffix = f" [{default}]" if default else ""
+def ask(prompt: str, default: str | None = None, prefill: bool = False) -> str:
+    """Asks one question. With prefill the default is typed into the line, so it can be edited, not rewritten."""
+    editable = prefill and bool(default) and sys.stdin.isatty()
+    if editable:
+        editable = prefill_line(default)
+    suffix = f" [{default}]" if default and not editable else ""
     try:
         answer = input(f"{prompt}{suffix}: ").strip()
     except EOFError:
         raise Abort("No input.")
+    finally:
+        if editable and readline is not None:
+            readline.set_startup_hook()
     return answer or (default or "")
+
+
+def prefill_line(text: str) -> bool:
+    """Puts text on the next input() line, ready to edit. Returns False when this terminal cannot."""
+    if readline is not None and "libedit" not in (readline.__doc__ or ""):
+        readline.set_startup_hook(lambda: readline.insert_text(text))
+        return True
+    try:  # macOS's libedit has no startup hook: type the text into the terminal's input queue instead
+        import fcntl
+        import termios
+        for byte in text.encode():
+            fcntl.ioctl(sys.stdin.fileno(), termios.TIOCSTI, bytes([byte]))
+        return True
+    except (ImportError, OSError):
+        return False
 
 
 def confirm(prompt: str, default: bool = True) -> bool:
@@ -271,11 +298,11 @@ def write_note(version: str, existing: str | None, commits: list[str], previous:
         draft, why_not = draft_note(commits, previous)
         if draft:
             default = draft
-            print("  Draft ready. Press Enter to accept it, or type your own text.")
+            print("  Draft ready. It is filled in below: press Enter to accept it, or edit it first.")
         else:
             print(f"  No draft: {why_not}. Write the note yourself; describe what changes for the parent.")
     while True:
-        note = ask(f"Note for {version}", default)
+        note = ask(f"Note for {version}", default, prefill=True)
         problem = check_note(note)
         if problem:
             print(f"  {problem}")
