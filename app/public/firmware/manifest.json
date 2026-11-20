@@ -1,15 +1,15 @@
 {
   "format": 1,
-  "version": "1.2.0",
-  "notes": "Diagnostics update: lets you share the toy\u2019s activity log to help us fix problems.",
+  "version": "1.3.0",
+  "notes": "More reliable Bluetooth, automatic reconnection, and earlier low-battery warnings.",
   "images": {
     "sweetyaar": {
-      "file": "sweetyaar-1.2.0.bin.z",
+      "file": "sweetyaar-1.3.0.bin.z",
       "encoding": "zlib",
-      "size": 1966768,
-      "encodedSize": 1223463,
-      "sha256": "81d5acc724a0af167f56972430ffb3c691cc7ba0d09c2f3246150174caacd04f",
-      "fileSha256": "c67acd9b5532e9664511f878534f4c15a9f626cfcfabb5e3b78516fcc683bce1"
+      "size": 1970768,
+      "encodedSize": 1226385,
+      "sha256": "b8049dc8a11d502ebecd0d1ced9b115ddd07a7ba77a6ad5f2ca289ece6b4f880",
+      "fileSha256": "97540c8b1c4c088f3bdb5575014188602a2023c34b1d955ec81e5b390c8fe614"
     }
   }
 }
