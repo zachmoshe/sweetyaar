@@ -592,10 +592,7 @@ All five embedded cues trim all-zero leading/trailing PCM, preserving their
 audible samples and one zero frame at each endpoint. They share the established
 44.1 kHz, 16-bit mono PCM format. The charger asset is Sunrise and plays once
 per confirmed input connection. The temporary Ready-copy comparison, five-play
-sequence and timing counters have been removed. Historical measurements are in
-[the Ready comparison record](charger-ready-validation.md),
-[five-play diagnostic](charger-repeat-validation.md), and
-[cue feed timing investigation](cue-feed-validation.md).
+sequence and timing counters have been removed.
 The main loop now yields for 1 ms while either a system cue or SD playback is
 active, using its 5 ms idle yield only when both are idle. This keeps cue feeding
 ahead of I2S consumption even when charger interrupts cause frequent I2C polls;
@@ -686,8 +683,6 @@ whole snapshot sooner. Charging activity and completion are also sampled once
 per second: CC/CV phase changes can chatter hundreds of times per second near
 regulation. Confirming that charging started, and therefore playing the plug-in
 cue, can take about one second after enabling charging. See [TI sections 6.3.7, 6.3.13 and register masks](https://www.ti.com/lit/ds/symlink/bq25186.pdf).
-The [regulation notification validation record](charger-limit-status-validation.md)
-separates host checks from device measurements.
 
 `/PG` on GPIO34 reports valid input power and wakes the ESP32 when USB/AUX is
 attached during deep sleep. `/INT` on GPIO35 prompts a status read while awake.
@@ -1244,8 +1239,7 @@ awake with its peripherals off.
 ## Firmware updates
 
 The parent app can install new firmware over BLE. The parent's view of the flow
-is in [Mobile App](mobile-app.md#firmware-updates); the transfer measurements
-that led to this design are in [OTA validation](ota-validation.md).
+is in [Mobile App](mobile-app.md#firmware-updates).
 
 **Versions.** `FIRMWARE_VERSION` in `Config.h` (`major.minor.patch`) and
 `FIRMWARE_BOARD_ID` (the PlatformIO environment, set by `SWEETYAAR_BOARD_ID` in

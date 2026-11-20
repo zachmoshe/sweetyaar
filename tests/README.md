@@ -53,9 +53,6 @@ identify the scenario, board, built binary hash, BLE identity and individual
 results. Retain the upload log: the built hash alone does not prove flashing.
 Report failures and untested flows as well as passes.
 
-The [2026-10-02 hardware record](../docs/engineering/pairing-hardware-validation.md)
-lists the observed failures, fixes, passes and remaining checks from this session.
-
 Use `takeover --pair-second` to enroll a new second device: the test waits for
 the physical pairing gesture before its connection, then verifies the original
 window still closes at 60 seconds. Repeat `takeover` afterward to test the

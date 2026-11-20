@@ -23,8 +23,14 @@ design they describe.
 - [Real-life findings](docs/findings/README.md): one-page reports of bench
   experiments (setup, results, recommendations), each with its data and
   `build_report.py`. Evidence, not specification.
-- `docs/engineering/*-validation.md` are records of real-device investigations
-  and may describe superseded states; each says what has since changed.
+
+## Documents and reports
+
+`docs/` is what we expose to the outside: specifications and findings only.
+Never add a report (validation record, session log, investigation write-up,
+test summary) under `docs/` or anywhere else in the repository without the
+user's approval. Report results to the user in chat. Large experiments and
+their conclusions go to `docs/findings/`, and only when the user asks.
 
 ## Implementation isolation
 
@@ -71,8 +77,8 @@ says so.
 - Obtain explicit user approval before each hardware test session (including
   flashing). Approval for a session covers its necessary scenario attempts and
   fixes/retests; it does not authorize a later unrelated flash/test session.
-- Capture flash, serial and host Bluetooth logs, and report passed, failed and
-  untested flows separately. Never describe a build or mocked test as hardware
+- Capture flash, serial and host Bluetooth logs, and tell the user in chat which
+  flows passed, failed and were not tested. Never describe a build or mocked test as hardware
   validation.
 - Real takeover and source-contention tests need two independent Bluetooth
   devices. Two clients on one Mac share the same Bluetooth identity.

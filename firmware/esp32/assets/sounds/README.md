@@ -4,8 +4,7 @@ The charger cue is the selected Sunrise recording. All five embedded cues have t
 leading/trailing PCM trimmed, retaining one zero frame at each endpoint and
 every audible sample. Charger plays once per confirmed input connection.
 The main loop yields for 1 ms during cue playback, matching SD playback and
-avoiding starvation under frequent charger interrupts. See
-[the timing investigation](../../../../docs/engineering/cue-feed-validation.md).
+avoiding starvation under frequent charger interrupts.
 Each file is an uncompressed **44.1 kHz, 16-bit mono PCM WAV**.
 
 | File | Intended event | Duration | File size |
