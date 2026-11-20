@@ -28,9 +28,12 @@ design they describe.
 
 ## Implementation isolation
 
-For every agent-initiated implementation in any chat, create a separate Git
-worktree and a new `codex/...` branch before editing files, unless the user
-explicitly says to reuse an existing branch or worktree (or to work on `main`).
+Use a separate Git worktree and a new branch for any implementation larger
+than one small commit, and name the branch with a short, descriptive slug (no
+`codex/` or `claude/` prefix), for example `release-app`. A small change that
+fits one commit may be committed directly on `main`. When unsure which case
+applies, ask the user. Reuse an existing branch or worktree only when the user
+says so.
 
 ## Environment and commands
 
