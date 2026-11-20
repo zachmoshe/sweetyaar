@@ -6,8 +6,9 @@ images inside are re-encoded:
   - anything above 320 dpi is downsampled to 300 dpi (a 0.5 inch icon stored at
     1,970 dpi becomes 156 px instead of 1,024 px);
   - large images are re-encoded as JPEG at quality 85;
-  - small PNGs (under 100 KB) are kept exactly as they are, since re-encoding
-    them as JPEG made them blurry;
+  - small PNGs (under 100 KB) and every image with transparency are kept lossless
+    (images with transparency are only downsampled, never turned into JPEG), since
+    JPEG made them blurry or blocky, or gave them a black background;
   - text and layout are untouched.
 
 The 19.7 MB guide becomes about 6.3 MB. PyMuPDF is not a project dependency:
@@ -37,8 +38,16 @@ def compress(source: str, target: str) -> None:
     for number, page in enumerate(original):
         for info in page.get_image_info(xrefs=True):
             image = original.extract_image(info["xref"])
-            if image["ext"] == "png" and len(image["image"]) < KEEP_PNG_BELOW:
-                small[position(number, info)] = image["image"]
+            if image["ext"] == "png" and (len(image["image"]) < KEEP_PNG_BELOW or image.get("smask")):
+                pixmap = pymupdf.Pixmap(image["image"])
+                if image.get("smask"):  # the transparency is a separate image object
+                    pixmap = pymupdf.Pixmap(pixmap, pymupdf.Pixmap(original.extract_image(image["smask"])["image"]))
+                if image.get("smask"):  # downsample with the transparency, losslessly
+                    width_pt = info["bbox"][2] - info["bbox"][0]
+                    if pixmap.width / (width_pt / 72) > DPI_THRESHOLD:
+                        scale = DPI_TARGET * width_pt / 72 / pixmap.width
+                        pixmap = pymupdf.Pixmap(pixmap, round(pixmap.width * scale), round(pixmap.height * scale))
+                small[position(number, info)] = pixmap
 
     document = pymupdf.open(source)
     document.rewrite_images(dpi_threshold=DPI_THRESHOLD, dpi_target=DPI_TARGET, quality=QUALITY)
@@ -46,7 +55,7 @@ def compress(source: str, target: str) -> None:
         for info in page.get_image_info(xrefs=True):
             key = position(number, info)
             if key in small:
-                page.replace_image(info["xref"], stream=small[key])
+                page.replace_image(info["xref"], pixmap=small[key])
     temporary = target + ".tmp"
     document.save(temporary, garbage=4, deflate=True, clean=True)
     document.close()

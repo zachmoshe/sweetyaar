@@ -127,11 +127,11 @@ class NumBadge(Flowable):
         c.drawCentredString(r, r - 0.358 * self.size, self.text)
 
 
-def step_list(steps):
+def step_list(steps, width=None):
     rows = []
     for i, s in enumerate(steps, 1):
         rows.append([NumBadge(i), Paragraph(s, cell)])
-    t = Table(rows, colWidths=[11 * mm, FW - 11 * mm])
+    t = Table(rows, colWidths=[11 * mm, (width or FW) - 11 * mm])
     t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 4),
                            ("BOTTOMPADDING", (0, 0), (-1, -1), 4), ("LEFTPADDING", (0, 0), (-1, -1), 0)]))
     return t
@@ -197,12 +197,12 @@ class FeatureGrid(Flowable):
 class ChapterHeader(Flowable):
     """Full-bleed illustrated band at the very top of a chapter's first page."""
     TOP = 18 * mm  # the frame's top margin
-    def __init__(self, n):
-        super().__init__(); self.n = n; self.width = FW; self.height = 38 * mm
+    def __init__(self, n, art=None):
+        super().__init__(); self.n = n; self.art = art or n; self.width = FW; self.height = 38 * mm
     def draw(self):
         c = self.canv; bh = self.height + self.TOP
         c.saveState(); c.translate(-M, 0)
-        pth = find_art(f"ch{self.n}")
+        pth = find_art(f"ch{self.art}")
         if pth: draw_cover_fit(c, pth, 0, 0, W, bh, fy={1: 0.15}.get(self.n, 0.5))
         else:
             c.saveState(); p = c.beginPath(); p.rect(0, 0, W, bh); c.clipPath(p, stroke=0, fill=0)
@@ -221,8 +221,8 @@ class ChapterTitle(Flowable):
         c.setFillColor(TEAL_D); c.setFont("Geo-BI", 27); c.drawString(22 * mm, 5 * mm, self.title)
 
 
-def chapter(n, title):
-    return [ChapterHeader(n), Spacer(1, 2 * mm), ChapterTitle(n, title)]
+def chapter(n, title, art=None):
+    return [ChapterHeader(n, art), Spacer(1, 2 * mm), ChapterTitle(n, title)]
 
 
 class ButtonDiagram(Flowable):
@@ -291,35 +291,12 @@ def on_cover(c, doc):
     c.restoreState()
 
 
-def on_divider(c, doc):
-    c.saveState()
-    c.setFillColor(PAGE); c.rect(0, 0, W, H, fill=1, stroke=0)
-    full = find_art("divider_page")
-    if full:   # the whole page is one painting, with "Technical stuff" painted on its sign
-        draw_cover_fit(c, full, 0, 0, W, H)
-        c.restoreState()
-        return
-    ax, ay, aw, ah = 22 * mm, 62 * mm, W - 44 * mm, 205 * mm
-    pth = find_art("divider")
-    if pth:
-        c.saveState(); r = aw / 2
-        p = c.beginPath(); p.moveTo(ax, ay); p.lineTo(ax, ay + ah - r); p.arcTo(ax, ay + ah - 2 * r, ax + aw, ay + ah, 180, -180); p.lineTo(ax + aw, ay); p.close()
-        c.clipPath(p, stroke=0, fill=0); draw_cover_fit(c, pth, ax, ay, aw, ah); c.restoreState()
-    else:
-        cover_scene(c, ax, ay, aw, ah)
-    c.setFillColor(TERRA); c.setFont("Geo-I", 13); c.drawCentredString(W / 2, 47 * mm, "Appendix A")
-    c.setFillColor(TEAL_D); c.setFont("Geo-BI", 34); c.drawCentredString(W / 2, 34 * mm, "Adding your own content")
-    c.setFillColor(INK); c.setFont("Geo-I", 13); c.drawCentredString(W / 2, 24 * mm, "For the curious and the handy")
-    c.restoreState()
-
-
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "SweetYaar_Parents_Guide_A.pdf")
 doc = BaseDocTemplate(OUT, pagesize=A4, leftMargin=M, rightMargin=M, topMargin=18 * mm, bottomMargin=22 * mm,
                       title="SweetYaar: a little guide for big grown-ups", author="SweetYaar")
 frame = Frame(M, 22 * mm, FW, H - 40 * mm, id="f", leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
 doc.addPageTemplates([PageTemplate(id="cover", frames=[Frame(M, 20 * mm, FW, H - 40 * mm, id="c", leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)], onPage=on_cover),
-                      PageTemplate(id="main", frames=[frame], onPage=on_page),
-                      PageTemplate(id="divider", frames=[Frame(M, 20 * mm, FW, 10, id="dv", leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)], onPage=on_divider)])
+                      PageTemplate(id="main", frames=[frame], onPage=on_page)])
 
 MONO = '<font name="Mono" size="8.8">'
 S = []
@@ -345,12 +322,12 @@ S += [P("In this guide", h2)]
 toc = [["1", "Getting started", "Charge, switch on, first play"],
        ["2", "Playing with the doll", "The two buttons and the little light"],
        ["3", "Using it as a Bluetooth speaker", "Pairing your phone"],
-       ["4", "The SweetYaar app", "Your remote control, settings, adding sounds"],
-       ["5", "Keeping the doll up to date", "Installing new firmware from the app"],
-       ["6", "Bedtime, Quiet time and sleep", "Making it fit your routine"],
-       ["7", "Care, charging and safety", "The battery and how to treat it"],
-       ["8", "Troubleshooting", "Quick answers"],
-       ["A", "Appendix: your own songs and sounds", "Files, folders and a script"]]
+       ["4", "The SweetYaar app", "Your remote control and settings"],
+       ["5", "SweetYaar Studio", "Your own songs and animal sounds"],
+       ["6", "Keeping the doll up to date", "Installing new firmware from the app"],
+       ["7", "Bedtime, Quiet time and sleep", "Making it fit your routine"],
+       ["8", "Care, charging and safety", "The battery and how to treat it"],
+       ["9", "Troubleshooting", "Quick answers"]]
 S += [table(toc, [10 * mm, 70 * mm, FW - 80 * mm], head=False), PageBreak()]
 
 # ---------------- 1 Getting started ----------------
@@ -366,7 +343,7 @@ S += [step_list([
 ]), Spacer(1, 4 * mm)]
 S += [tip("The memory card is already inside",
           "SweetYaar ships with a microSD card inside the doll, with songs and animal sounds on it. "
-          "You can add your own later (see Appendix A at the end).")]
+          "You can add your own later with SweetYaar Studio (see section 5).")]
 S += [Spacer(1, 4 * mm), P("What is where", h2),
       table([["Part", "What it does"],
              ["Song button", "Plays songs from the current theme (for example lullabies)."],
@@ -439,7 +416,7 @@ S += [*chapter(3, "Using it as a Bluetooth speaker"),
 S += [P("Connect your phone for the first time", h2),
       step_list([
           "Hold <b>both buttons for 3 seconds</b>. A chime plays once and the light blinks blue rapidly. You now have <b>60 seconds</b>.",
-          "On your phone, open <b>Bluetooth settings</b> and choose <b>SweetYaar</b> from the list.",
+          "On your phone, open <b>Bluetooth settings</b> and choose <b>SweetYaar Speaker</b> from the list (your doll’s name followed by “Speaker”).",
           "If your phone asks, tap <b>Pair</b>. There is no code to type.",
           "Play something on your phone. The sound comes out of the doll.",
       ]), Spacer(1, 3 * mm)]
@@ -448,15 +425,15 @@ S += bullets([
     "Bluetooth on, the phone connects by itself.",
     "While the phone is connected, the doll’s buttons pause and the app shows “Used as a speaker”. <b>Use the phone’s own volume control.</b>",
     "Only one phone can stream at a time. Disconnect the first phone before connecting a second.",
-    "<b>To pair the app, pause any music first.</b> While a phone is streaming music to the doll, the doll refuses to pair a new "
-    "app, even in the 60-second window. Pause the music, then connect (see section 4).",
+    "<b>To pair the app, disconnect the speaker first.</b> While any phone is connected to the doll as a speaker, even with nothing "
+    "playing, the doll refuses to pair a new app, even in the 60-second window. Disconnect the phone’s speaker connection, then connect the app (see section 4).",
     "When the phone disconnects, the doll goes back to its songs and animal sounds.",
     "<b>The speaker and the SweetYaar app are paired separately:</b> pair each one while pairing is open. Phones stream best; a computer can have small gaps.",
 ])
 S += [P("Forgetting all paired phones", h2),
       P("Hold both buttons for <b>10 seconds</b>. The light flashes red once and every paired phone and app is removed. "
-        "Use this if you give the doll away or want a fresh start. Afterwards, also choose “Forget this device” for "
-        "SweetYaar in your phone’s Bluetooth settings, then pair again.", body),
+        "Use this if you give the doll away or want a fresh start. Afterwards, also choose “Forget this device” "
+        "in your phone’s Bluetooth settings, then pair again.", body),
       PageBreak()]
 
 # ---------------- 4 The app ----------------
@@ -472,12 +449,14 @@ S += bullets([
 ])
 S += [P("Connect for the first time", h2),
       step_list([
-          "Make sure the doll is awake and nearby (and not streaming music from a phone), then hold <b>both buttons for 3 seconds</b> to open pairing.",
+          "Make sure the doll is awake and nearby (with no phone connected to it as a speaker), then hold <b>both buttons for 3 seconds</b> to open pairing.",
           "In the app, tap <b>Connect to SweetYaar</b> and choose the doll from the list your browser shows.",
           "Accept the Bluetooth pairing request on your phone.",
       ]),
       Spacer(1, 3 * mm),
-      P("Afterwards, just open the app and tap <b>Connect to SweetYaar</b> (wake the doll first if it sleeps). A phone the doll "
+      P("Afterwards, just open the app: it finds the doll by itself, with no list to choose from (wake the doll first if it sleeps). "
+        "In Chrome or Edge the app may show a short tip about one browser setting to switch on so that this works; follow the tip once, "
+        "then restart the browser. If the app can’t reach the doll, tap <b>Connect to SweetYaar</b>. A phone the doll "
         "doesn’t know yet, or one you forgot with the 10-second hold, gets <b>“Device not approved”</b>: hold both buttons for "
         "3 seconds and tap Connect again.", body)]
 S += [P("Finding your way around", h2),
@@ -524,18 +503,83 @@ S += [P("Settings", h2),
 S += [P("The Doll page", h2),
       P("The Doll page shows how the doll is doing. At the top is the charge status (for example charging, finished, or no external power). "
         "Below it, charger notes appear only when something needs a look. <i>About this doll</i> shows the firmware version and "
-        "whether a newer one is available (see section 5). When the battery is getting low, "
+        "whether a newer one is available (see section 6). When the battery is getting low, "
         "a sleepy teddy appears as a reminder.", body),
-      Spacer(1, 2 * mm), centered(ArtImg('doll_page', 44 * mm, 40 * mm, art.scene_tired_teddy)), Spacer(1, 2 * mm)]
+      Spacer(1, 2 * mm), centered(ArtImg('doll_page', 32 * mm, 28 * mm, art.scene_tired_teddy)), Spacer(1, 2 * mm)]
 S += [P("Adding your own songs and sounds", h2),
-      P("The doll’s songs and animal sounds live on the microSD card inside it. The app can organise them, but it can’t add files: "
-        "to add your own, you copy files onto the card from a computer. You can add <b>songs</b>, whole new <b>themes</b>, or even "
-        "<b>record your own voice</b> for the animal prompts. This needs some basic terminal skills, such as running a script, "
-        "and it is all explained in <b>Appendix A</b> at the end.", body),
+      P("The doll’s songs and animal sounds live on the microSD card inside it. You edit them with <b>SweetYaar Studio</b>, "
+        "a free editor that opens from a card on the app’s opening screen and on the Remote page. It has its own chapter next.", body),
+      PageBreak()]
+
+# ---------------- 5 Studio ----------------
+from reportlab.platypus import Image as RLImage
+from PIL import Image as PILImage
+SCREENS = os.path.join(HERE, "screens")
+
+
+def screen(name, width, center=True):
+    iw, ih = PILImage.open(os.path.join(SCREENS, name)).size
+    im = RLImage(os.path.join(SCREENS, name), width=width, height=width * ih / iw)
+    t = Table([[im]], colWidths=[width + 4])
+    t.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 0.8, LINE), ("ROUNDEDCORNERS", [6, 6, 6, 6]), ("BACKGROUND", (0, 0), (-1, -1), CARD),
+                           ("LEFTPADDING", (0, 0), (-1, -1), 2), ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+                           ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 2)]))
+    return centered(t) if center else t
+
+
+def caption(text): return Paragraph(text, ParagraphStyle("cap", parent=small, alignment=TA_CENTER, spaceBefore=3, spaceAfter=6))
+
+
+S += [*chapter(5, "SweetYaar Studio", art="A"),
+      P("A free editor, in your browser, for the doll’s memory card.", lead),
+      P("Studio needs no installation and no account. Open it from the <b>SweetYaar Studio</b> card on the app’s opening screen or on the "
+        "Remote page. It works best on a tablet or a laptop, in Chrome or Edge. What you make stays in your browser until you "
+        "<b>export</b> it to the memory card.", body),
+      screen("studio_1_overview.jpg", 100 * mm),
+      caption("<b>1</b> My themes: your own songs.  <b>2</b> The SweetYaar library: ready-made themes to download.  "
+              "<b>3</b> Export to SD card: when you are done.  Scroll down for the <b>Animals</b> shelf."),
+      P("Songs and themes", h2),
+      P("A <b>theme</b> is a group of songs, for example lullabies. The song button plays the songs of the current theme.", body),
+      step_list([
+          "Tap <b>+ New theme</b> and give it a name.",
+          "Add songs with <b>+ Upload songs</b>, or drag audio files onto the theme. Drag songs up and down to set their order.",
+          "To tidy a song, tap its waveform icon: you can trim it, fade it in and out, or even-out its volume. "
+          "<b>Record</b> lets you record your own voice, for example a bedtime story."]),
+      PageBreak(),
+      screen("studio_2_newtheme.jpg", 138 * mm),
+      caption("<b>1</b> New theme.  <b>2</b> Upload songs, or record.  <b>3</b> Drop audio files here."),
+      P("Download from the library", h2),
+      P("The SweetYaar library holds ready-made themes. Tap <b>+ Add</b> and the theme is downloaded into <b>My themes</b>, where you can "
+        "change it like one of your own. Its tag then reads <i>Added</i>, and <b>Update</b> fetches the library’s newest version.", body),
+      KeepTogether([screen("studio_3_library.jpg", 138 * mm),
+          caption("<b>1</b> The library theme, now tagged Added.  <b>2</b> Its copy in My themes, ready to edit.")]),
+      PageBreak()]
+
+S += [P("Animal sounds", h2),
+      P("Each animal file is a little scene: a spoken <b>question</b> (“How does a cow sound?”), a pause, and then the <b>animal</b>. "
+        "On the <b>Animals</b> shelf, questions are on the left and animal sounds on the right.", body),
+      step_list([
+          "The library has ready-made questions in several languages. Choose the language you want (<b>1</b>).",
+          "A question and a sound with the same name match by themselves: the rows turn green and a dashed line joins them. "
+          "Tap <b>Play both</b> (<b>2</b>) to hear the whole scene.",
+          "To match differently, drag a question onto a sound. Tap <b>×</b> to unmatch. Only matched animals are put on the card.",
+          "Want your own voice or your own animal sounds? Use <b>+ Add prompts</b>, <b>Record prompts</b> or <b>+ Add animal sounds</b>."]),
+      Spacer(1, 2 * mm), screen("studio_4_animals.jpg", 150 * mm),
+      caption("Questions (left) and animal sounds (right), matched."),
+      P("Putting it on the doll", h2)]
+exp_steps = step_list([
+    "Switch the doll off and take out its memory card. Put the card in a card reader on your computer.",
+    "In Studio, tap <b>Export to SD card…</b>, then <b>Choose folder…</b> (1) and pick the card. Any folder works too, to copy to the card later.",
+    "Tap <b>Export</b> (2) and wait until it says it is done. Anything already on the card is kept unless you untick the box.",
+    "Put the card back in the doll and switch it on. The doll reads the card when it starts, so your new songs and sounds are there."], width=FW - 68 * mm)
+t = Table([[[exp_steps, Spacer(1, 2 * mm), P("Exporting needs Chrome or Edge on a computer.", small)], screen("studio_5_export.jpg", 62 * mm, center=False)]],
+          colWidths=[FW - 66 * mm, 66 * mm])
+t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 4)]))
+S += [t,
       PageBreak()]
 
 # ---------------- 5 Updates ----------------
-S += [*chapter(5, "Keeping the doll up to date"),
+S += [*chapter(6, "Keeping the doll up to date", art=5),
       P("New firmware, the doll’s built-in software, is installed from the app over Bluetooth. No cable, no computer, no Wi-Fi.", lead)]
 S += [P("How you find out", h2),
       P("When you connect, the app checks whether a newer version has been published. If there is one, a <b>pink bead</b> appears on the "
@@ -562,7 +606,7 @@ S += [Spacer(1, 3 * mm),
       PageBreak()]
 
 # ---------------- 5 Bedtime / quiet / sleep ----------------
-S += [*chapter(6, "Bedtime, Quiet time and sleep"),
+S += [*chapter(7, "Bedtime, Quiet time and sleep", art=6),
       P("Three gentle helpers that make SweetYaar fit your routine.", lead)]
 S += [centered(ArtImg('bedtime', 120 * mm, 20 * mm, art.scene_moon))]
 S += [P("Bedtime mode", h2),
@@ -590,7 +634,7 @@ S += [P("Automatic sleep", h2),
       PageBreak()]
 
 # ---------------- 6 Care & safety ----------------
-S += [*chapter(7, "Care, charging and safety")]
+S += [*chapter(8, "Care, charging and safety", art=7)]
 S += [P("The battery", h2),
       table([
              ["<b>Type</b>", "Removable lithium-ion 18650 cell with built-in protection (button top), 3.6–3.7 V nominal and 4.2 V when full."],
@@ -622,7 +666,7 @@ S += bullets([
 S += [PageBreak()]
 
 # ---------------- 7 Troubleshooting ----------------
-S += [*chapter(8, "Troubleshooting")]
+S += [*chapter(9, "Troubleshooting", art=8)]
 S += [table([["What’s happening", "Try this"],
              ["The doll doesn’t react to the buttons.",
               "It may be asleep, so move it gently and wait for the chime. Check that the on/off switch is on and that it is charged. "
@@ -634,11 +678,15 @@ S += [table([["What’s happening", "Try this"],
              ["My phone can’t find SweetYaar.",
               "Hold both buttons for 3 seconds first (pairing only opens for 60 seconds), and keep the phone close."],
              ["The phone connected but there’s no sound.",
-              "Check the phone’s volume and that SweetYaar is chosen as the audio output. Then try disconnecting and reconnecting."],
+              "Check the phone’s volume and that SweetYaar Speaker is chosen as the audio output. Then try disconnecting and reconnecting."],
              ["The app says “Device not approved”.",
               "The doll doesn’t know this phone yet. Hold both buttons for 3 seconds and tap Connect again within the minute."],
-             ["The app asks me to pause the music and pair again.",
-              "While a phone streams music to the doll, a new app can’t pair. Pause the music, hold both buttons for 3 seconds, and connect again."],
+             ["The app says it can’t pair while a phone is connected as a speaker.",
+              "A new app can’t pair while any phone is connected to the doll as a speaker, even if nothing is playing. Disconnect the doll in the phone’s Bluetooth settings, hold both buttons for 3 seconds, and connect the app again."],
+             ["The app says another remote is connected while SweetYaar plays music.",
+              "Another approved phone is using the doll. Close the app there, or stop the music, then connect."],
+             ["The app says SweetYaar is busy right now.",
+              "Wait a moment and try again."],
              ["The app says “Update needed”.",
               "The doll’s firmware is too old for this app. Open the Doll page and update it (keep the doll near you and the screen open)."],
              ["The app says “Update didn’t finish”.",
@@ -654,119 +702,6 @@ S += [table([["What’s happening", "Try this"],
              ["I want to start over.",
               "Hold both buttons for 10 seconds to forget every paired phone, then pair again."]],
             [58 * mm, FW - 58 * mm], pad=4)]
-
-# ---------------- Appendix A ----------------
-S += [NextPageTemplate("divider"), PageBreak(), Spacer(1, 1), NextPageTemplate("main"), PageBreak(), *chapter("A", "Adding your own content"),
-      P("You need a computer and a card reader. Nothing here is needed for everyday use.", lead)]
-S += [P("Before you start", h2)]
-S += bullets([
-    "<b>Switch the doll off</b> with its on/off switch before taking the microSD card out, and switch it on again after the card is back in.",
-    "The card must be <b>FAT32</b>, like the one that came with the doll. Keep the folders exactly as shown below.",
-    "Your computer may leave hidden files on the card, such as <font name=\"Mono\" size=\"8.8\">.DS_Store</font> or <font name=\"Mono\" size=\"8.8\">._cat.wav</font>. "
-    "You don’t need them, so delete them if you like. If you leave them, the doll simply ignores them; it only costs a little extra time when it scans the card.",
-    "The doll reads the card when it starts, so new songs and sounds appear after a restart (switch it off and on, or let it sleep and wake).",
-])
-S += [P("What’s on the card", h2),
-      codebox("/songs/\n"
-              "    lullabies/               one folder per theme\n"
-              "        metadata.json        the theme's settings (name, shuffle...)\n"
-              "        01 Twinkle Twinkle.wav\n"
-              "        02 Rock a Bye Baby.wav\n"
-              "    nature-sounds/\n"
-              "        ...\n"
-              "/animals/\n"
-              "    metadata.json\n"
-              "    dog.wav                  each animal file: a question, then the animal\n"
-              "    cat.wav\n"
-              "    ...\n"
-              "/config.json                 doll settings (the app edits this; leave it alone)"),
-      Spacer(1, 3 * mm)]
-
-S += [P("A.1  Adding songs", h2),
-      step_list([
-          "Make a <b>new folder</b> inside <font name=\"Mono\" size=\"8.8\">/songs</font>. Its name becomes a new theme in the app.",
-          "Optionally, give the theme a name and settings with a <font name=\"Mono\" size=\"8.8\">metadata.json</font> file in that folder "
-          "(an example is under “Theme settings” below). Copying one from an existing theme and changing its <i>name</i> works just as well. "
-          "Without one, the theme is named after its folder. Emojis are welcome in the theme’s name.",
-          "Copy your songs into the folder, as WAV files in the format below. Songs play in file-name order; to choose the order, put a track number in front "
-          "of each name (01, 02, …). The number only sets the order, and the app doesn’t show it.",
-          "Put the card back, switch the doll on, and open <b>Settings</b> in the app: your new theme and songs are there, and you can switch any of them off."]),
-      Spacer(1, 3 * mm),
-      KeepTogether([table([["Song file", "Requirements"],
-             ["Format", "<b>WAV</b>, uncompressed PCM"],
-             ["Sample rate and depth", "<b>44.1 kHz, 16-bit</b>"],
-             ["Channels", "<b>Mono</b> (recommended: half the space, same sound from one speaker). Stereo also plays."]],
-            [48 * mm, FW - 48 * mm])]),
-      Spacer(1, 3 * mm),
-      P('To turn an MP3 or other recording into the right kind of WAV, for example with the free <a href="https://ffmpeg.org/download.html" color="#2f6f73"><u>ffmpeg</u></a> tool (a download link is on its site):', body),
-      codebox("ffmpeg -i input.mp3 -ar 44100 -ac 1 -c:a pcm_s16le output.wav"),
-      Spacer(1, 3 * mm),
-      P("<b>Names.</b> The app shows each song’s file name, tidied up: no “.wav”, no leading track number such as “01 -”, and "
-        "underscores become spaces. Right-to-left languages (for example Hebrew and Arabic) and emojis work in file names and theme names.", body),
-      P("<b>Theme settings.</b> Each theme folder has a small <i>metadata.json</i> file. <i>name</i> is the theme’s name in the app, "
-        "<i>shuffle</i> plays its songs in random order, and <i>disabledSongs</i> lists songs that are switched off "
-        "(the app fills this in for you). You can add an optional <i>attribution</i> to credit where the sounds come from; "
-        "the app shows it under the current theme. It is written in <b>Markdown</b>, so links written as <font name=\"Mono\" size=\"8.8\">[label](https://…)</font> become tappable. Keep it to one short line.", body),
-      codebox('{\n  "schemaVersion": 2,\n  "name": "Lullabies",\n  "shuffle": false,\n  "disabledSongs": [],\n'
-              '  "attribution": "[Pixabay](https://pixabay.com/sound-effects/)"\n}')]
-
-S += [P("A.2  Animal sounds", h2),
-      P("Each animal file on the card is a short little scene: <b>the doll asks a question</b> (“What does the dog say?”), pauses, and then "
-        "you hear the <b>real animal</b>. The question and the animal sound are kept as two separate recordings and are joined by a small script. "
-        "That means:", body)]
-S += bullets([
-    "The <b>animal sounds</b> are real recordings that come with the project, and stay the same in every language.",
-    "The <b>questions</b> are separate. They can be in another language, in another voice, or <b>in your own voice</b>. "
-    "Record one short question per animal, run the script once, and copy the result to the card.",
-])
-S += [P("<b>The 13 animals:</b> dog, cat, sheep, cow, rooster, elephant, fish, duck, horse, lion, monkey, frog, owl.", body)]
-S += [P("Recording your own questions", h2),
-      step_list([
-          "Make a folder for your recordings, for example <font name=\"Mono\" size=\"8.8\">my_questions</font>.",
-          "Record one short question for each animal, for example “What does the dog say?”, about one to two seconds each, in a quiet room. "
-          "Phone voice memos are fine; convert them to WAV (mono is best, any sample rate is accepted).",
-          "Name each file after its animal: <font name=\"Mono\" size=\"8.8\">dog.wav</font>, <font name=\"Mono\" size=\"8.8\">cat.wav</font>, "
-          "<font name=\"Mono\" size=\"8.8\">sheep.wav</font> … one file for each of the 13 animals. Leave out an animal and it is simply left out.",
-          "Run the script (below). It trims the silence around your voice, evens out the volume, adds a pause and joins your question to the animal sound.",
-          "Copy the results to the card’s <font name=\"Mono\" size=\"8.8\">/animals</font> folder, replacing the files there."]),
-      Spacer(1, 3 * mm)]
-S += [P("Running the script", h2),
-      P('The script is part of the SweetYaar project on GitHub: '
-        '<a href="https://github.com/zachmoshe/sweetyaar" color="#2f6f73"><u>github.com/zachmoshe/sweetyaar</u></a>. '
-        "Download it, open a terminal in the project folder and, the first time only, set up its tools:", body),
-      codebox("make setup"),
-      Spacer(1, 3 * mm),
-      P("The command is <font name=\"Mono\" size=\"8.8\">make animals</font>, and it takes three options. You only need the ones you want to change:", body),
-      table([["Option", "What it does"],
-             [f"{MONO}PROFILE=</font>", "Which ready-made set to build: it picks the spoken questions and which animals. "
-                                         f"The default is {MONO}default</font>: all 13 animals with the ready-made English questions. "
-                                         f"Also available: {MONO}en-tts</font> (English) and {MONO}he-tts</font> (Hebrew)."],
-             [f"{MONO}TTS=</font>", "A folder with <b>your own</b> question recordings. They replace the profile’s ready-made questions "
-                                     "(the profile still decides which animals are built). Leave it out to use the ready-made ones. "
-                                     "(The name comes from “text-to-speech”, how the ready-made questions were made.)"],
-             [f"{MONO}OUT=</font>", "The folder the finished files are written to. It is created if it doesn’t exist, and nothing already in it is deleted. "
-                                      "Leave it out and they go to a scratch folder inside the project."]],
-            [26 * mm, FW - 26 * mm]),
-      Spacer(1, 3 * mm)]
-S += [KeepTogether([P("<b>The simplest command</b>: ready-made English questions, all 13 animals, written to a folder on your Desktop:", body),
-      codebox("make animals OUT=~/Desktop/animals")]),
-      Spacer(1, 3 * mm),
-      KeepTogether([P("<b>“I recorded my own questions”</b>: use your recordings instead of the ready-made ones. You don’t need "
-        f"{MONO}PROFILE=</font>; the default builds all 13 animals and your recordings replace its questions:", body),
-      codebox("make animals TTS=~/Documents/my_questions OUT=~/Desktop/animals")]),
-      Spacer(1, 3 * mm),
-      KeepTogether([P("<b>The ready-made Hebrew questions</b> instead of English:", body),
-      codebox("make animals PROFILE=he-tts OUT=~/Desktop/animals")]),
-      Spacer(1, 3 * mm),
-      KeepTogether([P("<b>Everything else you can change</b> is added to the same command:", body),
-      table([["Want to…", "Add this"],
-             ["A longer or shorter pause after the question", f"{MONO}PAUSE=1.0</font> (seconds; the default is 0.7)"],
-             ["Build only some animals", f'{MONO}ANIMALS="dog cat"</font>']],
-            [62 * mm, FW - 62 * mm])]),
-      Spacer(1, 3 * mm),
-      P(f"The script prints one line per animal and ends with {MONO}Done: 13/13 built.</font> If a recording is missing it says so and ends with {MONO}!! INCOMPLETE</font> and the animals it left out. "
-        f"Copy <b>all</b> the files in the output folder, including {MONO}metadata.json</font>, to the card’s "
-        f"{MONO}/animals</font> folder.", body)]
 
 doc.build(S)
 print("built", OUT)
