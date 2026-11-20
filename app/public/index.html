@@ -507,6 +507,16 @@
     }
     .guide-link { color: var(--ink); text-decoration: none; }
     .guide-link .guide-open { color: var(--teal-dark); font-weight: 600; }
+    .info-card.guide-card { min-height: 0; }
+    .guide-card p strong { display: block; color: var(--teal-dark); font-size: 17px; }
+    .guide-card p span { display: block; margin-top: 2px; font-size: 13px; color: var(--muted); }
+    /* A small document badge drawn in CSS: a folded corner and the letters PDF. */
+    .pdf-icon {
+      display: grid; width: 30px; height: 38px; place-items: end center; padding-bottom: 5px; box-sizing: border-box;
+      border-radius: 4px 11px 4px 4px; background: #e2574c; color: #fff;
+      font-size: 10px; font-weight: 800; letter-spacing: .02em;
+      background-image: linear-gradient(225deg, #fff 0 8px, #b83f36 8px 9px, transparent 9px);
+    }
     .studio-card .studio-banner { display: block; width: 100%; aspect-ratio: 860 / 431; object-fit: cover; }
     .studio-card .studio-body { display: flex; align-items: center; gap: 12px; padding: 9px 16px; }
     .studio-card b { font-size: 19px; color: var(--teal-dark); white-space: nowrap; }
@@ -2742,9 +2752,9 @@
           <p>Make sure the device is powered on and nearby.</p>
         </article>
 
-        <a class="card info-card guide-link" href="parents_user_guide.pdf" target="_blank" rel="noopener">
-          <span class="info-icon" aria-hidden="true">i</span>
-          <p><strong>Parents' guide</strong> &mdash; getting started, Bluetooth, updates and care (PDF)</p>
+        <a class="card info-card guide-link guide-card" href="parents_user_guide.pdf" target="_blank" rel="noopener">
+          <span class="pdf-icon" aria-hidden="true">PDF</span>
+          <p><strong>Parents' guide</strong><span>Getting started, Bluetooth, Studio, updates and care</span></p>
         </a>
 
         <a class="studio-card" id="studioCard" href="studio/">
