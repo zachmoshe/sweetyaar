@@ -6692,7 +6692,7 @@
     // (command 5 on otaControl, packets on logData); logs-queue.js keeps them
     // on the phone until they reach the logs API. Only whole sectors are kept:
     // a read the toy stops ("busy") is read again next time. See "Sending logs
-    // to the cloud" in docs/logging-and-debugging.md.
+    // to the cloud" in docs/engineering/logging-and-debugging.md.
     const logsQueue = globalThis.SweetYaarLogs || null;
     const LOG_READ_COMMAND = 5;
     const LOG_REGION = { headers: 1, log: 2 };

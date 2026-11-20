@@ -9,7 +9,7 @@ every upload the parent app sent to the cloud (picked in the page).
 Files are re-read when they change, so a new `make fetch-logs` shows up on the
 next page load. Data comes from history.Library. The cloud, the notes and the
 archived ELFs are read as the sweetyaar-admin service account
-(credentials.py; see "SweetYaar Admin" in docs/logging-and-debugging.md).
+(credentials.py; see "SweetYaar Admin" in docs/engineering/logging-and-debugging.md).
 """
 
 from __future__ import annotations

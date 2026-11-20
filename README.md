@@ -68,7 +68,7 @@ how the toy actually behaves: [docs/findings](docs/findings/README.md).
 | Firmware | ESP32-WROOM-32, C++ on PlatformIO/Arduino: playback, Bluetooth, buttons, sleep | [Firmware](docs/engineering/firmware.md) |
 | Parent remote | A Web Bluetooth app, installable and offline | [Mobile app](docs/engineering/mobile-app.md) |
 | Electronics | A custom board with charger, power switching and amplifier | [Hardware](docs/engineering/hardware.md) |
-| Diagnostics | An on-device flash log, its upload and a log viewer | [Logging and debugging](docs/logging-and-debugging.md) |
+| Diagnostics | An on-device flash log, its upload and a log viewer | [Logging and debugging](docs/engineering/logging-and-debugging.md) |
 
 For the story of the project and its design principles, read the
 [project overview](docs/overview.md).

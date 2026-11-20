@@ -2,7 +2,7 @@
 
 // Ring of 4 KiB flash sectors holding the diagnostic log. Platform independent
 // so host tests can run it against a simulated flash; DevLog.cpp supplies the
-// partition, the lock and the timestamps. See docs/logging-and-debugging.md.
+// partition, the lock and the timestamps. See docs/engineering/logging-and-debugging.md.
 
 #include <stddef.h>
 #include <stdint.h>

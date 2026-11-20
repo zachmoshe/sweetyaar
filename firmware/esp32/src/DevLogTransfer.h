@@ -5,7 +5,7 @@
 // the region and offset, so a lost packet is asked for again. Platform
 // independent so host tests can run it against a fake source; DevLog.cpp
 // supplies the flash and OtaUpdate.cpp the BLE transport. See "Fetching the
-// log over BLE" in docs/logging-and-debugging.md.
+// log over BLE" in docs/engineering/logging-and-debugging.md.
 
 #include <stddef.h>
 #include <stdint.h>

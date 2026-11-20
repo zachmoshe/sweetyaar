@@ -192,7 +192,7 @@ static constexpr uint32_t BATTERY_SAMPLE_INTERVAL_MS = 30UL * 1000UL;
 static constexpr uint32_t CHARGER_VERIFY_INTERVAL_MS = 10UL * 1000UL;
 static constexpr uint32_t CHARGER_STATUS_INTERVAL_MS = 1000;
 static constexpr uint32_t BATTERY_BOOT_SAMPLE_INTERVAL_MS = 100;
-// Diagnostic log telemetry (docs/logging-and-debugging.md).
+// Diagnostic log telemetry (docs/engineering/logging-and-debugging.md).
 static constexpr uint32_t FIRST_TELEMETRY_MS = 2000;
 static constexpr uint32_t TELEMETRY_INTERVAL_MS = 5UL * 60UL * 1000UL;
 static constexpr uint32_t USAGE_INTERVAL_MS = 60UL * 60UL * 1000UL;

@@ -3,7 +3,7 @@
 A toy's uploads are kept per history (a history restarts when the toy's log
 partition starts again) in chunks of at most CHUNK_SECTORS whole sectors, in
 sequence order: a chunk's bytes are exactly a devlog file, which devlog.py and
-the viewer read. See "Sending logs to the cloud" in docs/logging-and-debugging.md.
+the viewer read. See "Sending logs to the cloud" in docs/engineering/logging-and-debugging.md.
 """
 
 from __future__ import annotations

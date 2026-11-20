@@ -1,7 +1,7 @@
 #pragma once
 
 // Byte layout of the on-flash diagnostic log (format version 1). See
-// docs/logging-and-debugging.md; the decoder depends on every value here.
+// docs/engineering/logging-and-debugging.md; the decoder depends on every value here.
 
 #include <stddef.h>
 #include <stdint.h>

@@ -1246,7 +1246,7 @@ is in [Mobile App](mobile-app.md#firmware-updates).
 `platformio.ini`) are published in the read-only `firmware` characteristic as
 `{"version":"1.0.0","board":"sweetyaar","mode":"normal","log":{…}}`; the `log`
 object (the log's position and the parents' sharing choice) is described in
-[Sending logs to the cloud](../logging-and-debugging.md#sending-logs-to-the-cloud).
+[Sending logs to the cloud](logging-and-debugging.md#sending-logs-to-the-cloud).
 Only the production
 board is published to the app; the app offers no update to the generic
 prototype, which is updated from a Mac with `make ota-update
@@ -1258,7 +1258,7 @@ unless the battery state is `GOOD`, `MEDIUM` or `CHARGING` (`LOW` and the
 not-yet-sampled `UNKNOWN` are refused) and otherwise sets a flag in
 `RTC_NOINIT` memory and restarts. Entering only to send the diagnostic log
 skips the battery check, since nothing is written, and that boot refuses an
-image (see [Fetching the log over BLE](../logging-and-debugging.md#fetching-the-log-over-ble)). The flag is honored only after a software
+image (see [Fetching the log over BLE](logging-and-debugging.md#fetching-the-log-over-ble)). The flag is honored only after a software
 restart and cleared at once, so a crash or power loss in update mode always
 boots normal firmware. Update mode:
 
@@ -1314,7 +1314,7 @@ are refused with insufficient authorization.
 | `78A3` | `otaControl` | write | One command per write (below). |
 | `78A4` | `otaData` | write, write without response | Offset in the encoded stream (u32 LE), then data. |
 | `78A5` | `otaStatus` | read, notify | 18-byte status (below). |
-| `78A6` | `logData` | notify | Log read packets (see [Logging and Debugging](../logging-and-debugging.md#protocol)). |
+| `78A6` | `logData` | notify | Log read packets (see [Logging and Debugging](logging-and-debugging.md#protocol)). |
 
 Commands: `1` enter update mode (normal mode only; a second byte `1` enters
 it only to send the log); `2` begin, followed by the
@@ -1455,7 +1455,7 @@ The high-level components are:
 | `firmware/esp32/src/StatusLed.*` and `StatusLedPolicy.*` | Semantic status priority, blink timing, brightness limiting, and the single addressable-LED/RMT owner. |
 | `firmware/esp32/src/OtaSession.*`       | Firmware-update protocol: offsets, resume, size and checksum checks, status encoding. No ESP32 APIs. |
 | `firmware/esp32/src/OtaUpdate.*`        | Update mode, BLE-only controller, flash/zlib/SHA-256 sink, restarts, timeout, and rollback confirmation. |
-| `firmware/esp32/src/DevLog*`            | Rolling diagnostic log on flash: `DLOG()` macros, event catalog (`DevLogEvents.h`), sector ring, boot and crash records. See [Logging and Debugging](../logging-and-debugging.md). |
+| `firmware/esp32/src/DevLog*`            | Rolling diagnostic log on flash: `DLOG()` macros, event catalog (`DevLogEvents.h`), sector ring, boot and crash records. See [Logging and Debugging](logging-and-debugging.md). |
 | `firmware/esp32/src/Config.h`           | Pin assignments, BLE identifiers, firmware version and board ID, and fallback values.   |
 
 
@@ -1564,7 +1564,7 @@ its `spiffs` partition renamed `logs` (same offset and size):
 | `otadata` | 0xE000 | 8 KB | Selects the boot app slot |
 | `app0` (`ota_0`) | 0x10000 | 3.2 MB | Firmware |
 | `app1` (`ota_1`) | 0x340000 | 3.2 MB | Second app slot; an update is written to whichever slot is not running |
-| `logs` (`spiffs` before) | 0x670000 | 1.5 MB | Rolling diagnostic log; see [Logging and Debugging](../logging-and-debugging.md) |
+| `logs` (`spiffs` before) | 0x670000 | 1.5 MB | Rolling diagnostic log; see [Logging and Debugging](logging-and-debugging.md) |
 | `coredump` | 0x7F0000 | 64 KB | Crash dumps |
 
 The partition table and bootloader are written only by wired flashing; an OTA

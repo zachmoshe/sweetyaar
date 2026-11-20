@@ -3,7 +3,7 @@
 // Catalog of stored log events. Each event has a permanent ID and the printf
 // format that both serial output and the host decoder use.
 //
-// Rules (logs outlive firmware versions; see docs/logging-and-debugging.md):
+// Rules (logs outlive firmware versions; see docs/engineering/logging-and-debugging.md):
 // - Add events with new IDs. Never reuse or renumber an ID.
 // - Wording may change and arguments may be appended. Changing the meaning,
 //   order or type of an existing argument needs a new ID; leave the retired

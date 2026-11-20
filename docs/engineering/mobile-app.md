@@ -372,7 +372,7 @@ toy). Without a published release it shows *None published*; when the manifest
 could not be fetched, it says so. Leaving the update screen returns to the tab
 it was opened from. Below the versions are **Logs last sent**, **Send logs**
 and **Share logs automatically** (see
-[Sending logs to the cloud](../logging-and-debugging.md#sending-logs-to-the-cloud)).
+[Sending logs to the cloud](logging-and-debugging.md#sending-logs-to-the-cloud)).
 
 **Updating.** The confirm screen lists what to expect, each with its own icon:
 keep the screen open, keep the doll nearby, no songs for about a minute, and the

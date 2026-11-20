@@ -10,7 +10,7 @@ The toy restarts into update mode (blinking yellow), sends only the sectors
 that are not saved yet (and the one still being written), and restarts its
 normal firmware. They are added to the device's saved file, as `devlog.py
 fetch` does, so `make parse-logs` and the viewer read it as is.
-The protocol is in docs/logging-and-debugging.md ("Fetching the log over BLE").
+The protocol is in docs/engineering/logging-and-debugging.md ("Fetching the log over BLE").
 """
 
 from __future__ import annotations

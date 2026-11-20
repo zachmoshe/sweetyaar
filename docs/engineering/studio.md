@@ -482,7 +482,7 @@ questions, voice and the shared ElevenLabs settings) by
 `content/animal_prompts/generate.py`, which writes the whole `animal-prompts/`
 folder to upload; see the README there. Nothing private belongs
 in this bucket; admin data stays in the closed `sweetyaar-admin-resources`
-(see [logging-and-debugging.md](../logging-and-debugging.md)).
+(see [logging-and-debugging.md](logging-and-debugging.md)).
 
 Upload with a cache header, for example:
 

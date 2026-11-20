@@ -876,7 +876,7 @@ void logHeap(const char* where, bool detail) {
 }
 
 // ---------------------------------------------------------------------------
-// Diagnostic log telemetry (docs/logging-and-debugging.md)
+// Diagnostic log telemetry (docs/engineering/logging-and-debugging.md)
 // ---------------------------------------------------------------------------
 void serviceDiagnostics() {
     const uint32_t now = millis();

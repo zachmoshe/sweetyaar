@@ -8,7 +8,7 @@ to Cloud Run, behind IAP, as the sweetyaar-admin service account.
 Each deploy also applies the IAP OAuth client from Secret Manager and makes
 the IAP allow list exactly --users (default: the gcloud account deploying).
 The one-time project setup is in "SweetYaar Admin" in
-docs/logging-and-debugging.md.
+docs/engineering/logging-and-debugging.md.
 """
 
 from __future__ import annotations

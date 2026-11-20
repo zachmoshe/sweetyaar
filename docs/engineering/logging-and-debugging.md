@@ -452,7 +452,7 @@ levelling.
 ## Reading the log on the bench
 
 Connect the six-pin debugger (powered, see the programming-interface rules in
-[hardware.md](engineering/hardware.md)) and run:
+[hardware.md](hardware.md)) and run:
 
 ```bash
 make fetch-logs
@@ -484,7 +484,7 @@ make parse-logs
 - **The toy drops out about every 40 seconds during a fetch, by design.**
   While awake, the firmware enables the BQ25186 charger's 40-second host
   watchdog, which power-cycles `SYS` when I2C traffic stops (see the hang
-  detectors in [firmware.md](engineering/firmware.md)). In download mode no
+  detectors in [firmware.md](firmware.md)). In download mode no
   firmware runs, so nothing talks to the charger and it cuts the toy's power
   40 seconds into the read (about 40 % of the log at 230,400 baud). Fetch
   reads in 64 KiB pieces, prints a note when this happens, reconnects and
@@ -593,7 +593,7 @@ format). A file that holds anything the new one lacks is kept.
 ### Protocol
 
 The read uses the firmware-update characteristics (see "Update protocol" in
-[firmware.md](engineering/firmware.md)) plus `logData` (`…78A6`, notify).
+[firmware.md](firmware.md)) plus `logData` (`…78A6`, notify).
 Little endian throughout.
 
 | Command on `otaControl` | Bytes |
@@ -764,7 +764,7 @@ Project `sweetyaar`, billing linked, under no organization:
   public access prevented, object versioning on. SweetYaar Admin's files,
   one folder per feature: `logs-viewer/annotations.json` holds the notes.
   Studio's public content is in a separate bucket, `sweetyaar-studio-resources`
-  (see "Shared content" in [studio.md](engineering/studio.md)).
+  (see "Shared content" in [studio.md](studio.md)).
 - Function `logs-api`: HTTP, Python 3.12, 256 MiB, 30 s timeout, at most 2
   instances, public (the API checks every upload). Its image repository
   `gcf-artifacts` keeps the two newest images.

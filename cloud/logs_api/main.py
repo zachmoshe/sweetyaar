@@ -7,7 +7,7 @@ the toy's log sectors here; only this function writes to Firestore.
          &replaces=<n>    the toy's log no longer continues history n
          &app=<version>
 
-Upload rules are in uploads.py; deployment in docs/logging-and-debugging.md.
+Upload rules are in uploads.py; deployment in docs/engineering/logging-and-debugging.md.
 """
 
 from __future__ import annotations

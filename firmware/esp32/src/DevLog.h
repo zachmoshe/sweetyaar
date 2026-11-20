@@ -2,7 +2,7 @@
 
 // Diagnostic log: DLOG(NAME, args...) prints DEVLOG_FMT_NAME to serial, as
 // Serial.printf did, and stores DEVLOG_ID_NAME with the arguments in the
-// flash log. See DevLogEvents.h and docs/logging-and-debugging.md.
+// flash log. See DevLogEvents.h and docs/engineering/logging-and-debugging.md.
 //
 //   DLOG(name, ...)         print and store
 //   DLOG_DETAIL(name, ...)  print; store except after a deep-sleep wake

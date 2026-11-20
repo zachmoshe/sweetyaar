@@ -5,7 +5,7 @@ and keeps the notes in the admin resources bucket.
 On Cloud Run the service runs as that account (K_SERVICE is set there) and
 its own credentials are used. Elsewhere the gcloud CLI's login impersonates
 it, so application-default credentials are not used (see "SweetYaar Admin"
-in docs/logging-and-debugging.md).
+in docs/engineering/logging-and-debugging.md).
 """
 
 from __future__ import annotations

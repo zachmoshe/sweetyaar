@@ -4,7 +4,7 @@
   devlog.py fetch [--port /dev/cu.usbserial-XXXX] save the log partition
   devlog.py parse [devlogs/<file>.bin]            decode it to text
 
-The byte layout is specified in docs/logging-and-debugging.md and
+The byte layout is specified in docs/engineering/logging-and-debugging.md and
 firmware/esp32/src/DevLogFormat.h; event texts come from DevLogEvents.h.
 """
 

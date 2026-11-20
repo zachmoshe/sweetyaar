@@ -4,7 +4,7 @@
 // reads sectors from the toy over BLE and queues them here; the page, or the
 // service worker's Background Sync once the phone is online again, uploads
 // them. Both load this file, so they share one queue in Cache Storage. See
-// "Sending logs to the cloud" in docs/logging-and-debugging.md.
+// "Sending logs to the cloud" in docs/engineering/logging-and-debugging.md.
 (function (root) {
   const API = "https://me-west1-sweetyaar.cloudfunctions.net/logs-api";
   const CACHE = "sweetyaar-logs";
