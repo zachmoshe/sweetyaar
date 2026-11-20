@@ -508,7 +508,7 @@ S += [P("The Doll page", h2),
       Spacer(1, 2 * mm), centered(ArtImg('doll_page', 32 * mm, 28 * mm, art.scene_tired_teddy)), Spacer(1, 2 * mm)]
 S += [P("Adding your own songs and sounds", h2),
       P("The doll’s songs and animal sounds live on the microSD card inside it. You edit them with <b>SweetYaar Studio</b>, "
-        "a free editor that opens from a card on the app’s opening screen and on the Remote page. It has its own chapter next.", body),
+        "a free editor that opens from a card on the app’s opening screen and on the Remote page. It has its own chapter next. On a phone the card is only a hint: open Studio on a tablet or laptop.", body),
       PageBreak()]
 
 # ---------------- 5 Studio ----------------
@@ -533,7 +533,7 @@ def caption(text): return Paragraph(text, ParagraphStyle("cap", parent=small, al
 S += [*chapter(5, "SweetYaar Studio", art="A"),
       P("A free editor, in your browser, for the doll’s memory card.", lead),
       P("Studio needs no installation and no account. Open it from the <b>SweetYaar Studio</b> card on the app’s opening screen or on the "
-        "Remote page. It works best on a tablet or a laptop, in Chrome or Edge. What you make stays in your browser until you "
+        "Remote page. It works best on a tablet or a laptop, in Chrome or Edge. On a phone the card is only a hint: open Studio on a tablet or laptop. What you make stays in your browser until you "
         "<b>export</b> it to the memory card.", body),
       screen("studio_1_overview.jpg", 100 * mm),
       caption("<b>1</b> My themes: your own songs.  <b>2</b> The SweetYaar library: ready-made themes to download.  "
