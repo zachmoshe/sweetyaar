@@ -367,17 +367,23 @@ Files (already prepared):
 - {work}/commits.txt: the commits in this release.
 The current code is in the repository you are in (firmware/esp32/src, app/public/index.html).
 
-Report two things, only about what THIS release changed (ignore older problems in the guide):
-1. mismatches: guide statements that these changes made wrong or misleading for a parent: button
-   gestures, status-LED behavior, timings, screen and setting names, defaults, update, Bedtime and
-   Quiet time flows. Major ones only; no wording, style or typos. Verify each against the current
-   code (Read/Grep) before reporting it.
-2. not_covered: new parent-visible FEATURES added by these commits that the guide does not mention at
-   all. Features only: not fixes, internals or tuning.
+Report two lists, only about what THIS release changed (ignore older problems in the guide):
+1. contradictions: guide statements, pictures or table rows that these changes made wrong or
+   misleading for a parent: button gestures, status-LED behavior, timings, screen and setting names,
+   defaults, update, Bedtime and Quiet time flows. Major ones only; no wording, style or typos.
+   Verify each against the current code (Read/Grep) before reporting it. Give each a short
+   "subject" (the topic, such as "Speaker name in the phone's Bluetooth list"); items on the same
+   subject share exactly the same subject text and are reported together. For each item say what the
+   guide says or shows ("guide": page and a short quote or description) and what the code actually
+   does ("actual").
+2. missing: new parent-visible FEATURES added by these commits that the guide does not mention at
+   all. Features only: not fixes, internals or tuning. Describe the feature in a sentence or two
+   ("feature") and say where in the guide it could be mentioned ("where_to_mention": a new chapter
+   or section, or the page, table or sentence whose wording would change).
 
 Reply with ONLY this JSON, empty lists when there is nothing:
-{{"mismatches": [{{"guide": "p.N: short quote", "change": "what changed", "where": "file:line", "commit": "abc1234"}}],
-  "not_covered": [{{"feature": "what it is", "commit": "abc1234"}}]}}
+{{"contradictions": [{{"subject": "topic", "guide": "p.N: what the guide says or shows", "actual": "what really happens now", "where": "file:line", "commit": "abc1234"}}],
+  "missing": [{{"feature": "what it is and does", "where_to_mention": "where in the guide", "commit": "abc1234"}}]}}
 """
 
 
@@ -399,7 +405,7 @@ def parse_guide_reply(text: str) -> dict | None:
     if not isinstance(data, dict):
         return None
     return {key: [item for item in (data.get(key) or []) if isinstance(item, dict)]
-            for key in ("mismatches", "not_covered")}
+            for key in ("contradictions", "missing")}
 
 
 def check_guide(base: str, commit_lines: list[str], run=subprocess.run) -> tuple[dict | None, str]:
@@ -409,7 +415,7 @@ def check_guide(base: str, commit_lines: list[str], run=subprocess.run) -> tuple
         raise Abort(f"{GUIDE} not found.")
     diff = git("diff", base, "HEAD", "--", *GUIDE_DIFF_PATHS)
     if not diff.strip():
-        return {"mismatches": [], "not_covered": []}, "no parent-visible changes in this release"
+        return {"contradictions": [], "missing": []}, "no parent-visible changes in this release"
     if not shutil.which(CLAUDE):
         return None, f"`{CLAUDE}` is not installed"
     work = pathlib.Path(tempfile.mkdtemp(prefix="sweetyaar-guide-", dir="/tmp"))
@@ -430,21 +436,36 @@ def check_guide(base: str, commit_lines: list[str], run=subprocess.run) -> tuple
 
 
 def findings_text(findings: dict) -> str:
-    lines = []
-    for number, item in enumerate(findings["mismatches"], 1):
-        lines.append(f"{number}. Guide {item.get('guide', '?')}\n   Changed: {item.get('change', '?')} "
-                     f"({item.get('where', '?')}, commit {item.get('commit', '?')})")
-    if findings["not_covered"]:
-        lines.append("New features the guide does not mention:")
-        lines += [f"- {item.get('feature', '?')} (commit {item.get('commit', '?')})" for item in findings["not_covered"]]
+    """The report: contradictions grouped by subject, then the missing features."""
+    lines = ["CONTRADICTIONS (grouped by subject)"]
+    subjects: dict[str, list[dict]] = {}
+    for item in findings["contradictions"]:
+        subjects.setdefault(str(item.get("subject") or "Other"), []).append(item)
+    for number, (subject, items) in enumerate(subjects.items(), 1):
+        lines.append(f"\n{chr(64 + number) if number < 27 else number}. {subject}")
+        for item in items:
+            lines.append(f"   - Guide {item.get('guide', '?')}\n     Actually: {item.get('actual', '?')} "
+                         f"({item.get('where', '?')}, commit {item.get('commit', '?')})")
+    if not subjects:
+        lines.append("  none")
+    lines.append("\nMISSING FEATURES")
+    for number, item in enumerate(findings["missing"], 1):
+        lines.append(f"{number}. {item.get('feature', '?')}\n   Could go: {item.get('where_to_mention', '?')} "
+                     f"(commit {item.get('commit', '?')})")
+    if not findings["missing"]:
+        lines.append("  none")
     return "\n".join(lines)
 
 
 def fix_prompt(findings: dict) -> str:
     return (f"The parents' guide ({GUIDE}) does not match what the next SweetYaar release changes. Please help me "
-            f"fix it. Findings:\n\n{findings_text(findings)}\n\nThe guide is a ReportLab-generated PDF whose source "
-            f"is not in the repo; its text can be read with pypdf (a dev dependency). Check each finding against the "
-            f"code before changing anything, and ask me before editing the PDF.")
+            f"fix it. The check found this:\n\n{findings_text(findings)}\n\nThe guide is a ReportLab-generated PDF "
+            f"whose source is not in the repo; its text can be read with pypdf (a dev dependency). Check each item "
+            f"against the code first. Then your first message must be this report: the missing features (describe "
+            f"each and say where you think it belongs: a new chapter, or a wording change somewhere) and the "
+            f"contradictions grouped by subject (what the PDF says or shows, and what the code does). I will "
+            f"comment on each, and we then decide together how to fix or ignore it. Do not edit the guide or its "
+            f"source before I approve the wording.")
 
 
 def guide_gate(args, base: str, commit_lines: list[str]) -> bool:
@@ -454,7 +475,7 @@ def guide_gate(args, base: str, commit_lines: list[str]) -> bool:
     if findings is None:
         print(f"  Could not check: {why_not}.")
         return True if args.dry_run else confirm("Have you checked the guide yourself, and is it up to date?", default=False)
-    if not findings["mismatches"] and not findings["not_covered"]:
+    if not findings["contradictions"] and not findings["missing"]:
         print(f"  No mismatches ({why_not})." if why_not else "  The guide matches this release's changes.")
         return True
     print("\n" + findings_text(findings))

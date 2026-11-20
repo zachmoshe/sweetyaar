@@ -1380,8 +1380,10 @@ treats them together:
    this release changes: the guide's text is extracted to a temporary folder
    and `claude -p` compares it, read-only, with the diff of the parent-visible
    code and specs since the last release. Only what the release introduced
-   counts (older problems are ignored): contradictions, and new parent-visible
-   features the guide does not mention. Either stops it: it lists them and asks
+   counts (older problems are ignored). The report has two lists: the
+   contradictions, grouped by subject (what the guide says or shows, and what
+   the code does), and the new parent-visible features the guide does not
+   mention, each with where it could be mentioned. Either stops it: it prints the report and asks
    whether to open a Claude session with the findings to fix the guide (or copy
    them), and otherwise whether to release anyway. Without a working
    `claude` it asks you to confirm the guide is up to date. The dry run does

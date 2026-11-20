@@ -72,7 +72,7 @@ class Repo:
         self.bin = path.parent / (path.name + "-bin")
         self.bin.mkdir()
         self.claude_log, self.clipboard = path.parent / "claude.log", path.parent / "clipboard.txt"
-        self.set_guide({"mismatches": [], "not_covered": []})
+        self.set_guide({"contradictions": [], "missing": []})
         claude = self.bin / "claude"
         claude.write_text(
             '#!/bin/sh\n[ "$1" = "-p" ] || { echo "$@" >> "$CLAUDE_LOG"; exit 0; }\ninput=$(cat)\n'
@@ -239,9 +239,9 @@ def test_dry_run_asks_but_changes_nothing(repo):
     assert 'FIRMWARE_VERSION[] = "1.0.0"' in (repo.path / "firmware/esp32/src/Config.h").read_text()
 
 
-MISMATCH = {"mismatches": [{"guide": "p.4: 'Hold both buttons for 3 seconds'", "change": "now 5 seconds",
-                            "where": "firmware/esp32/src/Config.h:12", "commit": "abc1234"}],
-            "not_covered": [{"feature": "Bedtime fade-out", "commit": "def5678"}]}
+MISMATCH = {"contradictions": [{"subject": "Pairing gesture", "guide": "p.4: 'Hold both buttons for 3 seconds'",
+                                "actual": "now 5 seconds", "where": "firmware/esp32/src/Config.h:12", "commit": "abc1234"}],
+            "missing": [{"feature": "Bedtime fade-out", "where_to_mention": "the Bedtime section", "commit": "def5678"}]}
 
 
 def app_change(repo):
@@ -258,7 +258,7 @@ def test_guide_without_mismatches_is_silent(repo):
 
 def test_new_features_alone_block_too(repo):
     app_change(repo)
-    repo.set_guide({"mismatches": [], "not_covered": MISMATCH["not_covered"]})
+    repo.set_guide({"contradictions": [], "missing": MISMATCH["missing"]})
     refused = repo.run(["n", "n"])     # no chat, do not release anyway
     assert refused.returncode == 1 and "Bedtime fade-out" in refused.stdout and "app-v" not in repo.git("tag")
     assert repo.run(["n", "y", "y"]).returncode == 0   # approved
